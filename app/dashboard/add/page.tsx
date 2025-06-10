@@ -1,67 +1,60 @@
-"use client";
+"use client"
 
-import type React from "react";
+import type React from "react"
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { NavigationClient } from "@/components/navigation-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { NavigationClient } from "@/components/navigation-client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
+import { useSupabaseApplications } from "@/hooks/use-supabase-applications"
+import { UsageDebugPanel } from "@/components/usage-debug-panel"
 
 export default function AddApplicationPage() {
-  const { user, loading: authLoading } = useSupabaseAuth();
-  const { addApplication } = useSupabaseApplications(user?.id || null);
+  const { user, loading: authLoading } = useSupabaseAuth()
+  const { addApplication } = useSupabaseApplications(user?.id || null)
   const [formData, setFormData] = useState({
     company: "",
     role: "",
     role_link: "",
     date_applied: "",
     status: "Applied",
-  });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
+  })
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login");
+      router.push("/login")
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+    e.preventDefault()
+    setError("")
+    setLoading(true)
 
-    const result = await addApplication(formData);
+    console.log("Attempting to add application...")
+
+    const result = await addApplication(formData)
+
+    console.log("Add application result:", result)
 
     if (result.success) {
-      router.push("/dashboard");
+      router.push("/dashboard")
     } else {
-      setError(result.error || "Failed to add application");
+      setError(result.error || "Failed to add application")
     }
 
-    setLoading(false);
-  };
+    setLoading(false)
+  }
 
   if (authLoading) {
     return (
@@ -73,10 +66,10 @@ export default function AddApplicationPage() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
-  if (!user) return null;
+  if (!user) return null
 
   return (
     <div className="min-h-screen bg-background">
@@ -95,16 +88,12 @@ export default function AddApplicationPage() {
           <Card>
             <CardHeader>
               <CardTitle>Add New Application</CardTitle>
-              <CardDescription>
-                Track a new job application and its progress
-              </CardDescription>
+              <CardDescription>Track a new job application and its progress</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {error}
-                  </div>
+                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -113,9 +102,7 @@ export default function AddApplicationPage() {
                     <Input
                       id="company"
                       value={formData.company}
-                      onChange={(e) =>
-                        setFormData({ ...formData, company: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                       placeholder="e.g. Google, Microsoft, Startup Inc"
                       required
                       disabled={loading}
@@ -126,9 +113,7 @@ export default function AddApplicationPage() {
                     <Input
                       id="role"
                       value={formData.role}
-                      onChange={(e) =>
-                        setFormData({ ...formData, role: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                       placeholder="e.g. Senior Frontend Developer"
                       required
                       disabled={loading}
@@ -142,9 +127,7 @@ export default function AddApplicationPage() {
                     id="role_link"
                     type="url"
                     value={formData.role_link}
-                    onChange={(e) =>
-                      setFormData({ ...formData, role_link: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, role_link: e.target.value })}
                     placeholder="https://company.com/careers/job-id"
                     disabled={loading}
                   />
@@ -157,12 +140,7 @@ export default function AddApplicationPage() {
                       id="date_applied"
                       type="date"
                       value={formData.date_applied}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          date_applied: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setFormData({ ...formData, date_applied: e.target.value })}
                       required
                       disabled={loading}
                     />
@@ -171,9 +149,7 @@ export default function AddApplicationPage() {
                     <Label htmlFor="status">Status</Label>
                     <Select
                       value={formData.status}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, status: value })
-                      }
+                      onValueChange={(value) => setFormData({ ...formData, status: value })}
                       disabled={loading}
                     >
                       <SelectTrigger>
@@ -181,9 +157,7 @@ export default function AddApplicationPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Applied">Applied</SelectItem>
-                        <SelectItem value="Interview Scheduled">
-                          Interview Scheduled
-                        </SelectItem>
+                        <SelectItem value="Interview Scheduled">Interview Scheduled</SelectItem>
                         <SelectItem value="Interviewed">Interviewed</SelectItem>
                         <SelectItem value="Offer">Offer</SelectItem>
                         <SelectItem value="Rejected">Rejected</SelectItem>
@@ -193,11 +167,7 @@ export default function AddApplicationPage() {
                 </div>
 
                 <div className="flex gap-4">
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-secondary hover:bg-secondary/90"
-                    disabled={loading}
-                  >
+                  <Button type="submit" className="flex-1 bg-secondary hover:bg-secondary/90" disabled={loading}>
                     {loading ? "Adding Application..." : "Add Application"}
                   </Button>
                   <Link href="/dashboard">
@@ -209,8 +179,11 @@ export default function AddApplicationPage() {
               </form>
             </CardContent>
           </Card>
+
+          {/* Debug Panel */}
+          <UsageDebugPanel />
         </div>
       </div>
     </div>
-  );
+  )
 }

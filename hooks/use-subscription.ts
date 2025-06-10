@@ -1,165 +1,148 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase-client";
-import type {
-  SubscriptionPlan,
-  UserSubscription,
-  UsageTracking,
-} from "@/lib/supabase";
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase-client"
+import type { SubscriptionPlan, UserSubscription, UsageTracking } from "@/lib/supabase"
 
 export function useSubscription(userId: string | null) {
-  const [subscription, setSubscription] = useState<UserSubscription | null>(
-    null
-  );
-  const [usage, setUsage] = useState<UsageTracking | null>(null);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null)
+  const [usage, setUsage] = useState<UsageTracking | null>(null)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (userId) {
-      fetchSubscriptionData();
-      fetchPlans();
+      fetchSubscriptionData()
+      fetchPlans()
     } else {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [userId]);
+  }, [userId])
 
   const fetchSubscriptionData = async () => {
-    if (!userId) return;
+    if (!userId) return
 
     try {
       // Add timeout to prevent hanging
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Subscription fetch timeout")), 8000)
-      );
+        setTimeout(() => reject(new Error("Subscription fetch timeout")), 8000),
+      )
 
       // Fetch current subscription
       const subPromise = supabase
         .from("user_subscriptions")
-        .select(
-          `
+        .select(`
           *,
           subscription_plans (*)
-        `
-        )
+        `)
         .eq("user_id", userId)
         .eq("status", "active")
-        .maybeSingle();
+        .maybeSingle()
 
-      const { data: subData, error: subError } = (await Promise.race([
-        subPromise,
-        timeoutPromise,
-      ])) as any;
+      const { data: subData, error: subError } = (await Promise.race([subPromise, timeoutPromise])) as any
 
       if (subError && subError.code !== "PGRST116") {
-        console.error("Error fetching subscription:", subError);
+        console.error("Error fetching subscription:", subError)
       } else {
-        setSubscription(subData);
+        console.log("Subscription data:", subData) // Debug log
+        setSubscription(subData)
       }
 
       // Fetch usage data
-      const usagePromise = supabase
-        .from("usage_tracking")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const usagePromise = supabase.from("usage_tracking").select("*").eq("user_id", userId).maybeSingle()
 
-      const { data: usageData, error: usageError } = (await Promise.race([
-        usagePromise,
-        timeoutPromise,
-      ])) as any;
+      const { data: usageData, error: usageError } = (await Promise.race([usagePromise, timeoutPromise])) as any
 
       if (usageError && usageError.code !== "PGRST116") {
-        console.error("Error fetching usage:", usageError);
+        console.error("Error fetching usage:", usageError)
       } else {
-        setUsage(usageData);
+        console.log("Usage data:", usageData) // Debug log
+        setUsage(usageData)
       }
     } catch (error) {
-      console.error("Error fetching subscription data:", error);
+      console.error("Error fetching subscription data:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const fetchPlans = async () => {
     try {
-      const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("*")
-        .order("price_monthly");
+      const { data, error } = await supabase.from("subscription_plans").select("*").order("price_monthly")
 
       if (error) {
-        console.error("Error fetching plans:", error);
+        console.error("Error fetching plans:", error)
       } else {
-        setPlans(data || []);
+        setPlans(data || [])
       }
     } catch (error) {
-      console.error("Error fetching plans:", error);
+      console.error("Error fetching plans:", error)
     }
-  };
+  }
 
   const canAddApplication = () => {
+    console.log("Checking canAddApplication:", { subscription, usage }) // Debug log
+
     // If no subscription data loaded yet, default to free plan behavior
     if (!subscription) {
-      console.log(
-        "No subscription found, checking usage against free plan limit"
-      );
-      if (!usage) return true; // Allow if usage not loaded yet
-      return usage.applications_count < 5; // Free plan limit
+      console.log("No subscription found, checking usage against free plan limit")
+      if (!usage) return true // Allow if usage not loaded yet
+      return usage.applications_count < 5 // Free plan limit
     }
 
     // If no usage data, allow (will be created on first application)
     if (!usage) {
-      console.log("No usage data, allowing application");
-      return true;
+      console.log("No usage data, allowing application")
+      return true
     }
 
-    const maxApps = subscription.subscription_plans?.max_applications;
+    const maxApps = subscription.subscription_plans?.max_applications
+    console.log("Max applications from plan:", maxApps) // Debug log
+    console.log("Current usage count:", usage.applications_count) // Debug log
 
     // Check for unlimited (Pro plan)
     if (maxApps === -1 || maxApps === null) {
-      console.log("Unlimited plan detected");
-      return true;
+      console.log("Unlimited plan detected")
+      return true
     }
 
     // Check against limit
-    const canAdd = Boolean(maxApps && usage.applications_count < maxApps);
-    console.log("Can add application:", canAdd);
-    return canAdd;
-  };
+    const canAdd = usage.applications_count < maxApps
+    console.log("Can add application:", canAdd)
+    return canAdd
+  }
 
   const getUsagePercentage = () => {
-    if (!subscription || !usage) return 0;
+    if (!subscription || !usage) return 0
 
-    const maxApps = subscription.subscription_plans?.max_applications || 5;
-    if (maxApps === -1 || maxApps === null) return 0; // Unlimited
-    return Math.min((usage.applications_count / maxApps) * 100, 100);
-  };
+    const maxApps = subscription.subscription_plans?.max_applications || 5
+    if (maxApps === -1 || maxApps === null) return 0 // Unlimited
+    return Math.min((usage.applications_count / maxApps) * 100, 100)
+  }
 
   const getRemainingApplications = () => {
     if (!subscription) {
       // No subscription = free plan
-      if (!usage) return 5;
-      return Math.max(0, 5 - usage.applications_count);
+      if (!usage) return 5
+      return Math.max(0, 5 - usage.applications_count)
     }
 
-    if (!usage) return -1; // Unknown
+    if (!usage) return -1 // Unknown
 
-    const maxApps = subscription.subscription_plans?.max_applications;
-    if (maxApps === -1 || maxApps === null) return -1; // Unlimited
-    return Math.max(0, (maxApps || 0) - usage.applications_count);
-  };
+    const maxApps = subscription.subscription_plans?.max_applications
+    if (maxApps === -1 || maxApps === null) return -1 // Unlimited
+    return Math.max(0, maxApps - usage.applications_count)
+  }
 
   const isOnFreePlan = () => {
-    if (!subscription) return true;
-    return subscription.subscription_plans?.name === "Free";
-  };
+    if (!subscription) return true
+    return subscription.subscription_plans?.name === "Free"
+  }
 
   const isOnProPlan = () => {
-    if (!subscription) return false;
-    return subscription.subscription_plans?.name === "Pro";
-  };
+    if (!subscription) return false
+    return subscription.subscription_plans?.name === "Pro"
+  }
 
   return {
     subscription,
@@ -172,5 +155,5 @@ export function useSubscription(userId: string | null) {
     isOnFreePlan,
     isOnProPlan,
     refetch: fetchSubscriptionData,
-  };
+  }
 }

@@ -1,18 +1,17 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase-client";
-import type { Application, LinkedinProfile } from "@/lib/supabase";
-import { trackStatusChange } from "@/lib/application-history";
+import { useState, useEffect } from "react"
+import { supabase } from "@/lib/supabase-client"
+import type { Application, LinkedinProfile } from "@/lib/supabase"
 
 export function useSupabaseApplications(userId: string | null) {
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(true)
 
   const fetchApplications = async () => {
     if (!userId) {
-      setLoading(false);
-      return;
+      setLoading(false)
+      return
     }
 
     try {
@@ -20,63 +19,60 @@ export function useSupabaseApplications(userId: string | null) {
         .from("applications")
         .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Error fetching applications:", error);
-        return;
+        console.error("Error fetching applications:", error)
+        return
       }
 
-      setApplications(data || []);
+      setApplications(data || [])
     } catch (error) {
-      console.error("Error fetching applications:", error);
+      console.error("Error fetching applications:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchApplications();
-  }, [userId]);
+    fetchApplications()
+  }, [userId])
 
   const addApplication = async (applicationData: {
-    company: string;
-    role: string;
-    role_link?: string;
-    date_applied: string;
-    status?: string;
+    company: string
+    role: string
+    role_link?: string
+    date_applied: string
+    status?: string
   }) => {
-    if (!userId) return { success: false, error: "User not authenticated" };
+    if (!userId) return { success: false, error: "User not authenticated" }
 
     // Check if user can add more applications
     const { data: usage } = await supabase
       .from("usage_tracking")
       .select("applications_count")
       .eq("user_id", userId)
-      .single();
+      .single()
 
     const { data: subscription } = await supabase
       .from("user_subscriptions")
-      .select(
-        `
+      .select(`
       *,
       subscription_plans (max_applications)
-    `
-      )
+    `)
       .eq("user_id", userId)
       .eq("status", "active")
-      .single();
+      .single()
 
     if (subscription?.subscription_plans?.max_applications !== -1) {
-      const maxApps = subscription?.subscription_plans?.max_applications || 0;
-      const currentCount = usage?.applications_count || 0;
+      const maxApps = subscription?.subscription_plans?.max_applications || 0
+      const currentCount = usage?.applications_count || 0
 
       if (currentCount >= maxApps) {
         return {
           success: false,
-          error:
-            "You've reached your application limit. Please upgrade to Pro for unlimited applications.",
-        };
+          error: "You've reached your application limit. Please upgrade to Pro for unlimited applications.",
+        }
       }
     }
 
@@ -92,94 +88,64 @@ export function useSupabaseApplications(userId: string | null) {
           },
         ])
         .select()
-        .single();
+        .single()
 
       if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
 
-      setApplications((prev) => [data, ...prev]);
-      return { success: true, application: data };
+      setApplications((prev) => [data, ...prev])
+      return { success: true, application: data }
     } catch (error) {
-      return { success: false, error: "Failed to add application" };
+      return { success: false, error: "Failed to add application" }
     }
-  };
+  }
 
-  const updateApplication = async (
-    id: string,
-    updates: Partial<Application>
-  ) => {
+  const updateApplication = async (id: string, updates: Partial<Application>) => {
     try {
-      // Get the current application to compare status
-      const { data: current, error: currentError } = await supabase
-        .from("applications")
-        .select("status")
-        .eq("id", id)
-        .single();
-      if (currentError) {
-        return { success: false, error: currentError.message };
-      }
-      // If status is being changed, track it
-      if (updates.status && updates.status !== current.status) {
-        await trackStatusChange(id, current.status, updates.status);
-      }
-      const { data, error } = await supabase
-        .from("applications")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      const { data, error } = await supabase.from("applications").update(updates).eq("id", id).select().single()
 
       if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
 
-      setApplications((prev) =>
-        prev.map((app) => (app.id === id ? data : app))
-      );
-      return { success: true, application: data };
+      setApplications((prev) => prev.map((app) => (app.id === id ? data : app)))
+      return { success: true, application: data }
     } catch (error) {
-      return { success: false, error: "Failed to update application" };
+      return { success: false, error: "Failed to update application" }
     }
-  };
+  }
 
   const deleteApplication = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("applications")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("applications").delete().eq("id", id)
 
       if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
 
-      setApplications((prev) => prev.filter((app) => app.id !== id));
-      return { success: true };
+      setApplications((prev) => prev.filter((app) => app.id !== id))
+      return { success: true }
     } catch (error) {
-      return { success: false, error: "Failed to delete application" };
+      return { success: false, error: "Failed to delete application" }
     }
-  };
+  }
 
   const getApplication = async (id: string): Promise<Application | null> => {
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const { data, error } = await supabase.from("applications").select("*").eq("id", id).single()
 
       if (error) {
-        console.error("Error fetching application:", error);
-        return null;
+        console.error("Error fetching application:", error)
+        return null
       }
 
-      return data;
+      return data
     } catch (error) {
-      console.error("Error fetching application:", error);
-      return null;
+      console.error("Error fetching application:", error)
+      return null
     }
-  };
+  }
 
   return {
     applications,
@@ -189,17 +155,17 @@ export function useSupabaseApplications(userId: string | null) {
     deleteApplication,
     getApplication,
     refetch: fetchApplications,
-  };
+  }
 }
 
 export function useLinkedinProfiles(applicationId: string | null) {
-  const [profiles, setProfiles] = useState<LinkedinProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [profiles, setProfiles] = useState<LinkedinProfile[]>([])
+  const [loading, setLoading] = useState(true)
 
   const fetchProfiles = async () => {
     if (!applicationId) {
-      setLoading(false);
-      return;
+      setLoading(false)
+      return
     }
 
     try {
@@ -207,32 +173,31 @@ export function useLinkedinProfiles(applicationId: string | null) {
         .from("linkedin_profiles")
         .select("*")
         .eq("application_id", applicationId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Error fetching LinkedIn profiles:", error);
-        return;
+        console.error("Error fetching LinkedIn profiles:", error)
+        return
       }
 
-      setProfiles(data || []);
+      setProfiles(data || [])
     } catch (error) {
-      console.error("Error fetching LinkedIn profiles:", error);
+      console.error("Error fetching LinkedIn profiles:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchProfiles();
-  }, [applicationId]);
+    fetchProfiles()
+  }, [applicationId])
 
   const addProfile = async (profileData: {
-    profile_url: string;
-    name?: string;
-    title?: string;
+    profile_url: string
+    name?: string
+    title?: string
   }) => {
-    if (!applicationId)
-      return { success: false, error: "Application ID required" };
+    if (!applicationId) return { success: false, error: "Application ID required" }
 
     try {
       const { data, error } = await supabase
@@ -244,36 +209,33 @@ export function useLinkedinProfiles(applicationId: string | null) {
           },
         ])
         .select()
-        .single();
+        .single()
 
       if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
 
-      setProfiles((prev) => [data, ...prev]);
-      return { success: true, profile: data };
+      setProfiles((prev) => [data, ...prev])
+      return { success: true, profile: data }
     } catch (error) {
-      return { success: false, error: "Failed to add LinkedIn profile" };
+      return { success: false, error: "Failed to add LinkedIn profile" }
     }
-  };
+  }
 
   const deleteProfile = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("linkedin_profiles")
-        .delete()
-        .eq("id", id);
+      const { error } = await supabase.from("linkedin_profiles").delete().eq("id", id)
 
       if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: error.message }
       }
 
-      setProfiles((prev) => prev.filter((profile) => profile.id !== id));
-      return { success: true };
+      setProfiles((prev) => prev.filter((profile) => profile.id !== id))
+      return { success: true }
     } catch (error) {
-      return { success: false, error: "Failed to delete LinkedIn profile" };
+      return { success: false, error: "Failed to delete LinkedIn profile" }
     }
-  };
+  }
 
   return {
     profiles,
@@ -281,5 +243,5 @@ export function useLinkedinProfiles(applicationId: string | null) {
     addProfile,
     deleteProfile,
     refetch: fetchProfiles,
-  };
+  }
 }

@@ -1,21 +1,15 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import Link from "next/link";
-import { NavigationClient } from "@/components/navigation-client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
+import { NavigationClient } from "@/components/navigation-client"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,175 +20,151 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  ArrowLeft,
-  ExternalLink,
-  Plus,
-  Trash2,
-  Linkedin,
-  Edit,
-  MoreVertical,
-  Archive,
-  Trash,
-} from "lucide-react";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import {
-  useSupabaseApplications,
-  useLinkedinProfiles,
-} from "@/hooks/use-supabase-applications";
-import type { Application } from "@/lib/supabase";
-import { OfferReceivedModal } from "@/components/offer-received-modal";
-import { useSubscription } from "@/hooks/use-subscription";
-import { StatusSelector } from "@/components/status-selector";
-import { EditApplicationModal } from "@/components/edit-application-modal";
-import {
-  archiveApplicationAction,
-  deleteApplicationAction,
-} from "@/lib/actions";
+} from "@/components/ui/dropdown-menu"
+import { ArrowLeft, ExternalLink, Plus, Trash2, Linkedin, Edit, MoreVertical, Archive, Trash } from "lucide-react"
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
+import { useSupabaseApplications, useLinkedinProfiles } from "@/hooks/use-supabase-applications"
+import type { Application } from "@/lib/supabase"
+import { OfferReceivedModal } from "@/components/offer-received-modal"
+import { useSubscription } from "@/hooks/use-subscription"
+import { StatusSelector } from "@/components/status-selector"
+import { EditApplicationModal } from "@/components/edit-application-modal"
+import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
 
 export default function ApplicationDetailPage() {
-  const { user, loading: authLoading } = useSupabaseAuth();
-  const { getApplication, updateApplication } = useSupabaseApplications(
-    user?.id || null
-  );
-  const [application, setApplication] = useState<Application | null>(null);
-  const [newNote, setNewNote] = useState("");
-  const [newLinkedinProfile, setNewLinkedinProfile] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const router = useRouter();
-  const params = useParams();
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const { isOnFreePlan } = useSubscription(user?.id || null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [isArchiving, setIsArchiving] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { user, loading: authLoading } = useSupabaseAuth()
+  const { getApplication, updateApplication } = useSupabaseApplications(user?.id || null)
+  const [application, setApplication] = useState<Application | null>(null)
+  const [newNote, setNewNote] = useState("")
+  const [newLinkedinProfile, setNewLinkedinProfile] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const router = useRouter()
+  const params = useParams()
+  const [showOfferModal, setShowOfferModal] = useState(false)
+  const { isOnFreePlan } = useSubscription(user?.id || null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [isArchiving, setIsArchiving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
-  const {
-    profiles: linkedinProfiles,
-    addProfile,
-    deleteProfile,
-  } = useLinkedinProfiles(application?.id || null);
+  const { profiles: linkedinProfiles, addProfile, deleteProfile } = useLinkedinProfiles(application?.id || null)
 
   useEffect(() => {
     if (!authLoading && !user) {
-      router.push("/login");
-      return;
+      router.push("/login")
+      return
     }
 
     if (user && params.id) {
-      fetchApplication();
+      fetchApplication()
     }
-  }, [user, authLoading, params.id, router]);
+  }, [user, authLoading, params.id, router])
 
   const fetchApplication = async () => {
     try {
-      const app = await getApplication(params.id as string);
-      setApplication(app);
+      const app = await getApplication(params.id as string)
+      setApplication(app)
     } catch (error) {
-      console.error("Failed to fetch application:", error);
+      console.error("Failed to fetch application:", error)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   const handleUpdateApplication = async (updates: Partial<Application>) => {
-    if (!application) return;
+    if (!application) return
 
-    setSaving(true);
+    setSaving(true)
     try {
-      const result = await updateApplication(application.id, updates);
+      const result = await updateApplication(application.id, updates)
       if (result.success) {
-        setApplication(result.application!);
+        setApplication(result.application!)
 
         // Show congratulations modal if status changed to "Offer"
         if (updates.status === "Offer" && application.status !== "Offer") {
-          setShowOfferModal(true);
+          setShowOfferModal(true)
         }
       }
     } catch (error) {
-      console.error("Failed to update application:", error);
+      console.error("Failed to update application:", error)
     } finally {
-      setSaving(false);
+      setSaving(false)
     }
-  };
+  }
 
   const handleUpdateNotes = async (notes: string) => {
-    if (!application) return;
+    if (!application) return
 
-    handleUpdateApplication({ notes });
-  };
+    handleUpdateApplication({ notes })
+  }
 
   const handleAddNote = () => {
-    if (!newNote.trim() || !application) return;
+    if (!newNote.trim() || !application) return
 
     const updatedNotes =
-      application.notes +
-      (application.notes ? "\n\n" : "") +
-      `[${new Date().toLocaleDateString()}] ${newNote}`;
-    handleUpdateNotes(updatedNotes);
-    setNewNote("");
-  };
+      application.notes + (application.notes ? "\n\n" : "") + `[${new Date().toLocaleDateString()}] ${newNote}`
+    handleUpdateNotes(updatedNotes)
+    setNewNote("")
+  }
 
   const handleAddLinkedinProfile = async () => {
-    if (!newLinkedinProfile.trim()) return;
+    if (!newLinkedinProfile.trim()) return
 
     const result = await addProfile({
       profile_url: newLinkedinProfile,
-    });
+    })
 
     if (result.success) {
-      setNewLinkedinProfile("");
+      setNewLinkedinProfile("")
     }
-  };
+  }
 
   const handleRemoveLinkedinProfile = async (profileId: string) => {
-    await deleteProfile(profileId);
-  };
+    await deleteProfile(profileId)
+  }
 
   const handleArchiveApplication = async () => {
-    if (!application) return;
+    if (!application) return
 
-    setIsArchiving(true);
+    setIsArchiving(true)
     try {
-      const result = await archiveApplicationAction(application.id);
+      const result = await archiveApplicationAction(application.id)
       if (result.success) {
-        router.push("/dashboard");
+        router.push("/dashboard")
       } else {
-        console.error("Failed to archive application:", result.error);
+        console.error("Failed to archive application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to archive application:", error);
+      console.error("Failed to archive application:", error)
     } finally {
-      setIsArchiving(false);
+      setIsArchiving(false)
     }
-  };
+  }
 
   const handleDeleteApplication = async () => {
-    if (!application) return;
+    if (!application) return
 
-    setIsDeleting(true);
+    setIsDeleting(true)
     try {
-      const result = await deleteApplicationAction(application.id);
+      const result = await deleteApplicationAction(application.id)
       if (result.success) {
-        router.push("/dashboard");
+        router.push("/dashboard")
       } else {
-        console.error("Failed to delete application:", result.error);
+        console.error("Failed to delete application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to delete application:", error);
+      console.error("Failed to delete application:", error)
     } finally {
-      setIsDeleting(false);
+      setIsDeleting(false)
     }
-  };
+  }
 
   if (authLoading || loading) {
     return (
@@ -206,10 +176,10 @@ export default function ApplicationDetailPage() {
           </div>
         </div>
       </div>
-    );
+    )
   }
 
-  if (!user || !application) return null;
+  if (!user || !application) return null
 
   return (
     <div className="min-h-screen bg-background">
@@ -231,23 +201,15 @@ export default function ApplicationDetailPage() {
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
                   <CardTitle className="text-2xl">{application.role}</CardTitle>
-                  <CardDescription className="text-lg">
-                    {application.company}
-                  </CardDescription>
+                  <CardDescription className="text-lg">{application.company}</CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusSelector
                     currentStatus={application.status}
-                    onStatusChange={(status: Application["status"]) =>
-                      handleUpdateApplication({ status })
-                    }
+                    onStatusChange={(status) => handleUpdateApplication({ status })}
                     disabled={saving}
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowEditModal(true)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)}>
                     <Edit className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
@@ -258,10 +220,7 @@ export default function ApplicationDetailPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={handleArchiveApplication}
-                        disabled={isArchiving}
-                      >
+                      <DropdownMenuItem onClick={handleArchiveApplication} disabled={isArchiving}>
                         <Archive className="h-4 w-4 mr-2" />
                         {isArchiving ? "Archiving..." : "Archive"}
                       </DropdownMenuItem>
@@ -278,14 +237,10 @@ export default function ApplicationDetailPage() {
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete Application
-                            </AlertDialogTitle>
+                            <AlertDialogTitle>Delete Application</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Are you sure you want to permanently delete this
-                              application? This action cannot be undone and will
-                              remove all associated data including notes and
-                              LinkedIn profiles.
+                              Are you sure you want to permanently delete this application? This action cannot be undone
+                              and will remove all associated data including notes and LinkedIn profiles.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -308,17 +263,11 @@ export default function ApplicationDetailPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Date Applied
-                  </Label>
-                  <p className="text-sm">
-                    {new Date(application.date_applied).toLocaleDateString()}
-                  </p>
+                  <Label className="text-sm font-medium text-muted-foreground">Date Applied</Label>
+                  <p className="text-sm">{new Date(application.date_applied).toLocaleDateString()}</p>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium text-muted-foreground">
-                    Job Posting
-                  </Label>
+                  <Label className="text-sm font-medium text-muted-foreground">Job Posting</Label>
                   <div className="flex items-center gap-2">
                     {application.role_link ? (
                       <a
@@ -331,9 +280,7 @@ export default function ApplicationDetailPage() {
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : (
-                      <span className="text-sm text-muted-foreground">
-                        No link provided
-                      </span>
+                      <span className="text-sm text-muted-foreground">No link provided</span>
                     )}
                   </div>
                 </div>
@@ -346,9 +293,7 @@ export default function ApplicationDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Interview Notes</CardTitle>
-                <CardDescription>
-                  Keep track of interview questions, feedback, and follow-ups
-                </CardDescription>
+                <CardDescription>Keep track of interview questions, feedback, and follow-ups</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -361,9 +306,7 @@ export default function ApplicationDetailPage() {
                     className="min-h-[200px]"
                     disabled={saving}
                   />
-                  {saving && (
-                    <p className="text-xs text-muted-foreground">Saving...</p>
-                  )}
+                  {saving && <p className="text-xs text-muted-foreground">Saving...</p>}
                 </div>
 
                 <Separator />
@@ -378,11 +321,7 @@ export default function ApplicationDetailPage() {
                       placeholder="Add a new note..."
                       className="min-h-[80px]"
                     />
-                    <Button
-                      onClick={handleAddNote}
-                      size="sm"
-                      disabled={!newNote.trim()}
-                    >
+                    <Button onClick={handleAddNote} size="sm" disabled={!newNote.trim()}>
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
@@ -394,17 +333,12 @@ export default function ApplicationDetailPage() {
             <Card>
               <CardHeader>
                 <CardTitle>LinkedIn Contacts</CardTitle>
-                <CardDescription>
-                  Save relevant LinkedIn profiles for networking
-                </CardDescription>
+                <CardDescription>Save relevant LinkedIn profiles for networking</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   {linkedinProfiles.map((profile) => (
-                    <div
-                      key={profile.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
+                    <div key={profile.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div className="flex items-center gap-2">
                         <Linkedin className="h-4 w-4 text-blue-600" />
                         <a
@@ -413,16 +347,10 @@ export default function ApplicationDetailPage() {
                           rel="noopener noreferrer"
                           className="text-sm text-primary hover:underline"
                         >
-                          {profile.name ||
-                            profile.profile_url.split("/").pop() ||
-                            profile.profile_url}
+                          {profile.name || profile.profile_url.split("/").pop() || profile.profile_url}
                         </a>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveLinkedinProfile(profile.id)}
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => handleRemoveLinkedinProfile(profile.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -440,11 +368,7 @@ export default function ApplicationDetailPage() {
                       onChange={(e) => setNewLinkedinProfile(e.target.value)}
                       placeholder="https://linkedin.com/in/username"
                     />
-                    <Button
-                      onClick={handleAddLinkedinProfile}
-                      size="sm"
-                      disabled={!newLinkedinProfile.trim()}
-                    >
+                    <Button onClick={handleAddLinkedinProfile} size="sm" disabled={!newLinkedinProfile.trim()}>
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
@@ -469,5 +393,5 @@ export default function ApplicationDetailPage() {
         onSave={handleUpdateApplication}
       />
     </div>
-  );
+  )
 }
