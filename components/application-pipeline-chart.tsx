@@ -77,6 +77,7 @@ export function ApplicationPipelineChart({
 
   // Define the pipeline stages in order
   const stages = [
+    "Lead",
     "Applied",
     "Interview Scheduled",
     "Interviewed",
@@ -90,9 +91,10 @@ export function ApplicationPipelineChart({
 
   // Define node colors
   const nodeColors = [
+    "#8b5cf6", // Lead - lavender
     "#3b82f6", // Applied - blue
-    "#8b5cf6", // Interview Scheduled - purple
-    "#06b6d4", // Interviewed - cyan
+    "#06b6d4", // Interview Scheduled - cyan
+    "#f59e0b", // Interviewed - amber
     "#10b981", // Offer - emerald
     "#22c55e", // Hired - green
     "#ef4444", // Rejected - red
@@ -102,50 +104,70 @@ export function ApplicationPipelineChart({
   // This ensures the chart matches the summary data
   const transitionCounts = new Map<string, number>();
 
-  // Define the correct order of stages
-  const stageOrder = [
-    "Applied",
-    "Interview Scheduled",
-    "Interviewed",
-    "Offer",
-    "Hired",
-    "Rejected",
-  ];
+  // Helper to build the full status path for an application
+  function buildStatusPath(
+    app: Application,
+    history: ApplicationHistory[],
+    stages: string[]
+  ): string[] {
+    const appHistory = (history || [])
+      .filter((h) => h.application_id === app.id)
+      .sort(
+        (a, b) =>
+          new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
+      );
 
-  // For each application, reconstruct the path from Applied to its current status
+    let path = ["Lead"];
+    appHistory.forEach((h) => {
+      if (
+        h.new_status === "Rejected" &&
+        h.old_status &&
+        path[path.length - 1] !== h.old_status
+      ) {
+        const lastIdx = stages.indexOf(path[path.length - 1]);
+        const oldIdx = stages.indexOf(h.old_status);
+        for (let i = lastIdx + 1; i <= oldIdx; i++) {
+          path.push(stages[i]);
+        }
+      }
+      path.push(h.new_status);
+    });
+
+    // If the last status in the path is not the current status, fill in missing stages
+    if (path[path.length - 1] !== app.status) {
+      const lastIndex = stages.indexOf(path[path.length - 1]);
+      const currentIndex = stages.indexOf(app.status);
+      for (let i = lastIndex + 1; i <= currentIndex; i++) {
+        path.push(stages[i]);
+      }
+    }
+
+    // Fill in all missing intermediate stages between every pair, except if the next status is 'Rejected'
+    let fullPath: string[] = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      const fromIdx = stages.indexOf(path[i]);
+      const toIdx = stages.indexOf(path[i + 1]);
+      if (fromIdx === -1 || toIdx === -1) continue;
+      fullPath.push(stages[fromIdx]);
+      if (path[i + 1] !== "Rejected") {
+        for (let j = fromIdx + 1; j < toIdx; j++) {
+          fullPath.push(stages[j]);
+        }
+      }
+    }
+    fullPath.push(path[path.length - 1]);
+
+    return fullPath;
+  }
+
+  // For each application, build the full transition path and add all transitions
   applications.forEach((app) => {
-    if (app.status === "Rejected") {
-      // Find the last non-rejected status from history
-      const appHistory = (history || [])
-        .filter((h) => h.application_id === app.id)
-        .sort(
-          (a, b) =>
-            new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
-        );
-      let lastStatus = "Applied";
-      if (appHistory.length > 0) {
-        // Traverse history to find the last non-rejected status
-        for (let i = 0; i < appHistory.length; i++) {
-          if (appHistory[i].new_status !== "Rejected") {
-            lastStatus = appHistory[i].new_status;
-          } else {
-            break;
-          }
-        }
-      }
-      const key = `${lastStatus}→Rejected`;
+    const path = buildStatusPath(app, history, stages);
+    for (let i = 0; i < path.length - 1; i++) {
+      const from = path[i];
+      const to = path[i + 1];
+      const key = `${from}→${to}`;
       transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
-    } else {
-      const currentIndex = stageOrder.indexOf(app.status);
-      if (currentIndex > 0) {
-        // Build the path from Applied up to the current status
-        for (let i = 0; i < currentIndex; i++) {
-          const from = stageOrder[i];
-          const to = stageOrder[i + 1];
-          const key = `${from}→${to}`;
-          transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
-        }
-      }
     }
   });
 
@@ -175,11 +197,11 @@ export function ApplicationPipelineChart({
   });
 
   // Create the Plotly data for the Sankey diagram
-  const data = [
+  const data: Plotly.Data[] = [
     {
-      type: "sankey" as const,
-      orientation: "h" as const,
-      arrangement: "snap" as const,
+      type: "sankey",
+      orientation: "h",
+      arrangement: "snap",
       node: {
         pad: 15,
         thickness: 20,
@@ -189,7 +211,6 @@ export function ApplicationPipelineChart({
         },
         label: nodeLabels,
         color: nodeColors,
-        align: "justify" as const,
       },
       link: {
         source: sources,
