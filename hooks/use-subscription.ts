@@ -102,16 +102,12 @@ export function useSubscription(userId: string | null) {
   const canAddApplication = () => {
     // If no subscription data loaded yet, default to free plan behavior
     if (!subscription) {
-      console.log(
-        "No subscription found, checking usage against free plan limit"
-      );
       if (!usage) return true; // Allow if usage not loaded yet
       return usage.applications_count < 5; // Free plan limit
     }
 
     // If no usage data, allow (will be created on first application)
     if (!usage) {
-      console.log("No usage data, allowing application");
       return true;
     }
 
@@ -119,13 +115,11 @@ export function useSubscription(userId: string | null) {
 
     // Check for unlimited (Pro plan)
     if (maxApps === -1 || maxApps === null) {
-      console.log("Unlimited plan detected");
       return true;
     }
 
     // Check against limit
     const canAdd = Boolean(maxApps && usage.applications_count < maxApps);
-    console.log("Can add application:", canAdd);
     return canAdd;
   };
 

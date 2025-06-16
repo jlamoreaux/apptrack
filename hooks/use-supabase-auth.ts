@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import type { User } from "@supabase/supabase-js"
-import { supabase } from "@/lib/supabase-client"
-import type { Profile } from "@/lib/supabase"
+import { useState, useEffect } from "react";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase-client";
+import type { Profile } from "@/lib/supabase";
 
 export function useSupabaseAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Get initial session
@@ -16,69 +16,69 @@ export function useSupabaseAuth() {
       try {
         const {
           data: { session },
-        } = await supabase.auth.getSession()
+        } = await supabase.auth.getSession();
 
-        setUser(session?.user ?? null)
+        setUser(session?.user ?? null);
 
         if (session?.user) {
-          await fetchProfile(session.user.id)
+          await fetchProfile(session.user.id);
         }
       } catch (error) {
-        console.error("Error getting initial session:", error)
+        console.error("Error getting initial session:", error);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    getInitialSession()
+    getInitialSession();
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
-
-      setUser(session?.user ?? null)
+      setUser(session?.user ?? null);
 
       if (session?.user) {
-        await fetchProfile(session.user.id)
+        await fetchProfile(session.user.id);
       } else {
-        setProfile(null)
+        setProfile(null);
       }
 
-      setLoading(false)
-    })
+      setLoading(false);
+    });
 
-    return () => subscription.unsubscribe()
-  }, [])
+    return () => subscription.unsubscribe();
+  }, []);
 
   const fetchProfile = async (userId: string) => {
     try {
-      console.log(`Starting profile fetch for user: ${userId}`)
-
       // Use maybeSingle() instead of single() to handle multiple or no rows gracefully
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle()
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
 
       if (error) {
-        console.error(`Profile fetch error: ${error.message} (Code: ${error.code})`)
-        return
+        console.error(
+          `Profile fetch error: ${error.message} (Code: ${error.code})`
+        );
+        return;
       }
 
       if (!data) {
-        console.log("No profile found - this might be a new user")
-        return
+        return;
       }
 
-      console.log(`Profile fetched successfully: ${data.email}`)
-      setProfile(data)
+      setProfile(data);
     } catch (error) {
-      console.error(`Profile fetch exception: ${error}`)
+      console.error(`Profile fetch exception: ${error}`);
     }
-  }
+  };
 
   const signUp = async (email: string, password: string, fullName: string) => {
     try {
-      setLoading(true)
+      setLoading(true);
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -88,54 +88,54 @@ export function useSupabaseAuth() {
             full_name: fullName,
           },
         },
-      })
+      });
 
       if (error) {
-        return { success: false, error: error.message }
+        return { success: false, error: error.message };
       }
 
-      return { success: true, user: data.user }
+      return { success: true, user: data.user };
     } catch (error) {
-      return { success: false, error: "An unexpected error occurred" }
+      return { success: false, error: "An unexpected error occurred" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const signIn = async (email: string, password: string) => {
     try {
-      setLoading(true)
+      setLoading(true);
 
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-      })
+      });
 
       if (error) {
-        return { success: false, error: error.message }
+        return { success: false, error: error.message };
       }
 
-      return { success: true, user: data.user }
+      return { success: true, user: data.user };
     } catch (error) {
-      return { success: false, error: "An unexpected error occurred" }
+      return { success: false, error: "An unexpected error occurred" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const signOut = async () => {
     try {
-      setLoading(true)
-      const { error } = await supabase.auth.signOut()
+      setLoading(true);
+      const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Error signing out:", error)
+        console.error("Error signing out:", error);
       }
     } catch (error) {
-      console.error("Error signing out:", error)
+      console.error("Error signing out:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return {
     user,
@@ -144,5 +144,5 @@ export function useSupabaseAuth() {
     signUp,
     signIn,
     signOut,
-  }
+  };
 }
