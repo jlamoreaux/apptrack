@@ -12,8 +12,7 @@ VALUES (
   price_monthly = EXCLUDED.price_monthly,
   price_yearly = EXCLUDED.price_yearly,
   max_applications = EXCLUDED.max_applications,
-  features = EXCLUDED.features,
-  updated_at = NOW();
+  features = EXCLUDED.features;
 
 -- Update existing plans to ensure proper ordering
 UPDATE subscription_plans 
