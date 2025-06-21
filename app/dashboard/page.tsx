@@ -1,47 +1,75 @@
-import { redirect } from "next/navigation"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, ExternalLink, Calendar, Building2, TrendingUp } from "lucide-react"
-import { ApplicationPipelineChart } from "@/components/application-pipeline-chart"
-import { NavigationServer } from "@/components/navigation-server"
-import { SubscriptionUsageBannerServer } from "@/components/subscription-usage-banner-server"
-import { getUser, getApplications, getApplicationHistory } from "@/lib/auth-server"
-import { StatusBadge } from "@/components/status-badge"
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Plus,
+  ExternalLink,
+  Calendar,
+  Building2,
+  TrendingUp,
+} from "lucide-react";
+import { ApplicationPipelineChart } from "@/components/application-pipeline-chart";
+import { NavigationServer } from "@/components/navigation-server";
+import { SubscriptionUsageBannerServer } from "@/components/subscription-usage-banner-server";
+import {
+  getUser,
+  getApplications,
+  getApplicationHistory,
+} from "@/lib/auth-server";
+import { StatusBadge } from "@/components/status-badge";
+import type { Application, ApplicationHistory } from "@/lib/types";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
-  const userPromise = getUser()
-  const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("User fetch timeout")), 5000))
+  const userPromise = getUser();
+  const timeoutPromise = new Promise<null>((_, reject) =>
+    setTimeout(() => reject(new Error("User fetch timeout")), 5000)
+  );
 
   try {
     // Race the user fetch against a timeout
-    const user = await Promise.race([userPromise, timeoutPromise])
+    const user = await Promise.race([userPromise, timeoutPromise]);
 
     if (!user) {
-      redirect("/login")
+      redirect("/login");
     }
 
     // Once we have the user, get applications with a timeout as well
-    const applicationsPromise = getApplications(user.id)
-    const applicationsTimeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), 5000))
+    const applicationsPromise = getApplications(user.id);
+    const applicationsTimeoutPromise = new Promise<Application[]>((resolve) =>
+      setTimeout(() => resolve([]), 5000)
+    );
 
     // If applications fetch times out, we'll show an empty array rather than hanging
-    const applications = (await Promise.race([applicationsPromise, applicationsTimeoutPromise])) || []
+    const applications =
+      (await Promise.race([applicationsPromise, applicationsTimeoutPromise])) ||
+      [];
 
     // Get application history for all applications
-    const historyPromise = getApplicationHistory(user.id)
-    const historyTimeoutPromise = new Promise((resolve) => setTimeout(() => resolve([]), 3000))
-    const history = (await Promise.race([historyPromise, historyTimeoutPromise])) || []
+    const historyPromise = getApplicationHistory(user.id);
+    const historyTimeoutPromise = new Promise<ApplicationHistory[]>((resolve) =>
+      setTimeout(() => resolve([]), 3000)
+    );
+    const history =
+      (await Promise.race([historyPromise, historyTimeoutPromise])) || [];
 
     const stats = {
       total: applications.length,
       applied: applications.filter((app) => app.status === "Applied").length,
-      interviews: applications.filter((app) => app.status === "Interview Scheduled" || app.status === "Interviewed")
-        .length,
+      interviews: applications.filter(
+        (app) =>
+          app.status === "Interview Scheduled" || app.status === "Interviewed"
+      ).length,
       offers: applications.filter((app) => app.status === "Offer").length,
       hired: applications.filter((app) => app.status === "Hired").length,
-    }
+    };
 
     return (
       <div className="min-h-screen bg-background">
@@ -50,7 +78,9 @@ export default async function DashboardPage() {
           {/* Header Section */}
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
-            <p className="text-muted-foreground">Track your job application progress</p>
+            <p className="text-muted-foreground">
+              Track your job application progress
+            </p>
           </div>
 
           {/* Subscription Usage Banner */}
@@ -60,7 +90,9 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
             <Card className="border-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Applications</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Applications
+                </CardTitle>
                 <Building2 className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
@@ -78,7 +110,9 @@ export default async function DashboardPage() {
             </Card>
             <Card className="border-secondary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Interviews</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Interviews
+                </CardTitle>
                 <TrendingUp className="h-4 w-4 text-secondary" />
               </CardHeader>
               <CardContent>
@@ -106,15 +140,22 @@ export default async function DashboardPage() {
           </div>
 
           {/* Application Pipeline Chart */}
-          <ApplicationPipelineChart applications={applications} history={history} />
+          <ApplicationPipelineChart
+            applications={applications}
+            history={history}
+          />
 
           {/* Applications List */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-primary">Recent Applications</CardTitle>
-                  <CardDescription>Your latest job applications</CardDescription>
+                  <CardTitle className="text-primary">
+                    Recent Applications
+                  </CardTitle>
+                  <CardDescription>
+                    Your latest job applications
+                  </CardDescription>
                 </div>
                 <Link href="/dashboard/add">
                   <Button className="bg-secondary hover:bg-secondary/90">
@@ -130,13 +171,19 @@ export default async function DashboardPage() {
                   <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                     <Building2 className="h-12 w-12 text-primary" />
                   </div>
-                  <h3 className="text-lg font-semibold mb-2">No applications yet</h3>
+                  <h3 className="text-lg font-semibold mb-2">
+                    No applications yet
+                  </h3>
                   <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                    Start tracking your job search by adding your first application. Keep all your opportunities
-                    organized in one place.
+                    Start tracking your job search by adding your first
+                    application. Keep all your opportunities organized in one
+                    place.
                   </p>
                   <Link href="/dashboard/add">
-                    <Button size="lg" className="bg-secondary hover:bg-secondary/90">
+                    <Button
+                      size="lg"
+                      className="bg-secondary hover:bg-secondary/90"
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Your First Application
                     </Button>
@@ -163,9 +210,14 @@ export default async function DashboardPage() {
                             </a>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">{app.company}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {app.company}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Applied: {new Date(app.date_applied).toLocaleDateString()}
+                          Applied:{" "}
+                          {app.date_applied
+                            ? new Date(app.date_applied).toLocaleDateString()
+                            : "Not specified"}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
@@ -185,7 +237,9 @@ export default async function DashboardPage() {
 
                   {applications.length > 10 && (
                     <div className="text-center pt-4">
-                      <p className="text-sm text-muted-foreground">Showing 10 of {applications.length} applications</p>
+                      <p className="text-sm text-muted-foreground">
+                        Showing 10 of {applications.length} applications
+                      </p>
                     </div>
                   )}
                 </div>
@@ -194,10 +248,10 @@ export default async function DashboardPage() {
           </Card>
         </div>
       </div>
-    )
+    );
   } catch (error) {
-    console.error("Dashboard error:", error)
+    console.error("Dashboard error:", error);
     // If there's an error fetching the user or applications, redirect to login
-    redirect("/login?error=session_expired")
+    redirect("/login?error=session_expired");
   }
 }

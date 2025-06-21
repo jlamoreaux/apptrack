@@ -9,21 +9,15 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import dynamic from "next/dynamic";
+import type { Application, ApplicationHistory } from "@/lib/types";
+import {
+  buildStatusPath,
+  countTransitions,
+  buildSankeyData,
+} from "@/lib/pipeline-utils";
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
-
-interface Application {
-  id: string;
-  status: string;
-}
-
-interface ApplicationHistory {
-  application_id: string;
-  old_status: string | null;
-  new_status: string;
-  changed_at: string;
-}
 
 interface ApplicationPipelineChartProps {
   applications: Application[];
@@ -100,100 +94,43 @@ export function ApplicationPipelineChart({
     "#ef4444", // Rejected - red
   ];
 
-  // Build transitions for all applications based on their current status
-  // This ensures the chart matches the summary data
-  const transitionCounts = new Map<string, number>();
+  // Build all status paths for applications
+  const allPaths = applications.map((app) =>
+    buildStatusPath(app, history, stages)
+  );
 
-  // Helper to build the full status path for an application
-  function buildStatusPath(
-    app: Application,
-    history: ApplicationHistory[],
-    stages: string[]
-  ): string[] {
-    const appHistory = (history || [])
-      .filter((h) => h.application_id === app.id)
-      .sort(
-        (a, b) =>
-          new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
-      );
-
-    let path = ["Lead"];
-    appHistory.forEach((h) => {
-      if (
-        h.new_status === "Rejected" &&
-        h.old_status &&
-        path[path.length - 1] !== h.old_status
-      ) {
-        const lastIdx = stages.indexOf(path[path.length - 1]);
-        const oldIdx = stages.indexOf(h.old_status);
-        for (let i = lastIdx + 1; i <= oldIdx; i++) {
-          path.push(stages[i]);
-        }
-      }
-      path.push(h.new_status);
-    });
-
-    // If the last status in the path is not the current status, fill in missing stages
-    if (path[path.length - 1] !== app.status) {
-      const lastIndex = stages.indexOf(path[path.length - 1]);
-      const currentIndex = stages.indexOf(app.status);
-      for (let i = lastIndex + 1; i <= currentIndex; i++) {
-        path.push(stages[i]);
-      }
-    }
-
-    // Fill in all missing intermediate stages between every pair, except if the next status is 'Rejected'
-    let fullPath: string[] = [];
-    for (let i = 0; i < path.length - 1; i++) {
-      const fromIdx = stages.indexOf(path[i]);
-      const toIdx = stages.indexOf(path[i + 1]);
-      if (fromIdx === -1 || toIdx === -1) continue;
-      fullPath.push(stages[fromIdx]);
-      if (path[i + 1] !== "Rejected") {
-        for (let j = fromIdx + 1; j < toIdx; j++) {
-          fullPath.push(stages[j]);
-        }
-      }
-    }
-    fullPath.push(path[path.length - 1]);
-
-    return fullPath;
-  }
-
-  // For each application, build the full transition path and add all transitions
-  applications.forEach((app) => {
-    const path = buildStatusPath(app, history, stages);
+  // Map transition key to list of application display strings
+  const transitionApplications: Record<string, string[]> = {};
+  applications.forEach((app, idx) => {
+    const path = allPaths[idx];
+    // @ts-ignore: role and company may not exist on Application type, but are present in your data
+    const display = `${(app as any).role || app.id} -- ${
+      (app as any).company || ""
+    }`;
     for (let i = 0; i < path.length - 1; i++) {
       const from = path[i];
       const to = path[i + 1];
       const key = `${from}→${to}`;
-      transitionCounts.set(key, (transitionCounts.get(key) || 0) + 1);
+      if (!transitionApplications[key]) transitionApplications[key] = [];
+      transitionApplications[key].push(display);
     }
   });
 
-  // Now build the Sankey source/target/value arrays
-  const sources: number[] = [];
-  const targets: number[] = [];
-  const values: number[] = [];
-  const linkColors: string[] = [];
+  // Count transitions
+  const transitionCounts = countTransitions(allPaths);
 
-  transitionCounts.forEach((count, key) => {
-    const [from, to] = key.split("→");
-    const sourceIndex = nodeLabels.indexOf(from);
-    const targetIndex = nodeLabels.indexOf(to);
-    if (sourceIndex !== -1 && targetIndex !== -1) {
-      sources.push(sourceIndex);
-      targets.push(targetIndex);
-      values.push(count);
-      // Color links based on target
-      if (to === "Rejected") {
-        linkColors.push("rgba(239, 68, 68, 0.4)"); // Red for rejections
-      } else if (to === "Hired") {
-        linkColors.push("rgba(34, 197, 94, 0.4)"); // Green for hired
-      } else {
-        linkColors.push("rgba(59, 130, 246, 0.4)"); // Blue for progression
-      }
-    }
+  // Build Sankey data
+  const { sources, targets, values, linkColors } = buildSankeyData(
+    transitionCounts,
+    nodeLabels,
+    nodeColors
+  );
+
+  // Build link labels for hover
+  const linkLabels: string[] = [];
+  Array.from(transitionCounts.keys()).forEach((key) => {
+    const apps = transitionApplications[key] || [];
+    linkLabels.push(apps.length ? apps.join("<br>") : "");
   });
 
   // Create the Plotly data for the Sankey diagram
@@ -217,6 +154,7 @@ export function ApplicationPipelineChart({
         target: targets,
         value: values,
         color: linkColors,
+        label: linkLabels,
       },
     },
   ];
@@ -264,39 +202,6 @@ export function ApplicationPipelineChart({
             style={{ width: "100%", height: "100%" }}
           />
         </div>
-
-        {/* Stage Reach Summary */}
-        {/* <div className="mt-6 bg-blue-50 p-4 rounded-lg">
-          <h3 className="font-medium mb-2">Pipeline Reach</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            {stages.map((stage) => (
-              <div key={stage}>
-                <div className="text-muted-foreground">{stage}</div>
-                <div className="text-lg font-bold">
-                  {statusCounts[stage] || 0}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div> */}
-
-        {/* Current Status Summary */}
-        {/* <div className="mt-4 bg-gray-50 p-4 rounded-lg">
-          <h3 className="font-medium mb-2">Current Status Distribution</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-            {Object.entries(statusCounts).map(([status, count]) => (
-              <div key={status}>
-                <div className="text-muted-foreground">{status}</div>
-                <div className="text-lg font-bold">{count}</div>
-              </div>
-            ))}
-          </div>
-        </div> */}
-
-        {/* <div className="mt-4 text-xs text-muted-foreground">
-          💡 This chart shows the actual flow of applications through your
-          pipeline stages based on status change history
-        </div> */}
       </CardContent>
     </Card>
   );
