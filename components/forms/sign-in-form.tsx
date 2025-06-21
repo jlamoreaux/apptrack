@@ -1,74 +1,75 @@
 "use client"
 
+import type React from "react"
+
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { signInWithPassword } from "@/lib/auth-actions"
-
-const signInSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
-})
-
-type SignInFormData = z.infer<typeof signInSchema>
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 
 export function SignInForm() {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [email, setEmail] = useState("demo@example.com")
+  const [password, setPassword] = useState("password")
+  const [error, setError] = useState("")
+  const { signIn, loading } = useSupabaseAuth()
   const router = useRouter()
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SignInFormData>({
-    resolver: zodResolver(signInSchema),
-  })
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
 
-  const onSubmit = async (data: SignInFormData) => {
-    setLoading(true)
-    setError(null)
+    const result = await signIn(email, password)
 
-    try {
-      const result = await signInWithPassword(data.email, data.password)
-
-      if (result.error) {
-        setError(result.error)
-      } else {
-        router.push("/dashboard")
-        router.refresh()
-      }
-    } catch (error) {
-      setError("An unexpected error occurred")
-    } finally {
-      setLoading(false)
+    if (result.success) {
+      router.push("/dashboard")
+    } else {
+      setError(result.error || "Sign in failed")
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">{error}</div>}
-
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" type="email" {...register("email")} disabled={loading} />
-        {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
+    <div className="space-y-4">
+      <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+        <strong>Demo Credentials:</strong>
+        <br />
+        Email: demo@example.com
+        <br />
+        Password: password
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="password">Password</Label>
-        <Input id="password" type="password" {...register("password")} disabled={loading} />
-        {errors.password && <p className="text-sm text-red-600">{errors.password.message}</p>}
-      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            disabled={loading}
+          />
+        </div>
 
-      <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
-        {loading ? "Signing In..." : "Sign In"}
-      </Button>
-    </form>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            disabled={loading}
+          />
+        </div>
+
+        {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md p-2">{error}</div>}
+
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? "Signing in..." : "Sign In"}
+        </Button>
+      </form>
+    </div>
   )
 }
