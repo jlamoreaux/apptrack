@@ -62,6 +62,7 @@
     "react-plotly.js": "latest",
     "react-resizable-panels": "^2.1.7",
     "recharts": "latest",
+    "replicate": "latest",
     "sonner": "^1.7.1",
     "stripe": "latest",
     "svelte": "latest",
