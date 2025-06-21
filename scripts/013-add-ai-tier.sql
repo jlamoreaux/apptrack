@@ -6,16 +6,7 @@ VALUES (
   9,
   90,
   -1,
-  ARRAY[
-    'Unlimited applications',
-    'All Pro features',
-    'AI Career Coach',
-    'Resume analysis & optimization',
-    'Interview preparation',
-    'Cover letter generation',
-    'Job description analysis',
-    'Personalized career advice'
-  ],
+  '["Unlimited applications", "All Pro features", "AI Career Coach", "Resume analysis & optimization", "Interview preparation", "Cover letter generation", "Job description analysis", "Personalized career advice"]'::jsonb,
   NOW()
 ) ON CONFLICT (name) DO UPDATE SET
   price_monthly = EXCLUDED.price_monthly,
@@ -26,19 +17,9 @@ VALUES (
 
 -- Update existing plans to ensure proper ordering
 UPDATE subscription_plans 
-SET features = ARRAY[
-  'Up to 5 applications',
-  'Application tracking',
-  'Interview notes',
-  'Contact management'
-]
+SET features = '["Up to 5 applications", "Application tracking", "Interview notes", "Contact management"]'::jsonb
 WHERE name = 'Free';
 
 UPDATE subscription_plans 
-SET features = ARRAY[
-  'Unlimited applications',
-  'All Free features',
-  'Cancel reminder when hired',
-  'Priority support'
-]
+SET features = '["Unlimited applications", "All Free features", "Cancel reminder when hired", "Priority support"]'::jsonb
 WHERE name = 'Pro';
