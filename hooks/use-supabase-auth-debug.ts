@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
 
 export function useSupabaseAuthDebug() {

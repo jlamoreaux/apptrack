@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/lib/supabase-client";
+import { supabase } from "@/lib/supabase";
 
 export function DebugPanel() {
   const [logs, setLogs] = useState<string[]>([]);
