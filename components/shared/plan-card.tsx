@@ -123,9 +123,9 @@ export function PlanCard({
           {features.map((feature, index) => {
             const iconName = getFeatureIcon(feature)
             return (
-              <li key={index} className="flex items-center gap-2">
-                {renderIcon(iconName, `h-4 w-4 ${theme.colors.icon} flex-shrink-0`)}
-                <span className={`text-sm ${theme.colors.text}`}>{feature}</span>
+              <li key={index} className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">{renderIcon(iconName, `h-4 w-4 ${theme.colors.icon}`)}</div>
+                <span className={`text-sm leading-relaxed text-left ${theme.colors.text}`}>{feature}</span>
               </li>
             )
           })}
@@ -223,9 +223,9 @@ export function PlanCard({
         {features.map((feature, index) => {
           const iconName = getFeatureIcon(feature)
           return (
-            <li key={index} className="flex items-start">
-              {renderIcon(iconName, `h-4 w-4 ${theme.colors.icon} flex-shrink-0`)}
-              <span className={`ml-2 text-sm ${theme.colors.text}`}>{feature}</span>
+            <li key={index} className="flex items-start gap-3">
+              <div className="flex-shrink-0 mt-0.5">{renderIcon(iconName, `h-4 w-4 ${theme.colors.icon}`)}</div>
+              <span className={`text-sm leading-relaxed text-left ${theme.colors.text}`}>{feature}</span>
             </li>
           )
         })}
