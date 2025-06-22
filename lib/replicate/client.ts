@@ -1,19 +1,11 @@
 import Replicate from "replicate";
-import { Models, ModelType } from "./models";
+import { Models } from "./models";
 import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_TEMPERATURE,
   DEFAULT_SYSTEM_PROMPT,
 } from "./config";
-import { ChatMessage, CareerCoachOptions } from "./types";
-
-if (!process.env.REPLICATE_API_TOKEN) {
-  throw new Error("REPLICATE_API_TOKEN is not set");
-}
-
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
-});
+import type { CareerCoachOptions } from "./types";
 
 export async function callCareerCoach({
   messages,
@@ -21,6 +13,14 @@ export async function callCareerCoach({
   temperature = DEFAULT_TEMPERATURE,
   model = Models.default,
 }: CareerCoachOptions): Promise<string> {
+  if (!process.env.REPLICATE_API_TOKEN) {
+    throw new Error("REPLICATE_API_TOKEN is not set");
+  }
+
+  const replicate = new Replicate({
+    auth: process.env.REPLICATE_API_TOKEN,
+  });
+
   try {
     // Format messages for Claude
     const systemMessage =

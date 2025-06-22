@@ -1,115 +1,118 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { Box, Button, Card, CardContent, TextField, Typography, CircularProgress, Tabs, Tab } from "@mui/material"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { generateInterviewPrep } from "@/lib/ai-coach";
+import { Loader2, MessageSquare } from "lucide-react";
 
-interface Props {
-  onGenerateQuestions: (jobDescription: string) => void
-}
+const InterviewPrep = () => {
+  const [jobDescription, setJobDescription] = useState("");
+  const [userBackground, setUserBackground] = useState("");
+  const [prep, setPrep] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-const InterviewPrep: React.FC<Props> = ({ onGenerateQuestions }) => {
-  const [jobDescription, setJobDescription] = useState("")
-  const [jobUrl, setJobUrl] = useState("")
-  const [urlLoading, setUrlLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState(0)
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue)
-  }
-
-  const handleJobDescriptionChange = (event: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-    setJobDescription(event.target.value)
-  }
-
-  const handleJobUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setJobUrl(event.target.value)
-  }
-
-  const handleGenerateQuestions = () => {
-    onGenerateQuestions(jobDescription)
-  }
-
-  const handleFetchJobDescription = async () => {
-    setUrlLoading(true)
-    try {
-      const response = await fetch(`/api/fetch-url?url=${jobUrl}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      setJobDescription(data.content)
-    } catch (error) {
-      console.error("Failed to fetch job description:", error)
-      // Optionally display an error message to the user
-      setJobDescription("Failed to fetch job description. Please check the URL and try again.")
-    } finally {
-      setUrlLoading(false)
+  const handleGenerate = async () => {
+    if (!jobDescription) {
+      toast({
+        title: "Job Description Required",
+        description: "Please provide a job description to get interview prep.",
+        variant: "destructive",
+      });
+      return;
     }
-  }
+
+    setIsLoading(true);
+    setPrep("");
+    try {
+      const response = await generateInterviewPrep(
+        jobDescription,
+        userBackground
+      );
+      setPrep(response);
+      toast({
+        title: "Interview Prep Generated!",
+        description: "Your personalized interview prep is ready.",
+      });
+    } catch (error) {
+      console.error("Error generating interview prep:", error);
+      toast({
+        title: "Error Generating Prep",
+        description:
+          (error as Error).message ||
+          "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Card>
-      <CardContent>
-        <Typography variant="h5" component="div" gutterBottom>
-          Interview Preparation
-        </Typography>
+      <CardHeader>
+        <CardTitle>AI Interview Prep</CardTitle>
+        <CardDescription>
+          Get tailored interview questions and talking points based on the job
+          description.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="jobDescription">Job Description</Label>
+          <Textarea
+            id="jobDescription"
+            placeholder="Paste the job description here."
+            value={jobDescription}
+            onChange={(e) => setJobDescription(e.target.value)}
+            rows={8}
+          />
+        </div>
 
-        <Tabs value={activeTab} onChange={handleTabChange} aria-label="job-description-input">
-          <Tab label="Text" />
-          <Tab label="URL" />
-        </Tabs>
+        <div className="space-y-2">
+          <Label htmlFor="userBackground">Your Background (Optional)</Label>
+          <Textarea
+            id="userBackground"
+            placeholder="Briefly describe your experience and skills for more tailored questions."
+            value={userBackground}
+            onChange={(e) => setUserBackground(e.target.value)}
+            rows={4}
+          />
+        </div>
 
-        {activeTab === 0 && (
-          <Box mt={2}>
-            <TextField
-              label="Job Description"
-              multiline
-              rows={10}
-              fullWidth
-              variant="outlined"
-              value={jobDescription}
-              onChange={handleJobDescriptionChange}
-            />
-          </Box>
+        <Button
+          onClick={handleGenerate}
+          disabled={isLoading}
+          className="w-full"
+        >
+          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Generate Interview Prep
+        </Button>
+
+        {prep && (
+          <div className="space-y-2 pt-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Your Interview Prep
+            </h3>
+            <div className="p-4 border rounded-md bg-muted whitespace-pre-wrap text-sm">
+              {prep}
+            </div>
+          </div>
         )}
-
-        {activeTab === 1 && (
-          <Box mt={2}>
-            <TextField
-              label="Job Description URL"
-              fullWidth
-              variant="outlined"
-              value={jobUrl}
-              onChange={handleJobUrlChange}
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleFetchJobDescription}
-              disabled={urlLoading || !jobUrl}
-              style={{ marginTop: "10px" }}
-            >
-              {urlLoading ? (
-                <>
-                  Loading...
-                  <CircularProgress size={20} color="inherit" style={{ marginLeft: "5px" }} />
-                </>
-              ) : (
-                "Fetch Job Description"
-              )}
-            </Button>
-          </Box>
-        )}
-
-        <Box mt={2}>
-          <Button variant="contained" color="primary" onClick={handleGenerateQuestions} disabled={!jobDescription}>
-            Generate Interview Questions
-          </Button>
-        </Box>
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
-export default InterviewPrep
+export default InterviewPrep;
