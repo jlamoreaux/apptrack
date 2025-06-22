@@ -1,6 +1,7 @@
 export const SITE_CONFIG = {
   name: "AppTrack",
-  description: "Track your job applications and interview progress with AppTrack",
+  description:
+    "Track your job applications and interview progress with AppTrack",
   tagline: "The smart way to track your job applications",
   url: "https://apptrack.com", // Update with your actual domain
 
@@ -24,50 +25,6 @@ export const SITE_CONFIG = {
     github: "https://github.com/yourusername/apptrack", // Update with your actual links
     twitter: "https://twitter.com/apptrack",
   },
+} as const;
 
-  // Features for marketing copy
-  features: {
-    core: [
-      {
-        title: "Track Applications",
-        description: "Keep track of every application with company details, role information, and application dates.",
-        icon: "Target",
-      },
-      {
-        title: "Interview Notes",
-        description: "Document interview experiences, questions asked, and follow-up actions.",
-        icon: "FileText",
-      },
-      {
-        title: "Network Contacts",
-        description: "Save LinkedIn profiles and networking contacts for each application.",
-        icon: "Users",
-      },
-      {
-        title: "Ethical Billing",
-        description:
-          "We'll remind you to cancel your subscription when you get hired. We don't want you paying for something you no longer need.",
-        icon: "Heart",
-      },
-    ],
-  },
-
-  // Marketing copy
-  copy: {
-    hero: {
-      title: "AppTrack",
-      subtitle:
-        "The smart way to track your job applications. Stay organized and never lose track of your job search progress. Start free with 5 applications, then upgrade to Pro for unlimited tracking.",
-      cta: {
-        primary: "Get Started Free",
-        secondary: "Sign In",
-      },
-    },
-    pricing: {
-      title: "Simple, Transparent Pricing",
-      subtitle: "Choose the plan that works best for your job search",
-    },
-  },
-} as const
-
-export type SiteConfig = typeof SITE_CONFIG
+export type SiteConfig = typeof SITE_CONFIG;

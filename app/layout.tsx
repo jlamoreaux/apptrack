@@ -5,7 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { Suspense } from "react";
-import { SITE_CONFIG } from "@/lib/config/site";
+import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 const inter = Inter({ subsets: ["latin"] });
 
