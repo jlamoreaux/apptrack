@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NavigationStatic } from "@/components/navigation-static"
-import { Target, FileText, Users, Heart, BarChart3, CheckCircle, Infinity } from "lucide-react"
+import { HomePricingSection } from "@/components/home-pricing-section"
+import { Target, FileText, Users, Heart, BarChart3 } from "lucide-react"
 
 export default function HomePage() {
   return (
@@ -82,63 +83,8 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Pricing Section - Now after features */}
-            <div className="mt-16">
-              <h2 className="text-2xl font-bold mb-8">Simple, Transparent Pricing</h2>
-              <div className="bg-primary/5 rounded-lg p-6 max-w-2xl mx-auto border border-primary/10">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div className="text-center p-4 bg-white/50 rounded-lg">
-                    <div className="flex items-center justify-center mb-2">
-                      <CheckCircle className="h-5 w-5 text-primary mr-2" />
-                      <h3 className="font-semibold text-lg text-foreground">Free Plan</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-4">Perfect for getting started</p>
-                    <ul className="text-sm space-y-2 text-left">
-                      <li className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-primary mr-2 mt-0.5" />
-                        <span>Up to 5 applications</span>
-                      </li>
-                      <li className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-primary mr-2 mt-0.5" />
-                        <span>Application tracking</span>
-                      </li>
-                      <li className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-primary mr-2 mt-0.5" />
-                        <span>Interview notes</span>
-                      </li>
-                      <li className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-primary mr-2 mt-0.5" />
-                        <span>Contact management</span>
-                      </li>
-                    </ul>
-                  </div>
-                  <div className="text-center p-4 bg-secondary/10 rounded-lg border border-secondary/20">
-                    <div className="flex items-center justify-center mb-2">
-                      <Infinity className="h-5 w-5 text-secondary mr-2" />
-                      <h3 className="font-semibold text-lg text-foreground">Pro Plan</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">For serious job seekers</p>
-                    <p className="text-2xl font-bold text-foreground mb-4">
-                      $2<span className="text-sm font-normal">/month</span>
-                    </p>
-                    <ul className="text-sm space-y-2 text-left">
-                      <li className="flex items-start">
-                        <Infinity className="h-4 w-4 text-secondary mr-2 mt-0.5" />
-                        <span>Unlimited applications</span>
-                      </li>
-                      <li className="flex items-start">
-                        <CheckCircle className="h-4 w-4 text-secondary mr-2 mt-0.5" />
-                        <span>All Free plan features</span>
-                      </li>
-                      <li className="flex items-start">
-                        <Heart className="h-4 w-4 text-secondary mr-2 mt-0.5" />
-                        <span>Cancel reminder when hired</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Pricing Section - Now using the new component */}
+            <HomePricingSection />
           </div>
         </div>
       </main>
