@@ -1,181 +1,121 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { FileText, Sparkles, AlertCircle, Copy } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { useToast } from "@/hooks/use-toast"
+import { Box, Button, Text, Textarea, useToast, Tabs, TabList, TabPanels, Tab, TabPanel, Input } from "@chakra-ui/react"
+import { generateCoverLetter } from "../../utils/api"
 
-interface CoverLetterGeneratorProps {
-  userId: string
-}
-
-export function CoverLetterGenerator({ userId }: CoverLetterGeneratorProps) {
+const CoverLetterGenerator = () => {
   const [jobDescription, setJobDescription] = useState("")
-  const [userBackground, setUserBackground] = useState("")
-  const [companyName, setCompanyName] = useState("")
   const [coverLetter, setCoverLetter] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const toast = useToast()
+  const [jobDescriptionURL, setJobDescriptionURL] = useState("")
+  const [isURLFetching, setIsURLFetching] = useState(false)
 
-  const handleGenerate = async () => {
-    if (!jobDescription.trim() || !userBackground.trim() || !companyName.trim()) {
-      setError("Please fill in all required fields")
-      return
-    }
-
-    setLoading(true)
-    setError("")
-    setCoverLetter("")
-
+  const handleGenerateCoverLetter = async () => {
+    setIsLoading(true)
     try {
-      const response = await fetch("/api/ai-coach/cover-letter", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          jobDescription: jobDescription.trim(),
-          userBackground: userBackground.trim(),
-          companyName: companyName.trim(),
-        }),
+      const response = await generateCoverLetter(jobDescription)
+      setCoverLetter(response.coverLetter)
+      toast({
+        title: "Cover Letter Generated!",
+        description: "Your cover letter has been generated successfully.",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to generate cover letter")
-      }
-
-      setCoverLetter(data.coverLetter)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+    } catch (error) {
+      console.error("Error generating cover letter:", error)
+      toast({
+        title: "Error",
+        description: "Failed to generate cover letter. Please try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const handleCopy = async () => {
+  const handleURLFetch = async () => {
+    setIsURLFetching(true)
     try {
-      await navigator.clipboard.writeText(coverLetter)
+      const response = await fetch(`/api/fetch-url?url=${jobDescriptionURL}`)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+      setJobDescription(data.content)
       toast({
-        title: "Copied!",
-        description: "Cover letter copied to clipboard",
+        title: "Job Description Fetched!",
+        description: "Job description fetched successfully from the URL.",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
       })
-    } catch (err) {
+    } catch (error) {
+      console.error("Error fetching URL:", error)
       toast({
-        title: "Failed to copy",
-        description: "Please copy the text manually",
-        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch job description from the URL. Please check the URL and try again.",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
       })
+    } finally {
+      setIsURLFetching(false)
     }
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-green-600" />
-            Cover Letter Generator
-          </CardTitle>
-          <CardDescription>
-            Generate a personalized cover letter tailored to the specific job and company
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="company">Company Name *</Label>
-              <Input
-                id="company"
-                placeholder="e.g., Google, Microsoft, Startup Inc."
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-              />
-            </div>
-          </div>
+    <Box p={4}>
+      <Text fontSize="xl" fontWeight="bold" mb={4}>
+        AI Cover Letter Generator
+      </Text>
 
-          <div className="space-y-2">
-            <Label htmlFor="job-desc-cl">Job Description *</Label>
+      <Tabs variant="soft-rounded" colorScheme="green" mb={4}>
+        <TabList>
+          <Tab>Text Input</Tab>
+          <Tab>URL Input</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel>
             <Textarea
-              id="job-desc-cl"
-              placeholder="Paste the job description here..."
+              placeholder="Enter job description..."
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
-              className="min-h-[120px]"
+              mb={2}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="background-cl">Your Background & Experience *</Label>
-            <Textarea
-              id="background-cl"
-              placeholder="Describe your relevant experience, skills, and achievements..."
-              value={userBackground}
-              onChange={(e) => setUserBackground(e.target.value)}
-              className="min-h-[120px]"
+          </TabPanel>
+          <TabPanel>
+            <Input
+              placeholder="Enter job description URL..."
+              value={jobDescriptionURL}
+              onChange={(e) => setJobDescriptionURL(e.target.value)}
+              mb={2}
             />
-            <p className="text-sm text-muted-foreground">
-              Include specific examples and quantifiable achievements when possible
-            </p>
-          </div>
+            <Button colorScheme="teal" size="sm" onClick={handleURLFetch} isLoading={isURLFetching} mb={2}>
+              Fetch Job Description
+            </Button>
+          </TabPanel>
+        </TabPanels>
+      </Tabs>
 
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <Button
-            onClick={handleGenerate}
-            disabled={loading || !jobDescription.trim() || !userBackground.trim() || !companyName.trim()}
-            className="w-full bg-green-600 hover:bg-green-700"
-          >
-            {loading ? (
-              <>
-                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                Generating Cover Letter...
-              </>
-            ) : (
-              <>
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Cover Letter
-              </>
-            )}
-          </Button>
-        </CardContent>
-      </Card>
+      <Button colorScheme="blue" onClick={handleGenerateCoverLetter} isLoading={isLoading} mb={4}>
+        Generate Cover Letter
+      </Button>
 
       {coverLetter && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-green-600" />
-                Generated Cover Letter
-              </CardTitle>
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                <Copy className="h-4 w-4 mr-2" />
-                Copy
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed font-mono bg-muted p-4 rounded-lg">
-                {coverLetter}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <Box mt={4}>
+          <Text fontSize="lg" fontWeight="bold">
+            Generated Cover Letter:
+          </Text>
+          <Text whiteSpace="pre-line">{coverLetter}</Text>
+        </Box>
       )}
-    </div>
+    </Box>
   )
 }
+
+export default CoverLetterGenerator

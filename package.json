@@ -9,7 +9,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@chakra-ui/react": "latest",
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
     "@hookform/resolvers": "latest",
+    "@mui/material": "latest",
+    "@mui/material-pigment-css": "latest",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
