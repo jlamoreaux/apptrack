@@ -82,9 +82,9 @@ export default function UpgradePage() {
   const aiCoachPlan = plans.find((plan) => plan.name === PLAN_NAMES.AI_COACH)
   const currentPlan = subscription?.subscription_plans
 
-  const renderFeatureIcon = (iconName: string) => {
+  const renderFeatureIcon = (iconName: string, className = "h-4 w-4") => {
     const IconComponent = ICON_MAP[iconName as keyof typeof ICON_MAP] || Check
-    return IconComponent
+    return <IconComponent className={className} />
   }
 
   const renderPlanCard = (plan: any, isPopular = false, isAI = false) => {
@@ -108,7 +108,7 @@ export default function UpgradePage() {
         {badge && (
           <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
             <Badge className={badge.className}>
-              {badge.icon && renderFeatureIcon(badge.icon)({ className: "h-3 w-3 mr-1" })}
+              {badge.icon && renderFeatureIcon(badge.icon, "h-3 w-3 mr-1")}
               {badge.text}
             </Badge>
           </div>
@@ -154,12 +154,11 @@ export default function UpgradePage() {
           <ul className="space-y-3">
             {features.map((feature, index) => {
               const iconName = getFeatureIcon(feature)
-              const IconComponent = renderFeatureIcon(iconName)
               const iconColor = isAI ? "text-purple-600" : "text-secondary"
 
               return (
                 <li key={index} className="flex items-center gap-2">
-                  <IconComponent className={`h-4 w-4 ${iconColor} flex-shrink-0`} />
+                  {renderFeatureIcon(iconName, `h-4 w-4 ${iconColor} flex-shrink-0`)}
                   <span className="text-sm">{feature}</span>
                 </li>
               )
