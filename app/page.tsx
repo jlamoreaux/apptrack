@@ -62,13 +62,13 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-16">
+            {/* Features Grid - Fixed responsive behavior */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-16 justify-items-center">
               {features.map((feature, index) => {
                 const isSecondary = index % 2 === 1
 
                 return (
-                  <div key={feature.title} className="text-center space-y-4">
+                  <div key={feature.title} className="text-center space-y-4 max-w-xs">
                     <div
                       className={`mx-auto w-12 h-12 ${isSecondary ? "bg-secondary/10 border-secondary/20" : "bg-primary/10 border-primary/20"} rounded-lg flex items-center justify-center border`}
                     >
