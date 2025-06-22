@@ -1,12 +1,4 @@
-import Stripe from "stripe"
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set")
-}
-
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2024-06-20",
-})
+export const STRIPE_API_VERSION = "2025-05-28.basil" as const;
 
 export const STRIPE_CONFIG = {
   currency: "usd",
@@ -20,4 +12,4 @@ export const STRIPE_CONFIG = {
       amount: 2000, // $20.00 in cents (annual)
     },
   },
-}
+};

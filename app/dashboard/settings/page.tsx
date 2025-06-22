@@ -1,23 +1,32 @@
-import { redirect } from "next/navigation"
-import { NavigationServer } from "@/components/navigation-server"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
-import { getUser, getProfile, getSubscription } from "@/lib/auth-server"
-import { AccountInfoForm } from "@/components/forms/account-info-form"
-import { SubscriptionManagement } from "@/components/subscription-management"
-import { DangerZone } from "@/components/danger-zone"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
+import { redirect } from "next/navigation";
+import { NavigationServer } from "@/components/navigation-server";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
+import { AccountInfoForm } from "@/components/forms/account-info-form";
+import { SubscriptionManagement } from "@/components/subscription-management";
+import { DangerZone } from "@/components/danger-zone";
+import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default async function SettingsPage() {
-  const user = await getUser()
+  const user = await getUser();
 
   if (!user) {
-    redirect("/login")
+    redirect("/login");
   }
 
-  const [profile, subscription] = await Promise.all([getProfile(user.id), getSubscription(user.id)])
+  const [profile, subscription] = await Promise.all([
+    getProfile(user.id),
+    getSubscription(user.id),
+  ]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,7 +44,9 @@ export default async function SettingsPage() {
 
           <div className="space-y-2">
             <h1 className="text-3xl font-bold text-foreground">Settings</h1>
-            <p className="text-muted-foreground">Manage your account settings and preferences</p>
+            <p className="text-muted-foreground">
+              Manage your account settings and preferences
+            </p>
           </div>
 
           <div className="grid gap-8">
@@ -43,7 +54,9 @@ export default async function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Account Information</CardTitle>
-                <CardDescription>Update your personal information and account details</CardDescription>
+                <CardDescription>
+                  Update your personal information and account details
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <AccountInfoForm user={user} profile={profile} />
@@ -56,10 +69,15 @@ export default async function SettingsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Subscription</CardTitle>
-                <CardDescription>Manage your subscription plan and billing</CardDescription>
+                <CardDescription>
+                  Manage your subscription plan and billing
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <SubscriptionManagement userId={user.id} subscription={subscription} />
+                <SubscriptionManagement
+                  userId={user.id}
+                  subscription={subscription}
+                />
               </CardContent>
             </Card>
 
@@ -69,7 +87,9 @@ export default async function SettingsPage() {
             <Card className="border-red-200">
               <CardHeader>
                 <CardTitle className="text-red-600">Danger Zone</CardTitle>
-                <CardDescription>Irreversible and destructive actions</CardDescription>
+                <CardDescription>
+                  Irreversible and destructive actions
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <DangerZone userId={user.id} subscription={subscription} />
@@ -79,5 +99,5 @@ export default async function SettingsPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }

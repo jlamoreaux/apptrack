@@ -1,11 +1,11 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { BarChart3, Crown } from "lucide-react"
-import { getUser, getProfile, getSubscription } from "@/lib/auth-server"
-import { UserMenu } from "./user-menu"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { BarChart3, Crown } from "lucide-react";
+import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
+import { UserMenu } from "./user-menu";
 
 export async function NavigationServer() {
-  const user = await getUser()
+  const user = await getUser();
 
   if (!user) {
     return (
@@ -20,17 +20,23 @@ export async function NavigationServer() {
               <Button variant="ghost">Login</Button>
             </Link>
             <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
+              <Button className="bg-primary hover:bg-primary/90">
+                Sign Up
+              </Button>
             </Link>
           </div>
         </div>
       </nav>
-    )
+    );
   }
 
-  const [profile, subscription] = await Promise.all([getProfile(user.id), getSubscription(user.id)])
+  const [profile, subscription] = await Promise.all([
+    getProfile(user.id),
+    getSubscription(user.id),
+  ]);
 
-  const isOnFreePlan = subscription?.subscription_plans?.name === "Free" || !subscription
+  const isOnFreePlan =
+    subscription?.subscription_plans?.name === "Free" || !subscription;
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -59,5 +65,5 @@ export async function NavigationServer() {
         </div>
       </div>
     </nav>
-  )
+  );
 }
