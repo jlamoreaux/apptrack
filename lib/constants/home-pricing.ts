@@ -38,22 +38,26 @@ export const HOME_PRICING_CONFIG = {
       },
       highlight: true,
     },
+    {
+      name: PLAN_NAMES.AI_COACH,
+      title: "AI Coach",
+      subtitle: "AI-powered career coaching",
+      price: {
+        amount: 7,
+        period: "month",
+      },
+      features: [
+        "Everything in Pro",
+        "AI resume analysis",
+        "AI interview preparation",
+        "AI cover letter generation",
+        "Personalized career advice",
+      ],
+      cta: {
+        text: "Get AI Coaching",
+        href: "/dashboard/upgrade",
+      },
+      highlight: false,
+    },
   ],
-} as const
-
-export const PRICING_COLORS = {
-  // Accessible color combinations with proper contrast ratios
-  FREE: {
-    background: "bg-slate-50 dark:bg-slate-900",
-    border: "border-slate-200 dark:border-slate-700",
-    text: "text-slate-900 dark:text-slate-100",
-    icon: "text-slate-600 dark:text-slate-400",
-  },
-  PRO: {
-    background: "bg-blue-50 dark:bg-blue-950",
-    border: "border-blue-200 dark:border-blue-800",
-    text: "text-blue-900 dark:text-blue-100",
-    icon: "text-blue-600 dark:text-blue-400",
-    accent: "bg-blue-600 text-white",
-  },
 } as const

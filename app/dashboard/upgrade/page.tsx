@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { NavigationClient } from "@/components/navigation-client"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
   ArrowLeft,
@@ -22,14 +22,9 @@ import {
 } from "lucide-react"
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { useSubscription } from "@/hooks/use-subscription"
-import { PLAN_NAMES, PLAN_BADGES, BILLING_CYCLES } from "@/lib/constants/plans"
-import {
-  getPlanFeatures,
-  getPlanPrice,
-  getYearlySavings,
-  getPlanDisplayLimit,
-  getFeatureIcon,
-} from "@/lib/utils/plan-helpers"
+import { PLAN_NAMES, BILLING_CYCLES } from "@/lib/constants/plans"
+import { getPlanFeatures, getPlanPrice, getYearlySavings, getPlanDisplayLimit } from "@/lib/utils/plan-helpers"
+import { PlanCard } from "@/components/ui/plan-card"
 
 const ICON_MAP = {
   check: Check,
@@ -87,103 +82,6 @@ export default function UpgradePage() {
     return <IconComponent className={className} />
   }
 
-  const renderPlanCard = (plan: any, isPopular = false, isAI = false) => {
-    if (!plan) return null
-
-    const features = getPlanFeatures(plan)
-    const price = getPlanPrice(plan, selectedBilling)
-    const yearlySavings = getYearlySavings(plan.name)
-    const isCurrentPlan = currentPlan?.name === plan.name
-    const badge = PLAN_BADGES[plan.name as keyof typeof PLAN_BADGES]
-
-    return (
-      <Card
-        key={plan.id}
-        className={`relative ${
-          isCurrentPlan ? "border-primary ring-2 ring-primary/20" : ""
-        } ${isAI ? "bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800" : ""} ${
-          isPopular && !isAI ? "border-secondary/50" : ""
-        }`}
-      >
-        {badge && (
-          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-            <Badge className={badge.className}>
-              {badge.icon && renderFeatureIcon(badge.icon, "h-3 w-3 mr-1")}
-              {badge.text}
-            </Badge>
-          </div>
-        )}
-
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              {plan.name}
-              {isCurrentPlan && <Badge variant="secondary">Current</Badge>}
-            </CardTitle>
-            {plan.name === PLAN_NAMES.PRO && <Infinity className="h-5 w-5 text-secondary" />}
-            {plan.name === PLAN_NAMES.AI_COACH && <Bot className="h-5 w-5 text-purple-600" />}
-          </div>
-
-          <CardDescription>
-            {plan.name === PLAN_NAMES.FREE && "Perfect for getting started"}
-            {plan.name === PLAN_NAMES.PRO && "For serious job seekers"}
-            {plan.name === PLAN_NAMES.AI_COACH && "AI-powered career coaching"}
-          </CardDescription>
-
-          <div className="text-2xl font-bold">
-            {plan.name === PLAN_NAMES.FREE ? (
-              <>
-                $0<span className="text-sm font-normal text-muted-foreground">/month</span>
-              </>
-            ) : (
-              <>
-                ${price}
-                <span className="text-sm font-normal text-muted-foreground">
-                  /{selectedBilling === BILLING_CYCLES.MONTHLY ? "month" : "year"}
-                </span>
-              </>
-            )}
-          </div>
-
-          {selectedBilling === BILLING_CYCLES.YEARLY && yearlySavings > 0 && (
-            <p className={`text-sm ${isAI ? "text-purple-600" : "text-secondary"}`}>Save ${yearlySavings} per year!</p>
-          )}
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <ul className="space-y-3">
-            {features.map((feature, index) => {
-              const iconName = getFeatureIcon(feature)
-              const iconColor = isAI ? "text-purple-600" : "text-secondary"
-
-              return (
-                <li key={index} className="flex items-center gap-2">
-                  {renderFeatureIcon(iconName, `h-4 w-4 ${iconColor} flex-shrink-0`)}
-                  <span className="text-sm">{feature}</span>
-                </li>
-              )
-            })}
-          </ul>
-
-          <Button
-            className={`w-full ${
-              isAI
-                ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
-                : plan.name === PLAN_NAMES.PRO
-                  ? "bg-secondary hover:bg-secondary/90"
-                  : ""
-            }`}
-            variant={plan.name === PLAN_NAMES.FREE ? "outline" : "default"}
-            onClick={() => plan.name !== PLAN_NAMES.FREE && handleUpgrade(plan.id, selectedBilling)}
-            disabled={isCurrentPlan || plan.name === PLAN_NAMES.FREE}
-          >
-            {isCurrentPlan ? "Current Plan" : plan.name === PLAN_NAMES.FREE ? "Downgrade" : `Upgrade to ${plan.name}`}
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
@@ -235,9 +133,58 @@ export default function UpgradePage() {
 
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {renderPlanCard(freePlan)}
-            {renderPlanCard(proPlan, true)}
-            {renderPlanCard(aiCoachPlan, false, true)}
+            {[freePlan, proPlan, aiCoachPlan].map((plan) => {
+              if (!plan) return null
+
+              const price = getPlanPrice(plan, selectedBilling)
+              const yearlySavings = getYearlySavings(plan.name)
+              const isCurrentPlan = currentPlan?.name === plan.name
+              const features = getPlanFeatures(plan)
+
+              const planData = {
+                name: plan.name,
+                title: plan.name,
+                subtitle:
+                  plan.name === PLAN_NAMES.FREE
+                    ? "Perfect for getting started"
+                    : plan.name === PLAN_NAMES.PRO
+                      ? "For serious job seekers"
+                      : "AI-powered career coaching",
+                price:
+                  plan.name === PLAN_NAMES.FREE
+                    ? null
+                    : {
+                        amount: price,
+                        period: selectedBilling === BILLING_CYCLES.MONTHLY ? "month" : "year",
+                      },
+                features,
+                cta: {
+                  text: `Upgrade to ${plan.name}`,
+                  href: "#",
+                },
+                highlight: plan.name === PLAN_NAMES.PRO,
+              }
+
+              return (
+                <div key={plan.id}>
+                  <PlanCard
+                    plan={planData}
+                    variant="upgrade"
+                    isCurrentPlan={isCurrentPlan}
+                    onUpgrade={() => plan.name !== PLAN_NAMES.FREE && handleUpgrade(plan.id, selectedBilling)}
+                  />
+                  {selectedBilling === BILLING_CYCLES.YEARLY && yearlySavings > 0 && (
+                    <p
+                      className={`text-sm text-center mt-2 ${
+                        plan.name === PLAN_NAMES.AI_COACH ? "text-purple-600" : "text-secondary"
+                      }`}
+                    >
+                      Save ${yearlySavings} per year!
+                    </p>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
           {/* FAQ Section */}
