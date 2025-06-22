@@ -83,7 +83,7 @@ export function PlanCard({
     <>
       {/* Badge */}
       {theme.badge && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
           <Badge className={theme.badge.className}>
             {theme.badge.icon && renderIcon(theme.badge.icon as keyof typeof ICON_MAP, "h-3 w-3 mr-1")}
             {theme.badge.text}
@@ -91,7 +91,7 @@ export function PlanCard({
         </div>
       )}
 
-      <CardHeader>
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             {title}
@@ -117,8 +117,9 @@ export function PlanCard({
         </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
-        <ul className="space-y-3">
+      <CardContent className="flex flex-col h-full">
+        {/* Features list - grows to fill available space */}
+        <ul className="space-y-3 flex-grow mb-6">
           {features.map((feature, index) => {
             const iconName = getFeatureIcon(feature)
             return (
@@ -130,16 +131,19 @@ export function PlanCard({
           })}
         </ul>
 
-        <Link href={cta.href} className="block">
-          <Button
-            className={`w-full ${theme.colors.button}`}
-            variant={isFree ? "outline" : "default"}
-            disabled={isCurrentPlan && isUpgradeVariant}
-            size={isUpgradeVariant ? "default" : "lg"}
-          >
-            {isCurrentPlan && isUpgradeVariant ? "Current Plan" : cta.text}
-          </Button>
-        </Link>
+        {/* CTA Button - always at bottom */}
+        <div className="mt-auto">
+          <Link href={cta.href} className="block">
+            <Button
+              className={`w-full ${theme.colors.button}`}
+              variant={isFree ? "outline" : "default"}
+              disabled={isCurrentPlan && isUpgradeVariant}
+              size={isUpgradeVariant ? "default" : "lg"}
+            >
+              {isCurrentPlan && isUpgradeVariant ? "Current Plan" : cta.text}
+            </Button>
+          </Link>
+        </div>
       </CardContent>
     </>
   )
@@ -148,7 +152,7 @@ export function PlanCard({
     return (
       <Card
         className={`
-          relative
+          relative h-full flex flex-col
           ${isCurrentPlan ? "border-primary ring-2 ring-primary/20" : ""}
           ${theme.colors.background}
           ${theme.colors.border}
@@ -164,10 +168,10 @@ export function PlanCard({
   return (
     <div
       className={`
-        relative p-6 rounded-lg border-2 transition-all duration-200
+        relative h-full flex flex-col p-6 rounded-lg border-2 transition-all duration-200
         ${theme.colors.background}
         ${theme.colors.border}
-        ${isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg scale-105" : "hover:shadow-md"}
+        ${isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg" : "hover:shadow-md"}
         ${isPro ? "ring-blue-500" : ""}
         ${isAI ? "ring-purple-500" : ""}
         ${className}
@@ -175,7 +179,7 @@ export function PlanCard({
     >
       {/* Badge */}
       {theme.badge && (
-        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 z-10">
           <div
             className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${theme.badge.className}`}
           >
@@ -214,25 +218,27 @@ export function PlanCard({
         </div>
       </div>
 
-      {/* Features list */}
-      <ul className="space-y-3 mb-6">
+      {/* Features list - grows to fill available space */}
+      <ul className="space-y-3 mb-6 flex-grow">
         {features.map((feature, index) => {
           const iconName = getFeatureIcon(feature)
           return (
             <li key={index} className="flex items-start">
-              {renderIcon(iconName, `h-4 w-4 ${theme.colors.icon}`)}
+              {renderIcon(iconName, `h-4 w-4 ${theme.colors.icon} flex-shrink-0`)}
               <span className={`ml-2 text-sm ${theme.colors.text}`}>{feature}</span>
             </li>
           )
         })}
       </ul>
 
-      {/* CTA Button */}
-      <Link href={cta.href} className="block">
-        <Button className={`w-full transition-all duration-200 ${theme.colors.button}`} size="lg">
-          {cta.text}
-        </Button>
-      </Link>
+      {/* CTA Button - always at bottom */}
+      <div className="mt-auto">
+        <Link href={cta.href} className="block">
+          <Button className={`w-full transition-all duration-200 ${theme.colors.button}`} size="lg">
+            {cta.text}
+          </Button>
+        </Link>
+      </div>
     </div>
   )
 }

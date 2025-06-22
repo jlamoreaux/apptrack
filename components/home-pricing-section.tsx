@@ -44,14 +44,14 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       </div>
 
       <div className="max-w-6xl mx-auto">
-        {/* Fixed responsive grid for 3 items */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 md:gap-6 place-items-center">
+        {/* Grid with uniform heights */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 md:gap-6 auto-rows-fr">
           {planData.map((plan, index) => (
             <div
               key={plan.name}
               className={`
-                w-full max-w-sm
-                ${planData.length === 3 && index === 2 ? "md:col-span-2 md:justify-self-center xl:col-span-1" : ""}
+                flex
+                ${planData.length === 3 && index === 2 ? "md:col-span-2 md:justify-self-center md:max-w-sm xl:col-span-1 xl:max-w-none" : ""}
               `}
             >
               <PlanCard
@@ -62,6 +62,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
                 features={plan.features}
                 cta={plan.cta}
                 variant="home"
+                className="w-full"
               />
             </div>
           ))}
