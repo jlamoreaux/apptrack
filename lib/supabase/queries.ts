@@ -1,4 +1,4 @@
-import { createClient } from "./supabase";
+import { createClient } from "./server-client";
 import { redirect } from "next/navigation";
 
 export async function getUser() {
@@ -208,27 +208,26 @@ export async function getLinkedinProfiles(
   try {
     const supabase = await createClient();
 
-    const { data: profiles, error } = await supabase
-      .from("linkedin_profiles")
-      .select("*")
-      .eq("application_id", applicationId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error getting LinkedIn profiles:", error);
-      return [];
-    }
-
     // Verify the application belongs to the user
     const { data: application, error: appError } = await supabase
       .from("applications")
-      .select("user_id")
+      .select("id")
       .eq("id", applicationId)
       .eq("user_id", userId)
       .single();
 
     if (appError || !application) {
-      console.error("Application verification failed:", appError);
+      return [];
+    }
+
+    const { data: profiles, error } = await supabase
+      .from("linkedin_profiles")
+      .select("*")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error("Error getting LinkedIn profiles:", error);
       return [];
     }
 

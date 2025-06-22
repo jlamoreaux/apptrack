@@ -1,56 +1,63 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { User, LogOut, Crown, Settings } from "lucide-react"
-import Link from "next/link"
-import { signOut } from "@/lib/auth-actions"
-import type { User as SupabaseUser } from "@supabase/supabase-js"
-import type { Profile } from "@/lib/supabase"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, Crown, Settings } from "lucide-react";
+import Link from "next/link";
+import { signOut } from "@/lib/actions";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
+import type { Profile } from "@/lib/supabase";
 
 interface UserMenuProps {
-  user: SupabaseUser
-  profile: Profile | null
-  isOnFreePlan: boolean
+  user: SupabaseUser;
+  profile: Profile | null;
+  isOnFreePlan: boolean;
 }
 
 export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
-  const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   // Helper function to get display name with proper truncation
   const getDisplayName = () => {
     if (profile?.full_name) {
       // If name is longer than 20 characters, show first name + last initial
       if (profile.full_name.length > 20) {
-        const parts = profile.full_name.split(" ")
+        const parts = profile.full_name.split(" ");
         if (parts.length > 1) {
-          return `${parts[0]} ${parts[parts.length - 1][0]}.`
+          return `${parts[0]} ${parts[parts.length - 1][0]}.`;
         }
-        return profile.full_name.substring(0, 17) + "..."
+        return profile.full_name.substring(0, 17) + "...";
       }
-      return profile.full_name
+      return profile.full_name;
     }
     if (user?.email) {
-      return user.email.length > 20 ? user.email.substring(0, 17) + "..." : user.email
+      return user.email.length > 20
+        ? user.email.substring(0, 17) + "..."
+        : user.email;
     }
-    return "User"
-  }
+    return "User";
+  };
 
   const handleSignOut = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      await signOut()
-      router.push("/")
-      router.refresh()
+      await signOut();
+      router.push("/");
+      router.refresh();
     } catch (error) {
-      console.error("Sign out error:", error)
+      console.error("Sign out error:", error);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <DropdownMenu>
@@ -62,7 +69,9 @@ export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <div className="px-2 py-1.5 text-sm text-muted-foreground border-b">
-          <div className="font-medium text-foreground truncate">{profile?.full_name || user.email}</div>
+          <div className="font-medium text-foreground truncate">
+            {profile?.full_name || user.email}
+          </div>
           <div className="text-xs truncate">{user.email}</div>
         </div>
 
@@ -86,5 +95,5 @@ export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
+  );
 }

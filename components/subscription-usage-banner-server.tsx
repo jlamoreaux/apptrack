@@ -1,29 +1,47 @@
-import { Progress } from "@/components/ui/progress"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { getSubscription, getUsage } from "@/lib/auth-server"
-import { AlertCircle, CheckCircle, Infinity } from "lucide-react"
-import { Crown } from "lucide-react"
+import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { getSubscription, getUsage } from "@/lib/supabase/server";
+import { AlertCircle, CheckCircle, Infinity } from "lucide-react";
+import { Crown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export async function SubscriptionUsageBannerServer({ userId }: { userId: string }) {
+export async function SubscriptionUsageBannerServer({
+  userId,
+}: {
+  userId: string;
+}) {
   // Add timeouts to prevent hanging
-  const subscriptionPromise = getSubscription(userId)
-  const usagePromise = getUsage(userId)
+  const subscriptionPromise = getSubscription(userId);
+  const usagePromise = getUsage(userId);
 
-  const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 3000))
+  const timeoutPromise = new Promise((resolve) =>
+    setTimeout(() => resolve(null), 3000)
+  );
 
   // Race the data fetches against timeouts
-  const subscription = await Promise.race([subscriptionPromise, timeoutPromise])
-  const usage = await Promise.race([usagePromise, timeoutPromise])
+  const subscription = await Promise.race([
+    subscriptionPromise,
+    timeoutPromise,
+  ]);
+  const usage = await Promise.race([usagePromise, timeoutPromise]);
 
   // Default values if data is not available
-  const maxApplications = subscription?.subscription_plans?.max_applications || 5
-  const applicationsCount = usage?.applications_count || 0
-  const isPro = subscription?.subscription_plans?.name === "Pro"
+  const maxApplications =
+    subscription?.subscription_plans?.max_applications || 5;
+  const applicationsCount = usage?.applications_count || 0;
+  const isPro = subscription?.subscription_plans?.name === "Pro";
 
   // Calculate usage percentage
-  const usagePercentage = maxApplications === -1 ? 0 : Math.min((applicationsCount / maxApplications) * 100, 100)
-  const remaining = maxApplications === -1 ? -1 : Math.max(0, maxApplications - applicationsCount)
+  const usagePercentage =
+    maxApplications === -1
+      ? 0
+      : Math.min((applicationsCount / maxApplications) * 100, 100);
+  const remaining =
+    maxApplications === -1
+      ? -1
+      : Math.max(0, maxApplications - applicationsCount);
 
   return (
     <div className={`p-4 rounded-lg ${isPro ? "bg-secondary/10" : "bg-muted"}`}>
@@ -71,10 +89,12 @@ export async function SubscriptionUsageBannerServer({ userId }: { userId: string
 
         {!isPro && (
           <Link href="/dashboard/upgrade">
-            <Button className="bg-secondary hover:bg-secondary/90 whitespace-nowrap">Upgrade to Pro</Button>
+            <Button className="bg-secondary hover:bg-secondary/90 whitespace-nowrap">
+              Upgrade to Pro
+            </Button>
           </Link>
         )}
       </div>
     </div>
-  )
+  );
 }

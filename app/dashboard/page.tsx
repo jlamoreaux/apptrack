@@ -20,9 +20,12 @@ import { NavigationServer } from "@/components/navigation-server";
 import { SubscriptionUsageBannerServer } from "@/components/subscription-usage-banner-server";
 import {
   getUser,
+  getProfile,
+  getSubscription,
+  getUsage,
   getApplications,
   getApplicationHistory,
-} from "@/lib/auth-server";
+} from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/status-badge";
 import type { Application, ApplicationHistory } from "@/lib/types";
 

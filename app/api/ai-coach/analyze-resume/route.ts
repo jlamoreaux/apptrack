@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 
 export async function POST(request: NextRequest) {
