@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { BarChart3 } from "lucide-react"
-import { SITE_CONFIG } from "@/lib/constants/site-config"
+import { SITE_CONFIG } from "@/lib/config/site"
 
 export function NavigationStatic() {
   return (
