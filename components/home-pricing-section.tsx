@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { HOME_PRICING_CONFIG } from "@/lib/constants/home-pricing"
+import { COPY, getPlanCopy } from "@/lib/content/copy"
+import { PLAN_NAMES } from "@/lib/constants/plans"
 import { PlanCard } from "@/components/shared/plan-card"
 import { getHomePlanData } from "@/lib/utils/plan-helpers"
 import type { SubscriptionPlan } from "@/lib/supabase"
@@ -15,9 +16,16 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   const [planData, setPlanData] = useState<any[]>([])
 
   useEffect(() => {
+    // Get plan configuration from centralized copy
+    const planConfigs = [
+      { name: PLAN_NAMES.FREE, ...getPlanCopy(PLAN_NAMES.FREE) },
+      { name: PLAN_NAMES.PRO, ...getPlanCopy(PLAN_NAMES.PRO) },
+      { name: PLAN_NAMES.AI_COACH, ...getPlanCopy(PLAN_NAMES.AI_COACH) },
+    ].filter(Boolean)
+
     if (plans.length > 0) {
-      // Merge database plans with home page configuration
-      const mergedPlans = HOME_PRICING_CONFIG.planConfig
+      // Merge database plans with copy configuration
+      const mergedPlans = planConfigs
         .map((config) => {
           const dbPlan = plans.find((p) => p.name === config.name)
           if (dbPlan) {
@@ -29,8 +37,8 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
 
       setPlanData(mergedPlans)
     } else {
-      // Fallback to config if no database plans available
-      setPlanData(HOME_PRICING_CONFIG.planConfig)
+      // Fallback to copy configuration
+      setPlanData(planConfigs)
     }
   }, [plans])
 
@@ -38,9 +46,9 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
     <section className="mt-16" aria-labelledby="pricing-heading">
       <div className="text-center mb-8">
         <h2 id="pricing-heading" className="text-2xl font-bold mb-2 text-foreground">
-          {HOME_PRICING_CONFIG.title}
+          {COPY.pricing.title}
         </h2>
-        <p className="text-muted-foreground">{HOME_PRICING_CONFIG.subtitle}</p>
+        <p className="text-muted-foreground">{COPY.pricing.subtitle}</p>
       </div>
 
       <div className="max-w-6xl mx-auto">
@@ -85,7 +93,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       {/* Additional info */}
       <div className="text-center mt-8">
         <p className="text-sm text-muted-foreground">
-          All plans include our core job tracking features.{" "}
+          {COPY.pricing.footer}{" "}
           <Link href="/dashboard/upgrade" className="text-blue-600 hover:text-blue-700 underline font-medium">
             Compare all features
           </Link>{" "}
