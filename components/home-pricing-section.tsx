@@ -44,28 +44,41 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       </div>
 
       <div className="max-w-6xl mx-auto">
-        {/* Grid with uniform heights */}
+        {/* Grid with uniform heights and consistent widths */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 md:gap-6 auto-rows-fr">
-          {planData.map((plan, index) => (
-            <div
-              key={plan.name}
-              className={`
-                flex
-                ${planData.length === 3 && index === 2 ? "md:col-span-2 md:justify-self-center md:max-w-sm xl:col-span-1 xl:max-w-none" : ""}
-              `}
-            >
-              <PlanCard
-                planName={plan.name}
-                title={plan.title}
-                subtitle={plan.subtitle}
-                price={plan.price}
-                features={plan.features}
-                cta={plan.cta}
-                variant="home"
-                className="w-full"
-              />
-            </div>
-          ))}
+          {planData.map((plan, index) => {
+            const isThirdCard = planData.length === 3 && index === 2
+
+            return (
+              <div
+                key={plan.name}
+                className={`
+                  flex w-full
+                  ${isThirdCard ? "md:col-span-2 xl:col-span-1" : ""}
+                `}
+              >
+                <div
+                  className={`
+                    flex w-full
+                    ${isThirdCard ? "md:justify-center xl:justify-stretch" : ""}
+                  `}
+                >
+                  <PlanCard
+                    planName={plan.name}
+                    title={plan.title}
+                    subtitle={plan.subtitle}
+                    price={plan.price}
+                    features={plan.features}
+                    cta={plan.cta}
+                    variant="home"
+                    className={`
+                      ${isThirdCard ? "md:w-full md:max-w-sm xl:max-w-none" : "w-full"}
+                    `}
+                  />
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
