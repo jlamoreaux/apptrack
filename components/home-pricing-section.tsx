@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { PlanCard } from "@/components/ui/plan-card"
 import { HOME_PRICING_CONFIG } from "@/lib/constants/home-pricing"
+import { PlanCard } from "@/components/shared/plan-card"
 
 export function HomePricingSection() {
   return (
@@ -14,10 +14,19 @@ export function HomePricingSection() {
         <p className="text-muted-foreground">{HOME_PRICING_CONFIG.subtitle}</p>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-6">
           {HOME_PRICING_CONFIG.plans.map((plan) => (
-            <PlanCard key={plan.name} plan={plan} variant="home" />
+            <PlanCard
+              key={plan.name}
+              planName={plan.name}
+              title={plan.title}
+              subtitle={plan.subtitle}
+              price={plan.price}
+              features={plan.features}
+              cta={plan.cta}
+              variant="home"
+            />
           ))}
         </div>
       </div>
@@ -28,7 +37,8 @@ export function HomePricingSection() {
           All plans include our core job tracking features.{" "}
           <Link href="/dashboard/upgrade" className="text-blue-600 hover:text-blue-700 underline font-medium">
             Compare all features
-          </Link>
+          </Link>{" "}
+          to find the perfect fit.
         </p>
       </div>
     </section>

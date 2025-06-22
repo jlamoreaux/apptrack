@@ -21,7 +21,6 @@ export const HOME_PRICING_CONFIG = {
         text: "Get Started Free",
         href: "/signup",
       },
-      highlight: false,
     },
     {
       name: PLAN_NAMES.PRO,
@@ -36,7 +35,6 @@ export const HOME_PRICING_CONFIG = {
         text: "Upgrade to Pro",
         href: "/dashboard/upgrade",
       },
-      highlight: true,
     },
     {
       name: PLAN_NAMES.AI_COACH,
@@ -57,7 +55,6 @@ export const HOME_PRICING_CONFIG = {
         text: "Get AI Coaching",
         href: "/dashboard/upgrade",
       },
-      highlight: false,
     },
   ],
 } as const

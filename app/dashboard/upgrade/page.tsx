@@ -24,7 +24,7 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { useSubscription } from "@/hooks/use-subscription"
 import { PLAN_NAMES, BILLING_CYCLES } from "@/lib/constants/plans"
 import { getPlanFeatures, getPlanPrice, getYearlySavings, getPlanDisplayLimit } from "@/lib/utils/plan-helpers"
-import { PlanCard } from "@/components/ui/plan-card"
+import { PlanCard } from "@/components/plan-card"
 
 const ICON_MAP = {
   check: Check,
@@ -138,54 +138,53 @@ export default function UpgradePage() {
 
               const price = getPlanPrice(plan, selectedBilling)
               const yearlySavings = getYearlySavings(plan.name)
-              const isCurrentPlan = currentPlan?.name === plan.name
               const features = getPlanFeatures(plan)
 
-              const planData = {
-                name: plan.name,
-                title: plan.name,
-                subtitle:
-                  plan.name === PLAN_NAMES.FREE
-                    ? "Perfect for getting started"
-                    : plan.name === PLAN_NAMES.PRO
-                      ? "For serious job seekers"
-                      : "AI-powered career coaching",
-                price:
-                  plan.name === PLAN_NAMES.FREE
-                    ? null
-                    : {
-                        amount: price,
-                        period: selectedBilling === BILLING_CYCLES.MONTHLY ? "month" : "year",
-                      },
-                features,
-                cta: {
-                  text: `Upgrade to ${plan.name}`,
-                  href: "#",
-                },
-                highlight: plan.name === PLAN_NAMES.PRO,
-              }
-
               return (
-                <div key={plan.id}>
-                  <PlanCard
-                    plan={planData}
-                    variant="upgrade"
-                    isCurrentPlan={isCurrentPlan}
-                    onUpgrade={() => plan.name !== PLAN_NAMES.FREE && handleUpgrade(plan.id, selectedBilling)}
-                  />
-                  {selectedBilling === BILLING_CYCLES.YEARLY && yearlySavings > 0 && (
-                    <p
-                      className={`text-sm text-center mt-2 ${
-                        plan.name === PLAN_NAMES.AI_COACH ? "text-purple-600" : "text-secondary"
-                      }`}
-                    >
-                      Save ${yearlySavings} per year!
-                    </p>
-                  )}
-                </div>
+                <PlanCard
+                  key={plan.id}
+                  planName={plan.name}
+                  title={plan.name}
+                  subtitle={
+                    plan.name === PLAN_NAMES.FREE
+                      ? "Perfect for getting started"
+                      : plan.name === PLAN_NAMES.PRO
+                        ? "For serious job seekers"
+                        : "AI-powered career coaching"
+                  }
+                  price={
+                    plan.name === PLAN_NAMES.FREE
+                      ? null
+                      : { amount: price, period: selectedBilling === BILLING_CYCLES.MONTHLY ? "month" : "year" }
+                  }
+                  features={features}
+                  cta={{
+                    text:
+                      currentPlan?.name === plan.name
+                        ? "Current Plan"
+                        : plan.name === PLAN_NAMES.FREE
+                          ? "Downgrade"
+                          : `Upgrade to ${plan.name}`,
+                    href:
+                      plan.name === PLAN_NAMES.FREE
+                        ? "#"
+                        : `/dashboard/upgrade/checkout?planId=${plan.id}&billingCycle=${selectedBilling}`,
+                  }}
+                  isCurrentPlan={currentPlan?.name === plan.name}
+                  variant="upgrade"
+                />
               )
             })}
           </div>
+
+          {/* Add yearly savings info */}
+          {selectedBilling === BILLING_CYCLES.YEARLY && (
+            <div className="text-center mt-4">
+              <p className="text-sm text-muted-foreground">
+                💰 Save with yearly billing: Pro saves $4/year, AI Coach saves $18/year
+              </p>
+            </div>
+          )}
 
           {/* FAQ Section */}
           <div className="mt-16 space-y-8">
