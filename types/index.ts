@@ -215,3 +215,26 @@ export interface Database {
     };
   };
 }
+
+export interface UserResume {
+  id: string;
+  user_id: string;
+  file_url: string;
+  file_type: string;
+  extracted_text: string | null;
+  uploaded_at: string;
+  updated_at: string;
+}
+
+export interface CreateResumeInput {
+  user_id: string;
+  file_url: string;
+  file_type: string;
+  extracted_text: string;
+}
+
+export interface UpdateResumeInput {
+  file_url?: string;
+  file_type?: string;
+  extracted_text?: string;
+}

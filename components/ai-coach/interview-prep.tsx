@@ -16,8 +16,21 @@ import { generateInterviewPrep } from "@/lib/ai-coach";
 import { Loader2, MessageSquare } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
+import { useAICoachClient } from "@/hooks/use-ai-coach-client";
+import { useResumesClient } from "@/hooks/use-resumes-client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
 const InterviewPrep = () => {
+  const { user } = useSupabaseAuth();
+  const {
+    createInterviewPrep,
+    loading: dalLoading,
+    error,
+    clearError,
+  } = useAICoachClient(user?.id || null);
+  const { getResumeText, loading: resumeLoading } = useResumesClient(
+    user?.id || null
+  );
   const [jobDescription, setJobDescription] = useState("");
   const [userBackground, setUserBackground] = useState("");
   const [prep, setPrep] = useState("");
@@ -38,12 +51,26 @@ const InterviewPrep = () => {
 
     setIsLoading(true);
     setPrep("");
+    clearError();
+
     try {
-      const response = await generateInterviewPrep(
+      // Get user's resume text for context
+      const resumeText = await getResumeText();
+
+      // Generate interview prep using AI with resume context
+      const generatedPrep = await generateInterviewPrep(
         jobDescription,
-        userBackground
+        userBackground,
+        resumeText || undefined
       );
-      setPrep(response);
+
+      setPrep(generatedPrep);
+
+      // Save to database
+      if (user?.id) {
+        await createInterviewPrep(jobDescription, generatedPrep);
+      }
+
       toast({
         title: copy.successToast.title,
         description: copy.successToast.description,
@@ -60,11 +87,16 @@ const InterviewPrep = () => {
     }
   };
 
+  const isLoadingState = isLoading || dalLoading || resumeLoading;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
+        <CardDescription>
+          {copy.description}
+          {resumeLoading ? " Loading your resume for personalized prep..." : ""}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -89,12 +121,20 @@ const InterviewPrep = () => {
           />
         </div>
 
+        {error && (
+          <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+            {error}
+          </div>
+        )}
+
         <Button
           onClick={handleGenerate}
-          disabled={isLoading}
+          disabled={isLoadingState}
           className="w-full"
         >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isLoadingState ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
           {copy.generateButton}
         </Button>
 

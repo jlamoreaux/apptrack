@@ -17,8 +17,21 @@ import { generateCoverLetter } from "@/lib/ai-coach";
 import { Loader2 } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
+import { useAICoachClient } from "@/hooks/use-ai-coach-client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useResumesClient } from "@/hooks/use-resumes-client";
 
 const CoverLetterGenerator = () => {
+  const { user } = useSupabaseAuth();
+  const {
+    createCoverLetter,
+    loading: dalLoading,
+    error,
+    clearError,
+  } = useAICoachClient(user?.id || null);
+  const { getResumeText, loading: resumeLoading } = useResumesClient(
+    user?.id || null
+  );
   const [jobDescription, setJobDescription] = useState("");
   const [userBackground, setUserBackground] = useState("");
   const [companyName, setCompanyName] = useState("");
@@ -39,13 +52,27 @@ const CoverLetterGenerator = () => {
 
     setIsLoading(true);
     setCoverLetter("");
+    clearError();
+
     try {
-      const response = await generateCoverLetter(
+      // Get user's resume text for context
+      const resumeText = await getResumeText();
+
+      // Generate the cover letter using AI with resume context
+      const generatedCoverLetter = await generateCoverLetter(
         jobDescription,
         userBackground,
-        companyName
+        companyName,
+        resumeText || undefined
       );
-      setCoverLetter(response);
+
+      setCoverLetter(generatedCoverLetter);
+
+      // Save to database
+      if (user?.id) {
+        await createCoverLetter(jobDescription, generatedCoverLetter);
+      }
+
       toast({
         title: copy.successToast.title,
         description: copy.successToast.description,
@@ -62,11 +89,18 @@ const CoverLetterGenerator = () => {
     }
   };
 
+  const isLoadingState = isLoading || dalLoading || resumeLoading;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
+        <CardDescription>
+          {copy.description}
+          {resumeLoading
+            ? " Loading your resume for personalized cover letter..."
+            : ""}
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
@@ -101,12 +135,20 @@ const CoverLetterGenerator = () => {
           />
         </div>
 
+        {error && (
+          <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+            {error}
+          </div>
+        )}
+
         <Button
           onClick={handleGenerateCoverLetter}
-          disabled={isLoading}
+          disabled={isLoadingState}
           className="w-full"
         >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          {isLoadingState ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : null}
           {copy.generateButton}
         </Button>
 

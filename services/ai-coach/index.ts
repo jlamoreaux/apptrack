@@ -46,11 +46,11 @@ export class AICoachService {
         throw new ValidationServiceError("Analysis result is required");
       }
 
-      return await this.resumeAnalysisDAL.create(
-        userId,
-        resumeUrl,
-        analysisResult
-      );
+      return await this.resumeAnalysisDAL.create({
+        user_id: userId,
+        resume_url: resumeUrl,
+        analysis_result: analysisResult,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create resume analysis");
     }
@@ -84,11 +84,11 @@ export class AICoachService {
         throw new ValidationServiceError("Prep content is required");
       }
 
-      return await this.interviewPrepDAL.create(
-        userId,
-        jobDescription,
-        prepContent
-      );
+      return await this.interviewPrepDAL.create({
+        user_id: userId,
+        job_description: jobDescription,
+        prep_content: prepContent,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create interview prep");
     }
@@ -122,7 +122,11 @@ export class AICoachService {
         throw new ValidationServiceError("Advice is required");
       }
 
-      return await this.careerAdviceDAL.create(userId, question, advice);
+      return await this.careerAdviceDAL.create({
+        user_id: userId,
+        question,
+        advice,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create career advice");
     }
@@ -156,11 +160,11 @@ export class AICoachService {
         throw new ValidationServiceError("Cover letter is required");
       }
 
-      return await this.coverLetterDAL.create(
-        userId,
-        jobDescription,
-        coverLetter
-      );
+      return await this.coverLetterDAL.create({
+        user_id: userId,
+        job_description: jobDescription,
+        cover_letter: coverLetter,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create cover letter");
     }
@@ -199,12 +203,12 @@ export class AICoachService {
         throw new ValidationServiceError("Fit score must be between 0 and 100");
       }
 
-      return await this.jobFitAnalysisDAL.create(
-        userId,
-        jobDescription,
-        analysisResult,
-        fitScore
-      );
+      return await this.jobFitAnalysisDAL.create({
+        user_id: userId,
+        job_description: jobDescription,
+        analysis_result: analysisResult,
+        fit_score: fitScore,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create job fit analysis");
     }

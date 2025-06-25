@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +24,7 @@ export async function GET(request: NextRequest) {
     );
 
     // Check if subscription is for Pro plan or higher
-    const isPro =
-      subscriptionStatus.plan === PLAN_NAMES.PRO ||
-      subscriptionStatus.plan === PLAN_NAMES.AI_COACH;
+    const isPro = isOnProOrHigher(subscriptionStatus.plan);
 
     return NextResponse.json({
       isActive: subscriptionStatus.isActive && isPro,

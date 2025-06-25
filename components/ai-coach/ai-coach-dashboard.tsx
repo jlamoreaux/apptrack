@@ -8,11 +8,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, MessageSquare, FileText, Target } from "lucide-react";
+import { Brain, MessageSquare, FileText, Target, Upload } from "lucide-react";
 import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
+import { ResumeSection } from "@/components/resume-section";
 import { COPY } from "@/lib/content/copy";
 
 interface AICoachDashboardProps {
@@ -25,6 +26,9 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
 
   return (
     <div className="space-y-8">
+      {/* Resume Section */}
+      <ResumeSection />
+
       {/* Feature Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {features.map((feature) => {
