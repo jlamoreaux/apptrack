@@ -186,7 +186,7 @@ export const getPlanDisplayName = (planName: string): string => {
 /**
  * Get the features available for a specific plan
  */
-export const getPlanFeatures = (planName: string): string[] => {
+export const getPlanFeaturesByName = (planName: string): string[] => {
   const features: string[] = [];
 
   // Add base features for all plans
