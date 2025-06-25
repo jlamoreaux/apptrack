@@ -24,20 +24,32 @@ export async function generateResumeAdvice(
 
 export async function generateInterviewPrep(
   jobDescription: string,
-  userBackground?: string
+  userBackground?: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.INTERVIEW_PREP,
     },
-    {
-      role: "user",
-      content: userBackground
-        ? `Help me prepare for an interview for this position. Here's the job description and my background:\n\nJob Description:\n${jobDescription}\n\nMy Background:\n${userBackground}\n\nPlease provide likely interview questions and guidance on how to answer them.`
-        : `Help me prepare for an interview for this position:\n\n${jobDescription}\n\nPlease provide likely interview questions and general interview advice.`,
-    },
   ];
+
+  let content = `Help me prepare for an interview for this position:\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  if (userBackground) {
+    content += `\n\nAdditional Background:\n${userBackground}`;
+  }
+
+  content += `\n\nPlease provide likely interview questions and guidance on how to answer them based on my background and the job requirements.`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages });
 }
@@ -45,42 +57,67 @@ export async function generateInterviewPrep(
 export async function generateCoverLetter(
   jobDescription: string,
   userBackground: string,
-  companyName: string
+  companyName: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.COVER_LETTER_WRITER,
     },
-    {
-      role: "user",
-      content: `Please write a cover letter for me for this position at ${companyName}:\n\nJob Description:\n${jobDescription}\n\nMy Background:\n${userBackground}\n\nPlease make it professional, engaging, and tailored to this specific role.`,
-    },
   ];
+
+  let content = `Please write a cover letter for me for this position at ${companyName}:\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  content += `\n\nMy Background:\n${userBackground}\n\nPlease make it professional, engaging, and tailored to this specific role.`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages });
 }
 
 export async function analyzeJobDescription(
-  jobDescription: string
+  jobDescription: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.JOB_ANALYST,
     },
-    {
-      role: "user",
-      content: `Please analyze this job description and provide insights about:\n1. Key requirements and qualifications\n2. Important skills to highlight\n3. Company culture indicators\n4. Salary expectations if possible\n5. Tips for standing out as a candidate\n\nJob Description:\n${jobDescription}`,
-    },
   ];
+
+  let content = `Please analyze this job description and provide insights about:\n1. Key requirements and qualifications\n2. Important skills to highlight\n3. Company culture indicators\n4. Salary expectations if possible\n5. Tips for standing out as a candidate`;
+
+  if (resumeText) {
+    content += `\n6. How well my background matches this role`;
+  }
+
+  content += `\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages });
 }
 
 export async function generateCareerAdvice(
   userQuery: string,
-  userContext?: string
+  userContext?: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
@@ -89,17 +126,22 @@ export async function generateCareerAdvice(
     },
   ];
 
-  if (userContext) {
-    messages.push({
-      role: "user",
-      content: `Here's some context about my situation: ${userContext}\n\nMy question: ${userQuery}`,
-    });
-  } else {
-    messages.push({
-      role: "user",
-      content: userQuery,
-    });
+  let content = "";
+
+  if (resumeText) {
+    content += `My Resume:\n${resumeText}\n\n`;
   }
+
+  if (userContext) {
+    content += `Here's some context about my situation: ${userContext}\n\n`;
+  }
+
+  content += `My question: ${userQuery}`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages });
 }
@@ -129,20 +171,32 @@ export async function generateResumeAdviceWithModel(
 export async function generateInterviewPrepWithModel(
   jobDescription: string,
   model: ModelType,
-  userBackground?: string
+  userBackground?: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.INTERVIEW_PREP,
     },
-    {
-      role: "user",
-      content: userBackground
-        ? `Help me prepare for an interview for this position. Here's the job description and my background:\n\nJob Description:\n${jobDescription}\n\nMy Background:\n${userBackground}\n\nPlease provide likely interview questions and guidance on how to answer them.`
-        : `Help me prepare for an interview for this position:\n\n${jobDescription}\n\nPlease provide likely interview questions and general interview advice.`,
-    },
   ];
+
+  let content = `Help me prepare for an interview for this position:\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  if (userBackground) {
+    content += `\n\nAdditional Background:\n${userBackground}`;
+  }
+
+  content += `\n\nPlease provide likely interview questions and guidance on how to answer them based on my background and the job requirements.`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages, model });
 }
@@ -151,36 +205,60 @@ export async function generateCoverLetterWithModel(
   jobDescription: string,
   userBackground: string,
   companyName: string,
-  model: ModelType
+  model: ModelType,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.COVER_LETTER_WRITER,
     },
-    {
-      role: "user",
-      content: `Please write a cover letter for me for this position at ${companyName}:\n\nJob Description:\n${jobDescription}\n\nMy Background:\n${userBackground}\n\nPlease make it professional, engaging, and tailored to this specific role.`,
-    },
   ];
+
+  let content = `Please write a cover letter for me for this position at ${companyName}:\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  content += `\n\nMy Background:\n${userBackground}\n\nPlease make it professional, engaging, and tailored to this specific role.`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages, model });
 }
 
 export async function analyzeJobDescriptionWithModel(
   jobDescription: string,
-  model: ModelType
+  model: ModelType,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: SYSTEM_PROMPTS.JOB_ANALYST,
     },
-    {
-      role: "user",
-      content: `Please analyze this job description and provide insights about:\n1. Key requirements and qualifications\n2. Important skills to highlight\n3. Company culture indicators\n4. Salary expectations if possible\n5. Tips for standing out as a candidate\n\nJob Description:\n${jobDescription}`,
-    },
   ];
+
+  let content = `Please analyze this job description and provide insights about:\n1. Key requirements and qualifications\n2. Important skills to highlight\n3. Company culture indicators\n4. Salary expectations if possible\n5. Tips for standing out as a candidate`;
+
+  if (resumeText) {
+    content += `\n6. How well my background matches this role`;
+  }
+
+  content += `\n\nJob Description:\n${jobDescription}`;
+
+  if (resumeText) {
+    content += `\n\nMy Resume:\n${resumeText}`;
+  }
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages, model });
 }
@@ -188,7 +266,8 @@ export async function analyzeJobDescriptionWithModel(
 export async function generateCareerAdviceWithModel(
   userQuery: string,
   model: ModelType,
-  userContext?: string
+  userContext?: string,
+  resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
@@ -197,17 +276,22 @@ export async function generateCareerAdviceWithModel(
     },
   ];
 
-  if (userContext) {
-    messages.push({
-      role: "user",
-      content: `Here's some context about my situation: ${userContext}\n\nMy question: ${userQuery}`,
-    });
-  } else {
-    messages.push({
-      role: "user",
-      content: userQuery,
-    });
+  let content = "";
+
+  if (resumeText) {
+    content += `My Resume:\n${resumeText}\n\n`;
   }
+
+  if (userContext) {
+    content += `Here's some context about my situation: ${userContext}\n\n`;
+  }
+
+  content += `My question: ${userQuery}`;
+
+  messages.push({
+    role: "user",
+    content,
+  });
 
   return callCareerCoach({ messages, model });
 }

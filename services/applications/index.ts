@@ -13,6 +13,7 @@ import {
 } from "@/dal/applications";
 import type { Application, ApplicationHistory } from "@/types";
 import { PLAN_LIMITS } from "@/lib/constants/plans";
+import { isOnFreePlan } from "@/lib/utils/plan-helpers";
 
 export class ApplicationService
   implements
@@ -254,7 +255,7 @@ export class ApplicationService
       const activeCount = await this.applicationDAL.count(userId);
 
       // Free users have a limit, Pro and AI Coach users have unlimited
-      if (userPlan === "Free") {
+      if (isOnFreePlan(userPlan)) {
         return activeCount < PLAN_LIMITS.FREE_MAX_APPLICATIONS;
       }
 
@@ -267,9 +268,7 @@ export class ApplicationService
     }
   }
 
-  async getApplicationWithHistory(
-    applicationId: string
-  ): Promise<{
+  async getApplicationWithHistory(applicationId: string): Promise<{
     application: Application;
     history: ApplicationHistory[];
   } | null> {

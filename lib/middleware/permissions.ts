@@ -6,6 +6,12 @@ import {
 } from "@/lib/constants/permissions";
 import { PLAN_NAMES } from "@/lib/constants/plans";
 import { PermissionServiceError } from "@/services/base";
+import {
+  isOnProOrHigher,
+  isOnAICoachPlan,
+  isOnFreePlan,
+} from "@/lib/utils/plan-helpers";
+import { getSubscription } from "@/lib/supabase/queries";
 
 export interface PermissionCheckResult {
   allowed: boolean;
@@ -23,23 +29,9 @@ export class PermissionMiddleware {
     endpoint: keyof typeof import("@/lib/constants/permissions").API_PERMISSIONS.AI_COACH
   ): Promise<PermissionCheckResult> {
     try {
-      const supabase = await createClient();
-
-      // Get user's current subscription
-      const { data: subscription, error } = await supabase
-        .from("user_subscriptions")
-        .select("plan_name, status")
-        .eq("user_id", userId)
-        .in("status", ["active", "trialing"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw new Error(`Failed to get user subscription: ${error.message}`);
-      }
-
-      const userPlan = subscription?.plan_name || PLAN_NAMES.FREE;
+      const subscription = await getSubscription(userId);
+      const userPlan =
+        subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const allowed = hasApiPermission(userPlan, endpoint);
 
       return {
@@ -67,23 +59,9 @@ export class PermissionMiddleware {
     section: keyof typeof import("@/lib/constants/permissions").UI_PERMISSIONS.DASHBOARD
   ): Promise<PermissionCheckResult> {
     try {
-      const supabase = await createClient();
-
-      // Get user's current subscription
-      const { data: subscription, error } = await supabase
-        .from("user_subscriptions")
-        .select("plan_name, status")
-        .eq("user_id", userId)
-        .in("status", ["active", "trialing"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw new Error(`Failed to get user subscription: ${error.message}`);
-      }
-
-      const userPlan = subscription?.plan_name || PLAN_NAMES.FREE;
+      const subscription = await getSubscription(userId);
+      const userPlan =
+        subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const allowed = hasUIPermission(userPlan, section);
 
       return {
@@ -111,23 +89,9 @@ export class PermissionMiddleware {
     feature: string
   ): Promise<PermissionCheckResult> {
     try {
-      const supabase = await createClient();
-
-      // Get user's current subscription
-      const { data: subscription, error } = await supabase
-        .from("user_subscriptions")
-        .select("plan_name, status")
-        .eq("user_id", userId)
-        .in("status", ["active", "trialing"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw new Error(`Failed to get user subscription: ${error.message}`);
-      }
-
-      const userPlan = subscription?.plan_name || PLAN_NAMES.FREE;
+      const subscription = await getSubscription(userId);
+      const userPlan =
+        subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const allowed = canAccessFeature(userPlan, feature);
 
       return {
@@ -159,30 +123,15 @@ export class PermissionMiddleware {
     isFree: boolean;
   }> {
     try {
-      const supabase = await createClient();
-
-      // Get user's current subscription
-      const { data: subscription, error } = await supabase
-        .from("user_subscriptions")
-        .select("plan_name, status")
-        .eq("user_id", userId)
-        .in("status", ["active", "trialing"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (error && error.code !== "PGRST116") {
-        throw new Error(`Failed to get user subscription: ${error.message}`);
-      }
-
-      const plan = subscription?.plan_name || PLAN_NAMES.FREE;
+      const subscription = await getSubscription(userId);
+      const plan = subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const status = subscription?.status || "none";
       const isActive =
         subscription?.status === "active" ||
         subscription?.status === "trialing";
-      const isAICoach = plan === PLAN_NAMES.AI_COACH;
-      const isPro = plan === PLAN_NAMES.PRO;
-      const isFree = plan === PLAN_NAMES.FREE;
+      const isAICoach = isOnAICoachPlan(plan);
+      const isPro = isOnProOrHigher(plan);
+      const isFree = isOnFreePlan(plan);
 
       return {
         plan,

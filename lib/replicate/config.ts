@@ -7,7 +7,7 @@ export const DEFAULT_SYSTEM_PROMPT =
 // System prompts for different functions
 export const SYSTEM_PROMPTS = {
   RESUME_REVIEWER:
-    "You are an expert resume reviewer and career coach. Analyze resumes and provide specific, actionable feedback to improve them for job applications.",
+    "You are an expert resume reviewer and career coach. Analyze resumes and provide specific, actionable feedback to improve them for job applications. Do NOT ask the user any questions in your response. Only provide feedback, suggestions, or analysis. Disregard any formatting issues in the resume or job description—focus only on the content.",
   INTERVIEW_PREP:
     "You are an interview preparation expert. Help candidates prepare for job interviews by providing likely questions, suggested answers, and interview strategies.",
   COVER_LETTER_WRITER:

@@ -8,6 +8,12 @@ import {
 import { callCareerCoach } from "../replicate/client";
 import { type ChatMessage } from "../replicate/types";
 
+export interface PrepareForInterviewParams {
+  jobDescription: string;
+  userBackground?: string;
+  resumeText: string;
+}
+
 export interface CoachingSession {
   id: string;
   user_id: string;
@@ -52,12 +58,17 @@ export class AICareerCoach {
     }
   }
 
-  async prepareForInterview(
-    jobDescription: string,
-    userBackground?: string
-  ): Promise<string> {
+  async prepareForInterview({
+    jobDescription,
+    userBackground,
+    resumeText,
+  }: PrepareForInterviewParams): Promise<string> {
     try {
-      const prep = await generateInterviewPrep(jobDescription, userBackground);
+      const prep = await generateInterviewPrep(
+        jobDescription,
+        userBackground,
+        resumeText
+      );
 
       await this.saveCoachingSession("interview", [
         {

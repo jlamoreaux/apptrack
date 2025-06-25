@@ -29,28 +29,36 @@ export class AICoachService {
   // Resume Analysis methods
   async createResumeAnalysis(
     userId: string,
-    resumeUrl: string,
-    analysisResult: string
+    options: {
+      user_resume_id?: string;
+      resume_text?: string;
+      job_description?: string;
+      job_url?: string;
+      analysis_result: any;
+    }
   ): Promise<ResumeAnalysis> {
     try {
       // Validate inputs
       if (!userId?.trim()) {
         throw new ValidationServiceError("User ID is required");
       }
-
-      if (!resumeUrl?.trim()) {
-        throw new ValidationServiceError("Resume URL is required");
-      }
-
-      if (!analysisResult?.trim()) {
+      if (!options.analysis_result) {
         throw new ValidationServiceError("Analysis result is required");
       }
-
-      return await this.resumeAnalysisDAL.create(
-        userId,
-        resumeUrl,
-        analysisResult
-      );
+      // At least one resume reference should be provided
+      if (!options.user_resume_id && !options.resume_text) {
+        throw new ValidationServiceError(
+          "Either user_resume_id or resume_text is required"
+        );
+      }
+      return await this.resumeAnalysisDAL.create({
+        user_id: userId,
+        user_resume_id: options.user_resume_id,
+        resume_text: options.resume_text,
+        job_description: options.job_description,
+        job_url: options.job_url,
+        analysis_result: options.analysis_result,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create resume analysis");
     }
@@ -64,31 +72,38 @@ export class AICoachService {
     }
   }
 
+  async findExistingResumeAnalysis(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+  }): Promise<ResumeAnalysis | null> {
+    return this.resumeAnalysisDAL.findExistingAnalysis(options);
+  }
+
   // Interview Prep methods
-  async createInterviewPrep(
-    userId: string,
-    jobDescription: string,
-    prepContent: string
-  ): Promise<InterviewPrep> {
+  async createInterviewPrep(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+    user_background?: string;
+    prep_content: string;
+  }): Promise<InterviewPrep> {
     try {
-      // Validate inputs
-      if (!userId?.trim()) {
+      if (!options.user_id?.trim()) {
         throw new ValidationServiceError("User ID is required");
       }
-
-      if (!jobDescription?.trim()) {
-        throw new ValidationServiceError("Job description is required");
-      }
-
-      if (!prepContent?.trim()) {
+      if (!options.prep_content?.trim()) {
         throw new ValidationServiceError("Prep content is required");
       }
-
-      return await this.interviewPrepDAL.create(
-        userId,
-        jobDescription,
-        prepContent
-      );
+      // At least one job reference should be provided
+      if (!options.job_description && !options.job_url) {
+        throw new ValidationServiceError("Job description or URL is required");
+      }
+      return await this.interviewPrepDAL.create(options);
     } catch (error) {
       throw wrapDALError(error, "Failed to create interview prep");
     }
@@ -100,6 +115,17 @@ export class AICoachService {
     } catch (error) {
       throw wrapDALError(error, "Failed to get interview preps");
     }
+  }
+
+  async findExistingInterviewPrep(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+    user_background?: string;
+  }): Promise<InterviewPrep | null> {
+    return this.interviewPrepDAL.findExistingAnalysis(options);
   }
 
   // Career Advice methods
@@ -122,7 +148,11 @@ export class AICoachService {
         throw new ValidationServiceError("Advice is required");
       }
 
-      return await this.careerAdviceDAL.create(userId, question, advice);
+      return await this.careerAdviceDAL.create({
+        user_id: userId,
+        question,
+        advice,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create career advice");
     }
@@ -156,11 +186,11 @@ export class AICoachService {
         throw new ValidationServiceError("Cover letter is required");
       }
 
-      return await this.coverLetterDAL.create(
-        userId,
-        jobDescription,
-        coverLetter
-      );
+      return await this.coverLetterDAL.create({
+        user_id: userId,
+        job_description: jobDescription,
+        cover_letter: coverLetter,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create cover letter");
     }
@@ -199,12 +229,12 @@ export class AICoachService {
         throw new ValidationServiceError("Fit score must be between 0 and 100");
       }
 
-      return await this.jobFitAnalysisDAL.create(
-        userId,
-        jobDescription,
-        analysisResult,
-        fitScore
-      );
+      return await this.jobFitAnalysisDAL.create({
+        user_id: userId,
+        job_description: jobDescription,
+        analysis_result: analysisResult,
+        fit_score: fitScore,
+      });
     } catch (error) {
       throw wrapDALError(error, "Failed to create job fit analysis");
     }

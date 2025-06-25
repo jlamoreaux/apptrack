@@ -67,8 +67,11 @@ export interface ApplicationHistory {
 export interface ResumeAnalysis {
   id: string;
   user_id: string;
-  resume_url: string;
-  analysis_result: string;
+  user_resume_id?: string | null;
+  resume_text?: string | null;
+  job_description?: string | null;
+  job_url?: string | null;
+  analysis_result: any;
   created_at: string;
 }
 
@@ -214,4 +217,36 @@ export interface Database {
       };
     };
   };
+}
+
+export interface UserResume {
+  id: string;
+  user_id: string;
+  file_url: string;
+  file_type: string;
+  extracted_text: string | null;
+  uploaded_at: string;
+  updated_at: string;
+}
+
+export interface CreateResumeAnalysisInput {
+  user_id: string;
+  user_resume_id?: string;
+  resume_text?: string;
+  job_description?: string;
+  job_url?: string;
+  analysis_result: any;
+}
+
+export interface CreateResumeInput {
+  user_id: string;
+  file_url: string;
+  file_type: string;
+  extracted_text: string;
+}
+
+export interface UpdateResumeInput {
+  file_url?: string;
+  file_type?: string;
+  extracted_text?: string;
 }
