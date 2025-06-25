@@ -1,38 +1,45 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3, Crown } from "lucide-react"
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
-import { useSubscription } from "@/hooks/use-subscription"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, BarChart3, Crown } from "lucide-react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useSubscription } from "@/hooks/use-subscription";
 
 export function NavigationClient() {
-  const { user, profile, signOut } = useSupabaseAuth()
-  const { isOnFreePlan } = useSubscription(user?.id || null)
+  const { user, profile, signOut } = useSupabaseAuth();
+  const { isOnFreePlan } = useSubscription(user?.id || null);
 
   const handleLogout = async () => {
-    await signOut()
-  }
+    await signOut();
+  };
 
   // Helper function to get display name with proper truncation
   const getDisplayName = () => {
     if (profile?.full_name) {
       // If name is longer than 20 characters, show first name + last initial
       if (profile.full_name.length > 20) {
-        const parts = profile.full_name.split(" ")
+        const parts = profile.full_name.split(" ");
         if (parts.length > 1) {
-          return `${parts[0]} ${parts[parts.length - 1][0]}.`
+          return `${parts[0]} ${parts[parts.length - 1][0]}.`;
         }
-        return profile.full_name.substring(0, 17) + "..."
+        return profile.full_name.substring(0, 17) + "...";
       }
-      return profile.full_name
+      return profile.full_name;
     }
     if (user?.email) {
-      return user.email.length > 20 ? user.email.substring(0, 17) + "..." : user.email
+      return user.email.length > 20
+        ? user.email.substring(0, 17) + "..."
+        : user.email;
     }
-    return "User"
-  }
+    return "User";
+  };
 
   if (!user) {
     return (
@@ -47,12 +54,14 @@ export function NavigationClient() {
               <Button variant="ghost">Login</Button>
             </Link>
             <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
+              <Button className="bg-primary hover:bg-primary/90">
+                Sign Up
+              </Button>
             </Link>
           </div>
         </div>
       </nav>
-    )
+    );
   }
 
   return (
@@ -88,7 +97,9 @@ export function NavigationClient() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5 text-sm text-muted-foreground border-b">
-                <div className="font-medium text-foreground truncate">{profile?.full_name || user.email}</div>
+                <div className="font-medium text-foreground truncate">
+                  {profile?.full_name || user.email}
+                </div>
                 <div className="text-xs truncate">{user.email}</div>
               </div>
 
@@ -108,5 +119,5 @@ export function NavigationClient() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

@@ -14,6 +14,7 @@ import { SubscriptionManagement } from "@/components/subscription-management";
 import { DangerZone } from "@/components/danger-zone";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/theme-toggle";
 import Link from "next/link";
 
 export default async function SettingsPage() {
@@ -60,6 +61,19 @@ export default async function SettingsPage() {
               </CardHeader>
               <CardContent>
                 <AccountInfoForm user={user} profile={profile} />
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Appearance */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Choose your preferred theme</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ThemeToggle />
               </CardContent>
             </Card>
 
