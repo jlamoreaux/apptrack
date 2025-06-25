@@ -29,27 +29,35 @@ export class AICoachService {
   // Resume Analysis methods
   async createResumeAnalysis(
     userId: string,
-    resumeUrl: string,
-    analysisResult: string
+    options: {
+      user_resume_id?: string;
+      resume_text?: string;
+      job_description?: string;
+      job_url?: string;
+      analysis_result: any;
+    }
   ): Promise<ResumeAnalysis> {
     try {
       // Validate inputs
       if (!userId?.trim()) {
         throw new ValidationServiceError("User ID is required");
       }
-
-      if (!resumeUrl?.trim()) {
-        throw new ValidationServiceError("Resume URL is required");
-      }
-
-      if (!analysisResult?.trim()) {
+      if (!options.analysis_result) {
         throw new ValidationServiceError("Analysis result is required");
       }
-
+      // At least one resume reference should be provided
+      if (!options.user_resume_id && !options.resume_text) {
+        throw new ValidationServiceError(
+          "Either user_resume_id or resume_text is required"
+        );
+      }
       return await this.resumeAnalysisDAL.create({
         user_id: userId,
-        resume_url: resumeUrl,
-        analysis_result: analysisResult,
+        user_resume_id: options.user_resume_id,
+        resume_text: options.resume_text,
+        job_description: options.job_description,
+        job_url: options.job_url,
+        analysis_result: options.analysis_result,
       });
     } catch (error) {
       throw wrapDALError(error, "Failed to create resume analysis");
@@ -62,6 +70,16 @@ export class AICoachService {
     } catch (error) {
       throw wrapDALError(error, "Failed to get resume analyses");
     }
+  }
+
+  async findExistingResumeAnalysis(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+  }): Promise<ResumeAnalysis | null> {
+    return this.resumeAnalysisDAL.findExistingAnalysis(options);
   }
 
   // Interview Prep methods

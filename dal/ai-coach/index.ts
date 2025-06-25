@@ -11,13 +11,19 @@ import type {
 // Resume Analysis
 export interface CreateResumeAnalysisInput {
   user_id: string;
-  resume_url: string;
-  analysis_result: string;
+  user_resume_id?: string;
+  resume_text?: string;
+  job_description?: string;
+  job_url?: string;
+  analysis_result: any;
 }
 
 export interface UpdateResumeAnalysisInput {
-  resume_url?: string;
-  analysis_result?: string;
+  user_resume_id?: string;
+  resume_text?: string;
+  job_description?: string;
+  job_url?: string;
+  analysis_result?: any;
 }
 
 // Interview Prep
@@ -273,6 +279,83 @@ export class ResumeAnalysisDAL
       if (error instanceof DALError) throw error;
       throw new DALError(
         "Failed to count resume analyses",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  async findExistingAnalysis({
+    user_id,
+    user_resume_id,
+    resume_text,
+    job_description,
+    job_url,
+  }: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+  }): Promise<ResumeAnalysis | null> {
+    try {
+      const supabase = await createClient();
+      let query = supabase
+        .from("resume_analysis")
+        .select("*")
+        .eq("user_id", user_id);
+
+      // Priority 1: user_resume_id + job_url
+      if (user_resume_id && job_url) {
+        query = query
+          .eq("user_resume_id", user_resume_id)
+          .eq("job_url", job_url);
+      }
+      // Priority 2: user_resume_id + job_description
+      else if (user_resume_id && job_description) {
+        query = query
+          .eq("user_resume_id", user_resume_id)
+          .eq("job_description", job_description);
+      }
+      // Priority 3: resume_text + job_url
+      else if (resume_text && job_url) {
+        query = query.eq("resume_text", resume_text).eq("job_url", job_url);
+      }
+      // Priority 4: resume_text + job_description
+      else if (resume_text && job_description) {
+        query = query
+          .eq("resume_text", resume_text)
+          .eq("job_description", job_description);
+      }
+      // If only one or neither, fallback to previous logic (less strict)
+      else {
+        if (user_resume_id) {
+          query = query.eq("user_resume_id", user_resume_id);
+        } else if (resume_text) {
+          query = query.eq("resume_text", resume_text);
+        }
+        if (job_description) {
+          query = query.eq("job_description", job_description);
+        } else if (job_url) {
+          query = query.eq("job_url", job_url);
+        }
+      }
+
+      const { data, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (error) {
+        throw new DALError(
+          `Failed to find existing resume analysis: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+      console.log("Found existing resume analysis", data[0].id);
+      return data && data.length > 0 ? data[0] : null;
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError(
+        "Failed to find existing resume analysis",
         "QUERY_ERROR",
         error
       );

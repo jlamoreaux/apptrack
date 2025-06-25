@@ -18,7 +18,6 @@ import { COPY } from "@/lib/content/copy";
 import { useAICoachClient } from "@/hooks/use-ai-coach-client";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { generateCareerAdvice } from "@/lib/ai-coach/functions";
 
 interface CareerAdviceProps {
   userId: string;
@@ -55,21 +54,28 @@ export function CareerAdvice({ userId }: CareerAdviceProps) {
       // Get user's resume text for context
       const resumeText = await getResumeText();
 
-      // Generate advice using AI with resume context
-      const generatedAdvice = await generateCareerAdvice(
-        question.trim(),
-        context.trim() || undefined,
-        resumeText || undefined
-      );
+      // Call backend API route for career advice
+      const response = await fetch("/api/ai-coach/career-advice", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: question.trim(),
+          context:
+            (context.trim() || "") +
+            (resumeText ? `\n\nResume:\n${resumeText}` : ""),
+        }),
+      });
 
-      // Save to database
-      const result = await createCareerAdvice(question.trim(), generatedAdvice);
+      const data = await response.json();
 
-      if (result) {
-        setAdvice(result.advice);
-      } else {
-        setAdvice(generatedAdvice);
+      if (!response.ok) {
+        setAdvice("");
+        throw new Error(data.error || "Failed to get advice");
       }
+
+      setAdvice(data.advice);
     } catch (err) {
       // Error is handled by the hook
     } finally {

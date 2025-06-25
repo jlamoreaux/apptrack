@@ -74,7 +74,7 @@ export const COPY = {
     resumeAnalyzer: {
       title: "Resume Analysis",
       description:
-        "Upload your resume or paste the text below, and optionally include a job description for targeted feedback",
+        "We'll use the resume you've already uploaded for analysis. If you'd like to analyze a different resume, you can upload a new one below. Uploading a new resume is optional. Optionally, you can also include a job description for targeted feedback.",
       resumeLabel: "Resume *",
       uploadButton: {
         default: "Upload Resume",

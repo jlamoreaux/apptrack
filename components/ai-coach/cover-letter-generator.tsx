@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { generateCoverLetter } from "@/lib/ai-coach";
 import { Loader2 } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
@@ -55,22 +54,30 @@ const CoverLetterGenerator = () => {
     clearError();
 
     try {
-      // Get user's resume text for context
-      const resumeText = await getResumeText();
+      // Call backend API route for cover letter generation
+      const response = await fetch("/api/ai-coach/cover-letter", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobDescription,
+          userBackground,
+          companyName,
+        }),
+      });
 
-      // Generate the cover letter using AI with resume context
-      const generatedCoverLetter = await generateCoverLetter(
-        jobDescription,
-        userBackground,
-        companyName,
-        resumeText || undefined
-      );
+      const data = await response.json();
 
-      setCoverLetter(generatedCoverLetter);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate cover letter");
+      }
+
+      setCoverLetter(data.coverLetter);
 
       // Save to database
       if (user?.id) {
-        await createCoverLetter(jobDescription, generatedCoverLetter);
+        await createCoverLetter(jobDescription, data.coverLetter);
       }
 
       toast({

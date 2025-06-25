@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-import { generateInterviewPrep } from "@/lib/ai-coach";
 import { Loader2, MessageSquare } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
@@ -54,21 +53,29 @@ const InterviewPrep = () => {
     clearError();
 
     try {
-      // Get user's resume text for context
-      const resumeText = await getResumeText();
+      // Call backend API route for interview prep
+      const response = await fetch("/api/ai-coach/interview-prep", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobDescription,
+          userBackground,
+        }),
+      });
 
-      // Generate interview prep using AI with resume context
-      const generatedPrep = await generateInterviewPrep(
-        jobDescription,
-        userBackground,
-        resumeText || undefined
-      );
+      const data = await response.json();
 
-      setPrep(generatedPrep);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate interview prep");
+      }
+
+      setPrep(data.preparation);
 
       // Save to database
       if (user?.id) {
-        await createInterviewPrep(jobDescription, generatedPrep);
+        await createInterviewPrep(jobDescription, data.preparation);
       }
 
       toast({

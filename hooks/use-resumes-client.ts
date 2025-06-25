@@ -80,6 +80,7 @@ export function useResumesClient(userId: string | null) {
 
   const getCurrentResume = useCallback(async (): Promise<UserResume | null> => {
     if (!userId) {
+      console.log("no user id");
       setError("User not authenticated");
       return null;
     }
@@ -88,6 +89,7 @@ export function useResumesClient(userId: string | null) {
     setError(null);
 
     try {
+      console.log("getting current resume", userId);
       const { data, error: supabaseError } = await supabase
         .from("user_resumes")
         .select("*")
@@ -96,6 +98,7 @@ export function useResumesClient(userId: string | null) {
 
       if (supabaseError) {
         if (supabaseError.code === "PGRST116") {
+          console.log("no resume found");
           return null; // Not found
         }
         throw new Error(supabaseError.message);
@@ -105,6 +108,7 @@ export function useResumesClient(userId: string | null) {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get current resume";
+      console.log("error getting current resume", errorMessage);
       setError(errorMessage);
       return null;
     } finally {
