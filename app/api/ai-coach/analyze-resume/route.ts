@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
+import { PermissionMiddleware } from "@/lib/middleware/permissions";
+import { AICoachService } from "@/services/ai-coach";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,25 +14,21 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
     }
 
-    // Check if user has AI Coach subscription
-    const { data: subscription } = await supabase
-      .from("user_subscriptions")
-      .select(
-        `
-        *,
-        subscription_plans (name)
-      `
-      )
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+    // Check permission using middleware
+    const permissionResult = await PermissionMiddleware.checkApiPermission(
+      user.id,
+      "ANALYZE_RESUME"
+    );
 
-    if (!subscription || subscription.subscription_plans?.name !== "AI Coach") {
+    if (!permissionResult.allowed) {
       return NextResponse.json(
-        { error: "AI Coach subscription required" },
+        { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
         { status: 403 }
       );
     }
@@ -38,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     if (!resumeText) {
       return NextResponse.json(
-        { error: "Resume text is required" },
+        { error: ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_RESUME },
         { status: 400 }
       );
     }
@@ -46,11 +45,19 @@ export async function POST(request: NextRequest) {
     const aiCoach = createAICoach(user.id);
     const analysis = await aiCoach.analyzeResume(resumeText, jobDescription);
 
+    // Create resume analysis record using service
+    const aiCoachService = new AICoachService();
+    await aiCoachService.createResumeAnalysis(
+      user.id,
+      "resume_text", // Since we're using text, not a file URL
+      JSON.stringify(analysis)
+    );
+
     return NextResponse.json({ analysis });
   } catch (error) {
     console.error("Error in resume analysis:", error);
     return NextResponse.json(
-      { error: "Failed to analyze resume" },
+      { error: ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.ANALYSIS_FAILED },
       { status: 500 }
     );
   }

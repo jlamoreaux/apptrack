@@ -2,13 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+import { SubscriptionService } from "@/services/subscriptions";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { BILLING_CYCLES } from "@/lib/constants/plans";
 
 export async function POST(request: NextRequest) {
   try {
     const user = await getUser();
 
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
     }
 
     const { planId, billingCycle } = await request.json();
@@ -19,7 +25,15 @@ export async function POST(request: NextRequest) {
 
     if (!planId || !billingCycle) {
       return NextResponse.json(
-        { error: "Plan ID and billing cycle are required" },
+        { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
+        { status: 400 }
+      );
+    }
+
+    // Validate billing cycle
+    if (!Object.values(BILLING_CYCLES).includes(billingCycle)) {
+      return NextResponse.json(
+        { error: "Invalid billing cycle" },
         { status: 400 }
       );
     }
@@ -39,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     // Determine the price ID based on billing cycle
     const priceId =
-      billingCycle === "yearly"
+      billingCycle === BILLING_CYCLES.YEARLY
         ? plan.stripe_yearly_price_id
         : plan.stripe_monthly_price_id;
 
@@ -115,7 +129,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating checkout session:", error);
     return NextResponse.json(
-      { error: "Error creating checkout session" },
+      { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }
     );
   }
