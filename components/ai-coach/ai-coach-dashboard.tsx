@@ -13,6 +13,7 @@ import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
+import { COPY } from "@/lib/content/copy";
 
 interface AICoachDashboardProps {
   userId: string;
@@ -20,49 +21,7 @@ interface AICoachDashboardProps {
 
 export function AICoachDashboard({ userId }: AICoachDashboardProps) {
   const [activeTab, setActiveTab] = useState("resume");
-
-  const features = [
-    {
-      id: "resume",
-      title: "Resume Analysis",
-      description:
-        "Get AI-powered feedback on your resume with specific improvement suggestions",
-      icon: Brain,
-      color: "text-purple-600",
-      bgColor: "bg-purple-50",
-      borderColor: "border-purple-200",
-    },
-    {
-      id: "interview",
-      title: "Interview Preparation",
-      description:
-        "Practice with AI-generated questions tailored to your target role",
-      icon: MessageSquare,
-      color: "text-blue-600",
-      bgColor: "bg-blue-50",
-      borderColor: "border-blue-200",
-    },
-    {
-      id: "cover-letter",
-      title: "Cover Letter Generator",
-      description:
-        "Create compelling cover letters customized for each application",
-      icon: FileText,
-      color: "text-green-600",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
-    },
-    {
-      id: "advice",
-      title: "Career Advice",
-      description:
-        "Ask questions and get personalized career guidance from our AI coach",
-      icon: Target,
-      color: "text-orange-600",
-      bgColor: "bg-orange-50",
-      borderColor: "border-orange-200",
-    },
-  ];
+  const { features, tabs } = COPY.aiCoach.dashboard;
 
   return (
     <div className="space-y-8">
@@ -105,19 +64,19 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="resume" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
-            Resume
+            {tabs.resume}
           </TabsTrigger>
           <TabsTrigger value="interview" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            Interview
+            {tabs.interview}
           </TabsTrigger>
           <TabsTrigger value="cover-letter" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Cover Letter
+            {tabs.coverLetter}
           </TabsTrigger>
           <TabsTrigger value="advice" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
-            Advice
+            {tabs.advice}
           </TabsTrigger>
         </TabsList>
 

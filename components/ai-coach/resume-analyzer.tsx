@@ -1,41 +1,60 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Brain, Sparkles, AlertCircle, Upload, FileText, Link } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useRef } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Brain,
+  Sparkles,
+  AlertCircle,
+  Upload,
+  FileText,
+  Link,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { API_ROUTES } from "@/lib/constants/api-routes";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { COPY } from "@/lib/content/copy";
 
 interface ResumeAnalyzerProps {
-  userId: string
+  userId: string;
 }
 
 export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
-  const [resumeText, setResumeText] = useState("")
-  const [jobDescription, setJobDescription] = useState("")
-  const [jobUrl, setJobUrl] = useState("")
-  const [analysis, setAnalysis] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [uploadLoading, setUploadLoading] = useState(false)
-  const [urlLoading, setUrlLoading] = useState(false)
-  const [error, setError] = useState("")
-  const [inputMethod, setInputMethod] = useState<"text" | "url">("text")
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [resumeText, setResumeText] = useState("");
+  const [jobDescription, setJobDescription] = useState("");
+  const [jobUrl, setJobUrl] = useState("");
+  const [analysis, setAnalysis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [inputMethod, setInputMethod] = useState<"text" | "url">("text");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const copy = COPY.aiCoach.resumeAnalyzer;
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
+  const handleFileUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
       // 5MB limit
-      setError("File size must be less than 5MB")
-      return
+      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.FILE_TOO_LARGE);
+      return;
     }
 
     const allowedTypes = [
@@ -43,84 +62,97 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
       "application/msword",
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "text/plain",
-    ]
+    ];
 
     if (!allowedTypes.includes(file.type)) {
-      setError("Please upload a PDF, Word document, or text file")
-      return
+      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.INVALID_FILE_TYPE);
+      return;
     }
 
-    setUploadLoading(true)
-    setError("")
+    setUploadLoading(true);
+    setError("");
 
     try {
-      const formData = new FormData()
-      formData.append("file", file)
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const response = await fetch("/api/ai-coach/upload-resume", {
+      const response = await fetch(API_ROUTES.AI_COACH.UPLOAD_RESUME, {
         method: "POST",
         body: formData,
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to process resume")
+        throw new Error(
+          data.error ||
+            ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.RESUME_PROCESSING_FAILED
+        );
       }
 
-      setResumeText(data.text)
+      setResumeText(data.text);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload resume")
+      setError(
+        err instanceof Error
+          ? err.message
+          : ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.RESUME_PROCESSING_FAILED
+      );
     } finally {
-      setUploadLoading(false)
+      setUploadLoading(false);
     }
-  }
+  };
 
   const handleUrlFetch = async () => {
     if (!jobUrl.trim()) {
-      setError("Please enter a job posting URL")
-      return
+      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_URL);
+      return;
     }
 
-    setUrlLoading(true)
-    setError("")
+    setUrlLoading(true);
+    setError("");
 
     try {
-      const response = await fetch("/api/ai-coach/fetch-job-description", {
+      const response = await fetch(API_ROUTES.AI_COACH.FETCH_JOB_DESCRIPTION, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ url: jobUrl.trim() }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to fetch job description")
+        throw new Error(
+          data.error || ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.URL_FETCH_FAILED
+        );
       }
 
-      setJobDescription(data.description)
-      setInputMethod("text") // Switch to text view to show the fetched content
+      setJobDescription(data.description);
+      setInputMethod("text"); // Switch to text view to show the fetched content
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch job description")
+      setError(
+        err instanceof Error
+          ? err.message
+          : ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.URL_FETCH_FAILED
+      );
     } finally {
-      setUrlLoading(false)
+      setUrlLoading(false);
     }
-  }
+  };
 
   const handleAnalyze = async () => {
     if (!resumeText.trim()) {
-      setError("Please provide your resume text or upload a resume file")
-      return
+      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_RESUME);
+      return;
     }
 
-    setLoading(true)
-    setError("")
-    setAnalysis("")
+    setLoading(true);
+    setError("");
+    setAnalysis("");
 
     try {
-      const response = await fetch("/api/ai-coach/analyze-resume", {
+      const response = await fetch(API_ROUTES.AI_COACH.ANALYZE_RESUME, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -129,21 +161,23 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
           resumeText: resumeText.trim(),
           jobDescription: jobDescription.trim() || undefined,
         }),
-      })
+      });
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze resume")
+        throw new Error(
+          data.error || ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.ANALYSIS_FAILED
+        );
       }
 
-      setAnalysis(data.analysis)
+      setAnalysis(data.analysis);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred")
+      setError(err instanceof Error ? err.message : ERROR_MESSAGES.UNEXPECTED);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -151,16 +185,14 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5 text-purple-600" />
-            Resume Analysis
+            {copy.title}
           </CardTitle>
-          <CardDescription>
-            Upload your resume or paste the text below, and optionally include a job description for targeted feedback
-          </CardDescription>
+          <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Resume Input */}
           <div className="space-y-4">
-            <Label>Resume *</Label>
+            <Label>{copy.resumeLabel}</Label>
             <div className="space-y-4">
               {/* File Upload */}
               <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
@@ -183,26 +215,28 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
                       {uploadLoading ? (
                         <>
                           <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                          Processing...
+                          {copy.uploadButton.processing}
                         </>
                       ) : (
                         <>
                           <Upload className="h-4 w-4 mr-2" />
-                          Upload Resume
+                          {copy.uploadButton.default}
                         </>
                       )}
                     </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">PDF, Word, or text files up to 5MB</p>
+                  <p className="text-sm text-muted-foreground">
+                    {copy.uploadHint}
+                  </p>
                 </div>
               </div>
 
               {/* Text Input */}
               <div className="space-y-2">
-                <Label htmlFor="resume-text">Or paste your resume text</Label>
+                <Label htmlFor="resume-text">{copy.pasteLabel}</Label>
                 <Textarea
                   id="resume-text"
-                  placeholder="Paste your resume text here..."
+                  placeholder={copy.pastePlaceholder}
                   value={resumeText}
                   onChange={(e) => setResumeText(e.target.value)}
                   className="min-h-[200px]"
@@ -213,22 +247,25 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
 
           {/* Job Description Input */}
           <div className="space-y-4">
-            <Label>Job Description (Optional)</Label>
-            <Tabs value={inputMethod} onValueChange={(value) => setInputMethod(value as "text" | "url")}>
+            <Label>{copy.jobDescriptionLabel}</Label>
+            <Tabs
+              value={inputMethod}
+              onValueChange={(value) => setInputMethod(value as "text" | "url")}
+            >
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="text" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  Paste Text
+                  {copy.tabs.paste}
                 </TabsTrigger>
                 <TabsTrigger value="url" className="flex items-center gap-2">
                   <Link className="h-4 w-4" />
-                  From URL
+                  {copy.tabs.url}
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="text" className="space-y-2">
                 <Textarea
-                  placeholder="Paste the job description for targeted analysis..."
+                  placeholder={copy.jobDescriptionPlaceholder}
                   value={jobDescription}
                   onChange={(e) => setJobDescription(e.target.value)}
                   className="min-h-[120px]"
@@ -238,16 +275,25 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
               <TabsContent value="url" className="space-y-2">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="https://company.com/jobs/position"
+                    placeholder={copy.jdUrlPlaceholder}
                     value={jobUrl}
                     onChange={(e) => setJobUrl(e.target.value)}
                   />
-                  <Button onClick={handleUrlFetch} disabled={urlLoading || !jobUrl.trim()} variant="outline">
-                    {urlLoading ? <Sparkles className="h-4 w-4 animate-spin" /> : "Fetch"}
+                  <Button
+                    onClick={handleUrlFetch}
+                    disabled={urlLoading || !jobUrl.trim()}
+                    variant="outline"
+                  >
+                    {urlLoading ? (
+                      <Sparkles className="h-4 w-4 animate-spin" />
+                    ) : (
+                      copy.fetchButton
+                    )}
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Enter a job posting URL to automatically extract the description
+                  Enter a job posting URL to automatically extract the
+                  description
                 </p>
               </TabsContent>
             </Tabs>
@@ -263,19 +309,14 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
           <Button
             onClick={handleAnalyze}
             disabled={loading || !resumeText.trim()}
-            className="w-full bg-purple-600 hover:bg-purple-700"
+            className="w-full"
           >
             {loading ? (
-              <>
-                <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                Analyzing Resume...
-              </>
+              <Sparkles className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <>
-                <Brain className="h-4 w-4 mr-2" />
-                Analyze Resume
-              </>
+              <Brain className="h-4 w-4 mr-2" />
             )}
+            {loading ? "Analyzing..." : copy.analyzeButton}
           </Button>
         </CardContent>
       </Card>
@@ -285,16 +326,18 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600" />
-              Analysis Results
+              {copy.analysisTitle}
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">{analysis}</div>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                {analysis}
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
     </div>
-  )
+  );
 }

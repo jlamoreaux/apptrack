@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { generateInterviewPrep } from "@/lib/ai-coach";
 import { Loader2, MessageSquare } from "lucide-react";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { COPY } from "@/lib/content/copy";
 
 const InterviewPrep = () => {
   const [jobDescription, setJobDescription] = useState("");
@@ -21,12 +23,14 @@ const InterviewPrep = () => {
   const [prep, setPrep] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const copy = COPY.aiCoach.interviewPrep;
 
   const handleGenerate = async () => {
     if (!jobDescription) {
       toast({
         title: "Job Description Required",
-        description: "Please provide a job description to get interview prep.",
+        description:
+          ERROR_MESSAGES.AI_COACH.INTERVIEW_PREP.MISSING_JOB_DESCRIPTION,
         variant: "destructive",
       });
       return;
@@ -41,16 +45,14 @@ const InterviewPrep = () => {
       );
       setPrep(response);
       toast({
-        title: "Interview Prep Generated!",
-        description: "Your personalized interview prep is ready.",
+        title: copy.successToast.title,
+        description: copy.successToast.description,
       });
     } catch (error) {
       console.error("Error generating interview prep:", error);
       toast({
         title: "Error Generating Prep",
-        description:
-          (error as Error).message ||
-          "An unexpected error occurred. Please try again.",
+        description: (error as Error).message || ERROR_MESSAGES.UNEXPECTED,
         variant: "destructive",
       });
     } finally {
@@ -61,18 +63,15 @@ const InterviewPrep = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Interview Prep</CardTitle>
-        <CardDescription>
-          Get tailored interview questions and talking points based on the job
-          description.
-        </CardDescription>
+        <CardTitle>{copy.title}</CardTitle>
+        <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="jobDescription">Job Description</Label>
+          <Label htmlFor="jobDescription">{copy.jobDescriptionLabel}</Label>
           <Textarea
             id="jobDescription"
-            placeholder="Paste the job description here."
+            placeholder={copy.jobDescriptionPlaceholder}
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             rows={8}
@@ -80,10 +79,10 @@ const InterviewPrep = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="userBackground">Your Background (Optional)</Label>
+          <Label htmlFor="userBackground">{copy.backgroundLabel}</Label>
           <Textarea
             id="userBackground"
-            placeholder="Briefly describe your experience and skills for more tailored questions."
+            placeholder={copy.backgroundPlaceholder}
             value={userBackground}
             onChange={(e) => setUserBackground(e.target.value)}
             rows={4}
@@ -96,14 +95,14 @@ const InterviewPrep = () => {
           className="w-full"
         >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Generate Interview Prep
+          {copy.generateButton}
         </Button>
 
         {prep && (
           <div className="space-y-2 pt-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
-              Your Interview Prep
+              {copy.generatedTitle}
             </h3>
             <div className="p-4 border rounded-md bg-muted whitespace-pre-wrap text-sm">
               {prep}

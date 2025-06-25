@@ -15,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { generateCoverLetter } from "@/lib/ai-coach";
 import { Loader2 } from "lucide-react";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { COPY } from "@/lib/content/copy";
 
 const CoverLetterGenerator = () => {
   const [jobDescription, setJobDescription] = useState("");
@@ -23,13 +25,13 @@ const CoverLetterGenerator = () => {
   const [coverLetter, setCoverLetter] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const copy = COPY.aiCoach.coverLetterGenerator;
 
   const handleGenerateCoverLetter = async () => {
     if (!jobDescription || !userBackground || !companyName) {
       toast({
         title: "Missing Information",
-        description:
-          "Please provide the company name, your background, and the job description.",
+        description: ERROR_MESSAGES.AI_COACH.COVER_LETTER.MISSING_INFO,
         variant: "destructive",
       });
       return;
@@ -45,16 +47,14 @@ const CoverLetterGenerator = () => {
       );
       setCoverLetter(response);
       toast({
-        title: "Cover Letter Generated!",
-        description: "Your new cover letter has been created successfully.",
+        title: copy.successToast.title,
+        description: copy.successToast.description,
       });
     } catch (error) {
       console.error("Error generating cover letter:", error);
       toast({
         title: "Error Generating Cover Letter",
-        description:
-          (error as Error).message ||
-          "An unexpected error occurred. Please try again.",
+        description: (error as Error).message || ERROR_MESSAGES.UNEXPECTED,
         variant: "destructive",
       });
     } finally {
@@ -65,27 +65,25 @@ const CoverLetterGenerator = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AI Cover Letter Generator</CardTitle>
-        <CardDescription>
-          Create a professional cover letter tailored to any job in seconds.
-        </CardDescription>
+        <CardTitle>{copy.title}</CardTitle>
+        <CardDescription>{copy.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div className="space-y-2">
-          <Label htmlFor="companyName">Company Name</Label>
+          <Label htmlFor="companyName">{copy.companyNameLabel}</Label>
           <Input
             id="companyName"
-            placeholder="e.g. Google"
+            placeholder={copy.companyNamePlaceholder}
             value={companyName}
             onChange={(e) => setCompanyName(e.target.value)}
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="userBackground">Your Background / Resume</Label>
+          <Label htmlFor="userBackground">{copy.backgroundLabel}</Label>
           <Textarea
             id="userBackground"
-            placeholder="Briefly describe your experience and skills, or paste your resume here."
+            placeholder={copy.backgroundPlaceholder}
             value={userBackground}
             onChange={(e) => setUserBackground(e.target.value)}
             rows={6}
@@ -93,10 +91,10 @@ const CoverLetterGenerator = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="jobDescription">Job Description</Label>
+          <Label htmlFor="jobDescription">{copy.jobDescriptionLabel}</Label>
           <Textarea
             id="jobDescription"
-            placeholder="Paste the job description here."
+            placeholder={copy.jobDescriptionPlaceholder}
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             rows={8}
@@ -109,12 +107,12 @@ const CoverLetterGenerator = () => {
           className="w-full"
         >
           {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Generate Cover Letter
+          {copy.generateButton}
         </Button>
 
         {coverLetter && (
           <div className="space-y-2 pt-4">
-            <h3 className="text-lg font-semibold">Generated Cover Letter:</h3>
+            <h3 className="text-lg font-semibold">{copy.generatedTitle}</h3>
             <div className="p-4 border rounded-md bg-muted whitespace-pre-wrap text-sm">
               {coverLetter}
             </div>
