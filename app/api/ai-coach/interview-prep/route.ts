@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
@@ -7,10 +8,16 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { cookies: cookieStore }
+    );
 
     const {
       data: { user },
+      error,
     } = await supabase.auth.getUser();
 
     if (!user) {
