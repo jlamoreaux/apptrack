@@ -344,7 +344,6 @@ export class SubscriptionDAL
 
   async cancelSubscription(id: string): Promise<Subscription | null> {
     return this.update(id, {
-      status: "canceled",
       cancel_at_period_end: true,
     });
   }

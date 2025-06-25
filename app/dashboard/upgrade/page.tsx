@@ -159,7 +159,7 @@ export default function UpgradePage() {
               >
                 Yearly
                 <Badge variant="secondary" className="ml-2">
-                  Save 20%
+                  Save 25%
                 </Badge>
               </Button>
             </div>
