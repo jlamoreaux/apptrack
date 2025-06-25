@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import ReactMarkdown from "react-markdown";
+import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 
 interface ResumeAnalyzerProps {
   userId: string;
@@ -369,19 +370,11 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
 
       {/* Analysis Results */}
       {analysis && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              {copy.analysisTitle}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
-              <ReactMarkdown>{analysis}</ReactMarkdown>
-            </div>
-          </CardContent>
-        </Card>
+        <MarkdownOutputCard
+          title={copy.analysisTitle}
+          icon={<FileText className="h-5 w-5 text-purple-600" />}
+          content={analysis}
+        />
       )}
     </div>
   );

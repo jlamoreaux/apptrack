@@ -8,13 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Brain, MessageSquare, FileText, Target, Upload } from "lucide-react";
+import {
+  Brain,
+  MessageSquare,
+  FileText,
+  Target,
+  Upload,
+  Sparkles,
+} from "lucide-react";
 import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
 import { ResumeSection } from "@/components/resume-section";
 import { COPY } from "@/lib/content/copy";
+import { Badge } from "@/components/ui/badge";
 
 interface AICoachDashboardProps {
   userId: string;
@@ -33,6 +41,8 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {features.map((feature) => {
           const Icon = feature.icon;
+          const isComingSoon =
+            feature.id === "cover-letter" || feature.id === "advice";
           return (
             <Card
               key={feature.id}
@@ -45,11 +55,20 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
             >
               <CardHeader className="pb-3">
                 <div
-                  className={`w-12 h-12 rounded-lg ${feature.bgColor} flex items-center justify-center mb-3`}
+                  className={`w-12 h-12 rounded-lg ${feature.bgColor} flex items-center justify-center mb-3 relative`}
                 >
                   <Icon className={`h-6 w-6 ${feature.color}`} />
                 </div>
                 <CardTitle className="text-lg">{feature.title}</CardTitle>
+                {isComingSoon && (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs w-36 px-2 py-0.5 mr-3 justify-around"
+                  >
+                    Coming Soon
+                    <Sparkles className="h-6 w-6 text-green-600 animate-pulse drop-shadow-lg" />
+                  </Badge>
+                )}
                 <CardDescription className="text-sm">
                   {feature.description}
                 </CardDescription>
@@ -97,7 +116,7 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
         </TabsContent>
 
         <TabsContent value="advice" className="space-y-6">
-          <CareerAdvice userId={userId} />
+          <CareerAdvice />
         </TabsContent>
       </Tabs>
     </div>

@@ -18,6 +18,9 @@ import { COPY } from "@/lib/content/copy";
 import { useAICoachClient } from "@/hooks/use-ai-coach-client";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { ResumePreviewUpload } from "./shared/ResumePreviewUpload";
+import { JobDescriptionInputTabs } from "./shared/JobDescriptionInputTabs";
+import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 
 const InterviewPrep = () => {
   const { user } = useSupabaseAuth();
@@ -36,9 +39,12 @@ const InterviewPrep = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const copy = COPY.aiCoach.interviewPrep;
+  const [inputMethod, setInputMethod] = useState<"text" | "url">("text");
+  const [jobUrl, setJobUrl] = useState("");
 
   const handleGenerate = async () => {
-    if (!jobDescription) {
+    if (!jobDescription && !jobUrl) {
+      console.log("no job description or job url");
       toast({
         title: "Job Description Required",
         description:
@@ -54,15 +60,18 @@ const InterviewPrep = () => {
 
     try {
       // Call backend API route for interview prep
+      const payload: any = { userBackground };
+      if (inputMethod === "url") {
+        payload.jobUrl = jobUrl;
+      } else {
+        payload.jobDescription = jobDescription;
+      }
       const response = await fetch("/api/ai-coach/interview-prep", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          jobDescription,
-          userBackground,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
@@ -108,12 +117,15 @@ const InterviewPrep = () => {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <Label htmlFor="jobDescription">{copy.jobDescriptionLabel}</Label>
-          <Textarea
-            id="jobDescription"
-            placeholder={copy.jobDescriptionPlaceholder}
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            rows={8}
+          <JobDescriptionInputTabs
+            inputMethod={inputMethod}
+            setInputMethod={setInputMethod}
+            jobDescription={jobDescription}
+            setJobDescription={setJobDescription}
+            jobUrl={jobUrl}
+            setJobUrl={setJobUrl}
+            jobDescriptionPlaceholder={copy.jobDescriptionPlaceholder}
+            jobUrlPlaceholder={"https://company.com/jobs/position"}
           />
         </div>
 
@@ -146,15 +158,11 @@ const InterviewPrep = () => {
         </Button>
 
         {prep && (
-          <div className="space-y-2 pt-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              {copy.generatedTitle}
-            </h3>
-            <div className="p-4 border rounded-md bg-muted whitespace-pre-wrap text-sm">
-              {prep}
-            </div>
-          </div>
+          <MarkdownOutputCard
+            title={copy.generatedTitle}
+            icon={<MessageSquare className="h-5 w-5" />}
+            content={prep}
+          />
         )}
       </CardContent>
     </Card>

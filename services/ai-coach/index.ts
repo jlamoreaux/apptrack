@@ -83,30 +83,27 @@ export class AICoachService {
   }
 
   // Interview Prep methods
-  async createInterviewPrep(
-    userId: string,
-    jobDescription: string,
-    prepContent: string
-  ): Promise<InterviewPrep> {
+  async createInterviewPrep(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+    user_background?: string;
+    prep_content: string;
+  }): Promise<InterviewPrep> {
     try {
-      // Validate inputs
-      if (!userId?.trim()) {
+      if (!options.user_id?.trim()) {
         throw new ValidationServiceError("User ID is required");
       }
-
-      if (!jobDescription?.trim()) {
-        throw new ValidationServiceError("Job description is required");
-      }
-
-      if (!prepContent?.trim()) {
+      if (!options.prep_content?.trim()) {
         throw new ValidationServiceError("Prep content is required");
       }
-
-      return await this.interviewPrepDAL.create({
-        user_id: userId,
-        job_description: jobDescription,
-        prep_content: prepContent,
-      });
+      // At least one job reference should be provided
+      if (!options.job_description && !options.job_url) {
+        throw new ValidationServiceError("Job description or URL is required");
+      }
+      return await this.interviewPrepDAL.create(options);
     } catch (error) {
       throw wrapDALError(error, "Failed to create interview prep");
     }
@@ -118,6 +115,17 @@ export class AICoachService {
     } catch (error) {
       throw wrapDALError(error, "Failed to get interview preps");
     }
+  }
+
+  async findExistingInterviewPrep(options: {
+    user_id: string;
+    user_resume_id?: string;
+    resume_text?: string;
+    job_description?: string;
+    job_url?: string;
+    user_background?: string;
+  }): Promise<InterviewPrep | null> {
+    return this.interviewPrepDAL.findExistingAnalysis(options);
   }
 
   // Career Advice methods

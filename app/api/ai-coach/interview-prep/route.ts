@@ -1,19 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server-client";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { ResumeDAL } from "@/dal/resumes";
 
 export async function POST(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -40,9 +35,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { jobDescription, userBackground } = await request.json();
+    const { jobDescription, jobUrl, userBackground, userResumeId, resumeText } =
+      await request.json();
 
-    if (!jobDescription) {
+    // Get resume context (id and text)
+    let finalResumeText = resumeText;
+    let finalUserResumeId = userResumeId;
+    if (!finalResumeText) {
+      const resumeDAL = new ResumeDAL();
+      const currentResume = await resumeDAL.findCurrentByUserId(user.id);
+      if (currentResume) {
+        finalResumeText = currentResume.extracted_text;
+        finalUserResumeId = currentResume.id;
+      }
+    }
+    if (!finalResumeText) {
+      return NextResponse.json(
+        { error: "No resume found. Please upload your resume first." },
+        { status: 400 }
+      );
+    }
+
+    const effectiveJobDescription = jobDescription || undefined;
+    const effectiveJobUrl = jobUrl || undefined;
+    if (!effectiveJobDescription && !effectiveJobUrl) {
       return NextResponse.json(
         {
           error: ERROR_MESSAGES.AI_COACH.INTERVIEW_PREP.MISSING_JOB_DESCRIPTION,
@@ -51,19 +67,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const aiCoach = createAICoach(user.id);
-    const preparation = await aiCoach.prepareForInterview(
-      jobDescription,
-      userBackground
-    );
-
-    // Create interview prep record using service
+    // Deduplication: check for existing interview prep
     const aiCoachService = new AICoachService();
-    await aiCoachService.createInterviewPrep(
-      user.id,
-      jobDescription,
-      JSON.stringify(preparation)
-    );
+    const existing = await aiCoachService.findExistingInterviewPrep({
+      user_id: user.id,
+      user_resume_id: finalUserResumeId,
+      resume_text: finalResumeText,
+      job_description: effectiveJobDescription,
+      job_url: effectiveJobUrl,
+      user_background: userBackground,
+    });
+    if (existing) {
+      return NextResponse.json({ preparation: existing.prep_content });
+    }
+
+    const aiCoach = createAICoach(user.id);
+    const prepJobDesc = effectiveJobDescription || effectiveJobUrl;
+    const preparation = await aiCoach.prepareForInterview({
+      jobDescription: prepJobDesc!,
+      userBackground,
+      resumeText: finalResumeText,
+    });
+
+    // Save new interview prep
+    await aiCoachService.createInterviewPrep({
+      user_id: user.id,
+      user_resume_id: finalUserResumeId,
+      resume_text: finalResumeText,
+      job_description: effectiveJobDescription,
+      job_url: effectiveJobUrl,
+      user_background: userBackground,
+      prep_content: preparation,
+    });
 
     return NextResponse.json({ preparation });
   } catch (error) {

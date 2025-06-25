@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    console.log("file", file);
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -78,10 +77,6 @@ export async function POST(request: NextRequest) {
 
     // Upload file to Supabase Storage
     const fileName = `resumes/${user.id}/${Date.now()}-${file.name}`;
-    console.log("Attempting to upload file:", fileName);
-    console.log("User ID:", user.id);
-    console.log("File type:", file.type);
-    console.log("File size:", file.size);
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("resumes")
