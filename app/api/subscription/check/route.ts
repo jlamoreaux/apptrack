@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { SubscriptionService } from "@/services/subscriptions";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { PLAN_NAMES } from "@/lib/constants/plans";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,40 +10,35 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json(
-        { error: "User ID is required" },
+        { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
         { status: 400 }
       );
     }
 
-    // Check for active subscription
-    const { data: subscription, error } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select(
-        `
-        *,
-        subscription_plans (*)
-      `
-      )
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
+    const subscriptionService = new SubscriptionService();
 
-    if (error) {
-      console.error("Error checking subscription:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
-    }
+    // Get user's current subscription status
+    const subscriptionStatus = await subscriptionService.getSubscriptionStatus(
+      userId
+    );
 
-    // Check if subscription is for Pro plan
-    const isPro = subscription?.subscription_plans?.name === "Pro";
+    // Check if subscription is for Pro plan or higher
+    const isPro =
+      subscriptionStatus.plan === PLAN_NAMES.PRO ||
+      subscriptionStatus.plan === PLAN_NAMES.AI_COACH;
 
     return NextResponse.json({
-      isActive: !!subscription && isPro,
-      subscription: subscription || null,
+      isActive: subscriptionStatus.isActive && isPro,
+      subscription: {
+        plan: subscriptionStatus.plan,
+        status: subscriptionStatus.status,
+        isActive: subscriptionStatus.isActive,
+      },
     });
   } catch (error) {
     console.error("Unexpected error checking subscription:", error);
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }
     );
   }
