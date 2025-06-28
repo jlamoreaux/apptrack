@@ -172,10 +172,12 @@ export function PlanCard({
             <Button
               className={`w-full ${theme.colors.button}`}
               variant={isFree ? "outline" : "default"}
-              disabled={isCurrentPlan && isUpgradeVariant}
+              disabled={
+                (isCurrentPlan && isUpgradeVariant) || cta.text === "Downgrade"
+              }
               size={isUpgradeVariant ? "default" : "lg"}
             >
-              {isCurrentPlan && isUpgradeVariant ? "Current Plan" : cta.text}
+              {cta.text}
             </Button>
           </Link>
         </div>
@@ -184,11 +186,14 @@ export function PlanCard({
   );
 
   if (isUpgradeVariant) {
+    const isDowngrade = cta.text === "Downgrade";
+
     return (
       <Card
         className={`
           relative h-full flex flex-col
           ${isCurrentPlan ? "border-primary ring-2 ring-primary/20" : ""}
+          ${isDowngrade ? "opacity-60 grayscale" : ""}
           ${theme.colors.background}
           ${theme.colors.border}
           ${className}

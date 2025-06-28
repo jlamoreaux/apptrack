@@ -161,7 +161,7 @@ export async function signOut() {
 }
 
 // Profile update action
-export async function updateProfileAction(formData: FormData) {
+export async function updateProfileAction(data: { full_name: string }) {
   try {
     const supabase = await createClient();
 
@@ -174,7 +174,7 @@ export async function updateProfileAction(formData: FormData) {
     }
 
     const rawData = {
-      full_name: formData.get("full_name") as string,
+      full_name: data.full_name,
     };
 
     const result = profileUpdateSchema.safeParse(rawData);

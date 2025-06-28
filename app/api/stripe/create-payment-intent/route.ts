@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { stripe, STRIPE_CONFIG } from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
@@ -52,10 +52,19 @@ export async function POST(request: NextRequest) {
       billingCycle === BILLING_CYCLES.YEARLY
         ? plan.price_yearly
         : plan.price_monthly;
+
+    // Get the correct Stripe price ID from the database
     const priceId =
       billingCycle === BILLING_CYCLES.YEARLY
-        ? STRIPE_CONFIG.plans.pro_yearly.priceId
-        : STRIPE_CONFIG.plans.pro_monthly.priceId;
+        ? plan.stripe_yearly_price_id
+        : plan.stripe_monthly_price_id;
+
+    if (!priceId) {
+      return NextResponse.json(
+        { error: "Price ID not found for billing cycle" },
+        { status: 400 }
+      );
+    }
 
     // Create or get Stripe customer
     let customerId: string;
@@ -78,36 +87,20 @@ export async function POST(request: NextRequest) {
       customerId = customer.id;
     }
 
-    // Create subscription
-    const subscription = await stripe.subscriptions.create({
+    // Create subscription setup intent for recurring payments
+    const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      items: [
-        {
-          price: priceId,
-        },
-      ],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+      payment_method_types: ["card"],
       metadata: {
         userId: userId,
         planId: planId,
         billingCycle: billingCycle,
       },
+      usage: "off_session", // For future subscription payments
     });
 
-    const paymentIntent = subscription.latest_invoice?.payment_intent;
-
-    if (!paymentIntent || typeof paymentIntent === "string") {
-      return NextResponse.json(
-        { error: "Failed to create payment intent" },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      subscriptionId: subscription.id,
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: setupIntent.client_secret,
     });
   } catch (error) {
     console.error("Error creating payment intent:", error);

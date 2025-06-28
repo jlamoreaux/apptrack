@@ -68,6 +68,7 @@ export interface UserSubscription {
   created_at: string;
   updated_at: string;
   subscription_plans?: SubscriptionPlan;
+  cancel_at_period_end?: boolean;
 }
 
 export interface UsageTracking {

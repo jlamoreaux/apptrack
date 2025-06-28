@@ -1,9 +1,9 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,47 +12,60 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog"
-import { AlertTriangle, Trash2, Loader2 } from "lucide-react"
-import { deleteAccountAction } from "@/lib/actions"
-import type { UserSubscription } from "@/lib/supabase"
+} from "@/components/ui/dialog";
+import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import { deleteAccountAction } from "@/lib/actions";
+import type { UserSubscription } from "@/lib/supabase";
 
 interface DangerZoneProps {
-  userId: string
-  subscription: UserSubscription | null
+  userId: string;
+  subscription: UserSubscription | null;
 }
 
 export function DangerZone({ userId, subscription }: DangerZoneProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [confirmText, setConfirmText] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
+  const [modalTitle, setModalTitle] = useState("");
 
-  const isOnPaidPlan = subscription?.subscription_plans?.name !== "Free" && subscription?.status === "active"
-  const confirmationText = "DELETE MY ACCOUNT"
+  const isOnPaidPlan =
+    subscription?.subscription_plans?.name !== "Free" &&
+    subscription?.status === "active";
+  const confirmationText = "DELETE MY ACCOUNT";
 
   const handleDeleteAccount = async () => {
-    if (confirmText !== confirmationText) return
+    if (confirmText !== confirmationText) return;
 
-    setLoading(true)
+    setLoading(true);
     try {
-      const formData = new FormData()
-      formData.append("userId", userId)
+      const formData = new FormData();
+      formData.append("userId", userId);
 
-      const result = await deleteAccountAction(formData)
+      const result = await deleteAccountAction(formData);
 
       if (result?.error) {
-        alert(result.error)
+        setModalTitle("Error");
+        setModalMessage(result.error);
+        setModalOpen(true);
       } else {
-        // Account deleted successfully, user will be redirected
-        alert("Your account has been deleted successfully.")
+        setModalTitle("Account Deleted");
+        setModalMessage("Your account has been deleted successfully.");
+        setModalOpen(true);
+        // Optionally redirect after closing modal
       }
     } catch (error) {
-      console.error("Error deleting account:", error)
-      alert("Something went wrong. Please try again or contact support.")
+      console.error("Error deleting account:", error);
+      setModalTitle("Error");
+      setModalMessage(
+        "Something went wrong. Please try again or contact support."
+      );
+      setModalOpen(true);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-4">
@@ -61,11 +74,13 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
         <div className="space-y-2">
           <h3 className="font-semibold text-red-900">Delete Account</h3>
           <p className="text-sm text-red-700">
-            Permanently delete your account and all associated data. This action cannot be undone.
+            Permanently delete your account and all associated data. This action
+            cannot be undone.
           </p>
           {isOnPaidPlan && (
             <p className="text-sm text-red-700 font-medium">
-              ⚠️ You have an active subscription that will be canceled immediately.
+              ⚠️ You have an active subscription that will be canceled
+              immediately.
             </p>
           )}
           <ul className="text-xs text-red-600 space-y-1 ml-4">
@@ -91,16 +106,23 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
               Delete Account
             </DialogTitle>
             <DialogDescription className="space-y-2">
-              <p>This will permanently delete your account and all associated data.</p>
+              <p>
+                This will permanently delete your account and all associated
+                data.
+              </p>
               {isOnPaidPlan && (
-                <p className="text-red-600 font-medium">Your active subscription will be canceled immediately.</p>
+                <p className="text-red-600 font-medium">
+                  Your active subscription will be canceled immediately.
+                </p>
               )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="confirm">
-                Type <span className="font-mono font-bold">{confirmationText}</span> to confirm:
+                Type{" "}
+                <span className="font-mono font-bold">{confirmationText}</span>{" "}
+                to confirm:
               </Label>
               <Input
                 id="confirm"
@@ -130,12 +152,31 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
                 </>
               )}
             </Button>
-            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={loading} className="w-full">
+            <Button
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              disabled={loading}
+              className="w-full"
+            >
               Cancel
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Modal for error/success messages */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{modalTitle}</DialogTitle>
+            <DialogDescription>{modalMessage}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => setModalOpen(false)} autoFocus>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }

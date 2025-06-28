@@ -18,10 +18,11 @@ export interface Profile {
 export interface Subscription {
   id: string;
   user_id: string;
+  plan_id: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  plan_name: string;
   status: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;
   cancel_at_period_end: boolean;

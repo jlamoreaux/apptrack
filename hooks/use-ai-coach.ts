@@ -31,11 +31,9 @@ export function useAICoach(userId: string | null) {
       setError(null);
 
       try {
-        const result = await aiCoachService.createResumeAnalysis(
-          userId,
-          resumeUrl,
-          analysisResult
-        );
+        const result = await aiCoachService.createResumeAnalysis(userId, {
+          analysis_result: analysisResult,
+        });
         return result;
       } catch (err) {
         const errorMessage =
@@ -86,11 +84,11 @@ export function useAICoach(userId: string | null) {
       setError(null);
 
       try {
-        const result = await aiCoachService.createInterviewPrep(
-          userId,
-          jobDescription,
-          prepContent
-        );
+        const result = await aiCoachService.createInterviewPrep({
+          user_id: userId,
+          job_description: jobDescription,
+          prep_content: prepContent,
+        });
         return result;
       } catch (err) {
         const errorMessage =

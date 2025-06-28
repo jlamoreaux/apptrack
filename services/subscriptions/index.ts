@@ -26,15 +26,8 @@ export class SubscriptionService
         throw new ValidationServiceError("User ID is required");
       }
 
-      if (!data.plan_name?.trim()) {
-        throw new ValidationServiceError("Plan name is required");
-      }
-
-      // Validate plan name
-      if (!Object.values(PLAN_NAMES).includes(data.plan_name as any)) {
-        throw new ValidationServiceError(
-          `Invalid plan name: ${data.plan_name}`
-        );
+      if (!data.plan_id?.trim()) {
+        throw new ValidationServiceError("Plan ID is required");
       }
 
       // Validate dates
@@ -77,16 +70,6 @@ export class SubscriptionService
     data: UpdateSubscriptionInput
   ): Promise<Subscription | null> {
     try {
-      // Validate plan name if provided
-      if (
-        data.plan_name &&
-        !Object.values(PLAN_NAMES).includes(data.plan_name as any)
-      ) {
-        throw new ValidationServiceError(
-          `Invalid plan name: ${data.plan_name}`
-        );
-      }
-
       // Validate dates if provided
       if (data.current_period_start && data.current_period_end) {
         const startDate = new Date(data.current_period_start);
@@ -225,7 +208,8 @@ export class SubscriptionService
   // Business logic methods
   async getUserPlan(userId: string): Promise<string> {
     try {
-      const subscription = await this.getCurrentSubscription(userId);
+      const subscription =
+        await this.subscriptionDAL.getSubscriptionWithPlanName(userId);
       return subscription?.plan_name || PLAN_NAMES.FREE;
     } catch (error) {
       throw wrapDALError(error, "Failed to get user plan");
@@ -274,7 +258,8 @@ export class SubscriptionService
     userId: string
   ): Promise<{ plan: string; status: string; isActive: boolean }> {
     try {
-      const subscription = await this.getCurrentSubscription(userId);
+      const subscription =
+        await this.subscriptionDAL.getSubscriptionWithPlanName(userId);
       const plan = subscription?.plan_name || PLAN_NAMES.FREE;
       const status = subscription?.status || "none";
       const isActive =
@@ -291,23 +276,40 @@ export class SubscriptionService
     userId: string,
     stripeCustomerId: string,
     stripeSubscriptionId: string,
-    planName: string,
+    planId: string,
     status: string,
     currentPeriodStart: string,
-    currentPeriodEnd: string
+    currentPeriodEnd: string,
+    billingCycle: "monthly" | "yearly" = "monthly"
   ): Promise<Subscription> {
     try {
-      return await this.create({
+      console.log("Creating subscription from Stripe with data:", {
+        userId,
+        planId,
+        stripeCustomerId,
+        stripeSubscriptionId,
+        status,
+        billingCycle,
+        currentPeriodStart,
+        currentPeriodEnd,
+      });
+
+      const result = await this.create({
         user_id: userId,
+        plan_id: planId,
         stripe_customer_id: stripeCustomerId,
         stripe_subscription_id: stripeSubscriptionId,
-        plan_name: planName,
         status: status as any,
+        billing_cycle: billingCycle,
         current_period_start: currentPeriodStart,
         current_period_end: currentPeriodEnd,
         cancel_at_period_end: false,
       });
+
+      console.log("Successfully created subscription:", result);
+      return result;
     } catch (error) {
+      console.error("Error in createSubscriptionFromStripe:", error);
       throw wrapDALError(error, "Failed to create subscription from Stripe");
     }
   }
