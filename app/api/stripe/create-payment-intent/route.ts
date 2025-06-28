@@ -87,23 +87,20 @@ export async function POST(request: NextRequest) {
       customerId = customer.id;
     }
 
-    // Create payment intent directly instead of through subscription
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(priceAmount * 100), // Convert to cents
-      currency: "usd",
+    // Create subscription setup intent for recurring payments
+    const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
+      payment_method_types: ["card"],
       metadata: {
         userId: userId,
         planId: planId,
         billingCycle: billingCycle,
       },
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      usage: "off_session", // For future subscription payments
     });
 
     return NextResponse.json({
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: setupIntent.client_secret,
     });
   } catch (error) {
     console.error("Error creating payment intent:", error);

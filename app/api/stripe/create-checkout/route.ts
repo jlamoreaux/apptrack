@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       mode: "subscription",
+      allow_promotion_codes: true,
       success_url: `${request.headers.get(
         "origin"
       )}/dashboard/upgrade/success?session_id={CHECKOUT_SESSION_ID}`,

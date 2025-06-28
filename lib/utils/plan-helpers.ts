@@ -268,3 +268,67 @@ export const getApplicationLimit = (userPlan: string): number | null => {
   }
   return null; // Unlimited for Pro and AI Coach
 };
+
+/**
+ * Get plan hierarchy level (0 = Free, 1 = Pro, 2 = AI Coach)
+ */
+export const getPlanLevel = (planName: string): number => {
+  switch (planName) {
+    case PLAN_NAMES.FREE:
+      return 0;
+    case PLAN_NAMES.PRO:
+      return 1;
+    case PLAN_NAMES.AI_COACH:
+      return 2;
+    default:
+      return 0;
+  }
+};
+
+/**
+ * Check if a plan is a downgrade from the current plan
+ */
+export const isPlanDowngrade = (
+  currentPlan: string,
+  targetPlan: string
+): boolean => {
+  const currentLevel = getPlanLevel(currentPlan);
+  const targetLevel = getPlanLevel(targetPlan);
+  return targetLevel < currentLevel;
+};
+
+/**
+ * Check if a plan is an upgrade from the current plan
+ */
+export const isPlanUpgrade = (
+  currentPlan: string,
+  targetPlan: string
+): boolean => {
+  const currentLevel = getPlanLevel(currentPlan);
+  const targetLevel = getPlanLevel(targetPlan);
+  return targetLevel > currentLevel;
+};
+
+/**
+ * Get appropriate button text for plan card
+ */
+export const getPlanButtonText = (
+  currentPlan: string,
+  targetPlan: string,
+  isCurrentPlan: boolean
+): string => {
+  if (isCurrentPlan) {
+    return "Current Plan";
+  }
+
+  if (isPlanDowngrade(currentPlan, targetPlan)) {
+    return "Downgrade";
+  }
+
+  if (isPlanUpgrade(currentPlan, targetPlan)) {
+    return `Upgrade to ${targetPlan}`;
+  }
+
+  // Same level (shouldn't happen with current plans, but good to handle)
+  return `Switch to ${targetPlan}`;
+};

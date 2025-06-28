@@ -141,9 +141,9 @@ export const COPY = {
         "Get tailored interview questions and talking points based on the job description.",
       jobDescriptionLabel: "Job Description",
       jobDescriptionPlaceholder: "Paste the job description here.",
-      backgroundLabel: "Your Background (Optional)",
-      backgroundPlaceholder:
-        "Briefly describe your experience and skills for more tailored questions.",
+      interviewContextLabel: "Interview Context (Optional)",
+      interviewContextPlaceholder:
+        "Share any information about the interview type, format, or specific concerns you have (e.g., 'This is a technical interview', 'I'm nervous about behavioral questions', 'It's a panel interview with 3 people').",
       generateButton: "Generate Interview Prep",
       generatedTitle: "Your Interview Prep",
       successToast: {

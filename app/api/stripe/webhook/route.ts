@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { createClient } from "@/lib/supabase/server";
 import type Stripe from "stripe";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -125,6 +126,22 @@ async function handleCheckoutCompleted(
       return;
     }
 
+    // Get the plan name from the database using planId
+    const supabase = await createClient();
+    const { data: plan, error: planError } = await supabase
+      .from("subscription_plans")
+      .select("name")
+      .eq("id", planId)
+      .single();
+
+    if (planError || !plan) {
+      console.error(`Plan not found for planId: ${planId}`, planError);
+      return;
+    }
+
+    const planName = plan.name;
+    console.log(`Mapped planId ${planId} to plan name: ${planName}`);
+
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
     );
@@ -174,18 +191,27 @@ async function handleCheckoutCompleted(
       }
     }
 
-    await subscriptionService.create({
-      user_id: userId,
-      stripe_customer_id: String(session.customer || ""),
-      stripe_subscription_id: subscription.id,
-      plan_name: planId,
-      status: mapStripeStatus(subscription.status),
-      current_period_start: currentPeriodStart,
-      current_period_end: currentPeriodEnd,
-      cancel_at_period_end: false,
-    });
+    await subscriptionService.createSubscriptionFromStripe(
+      userId,
+      String(session.customer || ""),
+      subscription.id,
+      planId,
+      mapStripeStatus(subscription.status),
+      currentPeriodStart,
+      currentPeriodEnd,
+      billingCycle as "monthly" | "yearly"
+    );
 
-    console.log(`Successfully processed subscription for user ${userId}`);
+    console.log(
+      `Successfully processed subscription for user ${userId} with plan: ${planName}`
+    );
+    console.log(`Stripe customer ID: ${session.customer}`);
+    console.log(`Stripe subscription ID: ${subscription.id}`);
+    console.log(`Plan ID: ${planId}`);
+    console.log(`Billing cycle: ${billingCycle}`);
+    console.log(`Status: ${subscription.status}`);
+    console.log(`Period start: ${currentPeriodStart}`);
+    console.log(`Period end: ${currentPeriodEnd}`);
   } catch (error) {
     console.error("Error in handleCheckoutCompleted:", error);
   }

@@ -4,20 +4,22 @@ import type { Subscription } from "@/types";
 
 export interface CreateSubscriptionInput {
   user_id: string;
+  plan_id: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  plan_name: string;
   status: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;
   cancel_at_period_end: boolean;
 }
 
 export interface UpdateSubscriptionInput {
+  plan_id?: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  plan_name?: string;
   status?: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  billing_cycle?: "monthly" | "yearly";
   current_period_start?: string;
   current_period_end?: string;
   cancel_at_period_end?: boolean;
@@ -384,6 +386,77 @@ export class SubscriptionDAL
       throw new DALError(
         "Failed to update subscription from webhook",
         "UPDATE_ERROR",
+        error
+      );
+    }
+  }
+
+  async getPlanName(planId: string): Promise<string | null> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("subscription_plans")
+        .select("name")
+        .eq("id", planId)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          return null; // Not found
+        }
+        throw new DALError(
+          `Failed to get plan name: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data?.name || null;
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError("Failed to get plan name", "QUERY_ERROR", error);
+    }
+  }
+
+  async getSubscriptionWithPlanName(
+    userId: string
+  ): Promise<(Subscription & { plan_name: string }) | null> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("user_subscriptions")
+        .select(
+          `
+          *,
+          subscription_plans!inner(name)
+        `
+        )
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        if (error.code === "PGRST116") {
+          return null; // Not found
+        }
+        throw new DALError(
+          `Failed to get subscription with plan name: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      if (!data) return null;
+
+      return {
+        ...data,
+        plan_name: data.subscription_plans?.name || "Free",
+      };
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError(
+        "Failed to get subscription with plan name",
+        "QUERY_ERROR",
         error
       );
     }

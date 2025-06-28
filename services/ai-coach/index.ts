@@ -89,7 +89,7 @@ export class AICoachService {
     resume_text?: string;
     job_description?: string;
     job_url?: string;
-    user_background?: string;
+    interview_context?: string;
     prep_content: string;
   }): Promise<InterviewPrep> {
     try {
@@ -123,7 +123,7 @@ export class AICoachService {
     resume_text?: string;
     job_description?: string;
     job_url?: string;
-    user_background?: string;
+    interview_context?: string;
   }): Promise<InterviewPrep | null> {
     return this.interviewPrepDAL.findExistingAnalysis(options);
   }

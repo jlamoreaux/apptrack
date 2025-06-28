@@ -33,7 +33,7 @@ export interface CreateInterviewPrepInput {
   job_url?: string;
   user_resume_id?: string;
   resume_text?: string;
-  user_background?: string;
+  interview_context?: string;
   prep_content: string;
 }
 
@@ -349,15 +349,19 @@ export class ResumeAnalysisDAL
         .order("created_at", { ascending: false })
         .limit(1);
       if (error) {
+        if (error.code === "PGRST116") {
+          return null; // Not found - this is normal
+        }
         throw new DALError(
           `Failed to find existing resume analysis: ${error.message}`,
           "QUERY_ERROR"
         );
       }
-      console.log("Found existing resume analysis", data[0].id);
+      console.log("Found existing resume analysis", data[0]?.id);
       return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       if (error instanceof DALError) throw error;
+      console.error(error);
       throw new DALError(
         "Failed to find existing resume analysis",
         "QUERY_ERROR",
@@ -574,14 +578,14 @@ export class InterviewPrepDAL
     resume_text,
     job_description,
     job_url,
-    user_background,
+    interview_context,
   }: {
     user_id: string;
     user_resume_id?: string;
     resume_text?: string;
     job_description?: string;
     job_url?: string;
-    user_background?: string;
+    interview_context?: string;
   }): Promise<InterviewPrep | null> {
     try {
       const supabase = await createClient();
@@ -590,49 +594,52 @@ export class InterviewPrepDAL
         .select("*")
         .eq("user_id", user_id);
 
-      // Priority 1: user_resume_id + job_url + user_background
-      if (user_resume_id && job_url && user_background) {
+      // Priority 1: user_resume_id + job_url + interview_context
+      if (user_resume_id && job_url && interview_context) {
         query = query
           .eq("user_resume_id", user_resume_id)
           .eq("job_url", job_url)
-          .eq("user_background", user_background);
+          .eq("interview_context", interview_context);
       }
-      // Priority 2: user_resume_id + job_description + user_background
-      else if (user_resume_id && job_description && user_background) {
+      // Priority 2: user_resume_id + job_description + interview_context
+      else if (user_resume_id && job_description && interview_context) {
         query = query
           .eq("user_resume_id", user_resume_id)
           .eq("job_description", job_description)
-          .eq("user_background", user_background);
+          .eq("interview_context", interview_context);
       }
-      // Priority 3: resume_text + job_url + user_background
-      else if (resume_text && job_url && user_background) {
+      // Priority 3: resume_text + job_url + interview_context
+      else if (resume_text && job_url && interview_context) {
         query = query
           .eq("resume_text", resume_text)
           .eq("job_url", job_url)
-          .eq("user_background", user_background);
+          .eq("interview_context", interview_context);
       }
-      // Priority 4: resume_text + job_description + user_background
-      else if (resume_text && job_description && user_background) {
+      // Priority 4: resume_text + job_description + interview_context
+      else if (resume_text && job_description && interview_context) {
         query = query
           .eq("resume_text", resume_text)
           .eq("job_description", job_description)
-          .eq("user_background", user_background);
+          .eq("interview_context", interview_context);
       }
-      // Fallback: just user_resume_id/job_url/job_description/user_background
+      // Fallback: just user_resume_id/job_url/job_description/interview_context
       else {
         if (user_resume_id) query = query.eq("user_resume_id", user_resume_id);
         else if (resume_text) query = query.eq("resume_text", resume_text);
         if (job_description)
           query = query.eq("job_description", job_description);
         else if (job_url) query = query.eq("job_url", job_url);
-        if (user_background)
-          query = query.eq("user_background", user_background);
+        if (interview_context)
+          query = query.eq("interview_context", interview_context);
       }
 
       const { data, error } = await query
         .order("created_at", { ascending: false })
         .limit(1);
       if (error) {
+        if (error.code === "PGRST116") {
+          return null; // Not found - this is normal
+        }
         throw new DALError(
           `Failed to find existing interview prep: ${error.message}`,
           "QUERY_ERROR"

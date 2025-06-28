@@ -24,7 +24,7 @@ export async function generateResumeAdvice(
 
 export async function generateInterviewPrep(
   jobDescription: string,
-  userBackground?: string,
+  interviewContext?: string,
   resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
@@ -40,8 +40,8 @@ export async function generateInterviewPrep(
     content += `\n\nMy Resume:\n${resumeText}`;
   }
 
-  if (userBackground) {
-    content += `\n\nAdditional Background:\n${userBackground}`;
+  if (interviewContext) {
+    content += `\n\nInterview Context:\n${interviewContext}`;
   }
 
   content += `\n\nPlease provide likely interview questions and guidance on how to answer them based on my background and the job requirements.`;
@@ -171,7 +171,7 @@ export async function generateResumeAdviceWithModel(
 export async function generateInterviewPrepWithModel(
   jobDescription: string,
   model: ModelType,
-  userBackground?: string,
+  interviewContext?: string,
   resumeText?: string
 ): Promise<string> {
   const messages: ChatMessage[] = [
@@ -187,8 +187,8 @@ export async function generateInterviewPrepWithModel(
     content += `\n\nMy Resume:\n${resumeText}`;
   }
 
-  if (userBackground) {
-    content += `\n\nAdditional Background:\n${userBackground}`;
+  if (interviewContext) {
+    content += `\n\nInterview Context:\n${interviewContext}`;
   }
 
   content += `\n\nPlease provide likely interview questions and guidance on how to answer them based on my background and the job requirements.`;

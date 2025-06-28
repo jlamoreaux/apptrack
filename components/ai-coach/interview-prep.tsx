@@ -34,7 +34,7 @@ const InterviewPrep = () => {
     user?.id || null
   );
   const [jobDescription, setJobDescription] = useState("");
-  const [userBackground, setUserBackground] = useState("");
+  const [interviewContext, setInterviewContext] = useState("");
   const [prep, setPrep] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -60,7 +60,7 @@ const InterviewPrep = () => {
 
     try {
       // Call backend API route for interview prep
-      const payload: any = { userBackground };
+      const payload: any = { interviewContext };
       if (inputMethod === "url") {
         payload.jobUrl = jobUrl;
       } else {
@@ -130,12 +130,12 @@ const InterviewPrep = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="userBackground">{copy.backgroundLabel}</Label>
+          <Label htmlFor="interviewContext">{copy.interviewContextLabel}</Label>
           <Textarea
-            id="userBackground"
-            placeholder={copy.backgroundPlaceholder}
-            value={userBackground}
-            onChange={(e) => setUserBackground(e.target.value)}
+            id="interviewContext"
+            placeholder={copy.interviewContextPlaceholder}
+            value={interviewContext}
+            onChange={(e) => setInterviewContext(e.target.value)}
             rows={4}
           />
         </div>

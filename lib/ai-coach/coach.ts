@@ -10,7 +10,7 @@ import { type ChatMessage } from "../replicate/types";
 
 export interface PrepareForInterviewParams {
   jobDescription: string;
-  userBackground?: string;
+  interviewContext?: string;
   resumeText: string;
 }
 
@@ -60,13 +60,13 @@ export class AICareerCoach {
 
   async prepareForInterview({
     jobDescription,
-    userBackground,
+    interviewContext,
     resumeText,
   }: PrepareForInterviewParams): Promise<string> {
     try {
       const prep = await generateInterviewPrep(
         jobDescription,
-        userBackground,
+        interviewContext,
         resumeText
       );
 

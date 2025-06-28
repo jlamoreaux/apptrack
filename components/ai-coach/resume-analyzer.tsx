@@ -347,9 +347,10 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
             onClick={handleAnalyze}
             disabled={
               isLoading ||
-              (inputMethod === "url"
-                ? !(jobUrl.trim() || resumeText.trim() || userHasResume)
-                : !(resumeText.trim() || userHasResume))
+              !(
+                (resumeText.trim() || userHasResume) &&
+                (jobDescription.trim() || jobUrl.trim())
+              )
             }
             className="w-full bg-purple-600 hover:bg-purple-700 mt-6"
           >

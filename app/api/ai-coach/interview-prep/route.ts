@@ -35,8 +35,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { jobDescription, jobUrl, userBackground, userResumeId, resumeText } =
-      await request.json();
+    const {
+      jobDescription,
+      jobUrl,
+      interviewContext,
+      userResumeId,
+      resumeText,
+    } = await request.json();
 
     // Get resume context (id and text)
     let finalResumeText = resumeText;
@@ -75,7 +80,7 @@ export async function POST(request: NextRequest) {
       resume_text: finalResumeText,
       job_description: effectiveJobDescription,
       job_url: effectiveJobUrl,
-      user_background: userBackground,
+      interview_context: interviewContext,
     });
     if (existing) {
       return NextResponse.json({ preparation: existing.prep_content });
@@ -85,7 +90,7 @@ export async function POST(request: NextRequest) {
     const prepJobDesc = effectiveJobDescription || effectiveJobUrl;
     const preparation = await aiCoach.prepareForInterview({
       jobDescription: prepJobDesc!,
-      userBackground,
+      interviewContext,
       resumeText: finalResumeText,
     });
 
@@ -96,7 +101,7 @@ export async function POST(request: NextRequest) {
       resume_text: finalResumeText,
       job_description: effectiveJobDescription,
       job_url: effectiveJobUrl,
-      user_background: userBackground,
+      interview_context: interviewContext,
       prep_content: preparation,
     });
 

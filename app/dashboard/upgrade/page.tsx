@@ -28,6 +28,8 @@ import {
   getPlanPrice,
   getYearlySavings,
   getPlanDisplayLimit,
+  getPlanButtonText,
+  isPlanDowngrade,
 } from "@/lib/utils/plan-helpers";
 import { PlanCard } from "@/components/shared/plan-card";
 
@@ -173,6 +175,15 @@ export default function UpgradePage() {
               const price = getPlanPrice(plan, selectedBilling);
               const yearlySavings = getYearlySavings(plan.name);
               const features = getPlanFeatures(plan);
+              const isCurrentPlan = currentPlan?.name === plan.name;
+              const isDowngrade =
+                currentPlan?.name &&
+                isPlanDowngrade(currentPlan.name, plan.name);
+              const buttonText = getPlanButtonText(
+                currentPlan?.name || PLAN_NAMES.FREE,
+                plan.name,
+                isCurrentPlan
+              );
 
               return (
                 <PlanCard
@@ -199,18 +210,13 @@ export default function UpgradePage() {
                   }
                   features={features}
                   cta={{
-                    text:
-                      currentPlan?.name === plan.name
-                        ? "Current Plan"
-                        : plan.name === PLAN_NAMES.FREE
-                        ? "Downgrade"
-                        : `Upgrade to ${plan.name}`,
+                    text: buttonText,
                     href:
-                      plan.name === PLAN_NAMES.FREE
+                      isCurrentPlan || isDowngrade
                         ? "#"
                         : `/dashboard/upgrade/checkout?planId=${plan.id}&billingCycle=${selectedBilling}`,
                   }}
-                  isCurrentPlan={currentPlan?.name === plan.name}
+                  isCurrentPlan={isCurrentPlan}
                   variant="upgrade"
                 />
               );
