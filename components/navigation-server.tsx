@@ -3,14 +3,19 @@ import { Button } from "@/components/ui/button";
 import { BarChart3, Crown } from "lucide-react";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
 import { UserMenu } from "./user-menu";
+import { MainNavigation } from "./main-navigation";
+import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
+import { isOnFreePlan } from "@/lib/utils/plan-helpers";
+import type { PermissionLevel } from "@/types";
 
 export async function NavigationServer() {
   const user = await getUser();
 
+  // If no user, show public navigation
   if (!user) {
     return (
-      <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <nav className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <BarChart3 className="h-6 w-6 text-primary" />
             <span className="font-bold text-xl text-primary">AppTrack</span>
@@ -25,22 +30,25 @@ export async function NavigationServer() {
               </Button>
             </Link>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </div>
     );
   }
 
+  // Get user data for authenticated navigation
   const [profile, subscription] = await Promise.all([
     getProfile(user.id),
     getSubscription(user.id),
   ]);
 
-  const isOnFreePlan =
-    subscription?.subscription_plans?.name === "Free" || !subscription;
+  const planName = subscription?.subscription_plans?.name;
+  const userPlan = getPermissionLevelFromPlan(planName);
+  const isFreePlan = isOnFreePlan(planName || "Free");
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center">
+    <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Top Header */}
+      <nav className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
           <BarChart3 className="h-6 w-6 text-primary" />
           <span className="font-bold text-xl text-primary">AppTrack</span>
@@ -48,7 +56,7 @@ export async function NavigationServer() {
 
         <div className="ml-auto flex items-center space-x-2">
           {/* Upgrade button for free users */}
-          {isOnFreePlan && (
+          {isFreePlan && (
             <Link href="/dashboard/upgrade">
               <Button
                 size="sm"
@@ -61,9 +69,12 @@ export async function NavigationServer() {
             </Link>
           )}
 
-          <UserMenu user={user} profile={profile} isOnFreePlan={isOnFreePlan} />
+          <UserMenu user={user} profile={profile} isOnFreePlan={isFreePlan} />
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      {/* Main Navigation */}
+      <MainNavigation userPlan={userPlan} />
+    </div>
   );
 }
