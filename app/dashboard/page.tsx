@@ -27,6 +27,13 @@ import {
   getApplicationHistory,
 } from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/status-badge";
+import { AICoachDashboardIntegration } from "@/components/ai-coach-navigation";
+import {
+  NavigationErrorBoundary,
+  AICoachFallback,
+} from "@/components/NavigationErrorBoundary";
+import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
+import { APPLICATION_LIMITS } from "@/lib/constants/navigation";
 import type { Application, ApplicationHistory } from "@/lib/types";
 
 export default async function DashboardPage() {
@@ -62,6 +69,18 @@ export default async function DashboardPage() {
     );
     const history =
       (await Promise.race([historyPromise, historyTimeoutPromise])) || [];
+
+    // Get subscription information for AI Coach integration
+    const subscriptionPromise = getSubscription(user.id);
+    const subscriptionTimeoutPromise = new Promise<any>((resolve) =>
+      setTimeout(() => resolve(null), 3000)
+    );
+    const subscription =
+      (await Promise.race([subscriptionPromise, subscriptionTimeoutPromise])) ||
+      null;
+
+    const planName = subscription?.subscription_plans?.name;
+    const userPlan = getPermissionLevelFromPlan(planName);
 
     const stats = {
       total: applications.length,
@@ -141,6 +160,17 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* AI Coach Integration */}
+          <NavigationErrorBoundary fallback={<AICoachFallback />}>
+            <AICoachDashboardIntegration
+              userPlan={userPlan}
+              recentApplications={applications.slice(
+                0,
+                APPLICATION_LIMITS.DASHBOARD_DISPLAY
+              )}
+            />
+          </NavigationErrorBoundary>
 
           {/* Application Pipeline Chart */}
           <ApplicationPipelineChart

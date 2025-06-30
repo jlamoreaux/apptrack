@@ -33,24 +33,18 @@ export interface Subscription {
 export interface Application {
   id: string;
   user_id: string;
-  company_name: string;
-  position_title: string;
-  job_description?: string;
-  application_date: string;
+  company: string;
+  role: string;
+  role_link?: string;
+  date_applied: string;
   status:
-    | "applied"
-    | "interviewing"
-    | "offer"
-    | "rejected"
-    | "withdrawn"
-    | "archived";
-  salary_range?: string;
-  location?: string;
-  contact_person?: string;
-  contact_email?: string;
+    | "Applied"
+    | "Interview Scheduled"
+    | "Interviewed"
+    | "Offer"
+    | "Rejected";
   notes?: string;
-  interview_notes?: string;
-  follow_up_date?: string;
+  archived?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -127,15 +121,11 @@ export interface PaginatedResponse<T> {
 
 // Form types
 export interface ApplicationFormData {
-  company_name: string;
-  position_title: string;
-  job_description?: string;
-  application_date: string;
-  status: "applied" | "interviewing" | "offer" | "rejected" | "withdrawn";
-  salary_range?: string;
-  location?: string;
-  contact_person?: string;
-  contact_email?: string;
+  company: string;
+  role: string;
+  role_link?: string;
+  date_applied: string;
+  status: "Applied" | "Interview Scheduled" | "Interviewed" | "Offer" | "Rejected";
   notes?: string;
 }
 
