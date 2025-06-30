@@ -169,6 +169,7 @@ export default async function DashboardPage() {
                 0,
                 APPLICATION_LIMITS.DASHBOARD_DISPLAY
               )}
+              userId={user.id}
             />
           </NavigationErrorBoundary>
 
