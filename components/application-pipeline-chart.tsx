@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import dynamic from "next/dynamic";
-import type { Application, ApplicationHistory } from "@/lib/types";
+import type { Application, ApplicationHistory } from "@/types";
 import {
   buildStatusPath,
   countTransitions,

@@ -26,15 +26,16 @@ import {
   getApplications,
   getApplicationHistory,
 } from "@/lib/supabase/server";
-import { StatusBadge } from "@/components/status-badge";
+import { ApplicationList } from "@/components/application-list";
 import { AICoachDashboardIntegration } from "@/components/ai-coach-navigation";
+import { AnalyticsProvider } from "@/components/analytics-provider";
 import {
   NavigationErrorBoundary,
   AICoachFallback,
 } from "@/components/NavigationErrorBoundary";
 import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
 import { APPLICATION_LIMITS } from "@/lib/constants/navigation";
-import type { Application, ApplicationHistory } from "@/lib/types";
+import type { Application, ApplicationHistory, PermissionLevel } from "@/types";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -224,59 +225,15 @@ export default async function DashboardPage() {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {applications.slice(0, 10).map((app) => (
-                    <div
-                      key={app.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="space-y-1 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold truncate">{app.role}</h3>
-                          {app.role_link && (
-                            <a
-                              href={app.role_link}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                            >
-                              <ExternalLink className="h-4 w-4" />
-                            </a>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {app.company}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Applied:{" "}
-                          {app.date_applied
-                            ? new Date(app.date_applied).toLocaleDateString()
-                            : "Not specified"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 flex-shrink-0">
-                        <StatusBadge status={app.status} />
-                        <Link href={`/dashboard/application/${app.id}`}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
-                          >
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-
-                  {applications.length > 10 && (
-                    <div className="text-center pt-4">
-                      <p className="text-sm text-muted-foreground">
-                        Showing 10 of {applications.length} applications
-                      </p>
-                    </div>
-                  )}
-                </div>
+                <AnalyticsProvider>
+                  <ApplicationList
+                    applications={applications}
+                    userPlan={userPlan}
+                    userId={user.id}
+                    location="dashboard"
+                    maxDisplay={10}
+                  />
+                </AnalyticsProvider>
               )}
             </CardContent>
           </Card>
