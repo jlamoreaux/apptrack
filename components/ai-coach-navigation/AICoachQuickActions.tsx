@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/lib/constants/navigation";
 import { UI_CONSTANTS } from "@/lib/constants/ui";
 import { APP_ROUTES } from "@/lib/constants/routes";
+import { aiCoachAnalytics } from "@/lib/analytics";
 import type { Application } from "@/types";
 
 // Icon mapping for string-based icon names
@@ -34,6 +36,7 @@ const ICON_MAP = {
 interface AICoachQuickActionsProps {
   recentApplications: Application[];
   className?: string;
+  userId?: string;
 }
 
 /**
@@ -42,8 +45,36 @@ interface AICoachQuickActionsProps {
  */
 export function AICoachQuickActions({ 
   recentApplications, 
-  className 
+  className,
+  userId
 }: AICoachQuickActionsProps) {
+  // Track navigation view for AI Coach users
+  useEffect(() => {
+    aiCoachAnalytics.trackNavigationViewed({
+      subscription_plan: 'ai_coach',
+      user_id: userId,
+    });
+  }, [userId]);
+
+  // Handle quick action clicks
+  const handleQuickActionClick = (featureName: string) => {
+    aiCoachAnalytics.trackFeatureCardClick({
+      feature_name: featureName,
+      location: 'navigation',
+      subscription_plan: 'ai_coach',
+      user_id: userId,
+    });
+  };
+
+  // Handle application-specific action clicks
+  const handleApplicationActionClick = (featureName: string, applicationId: string) => {
+    aiCoachAnalytics.trackFeatureCardClick({
+      feature_name: featureName,
+      location: 'navigation',
+      subscription_plan: 'ai_coach',
+      user_id: userId,
+    });
+  };
   return (
     <Card className={`${AI_COACH_COLORS.border} ${className}`}>
       <CardHeader>
@@ -72,6 +103,7 @@ export function AICoachQuickActions({
                 variant="outline" 
                 size="sm" 
                 className="h-auto p-3" 
+                onClick={() => handleQuickActionClick(action.label.toLowerCase().replace(' ', '_'))}
                 asChild
               >
                 <Link href={action.href}>
@@ -95,7 +127,12 @@ export function AICoachQuickActions({
                   <p className="text-xs text-muted-foreground truncate">{app.company}</p>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" asChild>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => handleApplicationActionClick('interview_prep', app.id)}
+                    asChild
+                  >
                     <Link href={APP_ROUTES.DYNAMIC.aiCoachWithApplication(app.id, "interview")}>
                       <MessageSquare className={UI_CONSTANTS.SIZES.ICON.XS} />
                     </Link>

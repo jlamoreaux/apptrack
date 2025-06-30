@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,12 +25,14 @@ import {
 } from "@/lib/constants/navigation";
 import { UI_CONSTANTS } from "@/lib/constants/ui";
 import { APP_ROUTES } from "@/lib/constants/routes";
+import { aiCoachAnalytics } from "@/lib/analytics";
 import type { Application, PermissionLevel } from "@/types";
 
 interface AICoachTeaserProps {
   userPlan: PermissionLevel;
   recentApplications?: Application[];
   className?: string;
+  userId?: string;
 }
 
 /**
@@ -39,12 +42,40 @@ interface AICoachTeaserProps {
 export function AICoachTeaser({ 
   userPlan, 
   recentApplications = [], 
-  className 
+  className,
+  userId
 }: AICoachTeaserProps) {
   // Don't show teaser to AI Coach users
   if (userPlan === "ai_coach") {
     return null;
   }
+
+  // Track navigation view
+  useEffect(() => {
+    aiCoachAnalytics.trackNavigationViewed({
+      subscription_plan: userPlan,
+      user_id: userId,
+    });
+  }, [userPlan, userId]);
+
+  // Handle upgrade click
+  const handleUpgradeClick = () => {
+    aiCoachAnalytics.trackUpgradeClick({
+      source: 'navigation',
+      subscription_plan: userPlan,
+      user_id: userId,
+    });
+  };
+
+  // Handle preview features click
+  const handlePreviewClick = () => {
+    aiCoachAnalytics.trackFeatureCardClick({
+      feature_name: 'preview_features',
+      location: 'navigation',
+      subscription_plan: userPlan,
+      user_id: userId,
+    });
+  };
 
   return (
     <Card className={`${AI_COACH_COLORS.border} ${AI_COACH_COLORS.gradientLight} ${className}`}>
@@ -99,13 +130,21 @@ export function AICoachTeaser({
         )}
 
         <div className="flex gap-3">
-          <Button className={`flex-1 ${AI_COACH_COLORS.primaryBg} ${AI_COACH_COLORS.primaryHover}`} asChild>
+          <Button 
+            className={`flex-1 ${AI_COACH_COLORS.primaryBg} ${AI_COACH_COLORS.primaryHover}`} 
+            onClick={handleUpgradeClick}
+            asChild
+          >
             <Link href={NAVIGATION_URLS.UPGRADE}>
               <Crown className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} />
               Upgrade Now
             </Link>
           </Button>
-          <Button variant="outline" asChild>
+          <Button 
+            variant="outline" 
+            onClick={handlePreviewClick}
+            asChild
+          >
             <Link href={NAVIGATION_URLS.AI_COACH}>
               Preview Features
               <ArrowRight className={`${UI_CONSTANTS.SIZES.ICON.SM} ml-2`} />

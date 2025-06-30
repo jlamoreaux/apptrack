@@ -8,6 +8,7 @@ interface AICoachDashboardIntegrationProps {
   userPlan: PermissionLevel;
   recentApplications?: Application[];
   className?: string;
+  userId?: string;
 }
 
 /**
@@ -17,7 +18,8 @@ interface AICoachDashboardIntegrationProps {
 export function AICoachDashboardIntegration({ 
   userPlan, 
   recentApplications = [], 
-  className 
+  className,
+  userId
 }: AICoachDashboardIntegrationProps) {
   // Show quick actions for AI Coach subscribers
   if (userPlan === "ai_coach") {
@@ -25,6 +27,7 @@ export function AICoachDashboardIntegration({
       <AICoachQuickActions 
         recentApplications={recentApplications} 
         className={className} 
+        userId={userId}
       />
     );
   }
@@ -35,6 +38,7 @@ export function AICoachDashboardIntegration({
       userPlan={userPlan}
       recentApplications={recentApplications} 
       className={className} 
+      userId={userId}
     />
   );
 }
