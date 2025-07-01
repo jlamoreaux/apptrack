@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
 import { Suspense } from "react";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
+import { SkipNavigation } from "@/components/accessibility/skip-link";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,13 +24,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <SkipNavigation />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <Suspense fallback={<div>Loading...</div>}>
+          <Suspense fallback={<div aria-live="polite" aria-busy="true">Loading...</div>}>
             {children}
             <Analytics />
           </Suspense>

@@ -13,19 +13,19 @@
     --popover: 0 0% 100%;
     --popover-foreground: 210 50% 10%; /* Darker for better contrast */
 
-    --primary: 210 50% 24%;
+    --primary: 210 71% 42%; /* #1565C0 - WCAG AA compliant blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 160 40% 35%; /* Slightly darker for better contrast */
+    --secondary: 122 39% 33%; /* #2E7D32 - WCAG AA compliant green */
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 210 15% 45%; /* Slightly darker for better contrast */
+    --accent: 0 0% 26%; /* #424242 - WCAG AA compliant gray */
     --accent-foreground: 0 0% 100%;
 
     --muted: 210 20% 92%;
     --muted-foreground: 210 25% 35%; /* Darker for better contrast */
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 70% 40%; /* #C62828 - WCAG AA compliant red */
     --destructive-foreground: 0 0% 100%;
 
     --border: 210 20% 85%;
@@ -45,13 +45,13 @@
     --popover: 210 50% 15%;
     --popover-foreground: 210 20% 98%;
 
-    --primary: 210 50% 35%; /* Lighter for dark mode contrast */
+    --primary: 210 71% 55%; /* Lighter blue for dark mode */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 160 40% 45%; /* Lighter for dark mode contrast */
+    --secondary: 122 39% 55%; /* Lighter green for dark mode */
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 210 15% 55%; /* Lighter for dark mode contrast */
+    --accent: 0 0% 70%; /* Lighter gray for dark mode */
     --accent-foreground: 0 0% 100%;
 
     --muted: 210 50% 20%;
@@ -105,8 +105,105 @@
   color: hsl(var(--accent));
 }
 
-/* Focus indicators for accessibility */
+/* Enhanced focus indicators for accessibility */
 .focus-visible\:ring-2:focus-visible {
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
+}
+
+/* Ensure focus indicators are always visible and meet 3:1 contrast ratio */
+*:focus-visible {
+  outline: 2px solid #1976D2; /* High contrast blue */
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Skip link styles for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #1565C0;
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  border-radius: 4px;
+  z-index: 9999;
+  font-weight: 600;
+  transition: top 0.3s;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
+/* Screen reader only content */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Make sr-only content visible when focused */
+.sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  :root {
+    --primary: 210 100% 20%;
+    --secondary: 122 100% 20%;
+    --accent: 0 0% 0%;
+    --destructive: 0 100% 25%;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Ensure sufficient color contrast for all interactive elements */
+button, 
+input, 
+select, 
+textarea, 
+a[href] {
+  min-height: 44px; /* Minimum touch target size */
+}
+
+/* Status badge accessibility improvements */
+[role="status"] {
+  border-width: 1px;
+  border-style: solid;
+  font-weight: 600;
+}
+
+/* Minimal status badge base styles */
+@layer components {
+  .status-badge {
+    /* Only define what Tailwind utilities can't provide */
+    transition: opacity 0.2s ease-in-out;
+  }
 }

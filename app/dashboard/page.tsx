@@ -98,20 +98,21 @@ export default async function DashboardPage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationServer />
-        <div className="container mx-auto py-8 space-y-8">
+        <main id="main-content" className="container mx-auto py-8 space-y-8">
           {/* Header Section */}
-          <div className="space-y-2">
+          <header className="space-y-2">
             <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
             <p className="text-muted-foreground">
               Track your job application progress
             </p>
-          </div>
+          </header>
 
           {/* Subscription Usage Banner */}
           <SubscriptionUsageBannerServer userId={user.id} />
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <section aria-labelledby="stats-heading" className="grid grid-cols-1 md:grid-cols-5 gap-6">
+            <h2 id="stats-heading" className="sr-only">Application Statistics</h2>
             <Card className="border-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
@@ -161,7 +162,7 @@ export default async function DashboardPage() {
                 <div className="text-2xl font-bold">{stats.hired}</div>
               </CardContent>
             </Card>
-          </div>
+          </section>
 
           {/* AI Coach Integration */}
           <NavigationErrorBoundary fallback={<AICoachFallback />}>
@@ -176,18 +177,24 @@ export default async function DashboardPage() {
           </NavigationErrorBoundary>
 
           {/* Application Pipeline Chart */}
-          <ApplicationPipelineChart
-            applications={applications}
-            history={history}
-          />
+          <section aria-labelledby="chart-heading">
+            <h2 id="chart-heading" className="sr-only">Application Pipeline Visualization</h2>
+            <ApplicationPipelineChart
+              applications={applications}
+              history={history}
+            />
+          </section>
 
           {/* Applications List */}
-          <DashboardApplicationsList
-            userId={user.id}
-            initialApplications={applications}
-            initialTotal={applications.length}
-          />
-        </div>
+          <section aria-labelledby="applications-heading">
+            <h2 id="applications-heading" className="sr-only">Recent Applications</h2>
+            <DashboardApplicationsList
+              userId={user.id}
+              initialApplications={applications}
+              initialTotal={applications.length}
+            />
+          </section>
+        </main>
       </div>
     );
   } catch (error) {

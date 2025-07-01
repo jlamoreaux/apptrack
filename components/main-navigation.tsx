@@ -194,10 +194,10 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
   };
 
   return (
-    <nav className={cn("border-b bg-background/95 backdrop-blur", className)}>
+    <nav id="main-navigation" aria-label="Main navigation" className={cn("border-b bg-background/95 backdrop-blur", className)}>
       <div className={`container flex ${UI_CONSTANTS.SPACING.NAV_HEIGHT} items-center`}>
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-1">
+        <div className="hidden md:flex items-center space-x-1" role="menubar" aria-label="Navigation menu">
           {renderNavItems()}
         </div>
 
@@ -205,18 +205,18 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
         <div className="md:hidden">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm">
-                <Menu className={UI_CONSTANTS.SIZES.ICON.SM} />
+              <Button variant="ghost" size="sm" aria-label="Open navigation menu" aria-expanded={mobileMenuOpen}>
+                <Menu className={UI_CONSTANTS.SIZES.ICON.SM} aria-hidden="true" />
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className={UI_CONSTANTS.SIZES.CONTAINER.MOBILE_NAV}>
               <SheetHeader>
-                <SheetTitle>Navigation</SheetTitle>
+                <SheetTitle>Navigation Menu</SheetTitle>
               </SheetHeader>
-              <div className="mt-6 space-y-2">
+              <nav className="mt-6 space-y-2" aria-label="Mobile navigation menu">
                 {renderNavItems(true)}
-              </div>
+              </nav>
             </SheetContent>
           </Sheet>
         </div>
@@ -234,27 +234,28 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
                     AI_COACH_COLORS.primary,
                     AI_COACH_COLORS.lightHover
                   )}
+                  aria-label="AI Coach quick actions menu"
                 >
-                  <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} />
+                  <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
                   Quick AI Actions
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60">
+              <DropdownMenuContent align="end" className="w-60" aria-label="AI Coach actions">
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.RESUME}>
-                    <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} />
+                    <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
                     Analyze Resume
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.INTERVIEW}>
-                    <MessageSquare className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} />
+                    <MessageSquare className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
                     Interview Prep
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.ADVICE}>
-                    <Target className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} />
+                    <Target className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
                     Get Career Advice
                   </Link>
                 </DropdownMenuItem>
