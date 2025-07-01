@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import { generateTailwindColors } from "./lib/constants/accessible-colors";
 
 const config = {
   darkMode: ["class"],
@@ -22,19 +23,8 @@ const config = {
     },
     extend: {
       colors: {
-        // Brand colors from logo with WCAG AA compliance
-        primary: {
-          DEFAULT: "#1e3a5f", // Dark blue from logo (contrast ratio 7.5:1 on white)
-          foreground: "#ffffff",
-        },
-        secondary: {
-          DEFAULT: "#2d7a66", // Darker green for better contrast (contrast ratio 4.8:1 on white)
-          foreground: "#ffffff",
-        },
-        accent: {
-          DEFAULT: "#5a6b7a", // Darker gray for better contrast (contrast ratio 5.2:1 on white)
-          foreground: "#ffffff",
-        },
+        // Generate all colors from the single source of truth
+        ...generateTailwindColors(),
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

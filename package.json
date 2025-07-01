@@ -6,7 +6,11 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
-    "start": "next start"
+    "start": "next start",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:a11y": "jest --testPathPatterns=accessibility",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@hookform/resolvers": "latest",
@@ -51,12 +55,20 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@axe-core/react": "^4.10.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "^22",
     "@types/pdf-parse": "^1.1.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-plotly.js": "^2.6.3",
     "@types/textract": "^2.4.5",
+    "axe-core": "^4.10.3",
+    "jest": "^30.0.3",
+    "jest-axe": "^10.0.0",
+    "jest-environment-jsdom": "^30.0.2",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

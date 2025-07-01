@@ -14,10 +14,10 @@ export async function NavigationServer() {
   // If no user, show public navigation
   if (!user) {
     return (
-      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <nav className="container flex h-14 items-center">
+      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <nav aria-label="Main navigation" className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
+            <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
             <span className="font-bold text-xl text-primary">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
@@ -31,7 +31,7 @@ export async function NavigationServer() {
             </Link>
           </div>
         </nav>
-      </div>
+      </header>
     );
   }
 
@@ -46,15 +46,15 @@ export async function NavigationServer() {
   const isFreePlan = isOnFreePlan(planName || "Free");
 
   return (
-    <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Top Header */}
-      <nav className="container flex h-14 items-center">
-        <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
+      <nav aria-label="Site header" className="container flex h-14 items-center">
+        <Link href="/dashboard" className="mr-6 flex items-center space-x-2" aria-label="AppTrack Dashboard">
+          <BarChart3 className="h-6 w-6 text-primary" aria-hidden="true" />
           <span className="font-bold text-xl text-primary">AppTrack</span>
         </Link>
 
-        <div className="ml-auto flex items-center space-x-2">
+        <div className="ml-auto flex items-center space-x-2" role="toolbar" aria-label="User actions">
           {/* Upgrade button for free users */}
           {isFreePlan && (
             <Link href="/dashboard/upgrade">
@@ -62,8 +62,9 @@ export async function NavigationServer() {
                 size="sm"
                 variant="outline"
                 className="hidden sm:flex border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+                aria-label="Upgrade to premium plan"
               >
-                <Crown className="h-4 w-4 mr-2" />
+                <Crown className="h-4 w-4 mr-2" aria-hidden="true" />
                 Upgrade
               </Button>
             </Link>
@@ -75,6 +76,6 @@ export async function NavigationServer() {
 
       {/* Main Navigation */}
       <MainNavigation userPlan={userPlan} />
-    </div>
+    </header>
   );
 }

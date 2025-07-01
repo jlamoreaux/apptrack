@@ -460,11 +460,21 @@ These commands make AI calls and may take up to a minute:
 
 ### Build Validation Process
 
-Before committing schema changes:
+**REQUIRED before marking any task as done:**
 1. Run `npm run build` to catch TypeScript compilation errors
-2. Check for missing imports in DAL files
-3. Validate field name consistency across components
-4. Ensure status constants match database constraints
+2. Run `npm run lint` if available to catch code style issues
+3. Run all relevant tests (`npm test` or `npm run test:a11y` for accessibility)
+4. Check for missing imports in DAL files
+5. Validate field name consistency across components
+6. Ensure status constants match database constraints
+
+**Task Completion Checklist:**
+- [ ] All TypeScript errors resolved (build passes)
+- [ ] All linting issues addressed
+- [ ] All tests passing (including new functionality tests)
+- [ ] Code follows established patterns and conventions
+- [ ] Documentation updated if new APIs/components added
+- [ ] No console errors or warnings in development
 
 ### Common Pitfalls Encountered
 
@@ -474,6 +484,109 @@ Before committing schema changes:
 4. **Outdated sort field types** in hooks not matching updated DAL types
 5. **Client trying to filter by invalid statuses** removed from constants
 
+## Code Quality & Development Preferences
+
+### Code Documentation Standards
+
+**Comments and Documentation Policy:**
+- **DO NOT** add comments about what was fixed, changed, or when
+- **DO NOT** mention specific tasks, PRs, or implementation history in code
+- **DO** add comments that help future developers understand the code
+- **DO** focus on explaining "why" rather than "what" in comments
+- **DO** document complex business logic or non-obvious implementations
+
+**Examples:**
+```typescript
+// ❌ Bad: Historical commentary
+// Fixed duplicate label issue in Task 4 accessibility implementation
+// Added this to resolve TypeScript errors
+
+// ✅ Good: Functional documentation  
+// Extract only color properties to avoid property conflicts
+const { bg, text, border } = getStatusColors(status);
+```
+
+### Architecture Preferences Discovered
+
+**Type Safety & Validation:**
+- Prefer type guards (`isApplicationStatus`) over type assertions
+- Use `satisfies` operator for compile-time validation
+- Implement runtime validation with graceful fallbacks
+- Add development-only warnings for invalid inputs
+
+**Performance Patterns:**
+- Prefer Tailwind utilities over custom CSS and inline styles
+- Use single source of truth for colors and constants
+- Memoize expensive operations in hooks
+- Extract magic numbers to named constants
+
+**Accessibility First:**
+- All interactive elements must meet 44px touch target minimum
+- Color contrast must exceed WCAG AA requirements (4.5:1)
+- Implement proper ARIA attributes and semantic HTML
+- Include focus management for complex interactions
+- Test with screen readers and keyboard navigation
+
+**Error Handling:**
+- Implement error boundaries at appropriate component levels
+- Provide graceful degradation for accessibility features
+- Log development warnings without polluting production
+- Use descriptive error messages with actionable guidance
+
+### Component Design Patterns
+
+**Status Management:**
+- Use centralized constants in `/lib/constants/application-status.ts`
+- Implement type-safe status validation throughout
+- Connect status system to accessible color system
+- Provide utility functions for status operations
+
+**Hook Design:**
+- Extract reusable logic into custom hooks
+- Use proper dependency arrays for optimization
+- Implement cleanup functions for subscriptions/timers
+- Document hook behavior with JSDoc and examples
+
+**Testing Strategy:**
+- Write comprehensive tests for accessibility features
+- Test keyboard navigation and screen reader support
+- Validate color contrast programmatically
+- Include integration tests for complex workflows
+
+### File Organization Preferences
+
+**Accessibility Components:**
+- Group in `/components/accessibility/` directory
+- Provide comprehensive README with usage examples
+- Export common patterns through index file
+- Document WCAG compliance in component documentation
+
+**Constants and Configuration:**
+- Centralize colors in `/lib/constants/accessible-colors.ts`
+- Generate Tailwind config from constants (single source of truth)
+- Use descriptive constant names with proper TypeScript types
+- Document contrast ratios and compliance levels
+
+**Testing Structure:**
+- Organize tests by feature/domain (`__tests__/accessibility/`)
+- Use descriptive test names that explain the requirement
+- Include both unit and integration accessibility tests
+- Maintain high test coverage for critical accessibility features
+
+### Performance & Bundle Considerations
+
+**CSS Strategy:**
+- Minimize custom CSS in favor of Tailwind utilities
+- Use `@layer components` for necessary custom styles
+- Scope custom styles to prevent global pollution
+- Leverage Tailwind's purging for optimal bundle size
+
+**TypeScript Configuration:**
+- Use strict type checking throughout
+- Prefer explicit typing over `any`
+- Document complex types with JSDoc
+- Use union types and enums for constrained values
+
 ---
 
-_This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
+_This guide ensures Claude Code has immediate access to Task Master's essential functionality and the established code quality patterns for this project._
