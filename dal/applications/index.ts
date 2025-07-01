@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { BaseDAL, DALError, NotFoundError, ValidationError } from "../base";
 import type { Application, ApplicationHistory } from "@/types";
+import { APPLICATION_STATUS, type ApplicationStatus, isValidStatus } from "@/lib/constants/application-status";
 
 export interface CreateApplicationInput {
   user_id: string;
@@ -8,7 +9,7 @@ export interface CreateApplicationInput {
   position_title: string;
   job_description?: string;
   application_date: string;
-  status: "applied" | "interviewing" | "offer" | "rejected" | "withdrawn";
+  status: ApplicationStatus;
   salary_range?: string;
   location?: string;
   contact_person?: string;
@@ -21,13 +22,7 @@ export interface UpdateApplicationInput {
   position_title?: string;
   job_description?: string;
   application_date?: string;
-  status?:
-    | "applied"
-    | "interviewing"
-    | "offer"
-    | "rejected"
-    | "withdrawn"
-    | "archived";
+  status?: ApplicationStatus;
   salary_range?: string;
   location?: string;
   contact_person?: string;
@@ -35,6 +30,44 @@ export interface UpdateApplicationInput {
   notes?: string;
   interview_notes?: string;
   follow_up_date?: string;
+}
+
+/**
+ * Valid sortable fields that MUST have database indexes
+ * Adding new fields here requires corresponding database indexes
+ */
+export const SORTABLE_FIELDS = new Set([
+  'company_name',
+  'position_title', 
+  'status',
+  'application_date',
+  'created_at',
+  'updated_at'
+] as const);
+
+export type SortableField = 'company_name' | 'position_title' | 'status' | 'application_date' | 'created_at' | 'updated_at';
+
+export interface ApplicationQueryOptions {
+  /** Page number (1-indexed) */
+  page?: number;
+  /** Number of items per page (max 100) */
+  pageSize?: number;
+  /** Sort field (must be indexed) */
+  sortField?: SortableField;
+  /** Sort direction */
+  sortDirection?: 'asc' | 'desc';
+  /** Filter by status values */
+  statusFilter?: ApplicationStatus[];
+  /** Include archived applications */
+  includeArchived?: boolean;
+}
+
+export interface ApplicationQueryResult {
+  applications: Application[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
 
 export interface CreateHistoryInput {
@@ -233,15 +266,15 @@ export class ApplicationDAL
 
   // Application-specific methods
   async archive(id: string): Promise<Application | null> {
-    return this.update(id, { status: "archived" });
+    return this.update(id, { status: APPLICATION_STATUS.ARCHIVED });
   }
 
   async unarchive(id: string): Promise<Application | null> {
-    return this.update(id, { status: "applied" });
+    return this.update(id, { status: APPLICATION_STATUS.APPLIED });
   }
 
   async getArchived(userId: string): Promise<Application[]> {
-    return this.findByUserId(userId, "archived");
+    return this.findByUserId(userId, APPLICATION_STATUS.ARCHIVED);
   }
 
   async getActive(userId: string): Promise<Application[]> {
@@ -251,7 +284,7 @@ export class ApplicationDAL
         .from("applications")
         .select("*")
         .eq("user_id", userId)
-        .neq("status", "archived")
+        .neq("status", APPLICATION_STATUS.ARCHIVED)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -328,7 +361,7 @@ export class ApplicationDAL
         .from("applications")
         .select("status")
         .eq("user_id", userId)
-        .neq("status", "archived");
+        .neq("status", APPLICATION_STATUS.ARCHIVED);
 
       if (error) {
         throw new DALError(
@@ -359,7 +392,7 @@ export class ApplicationDAL
         .from("applications")
         .select("*")
         .eq("user_id", userId)
-        .neq("status", "archived")
+        .neq("status", APPLICATION_STATUS.ARCHIVED)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -378,6 +411,100 @@ export class ApplicationDAL
         "QUERY_ERROR",
         error
       );
+    }
+  }
+
+  async queryApplications(
+    userId: string,
+    options: ApplicationQueryOptions = {}
+  ): Promise<ApplicationQueryResult> {
+    try {
+      const {
+        page = 1,
+        pageSize = 25,
+        sortField = 'created_at',
+        sortDirection = 'desc',
+        statusFilter = [],
+        includeArchived = false,
+      } = options;
+
+      // Validate input parameters to prevent performance issues and security vulnerabilities
+      if (page < 1 || page > 1000) {
+        throw new ValidationError(`Invalid page number: ${page}. Must be between 1 and 1000.`);
+      }
+
+      if (pageSize < 1 || pageSize > 100) {
+        throw new ValidationError(`Invalid page size: ${pageSize}. Must be between 1 and 100.`);
+      }
+
+      if (!SORTABLE_FIELDS.has(sortField)) {
+        throw new ValidationError(
+          `Invalid sort field: ${sortField}. Allowed fields: ${Array.from(SORTABLE_FIELDS).join(', ')}`
+        );
+      }
+
+      if (!['asc', 'desc'].includes(sortDirection)) {
+        throw new ValidationError(`Invalid sort direction: ${sortDirection}. Must be 'asc' or 'desc'.`);
+      }
+
+      // Validate status filter values
+      if (statusFilter.length > 0) {
+        const invalidStatuses = statusFilter.filter(status => !isValidStatus(status));
+        if (invalidStatuses.length > 0) {
+          throw new ValidationError(
+            `Invalid status values: ${invalidStatuses.join(', ')}. ` +
+            `Allowed statuses: ${APPLICATION_STATUS_VALUES.join(', ')}`
+          );
+        }
+      }
+
+      const supabase = await createClient();
+      
+      // Build the base query
+      let query = supabase
+        .from("applications")
+        .select("*", { count: 'exact' })
+        .eq("user_id", userId);
+
+      // Apply status filters
+      if (!includeArchived) {
+        query = query.neq("status", "archived");
+      }
+      
+      if (statusFilter.length > 0) {
+        query = query.in("status", statusFilter);
+      }
+
+      // Apply sorting
+      const ascending = sortDirection === 'asc';
+      query = query.order(sortField, { ascending });
+
+      // Apply pagination
+      const startIndex = (page - 1) * pageSize;
+      query = query.range(startIndex, startIndex + pageSize - 1);
+
+      const { data, count, error } = await query;
+
+      if (error) {
+        throw new DALError(
+          `Failed to query applications: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      const totalCount = count || 0;
+      const totalPages = Math.ceil(totalCount / pageSize);
+
+      return {
+        applications: data || [],
+        totalCount,
+        page,
+        pageSize,
+        totalPages,
+      };
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError("Failed to query applications", "QUERY_ERROR", error);
     }
   }
 }
