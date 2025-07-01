@@ -151,3 +151,22 @@ export function generateCSPHeader(): string {
     .map(([directive, sources]) => `${directive} ${sources.join(' ')}`)
     .join('; ');
 }
+
+/**
+ * Sanitize AI analysis context data
+ */
+export function sanitizeAnalysisContext(data: any): any {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+
+  return {
+    company: sanitizeText(data.company),
+    role: sanitizeText(data.role),
+    userId: sanitizeText(data.userId),
+    applicationId: sanitizeText(data.applicationId),
+    jobDescription: data.jobDescription ? sanitizeUrl(data.jobDescription) : undefined,
+    notes: data.notes ? sanitizeText(data.notes) : undefined,
+    // Ensure no additional fields are passed through
+  };
+}

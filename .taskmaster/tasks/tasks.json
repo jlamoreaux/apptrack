@@ -256,7 +256,53 @@
         "priority": "high",
         "dependencies": [],
         "status": "pending",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Create AI Analysis UI Component",
+            "description": "Design and implement the ApplicationAIAnalysis component with tabs for different AI features and responsive layout.",
+            "dependencies": [],
+            "details": "Implement the ApplicationAIAnalysis.tsx component with the tab navigation system, loading states, and conditional rendering based on subscription status. Include the upgrade prompt for users without AI access and the basic structure for displaying analysis results.",
+            "status": "done",
+            "testStrategy": "Test component rendering in both subscription states (with/without AI access). Verify tab switching functionality and proper display of loading states."
+          },
+          {
+            "id": 2,
+            "title": "Implement Job Fit Analysis Feature",
+            "description": "Create the Job Fit Analysis functionality that analyzes the job description against user profile data.",
+            "dependencies": [],
+            "details": "Develop the API endpoint at /api/ai/job-fit-analysis that processes job description data and returns structured analysis. Create the JobFitAnalysisResult component to display the analysis in a user-friendly format with strengths, weaknesses, and improvement suggestions.",
+            "status": "done",
+            "testStrategy": "Test API endpoint with various job descriptions. Verify proper error handling and response format. Test the display component with different analysis results."
+          },
+          {
+            "id": 3,
+            "title": "Implement Interview Preparation Feature",
+            "description": "Create the Interview Preparation functionality that generates context-aware interview questions and suggested answers.",
+            "dependencies": [],
+            "details": "Develop the API endpoint at /api/ai/interview-preparation that generates role-specific interview questions and guidance. Create the InterviewPreparationResult component to display questions in an expandable format with suggested answer approaches.",
+            "status": "pending",
+            "testStrategy": "Test with various job roles to ensure diverse and relevant question generation. Verify the component correctly displays and allows interaction with multiple questions."
+          },
+          {
+            "id": 4,
+            "title": "Implement Cover Letter Generation Feature",
+            "description": "Create the Cover Letter generation functionality that produces customized cover letters based on the job and user profile.",
+            "dependencies": [],
+            "details": "Develop the API endpoint at /api/ai/cover-letter that generates tailored cover letters. Create the CoverLetterResult component with options to view, copy, and download the generated letter. Include formatting controls and a preview mode.",
+            "status": "pending",
+            "testStrategy": "Test cover letter generation with different job types. Verify the formatting options work correctly and that download/copy functionality operates as expected."
+          },
+          {
+            "id": 5,
+            "title": "Integrate with Subscription System and AI Services",
+            "description": "Connect the AI features to the subscription system and integrate with Replicate API for AI processing.",
+            "dependencies": [],
+            "details": "Implement subscription checks using the useSubscription hook to control feature access. Set up the connection to Replicate API for processing AI requests, including proper error handling and rate limiting. Implement caching for AI responses to improve performance and reduce API costs.",
+            "status": "pending",
+            "testStrategy": "Test subscription gate functionality with different user account types. Verify API calls are properly authenticated and that rate limiting and error handling work as expected. Test the caching mechanism to ensure it correctly stores and retrieves previous analyses."
+          }
+        ]
       },
       {
         "id": 6,
@@ -339,7 +385,7 @@
     ],
     "metadata": {
       "created": "2025-06-29T02:28:44.227Z",
-      "updated": "2025-07-01T12:55:28.822Z",
+      "updated": "2025-07-01T16:55:43.293Z",
       "description": "Tasks for master context"
     }
   }
