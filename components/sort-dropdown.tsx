@@ -13,7 +13,7 @@ import {
 /**
  * Available sort fields for applications (must match DAL sortable fields)
  */
-export type SortField = 'company_name' | 'position_title' | 'status' | 'application_date' | 'created_at' | 'updated_at';
+export type SortField = 'company' | 'role' | 'status' | 'date_applied' | 'created_at' | 'updated_at';
 
 /**
  * Sort direction
@@ -65,9 +65,9 @@ export function SortDropdown({
   sortOptions = [
     { field: 'updated_at', label: 'Last Updated', description: 'Most recently modified' },
     { field: 'created_at', label: 'Date Added', description: 'When application was created' },
-    { field: 'application_date', label: 'Date Applied', description: 'When you applied to this job' },
-    { field: 'company_name', label: 'Company Name', description: 'Alphabetical by company' },
-    { field: 'position_title', label: 'Job Title', description: 'Alphabetical by role' },
+    { field: 'date_applied', label: 'Date Applied', description: 'When you applied to this job' },
+    { field: 'company', label: 'Company Name', description: 'Alphabetical by company' },
+    { field: 'role', label: 'Job Title', description: 'Alphabetical by role' },
     { field: 'status', label: 'Status', description: 'Application status' },
   ],
   isLoading = false,

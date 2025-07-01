@@ -1,35 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
 import { BaseDAL, DALError, NotFoundError, ValidationError } from "../base";
 import type { Application, ApplicationHistory } from "@/types";
-import { APPLICATION_STATUS, type ApplicationStatus, isValidStatus } from "@/lib/constants/application-status";
+import { APPLICATION_STATUS, APPLICATION_STATUS_VALUES, type ApplicationStatus, isValidStatus } from "@/lib/constants/application-status";
 
 export interface CreateApplicationInput {
   user_id: string;
-  company_name: string;
-  position_title: string;
-  job_description?: string;
-  application_date: string;
-  status: ApplicationStatus;
-  salary_range?: string;
-  location?: string;
-  contact_person?: string;
-  contact_email?: string;
+  company: string;
+  role: string;
+  role_link?: string;
+  date_applied: string;
+  status?: ApplicationStatus;
   notes?: string;
 }
 
 export interface UpdateApplicationInput {
-  company_name?: string;
-  position_title?: string;
-  job_description?: string;
-  application_date?: string;
+  company?: string;
+  role?: string;
+  role_link?: string;
+  date_applied?: string;
   status?: ApplicationStatus;
-  salary_range?: string;
-  location?: string;
-  contact_person?: string;
-  contact_email?: string;
   notes?: string;
-  interview_notes?: string;
-  follow_up_date?: string;
+  archived?: boolean;
 }
 
 /**
@@ -37,15 +28,15 @@ export interface UpdateApplicationInput {
  * Adding new fields here requires corresponding database indexes
  */
 export const SORTABLE_FIELDS = new Set([
-  'company_name',
-  'position_title', 
+  'company',
+  'role', 
   'status',
-  'application_date',
+  'date_applied',
   'created_at',
   'updated_at'
 ] as const);
 
-export type SortableField = 'company_name' | 'position_title' | 'status' | 'application_date' | 'created_at' | 'updated_at';
+export type SortableField = 'company' | 'role' | 'status' | 'date_applied' | 'created_at' | 'updated_at';
 
 export interface ApplicationQueryOptions {
   /** Page number (1-indexed) */
@@ -266,15 +257,39 @@ export class ApplicationDAL
 
   // Application-specific methods
   async archive(id: string): Promise<Application | null> {
-    return this.update(id, { status: APPLICATION_STATUS.ARCHIVED });
+    return this.update(id, { archived: true });
   }
 
   async unarchive(id: string): Promise<Application | null> {
-    return this.update(id, { status: APPLICATION_STATUS.APPLIED });
+    return this.update(id, { archived: false });
   }
 
   async getArchived(userId: string): Promise<Application[]> {
-    return this.findByUserId(userId, APPLICATION_STATUS.ARCHIVED);
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("applications")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("archived", true)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new DALError(
+          `Failed to get archived applications: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data || [];
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError(
+        "Failed to get archived applications",
+        "QUERY_ERROR",
+        error
+      );
+    }
   }
 
   async getActive(userId: string): Promise<Application[]> {
@@ -284,7 +299,7 @@ export class ApplicationDAL
         .from("applications")
         .select("*")
         .eq("user_id", userId)
-        .neq("status", APPLICATION_STATUS.ARCHIVED)
+        .eq("archived", false)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -361,7 +376,7 @@ export class ApplicationDAL
         .from("applications")
         .select("status")
         .eq("user_id", userId)
-        .neq("status", APPLICATION_STATUS.ARCHIVED);
+        .eq("archived", false);
 
       if (error) {
         throw new DALError(
@@ -392,7 +407,7 @@ export class ApplicationDAL
         .from("applications")
         .select("*")
         .eq("user_id", userId)
-        .neq("status", APPLICATION_STATUS.ARCHIVED)
+        .eq("archived", false)
         .order("created_at", { ascending: false })
         .limit(limit);
 
@@ -466,9 +481,9 @@ export class ApplicationDAL
         .select("*", { count: 'exact' })
         .eq("user_id", userId);
 
-      // Apply status filters
+      // Apply archival filter
       if (!includeArchived) {
-        query = query.neq("status", "archived");
+        query = query.eq("archived", false);
       }
       
       if (statusFilter.length > 0) {

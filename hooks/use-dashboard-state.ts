@@ -40,7 +40,7 @@ const VALID_PAGE_SIZES = [10, 25, 50, 100];
  * These fields MUST have database indexes for performance
  */
 const VALID_SORT_FIELDS: SortField[] = [
-  'company_name', 'position_title', 'status', 'application_date', 'created_at', 'updated_at'
+  'company', 'role', 'status', 'date_applied', 'created_at', 'updated_at'
 ];
 
 /**

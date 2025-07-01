@@ -35,7 +35,8 @@ import {
 } from "@/components/NavigationErrorBoundary";
 import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
 import { APPLICATION_LIMITS } from "@/lib/constants/navigation";
-import type { Application, ApplicationHistory, PermissionLevel } from "@/types";
+import type { Application, ApplicationHistory } from "@/types";
+import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -181,62 +182,11 @@ export default async function DashboardPage() {
           />
 
           {/* Applications List */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-primary">
-                    Recent Applications
-                  </CardTitle>
-                  <CardDescription>
-                    Your latest job applications
-                  </CardDescription>
-                </div>
-                <Link href="/dashboard/add">
-                  <Button className="bg-secondary hover:bg-secondary/90">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Application
-                  </Button>
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {applications.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                    <Building2 className="h-12 w-12 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    No applications yet
-                  </h3>
-                  <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
-                    Start tracking your job search by adding your first
-                    application. Keep all your opportunities organized in one
-                    place.
-                  </p>
-                  <Link href="/dashboard/add">
-                    <Button
-                      size="lg"
-                      className="bg-secondary hover:bg-secondary/90"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Your First Application
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <AnalyticsProvider>
-                  <ApplicationList
-                    applications={applications}
-                    userPlan={userPlan}
-                    userId={user.id}
-                    location="dashboard"
-                    maxDisplay={10}
-                  />
-                </AnalyticsProvider>
-              )}
-            </CardContent>
-          </Card>
+          <DashboardApplicationsList
+            userId={user.id}
+            initialApplications={applications}
+            initialTotal={applications.length}
+          />
         </div>
       </div>
     );
