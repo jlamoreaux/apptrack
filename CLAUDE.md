@@ -414,4 +414,66 @@ These commands make AI calls and may take up to a minute:
 
 ---
 
+## Project-Specific Context & Lessons Learned
+
+### Database Schema Alignment
+
+**CRITICAL**: Always verify code matches actual database schema in `./schemas/` directory before implementation.
+
+**Application Schema (`schemas/applications.sql`):**
+- Fields: `company` (not `company_name`), `role` (not `position_title`), `date_applied` (not `application_date`)
+- Archival: Uses boolean `archived` field, NOT status-based archival
+- Status constraint: Only allows `['Applied', 'Interview Scheduled', 'Interviewed', 'Offer', 'Hired', 'Rejected']`
+- Indexes: `user_id`, `status`, `date_applied`, `user_id + archived` composite
+
+**Schema Validation Checklist:**
+1. Check `./schemas/` for actual database structure before coding
+2. Verify field names match database columns exactly
+3. Ensure status values match database constraints
+4. Confirm archival method (boolean vs status-based)
+5. Validate sortable fields have database indexes
+
+### Runtime Error Debugging Pattern
+
+**Server/Client Component Issues:**
+- Error: "Only plain objects... can be passed to Client Components from Server Components"
+- Solution: Use React Context providers for dependency injection instead of passing class instances
+- Pattern: Create client-side provider wrapping service instantiation
+
+**Type Consolidation:**
+- Avoid duplicate type definitions across `/lib/types.ts` and `/types/index.ts`
+- Use single source of truth: `/types/index.ts`
+- Import types consistently across all files
+
+### Performance & Architecture Patterns
+
+**Pagination Implementation:**
+- Server-side rendering for initial data, client-side for pagination
+- API routes for client-side data fetching: `/api/applications`
+- URL state management with validation and debouncing
+- Component hierarchy: Page → List Component → API calls
+
+**Status Management:**
+- Centralized constants in `/lib/constants/application-status.ts`
+- Export both individual status values AND arrays for validation
+- Use shared constants across DAL, components, and validation
+
+### Build Validation Process
+
+Before committing schema changes:
+1. Run `npm run build` to catch TypeScript compilation errors
+2. Check for missing imports in DAL files
+3. Validate field name consistency across components
+4. Ensure status constants match database constraints
+
+### Common Pitfalls Encountered
+
+1. **Assuming field names** without checking database schema
+2. **Forgetting to import arrays** (`APPLICATION_STATUS_VALUES`) when importing individual constants
+3. **Mixed archival strategies** (status vs boolean) causing data inconsistencies
+4. **Outdated sort field types** in hooks not matching updated DAL types
+5. **Client trying to filter by invalid statuses** removed from constants
+
+---
+
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality for agentic development workflows._
