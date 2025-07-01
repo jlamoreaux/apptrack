@@ -69,9 +69,8 @@ export function ApplicationPipelineChart({
     );
   }
 
-  // Define the pipeline stages in order
+  // Define the pipeline stages in order (must match database schema)
   const stages = [
-    "Lead",
     "Applied",
     "Interview Scheduled",
     "Interviewed",
@@ -85,7 +84,6 @@ export function ApplicationPipelineChart({
 
   // Define node colors
   const nodeColors = [
-    "#8b5cf6", // Lead - lavender
     "#3b82f6", // Applied - blue
     "#06b6d4", // Interview Scheduled - cyan
     "#f59e0b", // Interviewed - amber
