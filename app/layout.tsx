@@ -8,6 +8,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { SkipNavigation } from "@/components/accessibility/skip-link";
+
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
