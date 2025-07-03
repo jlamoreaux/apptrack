@@ -113,6 +113,7 @@ export function useAIAnalysis({
             headers: {
               'Content-Type': 'application/json',
             },
+            credentials: 'include',
             body: JSON.stringify(context),
             signal: controller.signal,
           })

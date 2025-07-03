@@ -1,15 +1,17 @@
 /**
  * Configuration constants for AI Analysis features
  * Centralized configuration for maintainability and extensibility
+ * 
+ * AI Prompts are managed separately in @/lib/constants/ai-prompts
  */
 
 import { AIFeatureConfig, AIAnalysisConfig, ErrorType } from "@/types/ai-analysis"
 
 // API Endpoints
 export const AI_ANALYSIS_ENDPOINTS = {
-  JOB_FIT: '/api/ai/job-fit-analysis',
-  INTERVIEW_PREP: '/api/ai/interview-preparation',
-  COVER_LETTER: '/api/ai/cover-letter',
+  JOB_FIT: '/api/ai-coach/analyze-job-fit',
+  INTERVIEW_PREP: '/api/ai-coach/interview-prep',
+  COVER_LETTER: '/api/ai-coach/cover-letter',
 } as const
 
 // Cache configuration

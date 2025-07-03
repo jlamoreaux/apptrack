@@ -291,7 +291,7 @@ export default function ApplicationDetailPage() {
           </Card>
 
           {/* AI Job Analysis */}
-          {application.role_link && (
+          {application.role_link && application.company && application.role && (
             <JobAnalysisCard
               jobUrl={application.role_link}
               userId={user.id}

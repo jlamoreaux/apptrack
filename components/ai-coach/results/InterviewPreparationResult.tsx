@@ -44,6 +44,8 @@ interface InterviewPreparationResultProps {
   onDownload?: () => void
   /** Show action buttons */
   showActions?: boolean
+  /** Loading state indicator */
+  isLoading?: boolean
 }
 
 type QuestionFilter = 'all' | 'behavioral' | 'technical' | 'company-specific' | 'role-specific'
@@ -53,7 +55,8 @@ export function InterviewPreparationResult({
   className,
   onCopy,
   onDownload,
-  showActions = true
+  showActions = true,
+  isLoading = false
 }: InterviewPreparationResultProps) {
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set())
   const [activeFilter, setActiveFilter] = useState<QuestionFilter>('all')
@@ -120,6 +123,25 @@ export function InterviewPreparationResult({
       setExpandedQuestions(new Set(filteredQuestions.map(q => q.id)))
       announceSuccess("Expanded all questions")
     }
+  }
+
+  const handleCopyQuestions = () => {
+    const questionsText = filteredQuestions.map(q => {
+      let text = `Q: ${q.question}\n`
+      text += `Approach: ${q.suggestedApproach}\n`
+      if (q.starFramework) {
+        text += `STAR Framework:\n`
+        text += `- Situation: ${q.starFramework.situation}\n`
+        text += `- Task: ${q.starFramework.task}\n`
+        text += `- Action: ${q.starFramework.action}\n`
+        text += `- Result: ${q.starFramework.result}\n`
+      }
+      text += `Difficulty: ${q.difficulty}\n\n`
+      return text
+    }).join('')
+    
+    navigator.clipboard.writeText(questionsText)
+    announceSuccess("Questions copied to clipboard")
   }
 
   return (
@@ -353,17 +375,15 @@ export function InterviewPreparationResult({
       {/* Action Buttons */}
       {showActions && (
         <div className="flex justify-end gap-3 pt-4 border-t">
-          {onCopy && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCopy}
-              className="flex items-center gap-2"
-            >
-              <Copy className="h-4 w-4" />
-              Copy Questions
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCopy || handleCopyQuestions}
+            className="flex items-center gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            Copy Questions
+          </Button>
           {onDownload && (
             <Button
               variant="outline"

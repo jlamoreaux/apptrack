@@ -135,6 +135,7 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
 
       const response = await fetch("/api/resume/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -184,6 +185,7 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           resumeText: textToAnalyze || undefined,
           jobUrl: urlToAnalyze,

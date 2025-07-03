@@ -203,17 +203,6 @@ export function DashboardApplicationsList({
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold truncate">{app.role}</h3>
-                        {app.role_link && (
-                          <a
-                            href={app.role_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted-foreground hover:text-foreground flex-shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        )}
                       </div>
                       <p className="text-sm text-muted-foreground truncate">
                         {app.company}
@@ -226,6 +215,18 @@ export function DashboardApplicationsList({
                       </p>
                     </div>
                   </Link>
+                  {app.role_link && (
+                    <a
+                      href={app.role_link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-muted-foreground hover:text-foreground flex-shrink-0 p-1"
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Open ${app.role} at ${app.company} in new tab`}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
                   
                   <div className="flex items-center gap-3 flex-shrink-0">
                     <StatusBadge status={app.status} />
