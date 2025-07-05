@@ -62,16 +62,18 @@ export function JobFitAnalysisResult({
   }
 
   const scoreColor = useMemo(() => {
-    if (analysis.overallScore >= 85) return 'text-green-600'
-    if (analysis.overallScore >= 75) return 'text-blue-600'
-    if (analysis.overallScore >= 65) return 'text-yellow-600'
+    const score = analysis.overallScore ?? 0
+    if (score >= 85) return 'text-green-600'
+    if (score >= 75) return 'text-blue-600'
+    if (score >= 65) return 'text-yellow-600'
     return 'text-orange-600'
   }, [analysis.overallScore])
 
   const scoreBarColor = useMemo(() => {
-    if (analysis.overallScore >= 85) return 'bg-green-500'
-    if (analysis.overallScore >= 75) return 'bg-blue-500'
-    if (analysis.overallScore >= 65) return 'bg-yellow-500'
+    const score = analysis.overallScore ?? 0
+    if (score >= 85) return 'bg-green-500'
+    if (score >= 75) return 'bg-blue-500'
+    if (score >= 65) return 'bg-yellow-500'
     return 'bg-orange-500'
   }, [analysis.overallScore])
 
@@ -94,7 +96,7 @@ export function JobFitAnalysisResult({
             <Target className="h-6 w-6 text-blue-600" />
             <CardTitle className="text-xl">Job Fit Analysis</CardTitle>
           </div>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Generated on {formatDate(analysis.generatedAt)}
           </p>
         </CardHeader>
@@ -103,24 +105,24 @@ export function JobFitAnalysisResult({
           <div className="text-center space-y-4">
             <div className="space-y-2">
               <div className={`text-5xl font-bold ${scoreColor}`}>
-                {analysis.overallScore}%
+                {analysis.overallScore ?? 0}%
               </div>
               <Badge 
                 variant="outline" 
                 className={`${scoreColor} border-current text-base px-3 py-1`}
               >
-                {analysis.scoreLabel}
+                {analysis.scoreLabel || 'No Score Available'}
               </Badge>
             </div>
             
             {/* Progress Bar */}
             <div className="space-y-2">
               <Progress 
-                value={analysis.overallScore} 
+                value={analysis.overallScore ?? 0} 
                 className="w-full h-3"
-                aria-label={`Job fit score: ${analysis.overallScore}%`}
+                aria-label={`Job fit score: ${analysis.overallScore ?? 0}%`}
               />
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 Overall compatibility with this position
               </p>
             </div>
@@ -129,36 +131,36 @@ export function JobFitAnalysisResult({
           {/* Match Details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-gray-700">Skills Match</p>
+              <p className="text-sm font-medium text-foreground">Skills Match</p>
               <div className="space-y-1">
                 <Progress 
-                  value={analysis.matchDetails.skillsMatch} 
+                  value={analysis.matchDetails?.skillsMatch || 0} 
                   className="h-2"
-                  aria-label={`Skills match: ${analysis.matchDetails.skillsMatch}%`}
+                  aria-label={`Skills match: ${analysis.matchDetails?.skillsMatch || 0}%`}
                 />
-                <p className="text-sm text-gray-600">{analysis.matchDetails.skillsMatch}%</p>
+                <p className="text-sm text-muted-foreground">{analysis.matchDetails?.skillsMatch || 0}%</p>
               </div>
             </div>
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-gray-700">Experience Match</p>
+              <p className="text-sm font-medium text-foreground">Experience Match</p>
               <div className="space-y-1">
                 <Progress 
-                  value={analysis.matchDetails.experienceMatch} 
+                  value={analysis.matchDetails?.experienceMatch || 0} 
                   className="h-2"
-                  aria-label={`Experience match: ${analysis.matchDetails.experienceMatch}%`}
+                  aria-label={`Experience match: ${analysis.matchDetails?.experienceMatch || 0}%`}
                 />
-                <p className="text-sm text-gray-600">{analysis.matchDetails.experienceMatch}%</p>
+                <p className="text-sm text-muted-foreground">{analysis.matchDetails?.experienceMatch || 0}%</p>
               </div>
             </div>
             <div className="text-center space-y-2">
-              <p className="text-sm font-medium text-gray-700">Education Match</p>
+              <p className="text-sm font-medium text-foreground">Education Match</p>
               <div className="space-y-1">
                 <Progress 
-                  value={analysis.matchDetails.educationMatch} 
+                  value={analysis.matchDetails?.educationMatch || 0} 
                   className="h-2"
-                  aria-label={`Education match: ${analysis.matchDetails.educationMatch}%`}
+                  aria-label={`Education match: ${analysis.matchDetails?.educationMatch || 0}%`}
                 />
-                <p className="text-sm text-gray-600">{analysis.matchDetails.educationMatch}%</p>
+                <p className="text-sm text-muted-foreground">{analysis.matchDetails?.educationMatch || 0}%</p>
               </div>
             </div>
           </div>
@@ -175,12 +177,16 @@ export function JobFitAnalysisResult({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {analysis.strengths.map((strength, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                <p className="text-sm text-gray-700 leading-relaxed">{strength}</p>
-              </div>
-            ))}
+            {analysis.strengths && Array.isArray(analysis.strengths) ? (
+              analysis.strengths.map((strength, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{strength}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No strengths data available</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -195,12 +201,16 @@ export function JobFitAnalysisResult({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {analysis.weaknesses.map((weakness, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />
-                <p className="text-sm text-gray-700 leading-relaxed">{weakness}</p>
-              </div>
-            ))}
+            {analysis.weaknesses && Array.isArray(analysis.weaknesses) ? (
+              analysis.weaknesses.map((weakness, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{weakness}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No areas for improvement data available</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -215,15 +225,19 @@ export function JobFitAnalysisResult({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
-            {analysis.keyRequirements.map((requirement, index) => (
-              <Badge 
-                key={index} 
-                variant="secondary" 
-                className="text-xs px-2 py-1"
-              >
-                {requirement}
-              </Badge>
-            ))}
+            {analysis.keyRequirements && Array.isArray(analysis.keyRequirements) ? (
+              analysis.keyRequirements.map((requirement, index) => (
+                <Badge 
+                  key={index} 
+                  variant="secondary" 
+                  className="text-xs px-2 py-1"
+                >
+                  {requirement}
+                </Badge>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No key requirements data available</p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -238,12 +252,16 @@ export function JobFitAnalysisResult({
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {analysis.recommendations.map((recommendation, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
-                <p className="text-sm text-gray-700 leading-relaxed">{recommendation}</p>
-              </div>
-            ))}
+            {analysis.recommendations && Array.isArray(analysis.recommendations) ? (
+              analysis.recommendations.map((recommendation, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{recommendation}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No recommendations data available</p>
+            )}
           </div>
         </CardContent>
       </Card>

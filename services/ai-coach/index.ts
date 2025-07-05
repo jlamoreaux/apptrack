@@ -207,6 +207,7 @@ export class AICoachService {
   // Job Fit Analysis methods
   async createJobFitAnalysis(
     userId: string,
+    applicationId: string,
     jobDescription: string,
     analysisResult: string,
     fitScore: number
@@ -215,6 +216,10 @@ export class AICoachService {
       // Validate inputs
       if (!userId?.trim()) {
         throw new ValidationServiceError("User ID is required");
+      }
+
+      if (!applicationId?.trim()) {
+        throw new ValidationServiceError("Application ID is required");
       }
 
       if (!jobDescription?.trim()) {
@@ -231,6 +236,7 @@ export class AICoachService {
 
       return await this.jobFitAnalysisDAL.create({
         user_id: userId,
+        application_id: applicationId,
         job_description: jobDescription,
         analysis_result: analysisResult,
         fit_score: fitScore,
@@ -240,8 +246,11 @@ export class AICoachService {
     }
   }
 
-  async getJobFitAnalyses(userId: string): Promise<JobFitAnalysis[]> {
+  async getJobFitAnalyses(userId: string, applicationId?: string): Promise<JobFitAnalysis[]> {
     try {
+      if (applicationId) {
+        return await this.jobFitAnalysisDAL.findByUserIdAndApplicationId(userId, applicationId);
+      }
       return await this.jobFitAnalysisDAL.findByUserId(userId);
     } catch (error) {
       throw wrapDALError(error, "Failed to get job fit analyses");

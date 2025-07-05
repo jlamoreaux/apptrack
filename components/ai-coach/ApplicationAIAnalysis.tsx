@@ -1,24 +1,29 @@
-"use client"
+"use client";
 
-import { useMemo, useCallback, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { 
-  Brain, 
-  Target, 
-  MessageCircle, 
-  FileText, 
+import { useMemo, useCallback, useEffect, useState, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Brain,
+  Target,
+  MessageCircle,
+  FileText,
   Sparkles,
   Lock,
   Crown,
-  ArrowRight
-} from "lucide-react"
-import { useSubscription } from "@/hooks/use-subscription"
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
-import { useAIAnalysis } from "@/hooks/use-ai-analysis"
-import { useTabNavigation } from "@/hooks/use-tab-navigation"
-import { useNavigation } from "@/lib/utils/navigation"
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  TrendingUp,
+  RotateCcw,
+} from "lucide-react";
+import { useSubscription } from "@/hooks/use-subscription";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useAIAnalysis } from "@/hooks/use-ai-analysis";
+import { useTabNavigation } from "@/hooks/use-tab-navigation";
+import { useNavigation } from "@/lib/utils/navigation";
 import {
   getTabAccessibilityProps,
   getTabPanelAccessibilityProps,
@@ -28,49 +33,50 @@ import {
   getLiveRegionProps,
   getLoadingAccessibilityProps,
   getErrorAccessibilityProps,
-} from "@/lib/utils/accessibility"
+} from "@/lib/utils/accessibility";
 import {
   AI_FEATURES,
   AI_FEATURES_MAP,
   UPGRADE_PROMPT_CONFIG,
   A11Y_CONFIG,
-} from "@/lib/constants/ai-analysis"
-import type { Application } from "@/types"
-import type { 
-  AnalysisContext, 
+} from "@/lib/constants/ai-analysis";
+import type { Application } from "@/types";
+import type {
+  AnalysisContext,
   AnalysisError,
   AIAnalysisTab,
   JobFitAnalysisResult,
   InterviewPreparationResult,
-  CoverLetterResult
-} from "@/types/ai-analysis"
-import { 
+  CoverLetterResult,
+} from "@/types/ai-analysis";
+import {
   isJobFitAnalysisResult,
   isInterviewPreparationResult,
-  isCoverLetterResult
-} from "@/types/ai-analysis"
-import { JobFitAnalysisResult as JobFitAnalysisDisplay } from "@/components/ai-coach/results/JobFitAnalysisResult"
-import { InterviewPreparationResult as InterviewPreparationDisplay } from "@/components/ai-coach/results/InterviewPreparationResult"
-import { CoverLetterResult as CoverLetterDisplay } from "@/components/ai-coach/results/CoverLetterResult"
+  isCoverLetterResult,
+} from "@/types/ai-analysis";
+import { copyAnalysisToClipboard, downloadAnalysisPDF } from "@/lib/utils/analysis-export";
+import { JobFitAnalysisResult as JobFitAnalysisDisplay } from "@/components/ai-coach/results/JobFitAnalysisResult";
+import { InterviewPreparationResult as InterviewPreparationDisplay } from "@/components/ai-coach/results/InterviewPreparationResult";
+import { CoverLetterResult as CoverLetterDisplay } from "@/components/ai-coach/results/CoverLetterResult";
 
 interface ApplicationAIAnalysisProps {
-  application: Application
+  application: Application;
   /** Optional className for styling customization */
-  className?: string
+  className?: string;
   /** Callback fired when analysis is successfully generated */
-  onAnalysisComplete?: (tab: AIAnalysisTab, result: unknown) => void
+  onAnalysisComplete?: (tab: AIAnalysisTab, result: unknown) => void;
   /** Callback fired when an error occurs */
-  onAnalysisError?: (tab: AIAnalysisTab, error: AnalysisError) => void
+  onAnalysisError?: (tab: AIAnalysisTab, error: AnalysisError) => void;
 }
 
 /**
  * ApplicationAIAnalysis Component
- * 
+ *
  * Provides AI-powered analysis features for job applications including:
  * - Job Fit Analysis
  * - Interview Preparation
  * - Cover Letter Generation
- * 
+ *
  * Features:
  * - Full accessibility support (WCAG 2.1 AA)
  * - Keyboard navigation
@@ -78,39 +84,96 @@ interface ApplicationAIAnalysisProps {
  * - Caching for performance
  * - Subscription-based access control
  */
-export function ApplicationAIAnalysis({ 
-  application, 
+export function ApplicationAIAnalysis({
+  application,
   className,
   onAnalysisComplete,
-  onAnalysisError 
+  onAnalysisError,
 }: ApplicationAIAnalysisProps) {
-  const { user } = useSupabaseAuth()
-  const { hasAICoachAccess, loading: subscriptionLoading } = useSubscription(user?.id || null)
-  const { navigateToUpgrade } = useNavigation()
-  const { announceSuccess, announceError, announceLoading } = useScreenReaderAnnouncements()
+  const { user } = useSupabaseAuth();
+  const { hasAICoachAccess, loading: subscriptionLoading } = useSubscription(
+    user?.id || null
+  );
+  const { navigateToUpgrade } = useNavigation();
+  const { announceSuccess, announceError, announceLoading } =
+    useScreenReaderAnnouncements();
+
+  // Job fit analysis history state
+  const [jobFitHistory, setJobFitHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<any>(null);
+  const [shouldSuggestRefresh, setShouldSuggestRefresh] = useState(false);
+  const hasLoadedInitialHistory = useRef(false);
 
   // Tab navigation with keyboard support
   const { activeTab, setActiveTab, currentTabConfig } = useTabNavigation({
-    defaultTab: 'job-fit',
+    defaultTab: "job-fit",
     onTabChange: (tab) => {
-      announceSuccess(`Switched to ${AI_FEATURES_MAP.get(tab)?.label} tab`)
+      announceSuccess(`Switched to ${AI_FEATURES_MAP.get(tab)?.label} tab`);
     },
-  })
+  });
 
   const { registerTab, handleKeyDown } = useTabKeyboardNavigation(
     activeTab,
     AI_FEATURES,
     setActiveTab
-  )
+  );
 
   // Analysis context for API calls
-  const analysisContext = useMemo((): AnalysisContext => ({
-    company: application.company,
-    role: application.role,
-    jobDescription: application.role_link,
-    userId: user?.id || '',
-    applicationId: application.id,
-  }), [application, user?.id])
+  const analysisContext = useMemo(
+    (): AnalysisContext => ({
+      company: application.company,
+      role: application.role,
+      jobDescription: application.role_link,
+      userId: user?.id || "",
+      applicationId: application.id,
+    }),
+    [application, user?.id]
+  );
+
+  // Fetch job fit analysis history with abort controller
+  const fetchJobFitHistory = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!hasAICoachAccess) return;
+
+      setHistoryLoading(true);
+      try {
+        const response = await fetch(
+          `/api/ai-coach/job-fit-history?applicationId=${application.id}&limit=1`,
+          {
+            credentials: "include",
+            signal, // Add abort signal support
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setJobFitHistory(data.analyses || []);
+
+          // Check if the most recent analysis is older than 7 days
+          if (data.analyses && data.analyses.length > 0) {
+            const mostRecent = data.analyses[0];
+            const daysSinceAnalysis =
+              (Date.now() - new Date(mostRecent.created_at).getTime()) /
+              (1000 * 60 * 60 * 24);
+            setShouldSuggestRefresh(daysSinceAnalysis > 7);
+          }
+        }
+      } catch (error) {
+        // Only log error if it's not an abort error and in development
+        if (error instanceof Error && error.name !== "AbortError") {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn("Failed to fetch job fit history:", error.message);
+          }
+          // In production, could send to error tracking service here
+        }
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [hasAICoachAccess, application.id]
+  );
 
   // AI Analysis hook with error handling
   const {
@@ -123,70 +186,155 @@ export function ApplicationAIAnalysis({
     canRetry,
   } = useAIAnalysis({
     applicationId: application.id,
-    userId: user?.id || '',
+    userId: user?.id || "",
     onSuccess: (result) => {
-      const tabLabel = currentTabConfig?.label || 'Analysis'
-      announceSuccess(`${tabLabel} completed successfully`)
-      onAnalysisComplete?.(activeTab, result)
+      const tabLabel = currentTabConfig?.label || "Analysis";
+      announceSuccess(`${tabLabel} completed successfully`);
+      onAnalysisComplete?.(activeTab, result);
     },
     onError: (analysisError) => {
-      const tabLabel = currentTabConfig?.label || 'Analysis'
-      announceError(`${tabLabel} failed: ${analysisError.message}`)
-      onAnalysisError?.(activeTab, analysisError)
+      const tabLabel = currentTabConfig?.label || "Analysis";
+      announceError(`${tabLabel} failed: ${analysisError.message}`);
+      onAnalysisError?.(activeTab, analysisError);
     },
-  })
+  });
 
   const handleGenerateAnalysis = useCallback(async () => {
-    if (!hasAICoachAccess || !currentTabConfig) return
-    
-    announceLoading(`Generating ${currentTabConfig.label}...`)
-    await generateAnalysis(activeTab, analysisContext)
-  }, [hasAICoachAccess, currentTabConfig, generateAnalysis, activeTab, analysisContext, announceLoading])
+    if (!hasAICoachAccess || !currentTabConfig) return;
+
+    announceLoading(`Generating ${currentTabConfig.label}...`);
+    setSelectedHistoryItem(null); // Clear any selected history item
+    await generateAnalysis(activeTab, analysisContext);
+
+    // Refresh history if on job-fit tab
+    if (activeTab === "job-fit") {
+      const timeoutId = setTimeout(() => {
+        fetchJobFitHistory();
+      }, 1000); // Small delay to ensure the new analysis is saved
+
+      // Store timeout ID for potential cleanup
+      return () => clearTimeout(timeoutId);
+    }
+  }, [
+    hasAICoachAccess,
+    currentTabConfig,
+    generateAnalysis,
+    activeTab,
+    analysisContext,
+    announceLoading,
+    fetchJobFitHistory,
+  ]);
 
   const handleReset = useCallback(() => {
-    clearAnalysis()
-    announceSuccess('Analysis cleared')
-  }, [clearAnalysis, announceSuccess])
+    clearAnalysis();
+    announceSuccess("Analysis cleared");
+  }, [clearAnalysis, announceSuccess]);
 
   const getTabIcon = useCallback((iconName: string) => {
     const iconMap = {
       Target,
       MessageCircle,
       FileText,
-    } as const
-    
-    const Icon = iconMap[iconName as keyof typeof iconMap]
-    return Icon ? <Icon className="h-4 w-4" /> : null
-  }, [])
+    } as const;
+
+    const Icon = iconMap[iconName as keyof typeof iconMap];
+    return Icon ? <Icon className="h-4 w-4" /> : null;
+  }, []);
 
   const handleUpgradeClick = useCallback(() => {
-    navigateToUpgrade()
-  }, [navigateToUpgrade])
+    navigateToUpgrade();
+  }, [navigateToUpgrade]);
+
+  const toggleHistory = useCallback(() => {
+    setShowHistory((prev) => {
+      const newValue = !prev;
+      if (newValue && jobFitHistory.length === 0) {
+        // Create abort controller for this fetch
+        const abortController = new AbortController();
+        fetchJobFitHistory(abortController.signal);
+      }
+      return newValue;
+    });
+  }, [jobFitHistory.length, fetchJobFitHistory]);
+
+  const selectHistoryItem = useCallback(
+    (item: any) => {
+      setSelectedHistoryItem(item);
+      announceSuccess(
+        `Loaded analysis from ${new Date(item.created_at).toLocaleDateString()}`
+      );
+    },
+    [announceSuccess]
+  );
 
   // Clear analysis when tab changes to prevent stale data
   useEffect(() => {
-    clearAnalysis()
-  }, [activeTab, clearAnalysis])
+    clearAnalysis();
+    setSelectedHistoryItem(null);
+  }, [activeTab, clearAnalysis]);
+
+  // Load job fit history when component mounts and user has access (only once)
+  useEffect(() => {
+    if (
+      hasAICoachAccess() &&
+      !subscriptionLoading &&
+      !hasLoadedInitialHistory.current
+    ) {
+      hasLoadedInitialHistory.current = true;
+
+      // Create abort controller for cleanup
+      const abortController = new AbortController();
+      
+      // Track if component is still mounted to prevent state updates after unmount
+      let isMounted = true;
+      
+      const loadHistory = async () => {
+        try {
+          await fetchJobFitHistory(abortController.signal);
+        } catch (error) {
+          // Only log if component is still mounted and error is not from abort
+          if (isMounted && error instanceof Error && error.name !== "AbortError") {
+            console.warn("Failed to load job fit history:", error.message);
+          }
+        }
+      };
+      
+      loadHistory();
+
+      // Cleanup function to abort the request and mark as unmounted
+      return () => {
+        isMounted = false;
+        abortController.abort();
+      };
+    }
+  }, [hasAICoachAccess, subscriptionLoading, fetchJobFitHistory]);
 
   if (subscriptionLoading) {
     return (
       <Card className={className}>
         <CardContent className="p-6">
-          <div 
+          <div
             className="animate-pulse"
-            {...getLoadingAccessibilityProps(true, 'Loading subscription information')}
+            {...getLoadingAccessibilityProps(
+              true,
+              "Loading subscription information"
+            )}
           >
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
             <div className="h-4 bg-gray-200 rounded w-1/2"></div>
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (!hasAICoachAccess) {
     return (
-      <Card className={`border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 ${className || ''}`}>
+      <Card
+        className={`border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 ${
+          className || ""
+        }`}
+      >
         <CardHeader className="text-center">
           <CardTitle className="flex items-center justify-center gap-2 text-purple-900">
             <Crown className="h-6 w-6 text-purple-600" />
@@ -195,27 +343,31 @@ export function ApplicationAIAnalysis({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="text-center space-y-3">
-            <p className="text-gray-700">
-              {UPGRADE_PROMPT_CONFIG.description}
-            </p>
-            
+            <p className="text-gray-700">{UPGRADE_PROMPT_CONFIG.description}</p>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {AI_FEATURES.map((feature) => (
                 <div key={feature.id} className="relative">
                   <div className="bg-white rounded-lg p-3 border border-gray-200 opacity-75">
                     <div className="flex items-center gap-2 mb-1">
                       {getTabIcon(feature.icon)}
-                      <span className="font-medium text-sm">{feature.label}</span>
+                      <span className="font-medium text-sm">
+                        {feature.label}
+                      </span>
                       <Lock className="h-3 w-3 text-gray-400 ml-auto" />
                     </div>
-                    <p className="text-xs text-gray-600">{feature.description}</p>
+                    <p className="text-xs text-gray-600">
+                      {feature.description}
+                    </p>
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <h4 className="font-semibold text-purple-900 mb-2">What's Included:</h4>
+              <h4 className="font-semibold text-purple-900 mb-2">
+                What's Included:
+              </h4>
               <ul className="text-sm text-gray-700 space-y-1">
                 {UPGRADE_PROMPT_CONFIG.features.map((feature, index) => (
                   <li key={index}>• {feature}</li>
@@ -223,7 +375,7 @@ export function ApplicationAIAnalysis({
               </ul>
             </div>
 
-            <Button 
+            <Button
               className="bg-purple-600 hover:bg-purple-700 text-white"
               onClick={handleUpgradeClick}
               aria-label={`${UPGRADE_PROMPT_CONFIG.buttonText} - opens upgrade page`}
@@ -235,24 +387,24 @@ export function ApplicationAIAnalysis({
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
-    <Card className={`overflow-hidden ${className || ''}`}>
-      <CardHeader className="border-b border-gray-200 pb-0">
-        <CardTitle className="flex items-center gap-2 text-blue-900">
-          <Brain className="h-5 w-5 text-blue-600" />
+    <Card className={`overflow-hidden ${className || ""}`}>
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <Brain className="h-5 w-5 text-primary" />
           AI Analysis
         </CardTitle>
       </CardHeader>
-      
+
       {/* Tab Navigation */}
-      <div className="border-b border-gray-200">
-        <nav 
+      <div className="border-b border-border -mt-2">
+        <nav
           {...getTabListAccessibilityProps(A11Y_CONFIG.tablistLabel)}
           onKeyDown={handleKeyDown}
-          className="flex"
+          className="flex px-6"
         >
           {AI_FEATURES.map((feature, index) => (
             <button
@@ -260,15 +412,15 @@ export function ApplicationAIAnalysis({
               ref={(el) => registerTab(feature.id, el)}
               onClick={() => setActiveTab(feature.id)}
               {...getTabAccessibilityProps(
-                feature.id, 
-                activeTab === feature.id, 
-                index, 
+                feature.id,
+                activeTab === feature.id,
+                index,
                 AI_FEATURES.length
               )}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
                 activeTab === feature.id
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                  ? "text-primary border-b-2 border-primary bg-primary/5"
+                  : "text-muted-foreground hover:text-primary hover:bg-primary/5 border-b-2 border-transparent"
               }`}
             >
               {getTabIcon(feature.icon)}
@@ -278,12 +430,182 @@ export function ApplicationAIAnalysis({
         </nav>
       </div>
 
-      <div 
+      <div
         {...getTabPanelAccessibilityProps(activeTab, true)}
-        {...getLiveRegionProps('polite', true)}
+        {...getLiveRegionProps("polite", true)}
       >
+        {/* Job Fit Analysis History Section */}
+        {activeTab === "job-fit" && hasAICoachAccess() && (
+          <div className="border-b border-border bg-muted/30 p-4">
+            <button
+              onClick={toggleHistory}
+              className="flex items-center justify-between w-full text-left hover:bg-muted/50 rounded-lg p-2 transition-colors"
+              aria-expanded={showHistory}
+              aria-controls="job-fit-history"
+              aria-label={`${
+                showHistory ? "Hide" : "Show"
+              } job fit analysis history`}
+            >
+              <div className="flex items-center gap-2">
+                {showHistory ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium text-foreground">
+                  Most Recent Analysis
+                </span>
+              </div>
+              {historyLoading && (
+                <div
+                  className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"
+                  aria-label="Loading analysis history"
+                  role="status"
+                ></div>
+              )}
+            </button>
+
+            {showHistory && (
+              <div
+                id="job-fit-history"
+                className="mt-3"
+                role="region"
+                aria-label="Job fit analysis history"
+              >
+                {shouldSuggestRefresh && jobFitHistory.length > 0 && (
+                  <div
+                    className="ml-6 p-3 bg-form-warning-bg border border-form-warning-border rounded-lg mb-3"
+                    role="alert"
+                    aria-live="polite"
+                  >
+                    <div className="flex items-start gap-2">
+                      <TrendingUp
+                        className="h-4 w-4 text-form-warning-icon mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-form-warning-text">
+                          Consider a fresh analysis
+                        </p>
+                        <p className="text-xs text-form-warning-text/80 mt-1">
+                          Your most recent analysis is over a week old. Generate
+                          a new one for the latest insights.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          setShouldSuggestRefresh(false);
+                          await handleGenerateAnalysis();
+                        }}
+                        className="text-form-warning-text border-form-warning-border hover:bg-form-warning-bg/50 h-auto py-1 px-2 text-xs"
+                        aria-label="Generate fresh analysis to replace old one"
+                      >
+                        Refresh
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {jobFitHistory.length === 0 && !historyLoading ? (
+                  <p
+                    className="text-sm text-muted-foreground italic pl-8"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    No previous analyses found
+                  </p>
+                ) : jobFitHistory.length > 0 ? (
+                  <div className="ml-6">
+                    {/* Show the most recent analysis directly */}
+                    <div
+                      className="p-4 rounded-lg border border-border bg-card"
+                      role="article"
+                      aria-labelledby="recent-analysis-header"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp
+                            className="h-4 w-4 text-status-offer-text"
+                            aria-hidden="true"
+                          />
+                          <span
+                            id="recent-analysis-header"
+                            className="font-medium text-sm"
+                            aria-label={`${jobFitHistory[0].fit_score} percent job fit match`}
+                          >
+                            {jobFitHistory[0].fit_score}% Match
+                          </span>
+                        </div>
+                        <span
+                          className="text-xs text-muted-foreground"
+                          aria-label={`Generated on ${new Date(
+                            jobFitHistory[0].created_at
+                          ).toLocaleDateString()}`}
+                        >
+                          {new Date(
+                            jobFitHistory[0].created_at
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      {/* Display the full analysis directly */}
+                      <div className="mt-3">
+                        <JobFitAnalysisDisplay
+                          analysis={jobFitHistory[0].analysis_result}
+                          onCopy={async () => {
+                            try {
+                              const analysisData = jobFitHistory[0].analysis_result;
+                              
+                              if (isJobFitAnalysisResult(analysisData)) {
+                                await copyAnalysisToClipboard(analysisData);
+                                announceSuccess("Analysis copied to clipboard");
+                              } else {
+                                // Fallback to JSON format for non-job-fit results
+                                await navigator.clipboard.writeText(JSON.stringify(analysisData, null, 2));
+                                announceSuccess("Analysis results copied to clipboard");
+                              }
+                            } catch (error) {
+                              if (process.env.NODE_ENV === 'development') {
+                                console.warn('Copy failed:', error instanceof Error ? error.message : 'Unknown error');
+                              }
+                              announceError("Failed to copy results");
+                            }
+                          }}
+                          onDownload={async () => {
+                            try {
+                              const analysisData = jobFitHistory[0].analysis_result;
+                              
+                              if (isJobFitAnalysisResult(analysisData)) {
+                                await downloadAnalysisPDF(analysisData, {
+                                  company: application.company,
+                                  role: application.role
+                                });
+                                announceSuccess("Analysis report downloaded");
+                              } else {
+                                announceError("PDF download only available for job fit analysis");
+                              }
+                            } catch (error) {
+                              if (process.env.NODE_ENV === 'development') {
+                                console.warn('Download failed:', error instanceof Error ? error.message : 'Unknown error');
+                              }
+                              announceError("Failed to download report");
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+        )}
+
         <CardContent className="p-6">
-          {status === 'idle' && (
+          {status === "idle" && (
             <div className="text-center py-8 space-y-4">
               <div className="space-y-2">
                 <h3 className="font-semibold text-gray-900">
@@ -298,11 +620,11 @@ export function ApplicationAIAnalysis({
                   </p>
                 )}
               </div>
-              
+
               <Button
                 onClick={handleGenerateAnalysis}
                 disabled={isLoading}
-                className="bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
+                className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary"
                 aria-label={`Generate ${currentTabConfig?.label} for ${application.company} ${application.role} position`}
               >
                 <Sparkles className="h-4 w-4 mr-2" />
@@ -311,44 +633,46 @@ export function ApplicationAIAnalysis({
             </div>
           )}
 
-          {status === 'loading' && (
-            <div 
+          {status === "loading" && (
+            <div
               className="flex items-center justify-center py-12"
               {...getLoadingAccessibilityProps(true, A11Y_CONFIG.loadingLabel)}
             >
               <div className="text-center space-y-3">
-                <Sparkles className="h-8 w-8 mx-auto animate-spin text-blue-600" />
-                <p className="text-sm text-gray-600">
+                <Sparkles className="h-8 w-8 mx-auto animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">
                   {A11Y_CONFIG.loadingLabel}
                 </p>
                 <div className="flex justify-center">
                   <div className="animate-pulse flex space-x-1">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full"></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full"></div>
+                    <div className="w-2 h-2 bg-primary/60 rounded-full"></div>
                   </div>
                 </div>
               </div>
             </div>
           )}
 
-          {status === 'error' && error && (
-            <div 
+          {status === "error" && error && (
+            <div
               className="text-center py-8 space-y-4"
               {...getErrorAccessibilityProps(true, error.message)}
               role="alert"
             >
-              <div className="text-red-600">
+              <div className="text-form-error-text">
                 <p className="font-medium">{error.message}</p>
                 {error.details && (
-                  <p className="text-sm mt-1" id="error-message">{error.details}</p>
+                  <p className="text-sm mt-1" id="error-message">
+                    {error.details}
+                  </p>
                 )}
               </div>
               {canRetry && (
                 <Button
                   onClick={handleGenerateAnalysis}
                   variant="outline"
-                  className="border-red-200 text-red-600 hover:bg-red-50 focus:ring-2 focus:ring-red-500"
+                  className="border-form-error-border text-form-error-text hover:bg-form-error-bg focus:ring-2 focus:ring-form-error-icon"
                   aria-label="Retry analysis generation"
                 >
                   Try Again
@@ -357,86 +681,192 @@ export function ApplicationAIAnalysis({
             </div>
           )}
 
-          {status === 'success' && analysis && (
+          {((status === "success" && analysis) ||
+            (activeTab === "job-fit" && selectedHistoryItem)) && (
             <div className="space-y-6">
               {/* Render appropriate analysis result component based on active tab */}
-              {activeTab === 'job-fit' && isJobFitAnalysisResult(analysis) && (
-                <JobFitAnalysisDisplay 
-                  analysis={analysis}
-                  onCopy={() => {
-                    navigator.clipboard.writeText(JSON.stringify(analysis, null, 2))
-                      .then(() => announceSuccess('Analysis results copied to clipboard'))
-                      .catch(() => announceError('Failed to copy results'))
-                  }}
-                  onDownload={() => {
-                    // TODO: Implement PDF download functionality
-                    announceSuccess('Download feature coming soon')
-                  }}
-                />
+              {activeTab === "job-fit" && (
+                <div>
+                  {selectedHistoryItem && (
+                    <div
+                      className="mb-4 p-3 bg-form-info-bg border border-form-info-border rounded-lg"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <div className="flex items-center gap-2 text-sm text-form-info-text">
+                        <Clock className="h-4 w-4" aria-hidden="true" />
+                        <span>
+                          Viewing analysis from{" "}
+                          {new Date(
+                            selectedHistoryItem.created_at
+                          ).toLocaleDateString()}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedHistoryItem(null)}
+                          className="ml-auto text-form-info-text hover:text-form-info-text/80 h-auto p-1"
+                          aria-label="Return to viewing latest analysis"
+                        >
+                          View Latest
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <JobFitAnalysisDisplay
+                    analysis={
+                      selectedHistoryItem
+                        ? selectedHistoryItem.analysis_result
+                        : analysis
+                    }
+                    onCopy={async () => {
+                      try {
+                        const analysisData = selectedHistoryItem
+                          ? selectedHistoryItem.analysis_result
+                          : analysis;
+                        
+                        if (isJobFitAnalysisResult(analysisData)) {
+                          await copyAnalysisToClipboard(analysisData);
+                          announceSuccess("Analysis copied to clipboard");
+                        } else {
+                          // Fallback to JSON format for non-job-fit results
+                          await navigator.clipboard.writeText(JSON.stringify(analysisData, null, 2));
+                          announceSuccess("Analysis results copied to clipboard");
+                        }
+                      } catch (error) {
+                        if (process.env.NODE_ENV === 'development') {
+                          console.warn('Copy failed:', error instanceof Error ? error.message : 'Unknown error');
+                        }
+                        announceError("Failed to copy results");
+                      }
+                    }}
+                    onDownload={async () => {
+                      try {
+                        const analysisData = selectedHistoryItem
+                          ? selectedHistoryItem.analysis_result
+                          : analysis;
+                        
+                        if (isJobFitAnalysisResult(analysisData)) {
+                          await downloadAnalysisPDF(analysisData, {
+                            company: application.company,
+                            role: application.role
+                          });
+                          announceSuccess("Analysis report downloaded");
+                        } else {
+                          announceError("PDF download only available for job fit analysis");
+                        }
+                      } catch (error) {
+                        if (process.env.NODE_ENV === 'development') {
+                          console.warn('Download failed:', error instanceof Error ? error.message : 'Unknown error');
+                        }
+                        announceError("Failed to download report");
+                      }
+                    }}
+                  />
+                </div>
               )}
 
               {/* Interview Preparation Results */}
-              {activeTab === 'interview' && isInterviewPreparationResult(analysis) && (
-                <InterviewPreparationDisplay 
-                  analysis={analysis}
-                  onCopy={() => {
-                    const questionsText = analysis.questions
-                      .map(q => `${q.question}\n${q.suggestedApproach}`)
-                      .join('\n\n')
-                    navigator.clipboard.writeText(questionsText)
-                      .then(() => announceSuccess('Interview questions copied to clipboard'))
-                      .catch(() => announceError('Failed to copy questions'))
-                  }}
-                  onDownload={() => {
-                    // TODO: Implement PDF download functionality
-                    announceSuccess('Download feature coming soon')
-                  }}
-                />
-              )}
+              {activeTab === "interview" &&
+                analysis &&
+                isInterviewPreparationResult(analysis) && (
+                  <InterviewPreparationDisplay
+                    analysis={analysis}
+                    onCopy={() => {
+                      const questionsText = analysis.questions
+                        .map((q) => `${q.question}\n${q.suggestedApproach}`)
+                        .join("\n\n");
+                      navigator.clipboard
+                        .writeText(questionsText)
+                        .then(() =>
+                          announceSuccess(
+                            "Interview questions copied to clipboard"
+                          )
+                        )
+                        .catch(() => announceError("Failed to copy questions"));
+                    }}
+                    onDownload={() => {
+                      // TODO: Implement PDF download functionality
+                      announceSuccess("Download feature coming soon");
+                    }}
+                  />
+                )}
 
               {/* Cover Letter Results */}
-              {activeTab === 'cover-letter' && isCoverLetterResult(analysis) && (
-                <CoverLetterDisplay 
-                  analysis={analysis}
-                  onCopy={() => {
-                    navigator.clipboard.writeText(analysis.fullText)
-                      .then(() => announceSuccess('Cover letter copied to clipboard'))
-                      .catch(() => announceError('Failed to copy cover letter'))
-                  }}
-                  onDownload={() => {
-                    // TODO: Implement PDF download functionality
-                    announceSuccess('Download feature coming soon')
-                  }}
-                  onEmail={() => {
-                    // TODO: Implement email functionality
-                    announceSuccess('Email feature coming soon')
-                  }}
-                />
-              )}
+              {activeTab === "cover-letter" &&
+                analysis &&
+                isCoverLetterResult(analysis) && (
+                  <CoverLetterDisplay
+                    analysis={analysis}
+                    onCopy={() => {
+                      navigator.clipboard
+                        .writeText(analysis.fullText)
+                        .then(() =>
+                          announceSuccess("Cover letter copied to clipboard")
+                        )
+                        .catch(() =>
+                          announceError("Failed to copy cover letter")
+                        );
+                    }}
+                    onDownload={() => {
+                      // TODO: Implement PDF download functionality
+                      announceSuccess("Download feature coming soon");
+                    }}
+                    onEmail={() => {
+                      // TODO: Implement email functionality
+                      announceSuccess("Email feature coming soon");
+                    }}
+                  />
+                )}
 
               <div className="flex justify-end gap-3">
-                <Button
-                  variant="outline"
-                  onClick={handleReset}
-                  className="text-gray-600 border-gray-200 focus:ring-2 focus:ring-gray-500"
-                  aria-label="Clear analysis results"
-                >
-                  Reset
-                </Button>
-                <Button
-                  onClick={handleGenerateAnalysis}
-                  disabled={isLoading}
-                  className="bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500"
-                  aria-label={`Regenerate ${currentTabConfig?.label}`}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Regenerate
-                </Button>
+                {selectedHistoryItem ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedHistoryItem(null)}
+                      className="text-muted-foreground border-border focus:ring-2 focus:ring-primary"
+                      aria-label="Clear historical analysis"
+                    >
+                      Close History
+                    </Button>
+                    <Button
+                      onClick={handleGenerateAnalysis}
+                      disabled={isLoading}
+                      className="bg-secondary hover:bg-secondary/90 focus:ring-2 focus:ring-secondary"
+                      aria-label="Generate fresh analysis"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Fresh Analysis
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={handleReset}
+                      className="text-muted-foreground border-border focus:ring-2 focus:ring-primary"
+                      aria-label="Clear analysis results"
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      onClick={handleGenerateAnalysis}
+                      disabled={isLoading}
+                      className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary"
+                      aria-label={`Regenerate ${currentTabConfig?.label}`}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Regenerate
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}
         </CardContent>
       </div>
     </Card>
-  )
+  );
 }

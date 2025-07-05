@@ -69,6 +69,7 @@ export interface UpdateCoverLetterInput {
 // Job Fit Analysis
 export interface CreateJobFitAnalysisInput {
   user_id: string;
+  application_id: string;
   job_description: string;
   analysis_result: string;
   fit_score: number;
@@ -1116,6 +1117,34 @@ export class JobFitAnalysisDAL
         .from("job_fit_analysis")
         .select("*")
         .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw new DALError(
+          `Failed to find job fit analyses: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data || [];
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError(
+        "Failed to find job fit analyses",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
+
+  async findByUserIdAndApplicationId(userId: string, applicationId: string): Promise<JobFitAnalysis[]> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("job_fit_analysis")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("application_id", applicationId)
         .order("created_at", { ascending: false });
 
       if (error) {

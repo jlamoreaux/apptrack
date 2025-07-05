@@ -1,16 +1,20 @@
 create table public.job_fit_analysis (
   id uuid not null default extensions.uuid_generate_v4 (),
   user_id uuid not null,
+  application_id uuid not null,
   job_description text not null,
   analysis_result text not null,
   fit_score integer not null check (fit_score >= 0 and fit_score <= 100),
   created_at timestamp with time zone null default timezone ('utc'::text, now()),
   updated_at timestamp with time zone null default timezone ('utc'::text, now()),
   constraint job_fit_analysis_pkey primary key (id),
-  constraint job_fit_analysis_user_id_fkey foreign key (user_id) references auth.users (id) on delete cascade
+  constraint job_fit_analysis_user_id_fkey foreign key (user_id) references auth.users (id) on delete cascade,
+  constraint job_fit_analysis_application_id_fkey foreign key (application_id) references public.applications (id) on delete cascade
 ) tablespace pg_default;
 
 create index if not exists idx_job_fit_analysis_user_id on public.job_fit_analysis using btree (user_id) tablespace pg_default;
+
+create index if not exists idx_job_fit_analysis_application_id on public.job_fit_analysis using btree (application_id) tablespace pg_default;
 
 create index if not exists idx_job_fit_analysis_created_at on public.job_fit_analysis using btree (created_at) tablespace pg_default;
 
