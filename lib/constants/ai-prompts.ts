@@ -40,6 +40,7 @@ Provide a structured analysis with:
 - 2-3 areas for improvement or gaps
 - 3-4 actionable recommendations
 - Key requirements from the job posting
+- Detailed match scores for skills, experience, and education
 
 Format your response as JSON with this structure:
 {
@@ -48,10 +49,21 @@ Format your response as JSON with this structure:
   "strengths": ["strength1", "strength2", ...],
   "weaknesses": ["gap1", "gap2", ...],
   "recommendations": ["rec1", "rec2", ...],
-  "keyRequirements": ["req1", "req2", ...]
+  "keyRequirements": ["req1", "req2", ...],
+  "matchDetails": {
+    "skillsMatch": number,
+    "experienceMatch": number,
+    "educationMatch": number
+  },
+  "generatedAt": "ISO date string"
 }
 
-Be honest and specific in your analysis. Base the score on genuine alignment between the candidate's experience and the job requirements.
+For the matchDetails scores:
+- skillsMatch: Rate 0-100 how well the candidate's technical and soft skills match the job requirements
+- experienceMatch: Rate 0-100 how well the candidate's work experience aligns with the role expectations
+- educationMatch: Rate 0-100 how well the candidate's educational background fits the job requirements
+
+Be honest and specific in your analysis. Base all scores on genuine alignment between the candidate's qualifications and the job requirements.
 ${BASE_INSTRUCTION}`,
 
   INTERVIEW_PREPARATION: `You are an interview preparation expert. Generate a comprehensive interview preparation guide.

@@ -240,6 +240,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Ensure required fields are present and add generatedAt if missing
+    if (!analysis.generatedAt) {
+      analysis.generatedAt = new Date().toISOString();
+    }
+
+    // Ensure matchDetails exists with default values if missing
+    if (!analysis.matchDetails) {
+      analysis.matchDetails = {
+        skillsMatch: 0,
+        experienceMatch: 0,
+        educationMatch: 0
+      };
+    }
+
     // Create job fit analysis record using service
     const aiCoachService = new AICoachService();
     
