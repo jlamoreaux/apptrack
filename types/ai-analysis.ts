@@ -35,13 +35,19 @@ export interface AnalysisContext {
 }
 
 // Job Fit Analysis specific types
+export interface RequirementMatch {
+  requirement: string;
+  status: 'met' | 'partial' | 'missing';
+  evidence?: string; // Optional explanation of why it's met/missing
+}
+
 export interface JobFitAnalysisResult {
   overallScore: number;
   scoreLabel: string;
   strengths: string[];
   weaknesses: string[];
   recommendations: string[];
-  keyRequirements: string[];
+  keyRequirements: RequirementMatch[];
   matchDetails: {
     skillsMatch: number;
     experienceMatch: number;

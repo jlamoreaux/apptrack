@@ -66,10 +66,10 @@ export function CoverLetterResult({
 
   const getToneColor = (tone: string) => {
     switch (tone) {
-      case 'professional': return 'text-blue-600 bg-blue-100'
-      case 'enthusiastic': return 'text-green-600 bg-green-100'
-      case 'conversational': return 'text-purple-600 bg-purple-100'
-      default: return 'text-gray-600 bg-gray-100'
+      case 'professional': return 'text-primary bg-primary/10'
+      case 'enthusiastic': return 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10'
+      case 'conversational': return 'text-violet-600 dark:text-violet-400 bg-violet-500/10'
+      default: return 'text-muted-foreground bg-muted/20'
     }
   }
 
@@ -107,10 +107,10 @@ export function CoverLetterResult({
       <Card>
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <FileText className="h-6 w-6 text-blue-600" />
+            <FileText className="h-6 w-6 text-primary" />
             <CardTitle className="text-xl">Cover Letter</CardTitle>
           </div>
-          <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Badge 
                 variant="outline" 
@@ -143,7 +143,7 @@ export function CoverLetterResult({
             {/* Preview Tab */}
             <TabsContent value="preview" className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="font-medium text-gray-900">Cover Letter Content</h3>
+                <h3 className="font-medium text-foreground">Cover Letter Content</h3>
                 <div className="flex items-center gap-2">
                   {!isEditing ? (
                     <Button
@@ -167,7 +167,7 @@ export function CoverLetterResult({
                       <Button
                         size="sm"
                         onClick={handleSaveEdit}
-                        className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-primary hover:bg-primary/90"
                       >
                         <CheckCircle2 className="h-4 w-4 mr-1" />
                         Save
@@ -185,27 +185,27 @@ export function CoverLetterResult({
                   placeholder="Edit your cover letter content..."
                 />
               ) : (
-                <div className="bg-white border border-gray-200 rounded-lg p-6">
-                  <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-gray-800">
+                <div className="bg-card border border-border rounded-lg p-6">
+                  <div className="whitespace-pre-wrap font-serif text-sm leading-relaxed text-foreground">
                     {editedContent}
                   </div>
                 </div>
               )}
 
-              <div className="flex items-center justify-between text-xs text-gray-500">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>Word count: {currentWordCount}</span>
                 {currentWordCount !== analysis.wordCount && (
-                  <span className="text-blue-600">Modified from original ({analysis.wordCount} words)</span>
+                  <span className="text-primary">Modified from original ({analysis.wordCount} words)</span>
                 )}
               </div>
             </TabsContent>
 
             {/* Sections Tab */}
             <TabsContent value="sections" className="space-y-4">
-              <h3 className="font-medium text-gray-900">Letter Breakdown</h3>
+              <h3 className="font-medium text-foreground">Letter Breakdown</h3>
               <div className="space-y-4">
                 {analysis.sections.map((section, index) => (
-                  <Card key={index} className="border-l-4 border-l-blue-500">
+                  <Card key={index} className="border-l-4 border-l-primary">
                     <CardHeader className="pb-3">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-xs">
@@ -219,14 +219,14 @@ export function CoverLetterResult({
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      <div className="bg-muted/30 rounded-lg p-4">
+                        <p className="text-sm text-foreground whitespace-pre-wrap">
                           {section.content}
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <Lightbulb className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                        <p className="text-xs text-gray-600">
+                        <Lightbulb className="h-4 w-4 text-status-interviewed-text mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground">
                           <strong>Strategy:</strong> {section.reasoning}
                         </p>
                       </div>
@@ -242,7 +242,7 @@ export function CoverLetterResult({
                 {/* Key Points */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-green-700 text-base">
+                    <CardTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-base">
                       <CheckCircle2 className="h-5 w-5" />
                       Key Points
                     </CardTitle>
@@ -251,8 +251,8 @@ export function CoverLetterResult({
                     <div className="space-y-3">
                       {analysis.keyPoints.map((point, index) => (
                         <div key={index} className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                          <p className="text-sm text-gray-700">{point}</p>
+                          <div className="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full mt-2 flex-shrink-0" />
+                          <p className="text-sm text-foreground">{point}</p>
                         </div>
                       ))}
                     </div>
@@ -262,7 +262,7 @@ export function CoverLetterResult({
                 {/* Company-Specific Customizations */}
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-700 text-base">
+                    <CardTitle className="flex items-center gap-2 text-primary text-base">
                       <Building className="h-5 w-5" />
                       Company Customizations
                     </CardTitle>
@@ -271,8 +271,8 @@ export function CoverLetterResult({
                     <div className="space-y-3">
                       {analysis.customizations.companySpecific.map((customization, index) => (
                         <div key={index} className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                          <p className="text-sm text-gray-700">{customization}</p>
+                          <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                          <p className="text-sm text-foreground">{customization}</p>
                         </div>
                       ))}
                     </div>
@@ -282,7 +282,7 @@ export function CoverLetterResult({
                 {/* Role-Specific Customizations */}
                 <Card className="lg:col-span-2">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-purple-700 text-base">
+                    <CardTitle className="flex items-center gap-2 text-violet-600 dark:text-violet-400 text-base">
                       <Target className="h-5 w-5" />
                       Role-Specific Customizations
                     </CardTitle>
@@ -291,8 +291,8 @@ export function CoverLetterResult({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {analysis.customizations.roleSpecific.map((customization, index) => (
                         <div key={index} className="flex items-start gap-3">
-                          <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
-                          <p className="text-sm text-gray-700">{customization}</p>
+                          <div className="w-2 h-2 bg-violet-500 dark:bg-violet-400 rounded-full mt-2 flex-shrink-0" />
+                          <p className="text-sm text-foreground">{customization}</p>
                         </div>
                       ))}
                     </div>

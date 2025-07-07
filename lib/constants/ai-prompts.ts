@@ -49,7 +49,13 @@ Format your response as JSON with this structure:
   "strengths": ["strength1", "strength2", ...],
   "weaknesses": ["gap1", "gap2", ...],
   "recommendations": ["rec1", "rec2", ...],
-  "keyRequirements": ["req1", "req2", ...],
+  "keyRequirements": [
+    {
+      "requirement": "requirement text",
+      "status": "met" | "partial" | "missing",
+      "evidence": "brief explanation of why this requirement is met/missing/partial"
+    }
+  ],
   "matchDetails": {
     "skillsMatch": number,
     "experienceMatch": number,
@@ -62,6 +68,14 @@ For the matchDetails scores:
 - skillsMatch: Rate 0-100 how well the candidate's technical and soft skills match the job requirements
 - experienceMatch: Rate 0-100 how well the candidate's work experience aligns with the role expectations
 - educationMatch: Rate 0-100 how well the candidate's educational background fits the job requirements
+
+For keyRequirements analysis:
+- Extract 5-8 key requirements from the job posting
+- For each requirement, determine if the candidate meets it based on their resume
+- Use "met" if they clearly demonstrate this requirement
+- Use "partial" if they have some relevant experience but not fully qualified
+- Use "missing" if there's no evidence they meet this requirement
+- Provide brief evidence explaining your assessment
 
 Be honest and specific in your analysis. Base all scores on genuine alignment between the candidate's qualifications and the job requirements.
 ${BASE_INSTRUCTION}`,

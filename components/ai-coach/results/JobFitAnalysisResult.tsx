@@ -27,7 +27,7 @@ import {
 } from "lucide-react"
 import { useState, useMemo } from "react"
 import { useReducedMotion } from "@/lib/utils/accessibility"
-import type { JobFitAnalysisResult } from "@/types/ai-analysis"
+import type { JobFitAnalysisResult, RequirementMatch } from "@/types/ai-analysis"
 
 interface JobFitAnalysisResultProps {
   analysis: JobFitAnalysisResult
@@ -63,18 +63,18 @@ export function JobFitAnalysisResult({
 
   const scoreColor = useMemo(() => {
     const score = analysis.overallScore ?? 0
-    if (score >= 85) return 'text-green-600'
-    if (score >= 75) return 'text-blue-600'
-    if (score >= 65) return 'text-yellow-600'
-    return 'text-orange-600'
+    if (score >= 85) return 'text-emerald-600 dark:text-emerald-400'
+    if (score >= 75) return 'text-status-offer-text'
+    if (score >= 65) return 'text-status-interviewed-text'
+    return 'text-amber-600 dark:text-amber-400'
   }, [analysis.overallScore])
 
   const scoreBarColor = useMemo(() => {
     const score = analysis.overallScore ?? 0
-    if (score >= 85) return 'bg-green-500'
-    if (score >= 75) return 'bg-blue-500'
-    if (score >= 65) return 'bg-yellow-500'
-    return 'bg-orange-500'
+    if (score >= 85) return 'bg-emerald-500'
+    if (score >= 75) return 'bg-status-offer-bg'
+    if (score >= 65) return 'bg-status-interviewed-bg'
+    return 'bg-amber-500'
   }, [analysis.overallScore])
 
   const formatDate = (dateString: string) => {
@@ -87,13 +87,33 @@ export function JobFitAnalysisResult({
     })
   }
 
+  const getRequirementStyle = (status: RequirementMatch['status']) => {
+    switch (status) {
+      case 'met':
+        return {
+          badge: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700',
+          icon: '✓'
+        }
+      case 'partial':
+        return {
+          badge: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700',
+          icon: '~'
+        }
+      case 'missing':
+        return {
+          badge: 'bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700',
+          icon: '✗'
+        }
+    }
+  }
+
   return (
     <div className={`space-y-6 ${className || ''}`}>
       {/* Overall Score Section */}
       <Card>
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <Target className="h-6 w-6 text-blue-600" />
+            <Target className="h-6 w-6 text-primary" />
             <CardTitle className="text-xl">Job Fit Analysis</CardTitle>
           </div>
           <p className="text-sm text-muted-foreground">
@@ -170,7 +190,7 @@ export function JobFitAnalysisResult({
       {/* Strengths Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-green-700">
+          <CardTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
             <TrendingUp className="h-5 w-5" />
             Your Strengths
           </CardTitle>
@@ -180,7 +200,7 @@ export function JobFitAnalysisResult({
             {analysis.strengths && Array.isArray(analysis.strengths) ? (
               analysis.strengths.map((strength, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 flex-shrink-0" />
                   <p className="text-sm text-foreground leading-relaxed">{strength}</p>
                 </div>
               ))
@@ -194,7 +214,7 @@ export function JobFitAnalysisResult({
       {/* Areas for Improvement */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-orange-700">
+          <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
             <TrendingDown className="h-5 w-5" />
             Areas to Address
           </CardTitle>
@@ -204,7 +224,7 @@ export function JobFitAnalysisResult({
             {analysis.weaknesses && Array.isArray(analysis.weaknesses) ? (
               analysis.weaknesses.map((weakness, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0" />
+                  <div className="w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-full mt-2 flex-shrink-0" />
                   <p className="text-sm text-foreground leading-relaxed">{weakness}</p>
                 </div>
               ))
@@ -218,23 +238,37 @@ export function JobFitAnalysisResult({
       {/* Key Requirements */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-700">
+          <CardTitle className="flex items-center gap-2 text-primary">
             <Target className="h-5 w-5" />
             Key Requirements
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
+          <div className="space-y-3">
             {analysis.keyRequirements && Array.isArray(analysis.keyRequirements) ? (
-              analysis.keyRequirements.map((requirement, index) => (
-                <Badge 
-                  key={index} 
-                  variant="secondary" 
-                  className="text-xs px-2 py-1"
-                >
-                  {requirement}
-                </Badge>
-              ))
+              analysis.keyRequirements.map((req, index) => {
+                // Handle both old string format and new object format for backward compatibility
+                const requirement = typeof req === 'string' ? { requirement: req, status: 'met' as const } : req;
+                const style = getRequirementStyle(requirement.status);
+                
+                return (
+                  <div key={index} className="flex items-start gap-3">
+                    <Badge 
+                      variant="outline" 
+                      className={`text-xs px-2 py-1 border ${style.badge} flex items-center gap-1 min-w-fit`}
+                    >
+                      <span className="text-xs">{style.icon}</span>
+                      <span className="capitalize">{requirement.status}</span>
+                    </Badge>
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium text-foreground">{requirement.requirement}</p>
+                      {requirement.evidence && (
+                        <p className="text-xs text-muted-foreground">{requirement.evidence}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground italic">No key requirements data available</p>
             )}
@@ -245,7 +279,7 @@ export function JobFitAnalysisResult({
       {/* Recommendations */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-700">
+          <CardTitle className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
             <Lightbulb className="h-5 w-5" />
             Recommendations
           </CardTitle>
@@ -255,7 +289,7 @@ export function JobFitAnalysisResult({
             {analysis.recommendations && Array.isArray(analysis.recommendations) ? (
               analysis.recommendations.map((recommendation, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                  <div className="w-2 h-2 bg-violet-500 dark:bg-violet-400 rounded-full mt-2 flex-shrink-0" />
                   <p className="text-sm text-foreground leading-relaxed">{recommendation}</p>
                 </div>
               ))

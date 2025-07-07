@@ -90,9 +90,9 @@ export function InterviewPreparationResult({
 
   const getDifficultyColor = (difficulty: 'easy' | 'medium' | 'hard') => {
     switch (difficulty) {
-      case 'easy': return 'text-green-600 bg-green-100'
-      case 'medium': return 'text-yellow-600 bg-yellow-100'
-      case 'hard': return 'text-red-600 bg-red-100'
+      case 'easy': return 'text-status-hired-text bg-status-hired-bg/20'
+      case 'medium': return 'text-status-interviewed-text bg-status-interviewed-bg/20'
+      case 'hard': return 'text-status-rejected-text bg-status-rejected-bg/20'
     }
   }
 
@@ -150,10 +150,10 @@ export function InterviewPreparationResult({
       <Card>
         <CardHeader className="text-center pb-4">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <MessageCircle className="h-6 w-6 text-blue-600" />
+            <MessageCircle className="h-6 w-6 text-primary" />
             <CardTitle className="text-xl">Interview Preparation</CardTitle>
           </div>
-          <div className="flex items-center justify-center gap-4 text-sm text-gray-600">
+          <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <Clock className="h-4 w-4" />
               <span>{analysis.estimatedDuration} min practice time</span>
@@ -211,9 +211,9 @@ export function InterviewPreparationResult({
         
         <CardContent className="space-y-4">
           {filteredQuestions.map((question) => (
-            <Card key={question.id} className="border-l-4 border-l-blue-500">
+            <Card key={question.id} className="border-l-4 border-l-primary">
               <CardHeader 
-                className="cursor-pointer hover:bg-gray-50 transition-colors"
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => toggleQuestion(question.id)}
               >
                 <div className="flex items-start justify-between">
@@ -230,7 +230,7 @@ export function InterviewPreparationResult({
                         {question.category.replace('-', ' ')}
                       </Badge>
                     </div>
-                    <h4 className="font-medium text-gray-900 pr-4">
+                    <h4 className="font-medium text-foreground pr-4">
                       {question.question}
                     </h4>
                   </div>
@@ -244,34 +244,34 @@ export function InterviewPreparationResult({
               </CardHeader>
               
               {expandedQuestions.has(question.id) && (
-                <CardContent className="border-t bg-gray-50">
+                <CardContent className="border-t bg-muted/30">
                   <div className="space-y-4">
                     {/* Suggested Approach */}
                     <div>
-                      <h5 className="font-medium text-sm text-gray-700 mb-2">Suggested Approach:</h5>
-                      <p className="text-sm text-gray-600">{question.suggestedApproach}</p>
+                      <h5 className="font-medium text-sm text-foreground mb-2">Suggested Approach:</h5>
+                      <p className="text-sm text-muted-foreground">{question.suggestedApproach}</p>
                     </div>
 
                     {/* STAR Framework (if available) */}
                     {question.starFramework && (
                       <div>
-                        <h5 className="font-medium text-sm text-gray-700 mb-2">STAR Framework:</h5>
+                        <h5 className="font-medium text-sm text-foreground mb-2">STAR Framework:</h5>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-blue-600">Situation</p>
-                            <p className="text-xs text-gray-600">{question.starFramework.situation}</p>
+                            <p className="text-xs font-medium text-primary">Situation</p>
+                            <p className="text-xs text-muted-foreground">{question.starFramework.situation}</p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-green-600">Task</p>
-                            <p className="text-xs text-gray-600">{question.starFramework.task}</p>
+                            <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">Task</p>
+                            <p className="text-xs text-muted-foreground">{question.starFramework.task}</p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-orange-600">Action</p>
-                            <p className="text-xs text-gray-600">{question.starFramework.action}</p>
+                            <p className="text-xs font-medium text-amber-600 dark:text-amber-400">Action</p>
+                            <p className="text-xs text-muted-foreground">{question.starFramework.action}</p>
                           </div>
                           <div className="space-y-1">
-                            <p className="text-xs font-medium text-purple-600">Result</p>
-                            <p className="text-xs text-gray-600">{question.starFramework.result}</p>
+                            <p className="text-xs font-medium text-status-offer-text">Result</p>
+                            <p className="text-xs text-muted-foreground">{question.starFramework.result}</p>
                           </div>
                         </div>
                       </div>
@@ -283,7 +283,7 @@ export function InterviewPreparationResult({
           ))}
           
           {filteredQuestions.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-muted-foreground">
               No questions found for the selected category.
             </div>
           )}
@@ -295,7 +295,7 @@ export function InterviewPreparationResult({
         {/* General Tips */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-700">
+            <CardTitle className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
               <Lightbulb className="h-5 w-5" />
               General Tips
             </CardTitle>
@@ -304,8 +304,8 @@ export function InterviewPreparationResult({
             <div className="space-y-3">
               {analysis.generalTips.map((tip, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-sm text-gray-700 leading-relaxed">{tip}</p>
+                  <div className="w-2 h-2 bg-emerald-500 dark:bg-emerald-400 rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{tip}</p>
                 </div>
               ))}
             </div>
@@ -315,7 +315,7 @@ export function InterviewPreparationResult({
         {/* Company Insights */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-700">
+            <CardTitle className="flex items-center gap-2 text-primary">
               <Building className="h-5 w-5" />
               Company Insights
             </CardTitle>
@@ -324,8 +324,8 @@ export function InterviewPreparationResult({
             <div className="space-y-3">
               {analysis.companyInsights.map((insight, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-sm text-gray-700 leading-relaxed">{insight}</p>
+                  <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{insight}</p>
                 </div>
               ))}
             </div>
@@ -335,7 +335,7 @@ export function InterviewPreparationResult({
         {/* Role-Specific Advice */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-purple-700">
+            <CardTitle className="flex items-center gap-2 text-status-offer-text">
               <Target className="h-5 w-5" />
               Role-Specific Advice
             </CardTitle>
@@ -344,8 +344,8 @@ export function InterviewPreparationResult({
             <div className="space-y-3">
               {analysis.roleSpecificAdvice.map((advice, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
-                  <p className="text-sm text-gray-700 leading-relaxed">{advice}</p>
+                  <div className="w-2 h-2 bg-status-offer-bg rounded-full mt-2 flex-shrink-0" />
+                  <p className="text-sm text-foreground leading-relaxed">{advice}</p>
                 </div>
               ))}
             </div>
@@ -355,7 +355,7 @@ export function InterviewPreparationResult({
         {/* Practice Areas */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-700">
+            <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
               <Play className="h-5 w-5" />
               Practice Areas
             </CardTitle>

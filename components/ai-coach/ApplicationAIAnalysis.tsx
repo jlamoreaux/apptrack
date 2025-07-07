@@ -608,14 +608,14 @@ export function ApplicationAIAnalysis({
           {status === "idle" && (
             <div className="text-center py-8 space-y-4">
               <div className="space-y-2">
-                <h3 className="font-semibold text-gray-900">
+                <h3 className="font-semibold text-foreground">
                   {currentTabConfig?.label}
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   {currentTabConfig?.description}
                 </p>
                 {currentTabConfig?.estimatedTime && (
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     Estimated time: {currentTabConfig.estimatedTime} seconds
                   </p>
                 )}
