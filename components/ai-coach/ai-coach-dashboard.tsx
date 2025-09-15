@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardDescription,
@@ -15,94 +16,91 @@ import {
   Target,
   Upload,
   Sparkles,
+  BarChart3,
+  Clock,
 } from "lucide-react";
 import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
+import { JobFitAnalysis } from "./job-fit-analysis";
 import { ResumeSection } from "@/components/resume-section";
-import { UsageDisplay } from "./usage-display";
+import { RecentActivity } from "./recent-activity";
 import { COPY } from "@/lib/content/copy";
 import { Badge } from "@/components/ui/badge";
+import { OnboardingFlow } from "./onboarding-flow";
 
 interface AICoachDashboardProps {
   userId: string;
 }
 
 export function AICoachDashboard({ userId }: AICoachDashboardProps) {
+  const [isNewUser, setIsNewUser] = useState(false);
   const [activeTab, setActiveTab] = useState("resume");
-  const { features, tabs } = COPY.aiCoach.dashboard;
+  const searchParams = useSearchParams();
+  const { tabs } = COPY.aiCoach.dashboard;
+
+  // Valid tab values
+  const validTabs = ["resume", "interview", "cover-letter", "advice", "job-fit"];
+
+  useEffect(() => {
+    // Read tab parameter from URL
+    const tabParam = searchParams.get("tab");
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  // Get applicationId from URL for passing to components that need it
+  const applicationId = searchParams.get("applicationId");
+
+  // Check if user is new (would be determined by checking if they have any AI usage history)
+  // For now, we'll just show onboarding if they haven't dismissed it
 
   return (
     <div className="space-y-8">
+      {/* Onboarding for new users */}
+      {isNewUser && (
+        <OnboardingFlow onComplete={() => setIsNewUser(false)} />
+      )}
+
       {/* Resume Section */}
       <ResumeSection />
 
-      {/* Usage Display */}
-      <UsageDisplay userId={userId} />
+      {/* Recent Activity - Removed Usage Display as it's in settings */}
+      <RecentActivity userId={userId} />
 
-      {/* Feature Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {features.map((feature) => {
-          const Icon = feature.icon;
-          const isComingSoon = false;
-          return (
-            <Card
-              key={feature.id}
-              className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
-                activeTab === feature.id
-                  ? `${feature.borderColor} ring-2 ring-opacity-20`
-                  : ""
-              }`}
-              onClick={() => setActiveTab(feature.id)}
-            >
-              <CardHeader className="pb-3">
-                <div
-                  className={`w-12 h-12 rounded-lg ${feature.bgColor} flex items-center justify-center mb-3 relative`}
-                >
-                  <Icon className={`h-6 w-6 ${feature.color}`} />
-                </div>
-                <CardTitle className="text-lg">{feature.title}</CardTitle>
-                {isComingSoon && (
-                  <Badge
-                    variant="secondary"
-                    className="text-xs w-36 px-2 py-0.5 mr-3 justify-around"
-                  >
-                    Coming Soon
-                    <Sparkles className="h-6 w-6 text-green-600 animate-pulse drop-shadow-lg" />
-                  </Badge>
-                )}
-                <CardDescription className="text-sm">
-                  {feature.description}
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Main Content Tabs */}
+      {/* Main Content - Streamlined tabs interface */}
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="resume" className="flex items-center gap-2">
             <Brain className="h-4 w-4" />
-            {tabs.resume}
+            <span className="hidden sm:inline">{tabs.resume}</span>
+            <span className="sm:hidden">Resume</span>
           </TabsTrigger>
           <TabsTrigger value="interview" className="flex items-center gap-2">
             <MessageSquare className="h-4 w-4" />
-            {tabs.interview}
+            <span className="hidden sm:inline">{tabs.interview}</span>
+            <span className="sm:hidden">Interview</span>
           </TabsTrigger>
           <TabsTrigger value="cover-letter" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            {tabs.coverLetter}
+            <span className="hidden sm:inline">{tabs.coverLetter}</span>
+            <span className="sm:hidden">Cover</span>
           </TabsTrigger>
           <TabsTrigger value="advice" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
-            {tabs.advice}
+            <span className="hidden sm:inline">{tabs.advice}</span>
+            <span className="sm:hidden">Advice</span>
+          </TabsTrigger>
+          <TabsTrigger value="job-fit" className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">{tabs.jobFit}</span>
+            <span className="sm:hidden">Job Fit</span>
           </TabsTrigger>
         </TabsList>
 
@@ -111,7 +109,7 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
         </TabsContent>
 
         <TabsContent value="interview" className="space-y-6">
-          <InterviewPrep />
+          <InterviewPrep applicationId={applicationId || undefined} />
         </TabsContent>
 
         <TabsContent value="cover-letter" className="space-y-6">
@@ -120,6 +118,10 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
 
         <TabsContent value="advice" className="space-y-6">
           <CareerAdvice />
+        </TabsContent>
+
+        <TabsContent value="job-fit" className="space-y-6">
+          <JobFitAnalysis />
         </TabsContent>
       </Tabs>
     </div>
