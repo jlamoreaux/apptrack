@@ -30,8 +30,10 @@ export const Models = {
   openai: OpenAIModels,
   meta: MetaModels,
   google: GoogleModels,
-  // Default model for the application
-  default: AnthropicModels.CLAUDE_4_SONNET,
+  // Default model for the application - optimized for cost efficiency
+  default: OpenAIModels.GPT_4O_MINI,
+  // Premium model for complex tasks
+  premium: AnthropicModels.CLAUDE_3_5_SONNET,
 } as const;
 
 // Type for any model
