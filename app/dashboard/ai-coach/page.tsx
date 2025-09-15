@@ -10,11 +10,12 @@ export default async function AICoachPage() {
     redirect("/login")
   }
 
-  // Check if user has AI Coach subscription
+  // Check if user has AI Coach or Pro subscription (both have AI access now)
   const subscription = await getSubscription(user.id)
-  const hasAICoachAccess = subscription?.subscription_plans?.name === "AI Coach"
+  const planName = subscription?.subscription_plans?.name
+  const hasAIAccess = planName === "AI Coach" || planName === "Pro"
 
-  if (!hasAICoachAccess) {
+  if (!hasAIAccess) {
     redirect("/dashboard/upgrade?highlight=ai-coach")
   }
 

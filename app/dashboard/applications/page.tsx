@@ -29,17 +29,19 @@ export default async function ApplicationsPage() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-primary">All Applications</h1>
+            <h1 className="text-3xl font-bold text-primary">
+              All Applications
+            </h1>
             <p className="text-muted-foreground">
               Manage and track all your job applications
             </p>
           </div>
-          <Link href="/dashboard/add">
+          {/* <Link href="/dashboard/add">
             <Button className="bg-secondary hover:bg-secondary/90">
               <Plus className="h-4 w-4 mr-2" />
               Add Application
             </Button>
-          </Link>
+          </Link> */}
         </div>
 
         {/* Applications List with Pagination */}

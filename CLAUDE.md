@@ -589,6 +589,16 @@ const { bg, text, border } = getStatusColors(status);
 - Document complex types with JSDoc
 - Use union types and enums for constrained values
 
+### Important Git Commit Instructions
+
+**NEVER commit changes unless explicitly asked by the user**. Always wait for the user to say something like:
+- "commit the changes"
+- "please commit"
+- "you can commit now"
+- "go ahead and commit"
+
+When changes are ready but not committed, simply inform the user that the changes are staged and ready for commit when they're ready.
+
 ---
 
 _This guide ensures Claude Code has immediate access to Task Master's essential functionality and the established code quality patterns for this project._

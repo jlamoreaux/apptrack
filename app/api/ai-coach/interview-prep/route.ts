@@ -7,6 +7,7 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { ResumeDAL } from "@/dal/resumes";
 import { InterviewPrepTransformerService } from "@/lib/services/interview-prep-transformer";
 import type { InterviewPreparationResult } from "@/types/ai-analysis";
+import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -16,6 +17,7 @@ interface InterviewPrepRequest {
   userResumeId?: string;
   resumeText?: string;
   structured?: boolean;
+  applicationId?: string;
 }
 
 interface InterviewPrepResponse {
@@ -73,7 +75,27 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       userResumeId,
       resumeText,
       structured = false,
+      applicationId,
     } = body;
+
+    // 3a. Fetch data from application if provided
+    let finalJobDescription = jobDescription;
+    let finalInterviewContext = interviewContext;
+    
+    if (applicationId) {
+      const context = await AIDataFetcherService.getAIContext(user.id, applicationId);
+      
+      // Use saved job description if not provided
+      if (!finalJobDescription && context.jobDescription) {
+        finalJobDescription = context.jobDescription;
+      }
+      
+      // Use application data for context if not provided
+      if (!finalInterviewContext && context.applicationData) {
+        const { company, role } = context.applicationData;
+        finalInterviewContext = `Interview for ${role} position at ${company}`;
+      }
+    }
 
     // 4. Resolve resume data
     const { finalResumeText, finalUserResumeId } = await resolveResumeData(
@@ -90,7 +112,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
     }
 
     // 5. Validate job description/URL
-    const effectiveJobDescription = jobDescription || undefined;
+    const effectiveJobDescription = finalJobDescription || undefined;
     const effectiveJobUrl = jobUrl || undefined;
     
     if (!effectiveJobDescription && !effectiveJobUrl) {
@@ -108,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       resume_text: finalResumeText,
       job_description: effectiveJobDescription,
       job_url: effectiveJobUrl,
-      interview_context: interviewContext,
+      interview_context: finalInterviewContext,
     });
 
     if (existing) {
@@ -131,7 +153,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
     const prepJobDesc = effectiveJobDescription || effectiveJobUrl;
     const preparation = await aiCoach.prepareForInterview({
       jobDescription: prepJobDesc!,
-      interviewContext,
+      interviewContext: finalInterviewContext,
       resumeText: finalResumeText,
     });
 
@@ -142,9 +164,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       resume_text: finalResumeText,
       job_description: effectiveJobDescription,
       job_url: effectiveJobUrl,
-      interview_context: interviewContext,
+      interview_context: finalInterviewContext,
       prep_content: preparation,
     });
+
+    // 8a. Save job description for future use if we have an applicationId
+    if (applicationId && effectiveJobDescription) {
+      await AIDataFetcherService.saveJobDescription(user.id, applicationId, effectiveJobDescription);
+    }
 
     // 9. Transform new content using service
     const transformResult = await transformer.transform({

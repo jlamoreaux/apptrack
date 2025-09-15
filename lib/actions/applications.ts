@@ -21,6 +21,7 @@ export async function addApplicationAction(formData: FormData) {
       company: formData.get("company") as string,
       role: formData.get("role") as string,
       role_link: formData.get("role_link") as string,
+      job_description: formData.get("job_description") as string,
       date_applied: formData.get("date_applied") as string,
       status: formData.get("status") as string,
     };
@@ -37,6 +38,7 @@ export async function addApplicationAction(formData: FormData) {
       user_id: user.id,
       ...result.data,
       role_link: result.data.role_link || null,
+      job_description: result.data.job_description || null,
     });
 
     if (error) {
@@ -72,6 +74,7 @@ export async function updateApplicationAction(
       company: formData.get("company") as string,
       role: formData.get("role") as string,
       role_link: formData.get("role_link") as string,
+      job_description: formData.get("job_description") as string,
       date_applied: formData.get("date_applied") as string,
       status: formData.get("status") as string,
     };
@@ -89,6 +92,7 @@ export async function updateApplicationAction(
       .update({
         ...result.data,
         role_link: result.data.role_link || null,
+        job_description: result.data.job_description || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", applicationId)
