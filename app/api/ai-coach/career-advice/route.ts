@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 
-export async function POST(request: NextRequest) {
+async function careerAdviceHandler(request: NextRequest) {
   try {
     const supabase = await createClient();
 
@@ -92,3 +93,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Export with rate limiting middleware
+export const POST = withRateLimit(careerAdviceHandler, {
+  feature: 'career_advice',
+});

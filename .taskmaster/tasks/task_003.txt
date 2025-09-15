@@ -1,0 +1,169 @@
+# Task ID: 3
+# Title: Implement Dashboard Pagination, Sorting and Filtering
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Add pagination, sorting, and filtering capabilities to the application dashboard to improve usability when managing many applications.
+# Details:
+Create a comprehensive dashboard enhancement with server-side pagination, sorting by multiple fields, and status filtering:
+
+1. Implement pagination component with configurable page size
+2. Add sorting functionality for Company, Status, Date Applied, Date Updated
+3. Create status filter dropdown with multi-select capability
+4. Update Supabase queries to support these features
+5. Maintain state in URL parameters for shareable/bookmarkable views
+
+```typescript
+// pages/dashboard.tsx
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
+import { supabase } from '@/lib/supabase'
+
+export default function Dashboard() {
+  const router = useRouter()
+  const [applications, setApplications] = useState([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Parse query params with defaults
+  const page = parseInt(router.query.page as string || '1')
+  const pageSize = parseInt(router.query.pageSize as string || '10')
+  const sortField = (router.query.sort as string) || 'updated_at'
+  const sortDirection = (router.query.dir as string) || 'desc'
+  const statusFilter = router.query.status ? 
+    Array.isArray(router.query.status) ? 
+      router.query.status : [router.query.status] : 
+    []
+  
+  useEffect(() => {
+    async function fetchApplications() {
+      setIsLoading(true)
+      
+      // Calculate pagination
+      const from = (page - 1) * pageSize
+      const to = from + pageSize - 1
+      
+      // Build query
+      let query = supabase
+        .from('applications')
+        .select('*', { count: 'exact' })
+        .order(sortField, { ascending: sortDirection === 'asc' })
+        .range(from, to)
+      
+      // Apply status filter if selected
+      if (statusFilter.length > 0) {
+        query = query.in('status', statusFilter)
+      }
+      
+      const { data, error, count } = await query
+      
+      if (error) {
+        console.error('Error fetching applications:', error)
+        return
+      }
+      
+      setApplications(data || [])
+      setTotalCount(count || 0)
+      setIsLoading(false)
+    }
+    
+    fetchApplications()
+  }, [page, pageSize, sortField, sortDirection, statusFilter])
+  
+  // Update URL when filters/sorting change
+  const updateQueryParams = (params) => {
+    router.push({
+      pathname: router.pathname,
+      query: { ...router.query, ...params }
+    }, undefined, { shallow: true })
+  }
+  
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">My Applications</h1>
+        
+        <div className="flex space-x-4">
+          {/* Status Filter */}
+          <StatusFilter 
+            selected={statusFilter} 
+            onChange={(statuses) => updateQueryParams({ status: statuses, page: 1 })} 
+          />
+          
+          {/* Sort Dropdown */}
+          <SortDropdown
+            field={sortField}
+            direction={sortDirection}
+            onChange={({ field, direction }) => 
+              updateQueryParams({ sort: field, dir: direction, page: 1 })
+            }
+          />
+        </div>
+      </div>
+      
+      {/* Applications List */}
+      {isLoading ? (
+        <LoadingSkeleton count={pageSize} />
+      ) : applications.length > 0 ? (
+        <div className="space-y-4">
+          {applications.map(app => (
+            <ApplicationCard key={app.id} application={app} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState />
+      )}
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={page}
+        pageSize={pageSize}
+        totalItems={totalCount}
+        onPageChange={(newPage) => updateQueryParams({ page: newPage })}
+        onPageSizeChange={(newSize) => updateQueryParams({ pageSize: newSize, page: 1 })}
+      />
+    </div>
+  )
+}
+
+# Test Strategy:
+1. Unit test pagination component with various page counts and sizes
+2. Test sorting functionality for all sortable fields (ascending/descending)
+3. Verify status filtering works correctly with multiple selections
+4. Test URL parameter handling and state persistence
+5. Verify Supabase query construction with different filter combinations
+6. Test edge cases (empty results, single page of results)
+7. Performance test with large datasets
+8. End-to-end test of the complete dashboard with real data
+
+# Subtasks:
+## 1. Implement Pagination Component [done]
+### Dependencies: None
+### Description: Create a reusable pagination component that displays page numbers, previous/next buttons, and allows users to change page size.
+### Details:
+Create a new component in components/Pagination.tsx that accepts props for currentPage, pageSize, totalItems, onPageChange, and onPageSizeChange. Implement UI with page number buttons, previous/next navigation, and a dropdown for page size selection (10, 25, 50, 100). Calculate total pages based on totalItems and pageSize. Style with Tailwind CSS to match application design. Ensure accessibility with proper ARIA attributes.
+
+## 2. Create Sorting Component [done]
+### Dependencies: None
+### Description: Implement a dropdown component that allows users to sort applications by different fields and directions.
+### Details:
+Create components/SortDropdown.tsx that accepts props for current field, direction, and onChange handler. Implement a dropdown with options for Company, Status, Date Applied, and Date Updated. Each option should allow toggling between ascending and descending order. Use icons to indicate sort direction. The component should emit events with the selected field and direction when changed.
+
+## 3. Build Status Filter Component [done]
+### Dependencies: None
+### Description: Create a multi-select dropdown for filtering applications by status.
+### Details:
+Create components/StatusFilter.tsx with props for selected statuses and onChange handler. Implement a dropdown with checkboxes for all application statuses (Applied, Interviewing, Rejected, Offer, etc.). Support selecting multiple statuses simultaneously. Include 'All' option to clear filters. Style consistently with other dashboard components. Ensure the component maintains and displays the current selection state.
+
+## 4. Update Supabase Query Logic [done]
+### Dependencies: 3.1, 3.2, 3.3
+### Description: Enhance the data fetching logic to support pagination, sorting, and filtering based on URL parameters.
+### Details:
+Refactor the useEffect hook in dashboard.tsx to build dynamic Supabase queries. Implement proper range calculations for pagination. Add support for all sortable fields (company, status, created_at, updated_at) with direction control. Implement status filtering using the .in() method when statusFilter has values. Add error handling and loading states. Ensure count is properly retrieved for pagination. Consider extracting this logic to a custom hook (e.g., useApplications) for better separation of concerns.
+
+## 5. Implement URL Parameter State Management [done]
+### Dependencies: 3.4
+### Description: Create a system to synchronize dashboard state with URL parameters for shareable and bookmarkable views.
+### Details:
+Enhance the updateQueryParams function to handle all filter types. Implement URL parameter parsing in the component initialization to set initial state from URL. Ensure page resets to 1 when filters or sorting change. Use shallow routing to prevent full page reloads when changing parameters. Handle edge cases like invalid parameter values with sensible defaults. Consider implementing debouncing for frequent changes to prevent excessive history entries. Test URL parameter retention on page refresh.
+

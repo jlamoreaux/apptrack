@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, FormEvent } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Send, Bot, User, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Send, Bot, User, Loader2, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -26,17 +26,14 @@ export function CareerAdvice() {
   useEffect(() => {
     async function fetchConversation() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const response = await fetch("/api/ai-coach/career-advice/history", {
+          method: "GET",
+          credentials: "include",
+        });
 
-        const { data, error } = await supabase
-          .from("career_advice")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: true });
-
-        if (!error && data) {
-          setMessages(data);
+        if (response.ok) {
+          const { messages } = await response.json();
+          setMessages(messages || []);
         }
       } catch (error) {
         console.error("Error fetching conversation:", error);
@@ -56,9 +53,6 @@ export function CareerAdvice() {
   async function sendMessage(e: FormEvent) {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -112,20 +106,24 @@ export function CareerAdvice() {
   }
 
   return (
-    <Card className="flex flex-col h-[600px]">
-      <div className="p-6 border-b">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
-            <Bot className="h-5 w-5 text-white" />
-          </div>
-          AI Career Coach
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Get personalized career advice and guidance
-        </p>
-      </div>
+    <div className="space-y-6">
+      {/* Header Card - matching other tools */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Briefcase className="h-5 w-5" />
+            AI Career Coach
+          </CardTitle>
+          <CardDescription>
+            Get personalized career advice and guidance through interactive chat
+          </CardDescription>
+        </CardHeader>
+      </Card>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Chat Interface Card */}
+      <Card className="flex flex-col h-[600px]">
+
+        <CardContent className="flex-1 overflow-y-auto p-6">
         {isLoadingHistory ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -199,9 +197,9 @@ export function CareerAdvice() {
             <div ref={messagesEndRef} />
           </div>
         )}
-      </div>
+        </CardContent>
 
-      <form onSubmit={sendMessage} className="p-6 border-t">
+        <form onSubmit={sendMessage} className="p-6 border-t">
         <div className="flex gap-2">
           <Input
             type="text"
@@ -223,7 +221,8 @@ export function CareerAdvice() {
             )}
           </Button>
         </div>
-      </form>
-    </Card>
+        </form>
+      </Card>
+    </div>
   );
 }

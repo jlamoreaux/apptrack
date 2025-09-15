@@ -1,0 +1,110 @@
+# Task ID: 2
+# Title: Make Application Cards Fully Clickable
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Enhance the application cards on the dashboard to make the entire card clickable instead of just the 'View' button to improve user experience.
+# Details:
+Modify the existing ApplicationCard component to make the entire card clickable while maintaining individual action buttons:
+
+1. Wrap the entire card in a Link component
+2. Implement click event handling to navigate to application detail page
+3. Prevent event propagation for action buttons (edit, delete, etc.)
+4. Add visual feedback for hover/focus states
+5. Ensure accessibility with proper keyboard navigation
+
+```typescript
+// components/ApplicationCard.tsx
+import Link from 'next/link'
+import { useState } from 'react'
+
+export function ApplicationCard({ application }) {
+  const [isHovered, setIsHovered] = useState(false)
+  
+  return (
+    <Link 
+      href={`/applications/${application.id}`}
+      className={`block transition-all duration-200 rounded-lg border ${isHovered ? 'border-indigo-300 shadow-md' : 'border-gray-200'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className="p-4">
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="font-medium text-gray-900">{application.company_name}</h3>
+            <p className="text-sm text-gray-600">{application.role_title}</p>
+          </div>
+          <StatusBadge status={application.status} />
+        </div>
+        
+        <div className="mt-4 flex justify-between items-center">
+          <span className="text-xs text-gray-500">
+            Applied: {new Date(application.applied_date).toLocaleDateString()}
+          </span>
+          
+          <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onEdit(application)
+              }}
+            >
+              Edit
+            </Button>
+            <Button 
+              size="sm" 
+              variant="primary"
+              aria-label={`View ${application.company_name} application`}
+            >
+              View
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+# Test Strategy:
+1. Unit test the ApplicationCard component to verify click behavior
+2. Test that the entire card navigates to the detail page
+3. Verify action buttons (Edit, Delete) work without triggering card navigation
+4. Test keyboard navigation (Tab, Enter) for accessibility
+5. Verify visual feedback on hover/focus states
+6. Test across different browsers and devices
+7. Conduct user testing to ensure the interaction is intuitive
+
+# Subtasks:
+## 1. Implement Link Wrapper for Application Card [done]
+### Dependencies: None
+### Description: Modify the ApplicationCard component to wrap the entire card content in a Next.js Link component that navigates to the application detail page.
+### Details:
+Replace the current card container with a Next.js Link component. Set the href attribute to point to the application detail page using the application ID. Ensure the Link has appropriate styling classes to maintain the card appearance. Keep the existing card content structure intact within the Link wrapper.
+
+## 2. Add Visual Feedback for Interactive States [done]
+### Dependencies: None
+### Description: Implement hover, focus, and active state visual feedback for the clickable card to improve user experience and indicate interactivity.
+### Details:
+Use the existing useState hook for isHovered to apply conditional styling. Enhance the styling to include focus and active states. Add appropriate CSS transitions for smooth visual feedback. Consider using a subtle border color change, box shadow, and potentially a slight background color shift to indicate interactivity.
+
+## 3. Implement Event Propagation Control for Action Buttons [done]
+### Dependencies: None
+### Description: Prevent click events on action buttons (Edit, View) from triggering the card's navigation behavior.
+### Details:
+Add event handlers to all action buttons that call e.preventDefault() and e.stopPropagation() to prevent the click from bubbling up to the parent Link component. Ensure this is implemented consistently across all interactive elements within the card that should not trigger navigation. Verify the existing onClick handler for the button container is properly stopping propagation.
+
+## 4. Enhance Keyboard Navigation and Accessibility [done]
+### Dependencies: 2.3
+### Description: Improve the accessibility of the clickable card by ensuring proper keyboard navigation, focus management, and ARIA attributes.
+### Details:
+Add appropriate ARIA roles and attributes to the card to indicate it's interactive. Ensure focus states are clearly visible for keyboard users. Implement keyboard event handlers to allow activation via Enter key. Add screen reader-friendly context about the card being clickable. Consider adding a visually hidden text that indicates the card is clickable for screen reader users.
+
+## 5. Refactor and Optimize Card Component [done]
+### Dependencies: 2.3, 2.4
+### Description: Refactor the ApplicationCard component to optimize performance and improve code organization after implementing the clickable functionality.
+### Details:
+Review the component for potential performance optimizations, such as memoization of callback functions. Extract reusable styling logic into custom hooks or utility functions. Ensure proper TypeScript typing for all props and event handlers. Add comprehensive JSDoc comments to document the component's behavior and props. Consider extracting nested components if the card structure becomes complex.
+

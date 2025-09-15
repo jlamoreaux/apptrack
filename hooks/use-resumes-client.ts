@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import type { UserResume, CreateResumeInput, UpdateResumeInput } from "@/types";
 
 export function useResumesClient(userId: string | null) {
@@ -21,19 +20,21 @@ export function useResumesClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data: resume, error: supabaseError } = await supabase
-          .from("user_resumes")
-          .insert({
-            ...data,
-            user_id: userId,
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/resumes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create resume");
         }
 
+        const { resume } = await response.json();
         return resume;
       } catch (err) {
         const errorMessage =
@@ -57,17 +58,18 @@ export function useResumesClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("user_resumes")
-        .select("*")
-        .eq("user_id", userId)
-        .order("uploaded_at", { ascending: false });
+      const response = await fetch("/api/resumes", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get resumes");
       }
 
-      return data || [];
+      const { resumes } = await response.json();
+      return resumes || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get resumes";
@@ -90,21 +92,22 @@ export function useResumesClient(userId: string | null) {
 
     try {
       console.log("getting current resume", userId);
-      const { data, error: supabaseError } = await supabase
-        .from("user_resumes")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
+      const response = await fetch("/api/resumes/current", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        if (supabaseError.code === "PGRST116") {
+      if (!response.ok) {
+        if (response.status === 404) {
           console.log("no resume found");
           return null; // Not found
         }
-        throw new Error(supabaseError.message);
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get current resume");
       }
 
-      return data;
+      const { resume } = await response.json();
+      return resume;
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get current resume";
@@ -127,24 +130,25 @@ export function useResumesClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data: updatedResume, error: supabaseError } = await supabase
-          .from("user_resumes")
-          .update({
-            ...data,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", id)
-          .select()
-          .single();
+        const response = await fetch(`/api/resumes/${id}`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(data),
+        });
 
-        if (supabaseError) {
-          if (supabaseError.code === "PGRST116") {
+        if (!response.ok) {
+          if (response.status === 404) {
             return null; // Not found
           }
-          throw new Error(supabaseError.message);
+          const result = await response.json();
+          throw new Error(result.error || "Failed to update resume");
         }
 
-        return updatedResume;
+        const { resume } = await response.json();
+        return resume;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to update resume";
@@ -168,21 +172,16 @@ export function useResumesClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data: resume, error: supabaseError } = await supabase
-          .from("user_resumes")
-          .upsert({
-            ...data,
-            user_id: userId,
-            updated_at: new Date().toISOString(),
-          })
-          .select()
-          .single();
-
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        // Try to get current resume first to decide between create or update
+        const currentResume = await getCurrentResume();
+        
+        if (currentResume) {
+          // Update existing resume
+          return await updateResume(currentResume.id, data);
+        } else {
+          // Create new resume
+          return await createResume(data);
         }
-
-        return resume;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to upsert resume";
@@ -192,7 +191,7 @@ export function useResumesClient(userId: string | null) {
         setLoading(false);
       }
     },
-    [userId]
+    [userId, getCurrentResume, updateResume, createResume]
   );
 
   const deleteResume = useCallback(
@@ -206,13 +205,14 @@ export function useResumesClient(userId: string | null) {
       setError(null);
 
       try {
-        const { error: supabaseError } = await supabase
-          .from("user_resumes")
-          .delete()
-          .eq("id", id);
+        const response = await fetch(`/api/resumes/${id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to delete resume");
         }
 
         return true;

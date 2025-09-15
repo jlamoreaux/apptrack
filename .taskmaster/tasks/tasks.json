@@ -342,7 +342,7 @@
           6,
           7
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": []
       },
       {
@@ -381,11 +381,27 @@
         ],
         "status": "pending",
         "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Implement AI Feature Rate Limiting and Usage Tracking",
+        "description": "Create a comprehensive rate limiting system for AI features to prevent abuse and manage API costs.",
+        "details": "Build a robust rate limiting system for all AI features:\n\n1. Database Schema:\n   - Create ai_feature_limits table with daily and hourly limits per feature\n   - Create ai_usage_tracking table to log all AI feature usage\n   - Support different limits for different subscription tiers\n\n2. Redis Integration:\n   - Use Redis or Upstash for real-time usage tracking (hourly/daily counters)\n   - Implement sliding window rate limiting\n   - Cache user limits for performance\n\n3. Middleware/Service Layer:\n   - Create RateLimitService to check and enforce limits\n   - Track usage per user, per feature, per time window\n   - Return clear error messages when limits are exceeded\n\n4. UI Feedback:\n   - Show remaining usage in AI Coach dashboard\n   - Display usage warnings when approaching limits (80% threshold)\n   - Clear error messages when limits are exceeded\n\n5. Admin Features:\n   - Allow adjusting limits per user or tier\n   - Usage analytics dashboard\n   - Alert system for unusual usage patterns\n\nDefault rate limits:\n- Resume Analysis: 10/day, 3/hour\n- Interview Prep: 20/day, 5/hour\n- Cover Letter Generation: 15/day, 3/hour\n- Career Advice Chat: 50 messages/day, 10/hour\n- Job Fit Analysis: 30/day, 5/hour\n\nImplementation approach:\n```sql\n-- ai_feature_limits table\nCREATE TABLE public.ai_feature_limits (\n  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,\n  feature_name text NOT NULL,\n  subscription_tier text NOT NULL,\n  daily_limit integer NOT NULL,\n  hourly_limit integer NOT NULL,\n  created_at timestamp with time zone DEFAULT now(),\n  updated_at timestamp with time zone DEFAULT now(),\n  UNIQUE(feature_name, subscription_tier)\n);\n\n-- ai_usage_tracking table\nCREATE TABLE public.ai_usage_tracking (\n  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,\n  user_id uuid NOT NULL REFERENCES auth.users(id),\n  feature_name text NOT NULL,\n  used_at timestamp with time zone DEFAULT now(),\n  metadata jsonb,\n  INDEX idx_usage_user_feature_time (user_id, feature_name, used_at)\n);\n```\n\n```typescript\n// lib/services/rate-limit.service.ts\nimport { Redis } from '@upstash/redis';\n\nclass RateLimitService {\n  private redis: Redis;\n  \n  async checkLimit(userId: string, feature: string): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {\n    const hourlyKey = `rate_limit:${userId}:${feature}:hourly`;\n    const dailyKey = `rate_limit:${userId}:${feature}:daily`;\n    \n    // Check both hourly and daily limits\n    const [hourlyCount, dailyCount] = await Promise.all([\n      this.redis.incr(hourlyKey),\n      this.redis.incr(dailyKey)\n    ]);\n    \n    // Set expiry if this is the first request\n    if (hourlyCount === 1) await this.redis.expire(hourlyKey, 3600);\n    if (dailyCount === 1) await this.redis.expire(dailyKey, 86400);\n    \n    const limits = await this.getUserLimits(userId, feature);\n    \n    return {\n      allowed: hourlyCount <= limits.hourly && dailyCount <= limits.daily,\n      remaining: Math.min(limits.hourly - hourlyCount, limits.daily - dailyCount),\n      resetAt: new Date(Date.now() + 3600000)\n    };\n  }\n}\n```",
+        "testStrategy": "1. Unit test RateLimitService with mock Redis\n2. Test sliding window algorithm accuracy\n3. Test limit enforcement across different time windows\n4. Test subscription tier limit differences\n5. Integration test with actual Redis/Upstash\n6. Test UI components showing usage limits\n7. Test error handling when limits exceeded\n8. Load test to verify performance under high usage\n9. Test admin features for adjusting limits",
+        "priority": "high",
+        "dependencies": [
+          5,
+          6,
+          7,
+          8
+        ],
+        "status": "done",
+        "subtasks": []
       }
     ],
     "metadata": {
       "created": "2025-06-29T02:28:44.227Z",
-      "updated": "2025-09-15T15:38:20.253Z",
+      "updated": "2025-09-15T16:19:04.935Z",
       "description": "Tasks for master context"
     }
   }

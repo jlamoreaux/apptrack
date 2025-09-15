@@ -1,0 +1,108 @@
+# Task ID: 11
+# Title: Implement AI Feature Rate Limiting and Usage Tracking
+# Status: pending
+# Dependencies: 5, 6, 7, 8
+# Priority: high
+# Description: Create a comprehensive rate limiting system for AI features to prevent abuse and manage API costs.
+# Details:
+Build a robust rate limiting system for all AI features:
+
+1. Database Schema:
+   - Create ai_feature_limits table with daily and hourly limits per feature
+   - Create ai_usage_tracking table to log all AI feature usage
+   - Support different limits for different subscription tiers
+
+2. Redis Integration:
+   - Use Redis or Upstash for real-time usage tracking (hourly/daily counters)
+   - Implement sliding window rate limiting
+   - Cache user limits for performance
+
+3. Middleware/Service Layer:
+   - Create RateLimitService to check and enforce limits
+   - Track usage per user, per feature, per time window
+   - Return clear error messages when limits are exceeded
+
+4. UI Feedback:
+   - Show remaining usage in AI Coach dashboard
+   - Display usage warnings when approaching limits (80% threshold)
+   - Clear error messages when limits are exceeded
+
+5. Admin Features:
+   - Allow adjusting limits per user or tier
+   - Usage analytics dashboard
+   - Alert system for unusual usage patterns
+
+Default rate limits:
+- Resume Analysis: 10/day, 3/hour
+- Interview Prep: 20/day, 5/hour
+- Cover Letter Generation: 15/day, 3/hour
+- Career Advice Chat: 50 messages/day, 10/hour
+- Job Fit Analysis: 30/day, 5/hour
+
+Implementation approach:
+```sql
+-- ai_feature_limits table
+CREATE TABLE public.ai_feature_limits (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  feature_name text NOT NULL,
+  subscription_tier text NOT NULL,
+  daily_limit integer NOT NULL,
+  hourly_limit integer NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  UNIQUE(feature_name, subscription_tier)
+);
+
+-- ai_usage_tracking table
+CREATE TABLE public.ai_usage_tracking (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id),
+  feature_name text NOT NULL,
+  used_at timestamp with time zone DEFAULT now(),
+  metadata jsonb,
+  INDEX idx_usage_user_feature_time (user_id, feature_name, used_at)
+);
+```
+
+```typescript
+// lib/services/rate-limit.service.ts
+import { Redis } from '@upstash/redis';
+
+class RateLimitService {
+  private redis: Redis;
+  
+  async checkLimit(userId: string, feature: string): Promise<{ allowed: boolean; remaining: number; resetAt: Date }> {
+    const hourlyKey = `rate_limit:${userId}:${feature}:hourly`;
+    const dailyKey = `rate_limit:${userId}:${feature}:daily`;
+    
+    // Check both hourly and daily limits
+    const [hourlyCount, dailyCount] = await Promise.all([
+      this.redis.incr(hourlyKey),
+      this.redis.incr(dailyKey)
+    ]);
+    
+    // Set expiry if this is the first request
+    if (hourlyCount === 1) await this.redis.expire(hourlyKey, 3600);
+    if (dailyCount === 1) await this.redis.expire(dailyKey, 86400);
+    
+    const limits = await this.getUserLimits(userId, feature);
+    
+    return {
+      allowed: hourlyCount <= limits.hourly && dailyCount <= limits.daily,
+      remaining: Math.min(limits.hourly - hourlyCount, limits.daily - dailyCount),
+      resetAt: new Date(Date.now() + 3600000)
+    };
+  }
+}
+```
+
+# Test Strategy:
+1. Unit test RateLimitService with mock Redis
+2. Test sliding window algorithm accuracy
+3. Test limit enforcement across different time windows
+4. Test subscription tier limit differences
+5. Integration test with actual Redis/Upstash
+6. Test UI components showing usage limits
+7. Test error handling when limits exceeded
+8. Load test to verify performance under high usage
+9. Test admin features for adjusting limits

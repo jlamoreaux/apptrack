@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
 import type {
   ResumeAnalysis,
   InterviewPrep,
@@ -30,21 +29,25 @@ export function useAICoachClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data, error: supabaseError } = await supabase
-          .from("resume_analysis")
-          .insert({
-            user_id: userId,
-            resume_url: resumeUrl,
-            analysis_result: analysisResult,
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/ai-coach/resume-analysis/history", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            resumeUrl,
+            analysisResult,
+          }),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create resume analysis");
         }
 
-        return data;
+        const { analysis } = await response.json();
+        return analysis;
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -69,17 +72,18 @@ export function useAICoachClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("resume_analysis")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/ai-coach/resume-analysis/history", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get resume analyses");
       }
 
-      return data || [];
+      const { analyses } = await response.json();
+      return analyses || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get resume analyses";
@@ -104,21 +108,25 @@ export function useAICoachClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data, error: supabaseError } = await supabase
-          .from("interview_prep")
-          .insert({
-            user_id: userId,
-            job_description: jobDescription,
-            prep_content: prepContent,
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/ai-coach/interview-prep/history", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            jobDescription,
+            prepContent,
+          }),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create interview prep");
         }
 
-        return data;
+        const { prep } = await response.json();
+        return prep;
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -143,17 +151,18 @@ export function useAICoachClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("interview_prep")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/ai-coach/interview-prep/history", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get interview preps");
       }
 
-      return data || [];
+      const { preps } = await response.json();
+      return preps || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get interview preps";
@@ -175,21 +184,25 @@ export function useAICoachClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data, error: supabaseError } = await supabase
-          .from("career_advice")
-          .insert({
-            user_id: userId,
+        const response = await fetch("/api/ai-coach/career-advice/history", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
             question,
             advice,
-          })
-          .select()
-          .single();
+          }),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create career advice");
         }
 
-        return data;
+        const { advice: savedAdvice } = await response.json();
+        return savedAdvice;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to create career advice";
@@ -212,17 +225,18 @@ export function useAICoachClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("career_advice")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/ai-coach/career-advice/history", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get career advice");
       }
 
-      return data || [];
+      const { advice } = await response.json();
+      return advice || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get career advice";
@@ -247,21 +261,25 @@ export function useAICoachClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data, error: supabaseError } = await supabase
-          .from("cover_letters")
-          .insert({
-            user_id: userId,
-            job_description: jobDescription,
-            cover_letter: coverLetter,
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/ai-coach/cover-letters/history", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            jobDescription,
+            coverLetter,
+          }),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create cover letter");
         }
 
-        return data;
+        const { letter } = await response.json();
+        return letter;
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to create cover letter";
@@ -284,17 +302,18 @@ export function useAICoachClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("cover_letters")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/ai-coach/cover-letters/history", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get cover letters");
       }
 
-      return data || [];
+      const { coverLetters } = await response.json();
+      return coverLetters || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get cover letters";
@@ -320,22 +339,26 @@ export function useAICoachClient(userId: string | null) {
       setError(null);
 
       try {
-        const { data, error: supabaseError } = await supabase
-          .from("job_fit_analysis")
-          .insert({
-            user_id: userId,
-            job_description: jobDescription,
-            analysis_result: analysisResult,
-            fit_score: fitScore,
-          })
-          .select()
-          .single();
+        const response = await fetch("/api/ai-coach/job-fit-analysis/history", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            jobDescription,
+            analysisResult,
+            fitScore,
+          }),
+        });
 
-        if (supabaseError) {
-          throw new Error(supabaseError.message);
+        if (!response.ok) {
+          const result = await response.json();
+          throw new Error(result.error || "Failed to create job fit analysis");
         }
 
-        return data;
+        const { analysis } = await response.json();
+        return analysis;
       } catch (err) {
         const errorMessage =
           err instanceof Error
@@ -360,17 +383,18 @@ export function useAICoachClient(userId: string | null) {
     setError(null);
 
     try {
-      const { data, error: supabaseError } = await supabase
-        .from("job_fit_analysis")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/ai-coach/job-fit-analysis/history", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (supabaseError) {
-        throw new Error(supabaseError.message);
+      if (!response.ok) {
+        const result = await response.json();
+        throw new Error(result.error || "Failed to get job fit analyses");
       }
 
-      return data || [];
+      const { analyses } = await response.json();
+      return analyses || [];
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get job fit analyses";

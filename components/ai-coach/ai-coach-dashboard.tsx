@@ -21,6 +21,7 @@ import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
 import { ResumeSection } from "@/components/resume-section";
+import { UsageDisplay } from "./usage-display";
 import { COPY } from "@/lib/content/copy";
 import { Badge } from "@/components/ui/badge";
 
@@ -36,6 +37,9 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
     <div className="space-y-8">
       {/* Resume Section */}
       <ResumeSection />
+
+      {/* Usage Display */}
+      <UsageDisplay userId={userId} />
 
       {/* Feature Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

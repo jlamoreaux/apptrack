@@ -1,0 +1,91 @@
+# Task ID: 1
+# Title: Implement AI Coach Navigation Enhancement
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Add prominent AI Coach access from the main dashboard with subscription-aware visibility to improve navigation and user experience.
+# Details:
+Create a new navigation component that displays AI Coach access prominently on the dashboard. This component should:
+1. Check user subscription status using Supabase query
+2. Display appropriate UI based on subscription tier (locked for Free, accessible for AI Coach)
+3. Include a clear CTA for upgrading if on Free/Pro tier
+4. Implement direct links to all AI features (Resume Analysis, Interview Prep, Cover Letter, Career Advice, Job Fit)
+
+Code implementation should include:
+```typescript
+// components/AICoachNavigation.tsx
+import { useUser } from '@/lib/auth'
+import { useSubscription } from '@/lib/subscription'
+
+export function AICoachNavigation() {
+  const { user } = useUser()
+  const { subscription, isLoading } = useSubscription(user?.id)
+  
+  const hasAICoachAccess = subscription?.plan === 'ai_coach'
+  
+  return (
+    <div className="p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg shadow-sm">
+      <h3 className="text-lg font-semibold text-indigo-900">AI Coach Features</h3>
+      
+      {isLoading ? (
+        <p>Loading subscription status...</p>
+      ) : hasAICoachAccess ? (
+        <div className="grid grid-cols-2 gap-2 mt-3">
+          <AIFeatureCard title="Resume Analysis" icon="document" href="/ai-coach/resume" />
+          <AIFeatureCard title="Interview Prep" icon="microphone" href="/ai-coach/interview" />
+          <AIFeatureCard title="Cover Letters" icon="mail" href="/ai-coach/cover-letter" />
+          <AIFeatureCard title="Career Advice" icon="chat" href="/ai-coach/advice" />
+          <AIFeatureCard title="Job Fit Analysis" icon="chart" href="/ai-coach/job-fit" />
+        </div>
+      ) : (
+        <div className="mt-3">
+          <p className="text-sm text-indigo-700 mb-2">Unlock AI-powered career guidance with AI Coach subscription</p>
+          <Button variant="gradient" href="/subscription/upgrade">Upgrade to AI Coach</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+```
+
+Integrate this component into the dashboard layout with proper positioning for maximum visibility.
+
+# Test Strategy:
+1. Unit test the AICoachNavigation component with different subscription states (Free, Pro, AI Coach)
+2. Verify correct display of locked/unlocked states
+3. Test navigation links to ensure they direct to the correct AI feature pages
+4. Verify subscription check logic works correctly
+5. Test responsive behavior on mobile, tablet, and desktop viewports
+6. Conduct user testing to ensure the navigation is intuitive and discoverable
+
+# Subtasks:
+## 1. Create AIFeatureCard component [done]
+### Dependencies: None
+### Description: Implement the AIFeatureCard component that will be used to display individual AI Coach features with icons and links.
+### Details:
+Create a new component at components/AIFeatureCard.tsx that accepts title, icon, and href props. The component should render a card with the appropriate icon, title text, and be clickable to navigate to the specified href. Use the design system's color scheme and styling patterns. Include hover effects and proper accessibility attributes.
+
+## 2. Implement subscription status check logic [done]
+### Dependencies: None
+### Description: Create or enhance the subscription hook to properly fetch and determine user subscription status for AI Coach access.
+### Details:
+Review and update the useSubscription hook in lib/subscription.ts to ensure it correctly queries Supabase for the user's subscription plan. Add specific logic to determine if the user has AI Coach access based on their subscription tier. Handle loading states and error cases appropriately. Ensure the hook is memoized to prevent unnecessary re-renders.
+
+## 3. Build AICoachNavigation component [done]
+### Dependencies: 1.1, 1.2
+### Description: Implement the main AICoachNavigation component that conditionally displays content based on subscription status.
+### Details:
+Create the AICoachNavigation component as outlined in the task description. Use the useSubscription hook to determine access rights. Implement conditional rendering to show either the grid of AIFeatureCard components for subscribers or the upgrade CTA for non-subscribers. Style the component with the specified gradient background and layout. Ensure responsive design for different screen sizes.
+
+## 4. Integrate AICoachNavigation into dashboard layout [done]
+### Dependencies: 1.3
+### Description: Add the AICoachNavigation component to the main dashboard with proper positioning for maximum visibility.
+### Details:
+Update the dashboard layout component to include the new AICoachNavigation component in a prominent position. Consider placing it near the top of the dashboard, possibly above or alongside other key dashboard elements. Ensure the component is responsive and maintains visibility across different screen sizes. Update any necessary layout containers to accommodate the new component.
+
+## 5. Implement analytics tracking for AI Coach navigation [done]
+### Dependencies: 1.4
+### Description: Add analytics tracking to measure engagement with the AI Coach navigation component and feature cards.
+### Details:
+Implement analytics event tracking when users interact with the AI Coach navigation component. Track events for: viewing the component, clicking on feature cards, and clicking the upgrade CTA. Use the existing analytics system to capture these events. Create a new analytics helper function if needed to standardize AI Coach related events. Ensure proper user properties are included with events to segment by subscription tier.
+
