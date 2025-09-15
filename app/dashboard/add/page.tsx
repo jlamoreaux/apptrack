@@ -8,6 +8,7 @@ import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ export default function AddApplicationPage() {
     company: "",
     role: "",
     role_link: "",
+    job_description: "",
     date_applied: "",
     status: "Applied",
   });
@@ -147,6 +149,26 @@ export default function AddApplicationPage() {
                     }
                     placeholder="https://company.com/careers/job-id"
                     disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="job_description">
+                    Job Description (Optional)
+                    <span className="text-xs text-muted-foreground ml-2">
+                      Save for AI features
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="job_description"
+                    value={formData.job_description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, job_description: e.target.value })
+                    }
+                    placeholder="Paste the job description here to use with AI features like cover letter generation and interview prep..."
+                    rows={6}
+                    disabled={loading}
+                    className="resize-none"
                   />
                 </div>
 

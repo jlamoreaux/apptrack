@@ -28,6 +28,7 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
     company: application.company,
     role: application.role,
     role_link: application.role_link || "",
+    job_description: application.job_description || "",
     date_applied: application.date_applied,
     status: application.status,
     notes: application.notes || "",
@@ -114,6 +115,22 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
                 <SelectItem value="Rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="job_description">
+              Job Description (Optional)
+              <span className="text-xs text-muted-foreground ml-2">
+                Used for AI features
+              </span>
+            </Label>
+            <Textarea
+              id="job_description"
+              value={formData.job_description}
+              onChange={(e) => handleInputChange("job_description", e.target.value)}
+              placeholder="Paste the job description here to use with AI features..."
+              className="min-h-[120px]"
+            />
           </div>
 
           <div className="grid gap-2">

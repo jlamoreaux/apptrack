@@ -460,13 +460,15 @@ These commands make AI calls and may take up to a minute:
 
 ### Build Validation Process
 
-**REQUIRED before marking any task as done:**
-1. Run `npm run build` to catch TypeScript compilation errors
-2. Run `npm run lint` if available to catch code style issues
-3. Run all relevant tests (`npm test` or `npm run test:a11y` for accessibility)
-4. Check for missing imports in DAL files
-5. Validate field name consistency across components
-6. Ensure status constants match database constraints
+**IMPORTANT**: Do NOT run `pnpm dev` or `pnpm build` automatically. The user will handle running these commands.
+
+**Before marking any task as done, ensure:**
+1. TypeScript types are correct and consistent
+2. All imports are properly defined
+3. Check for missing imports in DAL files
+4. Validate field name consistency across components
+5. Ensure status constants match database constraints
+6. Code follows established patterns and conventions
 
 **Task Completion Checklist:**
 - [ ] All TypeScript errors resolved (build passes)

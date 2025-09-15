@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
-import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
 export async function POST(request: NextRequest) {
@@ -33,8 +32,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { jobDescription, userBackground, companyName } =
-      await request.json();
+    const { 
+      jobDescription, 
+      userBackground, 
+      companyName,
+      roleName,
+      applicationId,
+      tone,
+      additionalInfo 
+    } = await request.json();
 
     if (!jobDescription || !userBackground || !companyName) {
       return NextResponse.json(
@@ -50,13 +56,32 @@ export async function POST(request: NextRequest) {
       companyName
     );
 
-    // Create cover letter record using service
-    const aiCoachService = new AICoachService();
-    await aiCoachService.createCoverLetter(
-      user.id,
-      jobDescription,
-      coverLetter
-    );
+    // Store the cover letter in database with additional metadata
+    try {
+      const supabase = await createClient();
+      const { data: savedCoverLetter, error } = await supabase
+        .from("cover_letters")
+        .insert({
+          user_id: user.id,
+          application_id: applicationId || null,
+          company_name: companyName,
+          role_name: roleName || null,
+          job_description: jobDescription,
+          cover_letter: coverLetter,
+          tone: tone || 'professional',
+          additional_info: additionalInfo || null,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error saving cover letter to database:", error);
+        // Don't fail the request if saving fails, still return the generated letter
+      }
+    } catch (saveError) {
+      console.error("Failed to save cover letter:", saveError);
+      // Continue anyway - the letter was generated successfully
+    }
 
     return NextResponse.json({ coverLetter });
   } catch (error) {

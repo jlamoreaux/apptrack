@@ -36,6 +36,7 @@ export interface Application {
   company: string;
   role: string;
   role_link?: string;
+  job_description?: string;
   date_applied: string;
   status:
     | "Applied"
@@ -124,6 +125,7 @@ export interface ApplicationFormData {
   company: string;
   role: string;
   role_link?: string;
+  job_description?: string;
   date_applied: string;
   status: "Applied" | "Interview Scheduled" | "Interviewed" | "Offer" | "Rejected";
   notes?: string;
