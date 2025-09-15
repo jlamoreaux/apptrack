@@ -1,19 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
-import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 
-export async function POST(request: NextRequest) {
+async function careerAdviceHandler(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: cookieStore }
-    );
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -40,27 +34,57 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { question, context } = await request.json();
+    const { message, conversationHistory } = await request.json();
 
-    if (!question) {
+    if (!message) {
       return NextResponse.json(
         { error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION },
         { status: 400 }
       );
     }
 
+    // Save user message to database
+    const userMessage = {
+      user_id: user.id,
+      content: message,
+      is_user: true,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error: saveUserError } = await supabase
+      .from("career_advice")
+      .insert(userMessage);
+
+    if (saveUserError) {
+      console.error("Error saving user message:", saveUserError);
+    }
+
+    // Generate AI response using the AI Coach
     const aiCoach = createAICoach(user.id);
-    const advice = await aiCoach.askCareerQuestion(question, context);
+    
+    // Build context from conversation history
+    const context = conversationHistory || [];
+    
+    // Call the askCareerQuestion method with the message and context
+    const response = await aiCoach.askCareerQuestion(message, context);
 
-    // Create career advice record using service
-    const aiCoachService = new AICoachService();
-    await aiCoachService.createCareerAdvice(
-      user.id,
-      question,
-      JSON.stringify(advice)
-    );
+    // Save AI response to database
+    const aiMessage = {
+      user_id: user.id,
+      content: typeof response === 'string' ? response : response.advice || response.message || JSON.stringify(response),
+      is_user: false,
+      created_at: new Date().toISOString(),
+    };
 
-    return NextResponse.json({ advice });
+    const { error: saveAiError } = await supabase
+      .from("career_advice")
+      .insert(aiMessage);
+
+    if (saveAiError) {
+      console.error("Error saving AI message:", saveAiError);
+    }
+
+    return NextResponse.json({ response: aiMessage.content });
   } catch (error) {
     console.error("Error getting career advice:", error);
     return NextResponse.json(
@@ -69,3 +93,8 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Export with rate limiting middleware
+export const POST = withRateLimit(careerAdviceHandler, {
+  feature: 'career_advice',
+});

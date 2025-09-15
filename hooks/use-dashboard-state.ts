@@ -23,7 +23,7 @@ export interface DashboardState {
  */
 const DEFAULT_STATE: DashboardState = {
   page: 1,
-  pageSize: 25,
+  pageSize: 10,
   sortField: 'updated_at',
   sortDirection: 'desc',
   statusFilter: [],
@@ -33,7 +33,7 @@ const DEFAULT_STATE: DashboardState = {
 /**
  * Valid page size options
  */
-const VALID_PAGE_SIZES = [10, 25, 50, 100];
+const VALID_PAGE_SIZES = [10, 20, 50];
 
 /**
  * Valid sort fields (must match the component and DAL types)

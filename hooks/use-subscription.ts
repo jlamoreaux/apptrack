@@ -34,50 +34,25 @@ export function useSubscription(userId: string | null) {
     if (!userId) return;
 
     try {
-      // Add timeout to prevent hanging
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Subscription fetch timeout")), 8000)
-      );
+      // Fetch current subscription status
+      const response = await fetch(`/api/subscription/check?userId=${userId}`, {
+        method: "GET",
+        credentials: "include",
+      });
 
-      // Fetch current subscription
-      const subPromise = supabase
-        .from("user_subscriptions")
-        .select(
-          `
-          *,
-          subscription_plans (*)
-        `
-        )
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .maybeSingle();
-
-      const { data: subData, error: subError } = (await Promise.race([
-        subPromise,
-        timeoutPromise,
-      ])) as any;
-
-      if (subError && subError.code !== "PGRST116") {
-        console.error("Error fetching subscription:", subError);
-      } else {
-        setSubscription(subData);
+      if (response.ok) {
+        const { subscription: subscriptionData } = await response.json();
+        setSubscription(subscriptionData);
       }
 
       // Fetch usage data
-      const usagePromise = supabase
-        .from("usage_tracking")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      const usageResponse = await fetch("/api/subscription/usage", {
+        method: "GET", 
+        credentials: "include",
+      });
 
-      const { data: usageData, error: usageError } = (await Promise.race([
-        usagePromise,
-        timeoutPromise,
-      ])) as any;
-
-      if (usageError && usageError.code !== "PGRST116") {
-        console.error("Error fetching usage:", usageError);
-      } else {
+      if (usageResponse.ok) {
+        const { usage: usageData } = await usageResponse.json();
         setUsage(usageData);
       }
     } catch (error) {
@@ -89,15 +64,16 @@ export function useSubscription(userId: string | null) {
 
   const fetchPlans = async () => {
     try {
-      const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("*")
-        .order("price_monthly");
+      const response = await fetch("/api/subscription/plans", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error("Error fetching plans:", error);
+      if (response.ok) {
+        const { plans: plansData } = await response.json();
+        setPlans(plansData || []);
       } else {
-        setPlans(data || []);
+        console.error("Error fetching plans:", response.status);
       }
     } catch (error) {
       console.error("Error fetching plans:", error);

@@ -33,12 +33,35 @@ export function JobAnalysisCard({ jobUrl, userId, companyName, roleName }: JobAn
     setError("")
     setAnalysis(null)
 
+    // Debug: Log the values being sent
+    console.log("🔍 Job Analysis Request Data:", {
+      jobUrl,
+      companyName,
+      roleName,
+      hasJobUrl: !!jobUrl,
+      hasCompanyName: !!companyName,
+      hasRoleName: !!roleName,
+    })
+
+    // Validate required fields before making the request
+    if (!jobUrl || !companyName || !roleName) {
+      const missingFields = []
+      if (!jobUrl) missingFields.push("job URL")
+      if (!companyName) missingFields.push("company name")
+      if (!roleName) missingFields.push("role name")
+      
+      setError(`Missing required information: ${missingFields.join(", ")}. Please ensure all application details are filled in.`)
+      setLoading(false)
+      return
+    }
+
     try {
       const response = await fetch("/api/ai-coach/analyze-job-fit", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
           jobUrl,
           companyName,

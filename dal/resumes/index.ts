@@ -80,12 +80,11 @@ export class ResumeDAL
         .from("user_resumes")
         .select("*")
         .eq("user_id", userId)
-        .single();
+        .order("uploaded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
-        if (error.code === "PGRST116") {
-          return null; // Not found
-        }
         throw new DALError(
           `Failed to find resume: ${error.message}`,
           "QUERY_ERROR"

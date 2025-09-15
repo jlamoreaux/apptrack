@@ -1,6 +1,6 @@
 import copyData from "@/content/copy.json";
 import { PLAN_LIMITS } from "@/lib/constants/plans";
-import { Brain, FileText, MessageSquare, Target } from "lucide-react";
+import { Brain, FileText, MessageSquare, Target, BarChart3 } from "lucide-react";
 
 // Type-safe access to copy with validation
 export const COPY = {
@@ -63,12 +63,23 @@ export const COPY = {
           bgColor: "bg-orange-50",
           borderColor: "border-orange-200",
         },
+        {
+          id: "job-fit",
+          title: "Job Fit Analysis",
+          description:
+            "Analyze how well your profile matches specific job requirements",
+          icon: BarChart3,
+          color: "text-indigo-600",
+          bgColor: "bg-indigo-50",
+          borderColor: "border-indigo-200",
+        },
       ],
       tabs: {
         resume: "Resume",
         interview: "Interview",
         coverLetter: "Cover Letter",
         advice: "Advice",
+        jobFit: "Job Fit",
       },
     },
     resumeAnalyzer: {

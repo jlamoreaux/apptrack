@@ -52,25 +52,23 @@ export function useSupabaseAuth() {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Use maybeSingle() instead of single() to handle multiple or no rows gracefully
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const response = await fetch("/api/auth/profile", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error(
-          `Profile fetch error: ${error.message} (Code: ${error.code})`
-        );
+      if (!response.ok) {
+        console.error(`Profile fetch error: ${response.status}`);
         return;
       }
 
-      if (!data) {
+      const { profile } = await response.json();
+      
+      if (!profile) {
         return;
       }
 
-      setProfile(data);
+      setProfile(profile);
     } catch (error) {
       console.error(`Profile fetch exception: ${error}`);
     }

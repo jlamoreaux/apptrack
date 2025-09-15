@@ -12,7 +12,7 @@ import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
 import { AccountInfoForm } from "@/components/forms/account-info-form";
 import { SubscriptionManagement } from "@/components/subscription-management";
 import { DangerZone } from "@/components/danger-zone";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/theme-toggle";
 import Link from "next/link";
@@ -76,6 +76,35 @@ export default async function SettingsPage() {
                 <ThemeToggle />
               </CardContent>
             </Card>
+
+            <Separator />
+
+            {/* AI Usage */}
+            {(subscription?.subscription_plans?.name === "Pro" || 
+              subscription?.subscription_plans?.name === "AI Coach") && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5" />
+                      AI Feature Usage
+                    </CardTitle>
+                    <CardDescription>
+                      Monitor your AI feature usage and limits
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/dashboard/settings/usage">
+                      <Button variant="outline" className="w-full">
+                        View Detailed Usage
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+
+                <Separator />
+              </>
+            )}
 
             <Separator />
 

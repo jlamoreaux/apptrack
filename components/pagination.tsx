@@ -48,7 +48,7 @@ export function Pagination({
   totalItems,
   onPageChange,
   onPageSizeChange,
-  pageSizeOptions = [10, 25, 50, 100],
+  pageSizeOptions = [10, 20, 50],
   maxPages = 7,
   isLoading = false,
 }: PaginationProps) {
@@ -102,10 +102,13 @@ export function Pagination({
 
   const pageNumbers = getPageNumbers();
 
-  // Don't render pagination if there's only one page or no items
-  if (totalPages <= 1) {
+  // Don't render pagination if there are no items
+  if (totalItems === 0) {
     return null;
   }
+
+  // Show simplified pagination for single page (just page size selector and info)
+  const showFullPagination = totalPages > 1;
 
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4">
@@ -141,66 +144,68 @@ export function Pagination({
         </div>
       </div>
 
-      {/* Page navigation */}
-      <div className="flex items-center gap-1">
-        {/* Previous button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1 || isLoading}
-          aria-label="Go to previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        {/* Page number buttons */}
+      {/* Page navigation - only show for multiple pages */}
+      {showFullPagination && (
         <div className="flex items-center gap-1">
-          {pageNumbers.map((page, index) => {
-            if (page === 'ellipsis') {
+          {/* Previous button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1 || isLoading}
+            aria-label="Go to previous page"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+
+          {/* Page number buttons */}
+          <div className="flex items-center gap-1">
+            {pageNumbers.map((page, index) => {
+              if (page === 'ellipsis') {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-2 py-1 text-sm text-muted-foreground"
+                    aria-hidden="true"
+                  >
+                    ...
+                  </span>
+                );
+              }
+
+              const isActive = page === currentPage;
+              
               return (
-                <span
-                  key={`ellipsis-${index}`}
-                  className="px-2 py-1 text-sm text-muted-foreground"
-                  aria-hidden="true"
+                <Button
+                  key={page}
+                  variant={isActive ? "default" : "outline"}
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => onPageChange(page)}
+                  disabled={isLoading}
+                  aria-label={`Go to page ${page}`}
+                  aria-current={isActive ? "page" : undefined}
                 >
-                  ...
-                </span>
+                  {page}
+                </Button>
               );
-            }
+            })}
+          </div>
 
-            const isActive = page === currentPage;
-            
-            return (
-              <Button
-                key={page}
-                variant={isActive ? "default" : "outline"}
-                size="sm"
-                className="h-8 w-8 p-0"
-                onClick={() => onPageChange(page)}
-                disabled={isLoading}
-                aria-label={`Go to page ${page}`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {page}
-              </Button>
-            );
-          })}
+          {/* Next button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages || isLoading}
+            aria-label="Go to next page"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-
-        {/* Next button */}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages || isLoading}
-          aria-label="Go to next page"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      )}
     </div>
   );
 }

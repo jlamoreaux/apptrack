@@ -37,7 +37,7 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { StatusSelector } from "@/components/status-selector"
 import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
-import { JobAnalysisCard } from "@/components/ai-coach/job-analysis-card"
+import { ApplicationAIAnalysis } from "@/components/ai-coach/ApplicationAIAnalysis"
 
 export default function ApplicationDetailPage() {
   const { user, loading: authLoading } = useSupabaseAuth()
@@ -289,15 +289,8 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* AI Job Analysis */}
-          {application.role_link && (
-            <JobAnalysisCard
-              jobUrl={application.role_link}
-              userId={user.id}
-              companyName={application.company}
-              roleName={application.role}
-            />
-          )}
+          {/* AI Analysis Section */}
+          <ApplicationAIAnalysis application={application} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Interview Notes */}

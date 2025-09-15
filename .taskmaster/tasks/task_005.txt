@@ -1,0 +1,201 @@
+# Task ID: 5
+# Title: Implement Application-Context AI Features
+# Status: done
+# Dependencies: None
+# Priority: high
+# Description: Add AI Analysis section to application detail pages with direct access to job-specific AI features including Job Fit Analysis and Interview Preparation.
+# Details:
+Create a new AI Analysis section on application detail pages that provides context-aware AI features:
+
+1. Design and implement an AI Analysis tab/section on application detail pages
+2. Add Job Fit Analysis that uses the specific job data
+3. Implement Interview Preparation with context-aware questions for the role
+4. Connect to existing AI services via Replicate API
+5. Handle subscription checks and upgrade prompts
+
+```typescript
+// components/ApplicationAIAnalysis.tsx
+import { useState } from 'react'
+import { useSubscription } from '@/lib/subscription'
+import { useUser } from '@/lib/auth'
+
+export function ApplicationAIAnalysis({ application }) {
+  const { user } = useUser()
+  const { subscription } = useSubscription(user?.id)
+  const [activeTab, setActiveTab] = useState('job-fit')
+  const [isLoading, setIsLoading] = useState(false)
+  const [analysis, setAnalysis] = useState(null)
+  
+  const hasAIAccess = subscription?.plan === 'ai_coach'
+  
+  // Tabs configuration
+  const tabs = [
+    { id: 'job-fit', label: 'Job Fit Analysis' },
+    { id: 'interview', label: 'Interview Preparation' },
+    { id: 'cover-letter', label: 'Cover Letter' },
+  ]
+  
+  async function generateAnalysis() {
+    setIsLoading(true)
+    
+    try {
+      // Prepare context data from application
+      const contextData = {
+        company: application.company_name,
+        role: application.role_title,
+        jobDescription: application.job_description,
+        userId: user.id
+      }
+      
+      // Call appropriate AI endpoint based on active tab
+      let endpoint = '';
+      switch(activeTab) {
+        case 'job-fit':
+          endpoint = '/api/ai/job-fit-analysis'
+          break;
+        case 'interview':
+          endpoint = '/api/ai/interview-preparation'
+          break;
+        case 'cover-letter':
+          endpoint = '/api/ai/cover-letter'
+          break;
+      }
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(contextData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to generate analysis')
+      
+      const data = await response.json()
+      setAnalysis(data)
+    } catch (error) {
+      console.error('Error generating analysis:', error)
+      // Show error toast
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  if (!hasAIAccess) {
+    return (
+      <div className="p-6 bg-gray-50 rounded-lg border border-gray-200">
+        <h3 className="text-lg font-medium text-gray-900">AI Coach Features</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Upgrade to AI Coach to access personalized job fit analysis, interview preparation, 
+          and cover letter generation for this application.
+        </p>
+        <Button 
+          variant="primary" 
+          className="mt-4"
+          href="/subscription/upgrade"
+        >
+          Upgrade to AI Coach
+        </Button>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="border-b border-gray-200">
+        <nav className="flex">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-3 text-sm font-medium ${activeTab === tab.id ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+      
+      <div className="p-6">
+        {!analysis ? (
+          <div className="text-center py-8">
+            <p className="text-sm text-gray-600 mb-4">
+              Generate AI-powered insights specific to this job application.
+            </p>
+            <Button
+              onClick={generateAnalysis}
+              disabled={isLoading}
+              variant="primary"
+            >
+              {isLoading ? 'Generating...' : `Generate ${activeTab === 'job-fit' ? 'Job Fit Analysis' : activeTab === 'interview' ? 'Interview Questions' : 'Cover Letter'}`}
+            </Button>
+          </div>
+        ) : (
+          <div>
+            {/* Render appropriate content based on activeTab */}
+            {activeTab === 'job-fit' && <JobFitAnalysisResult analysis={analysis} />}
+            {activeTab === 'interview' && <InterviewPreparationResult analysis={analysis} />}
+            {activeTab === 'cover-letter' && <CoverLetterResult analysis={analysis} />}
+            
+            <div className="mt-6 text-right">
+              <Button
+                variant="outline"
+                onClick={() => setAnalysis(null)}
+                className="mr-2"
+              >
+                Reset
+              </Button>
+              <Button
+                variant="primary"
+                onClick={generateAnalysis}
+                disabled={isLoading}
+              >
+                Regenerate
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+# Test Strategy:
+1. Unit test the ApplicationAIAnalysis component with different subscription states
+2. Test tab switching functionality
+3. Mock API responses for different AI features and verify correct rendering
+4. Test error handling for API failures
+5. Verify subscription check logic works correctly
+6. Test loading states and UI feedback
+7. Verify context data is correctly passed to AI endpoints
+8. End-to-end test with real Replicate API integration
+
+# Subtasks:
+## 1. Create AI Analysis UI Component [done]
+### Dependencies: None
+### Description: Design and implement the ApplicationAIAnalysis component with tabs for different AI features and responsive layout.
+### Details:
+Implement the ApplicationAIAnalysis.tsx component with the tab navigation system, loading states, and conditional rendering based on subscription status. Include the upgrade prompt for users without AI access and the basic structure for displaying analysis results.
+
+## 2. Implement Job Fit Analysis Feature [done]
+### Dependencies: None
+### Description: Create the Job Fit Analysis functionality that analyzes the job description against user profile data.
+### Details:
+Develop the API endpoint at /api/ai/job-fit-analysis that processes job description data and returns structured analysis. Create the JobFitAnalysisResult component to display the analysis in a user-friendly format with strengths, weaknesses, and improvement suggestions.
+
+## 3. Implement Interview Preparation Feature [done]
+### Dependencies: None
+### Description: Create the Interview Preparation functionality that generates context-aware interview questions and suggested answers.
+### Details:
+Develop the API endpoint at /api/ai/interview-preparation that generates role-specific interview questions and guidance. Create the InterviewPreparationResult component to display questions in an expandable format with suggested answer approaches.
+
+## 4. Implement Cover Letter Generation Feature [done]
+### Dependencies: None
+### Description: Create the Cover Letter generation functionality that produces customized cover letters based on the job and user profile.
+### Details:
+Develop the API endpoint at /api/ai/cover-letter that generates tailored cover letters. Create the CoverLetterResult component with options to view, copy, and download the generated letter. Include formatting controls and a preview mode.
+
+## 5. Integrate with Subscription System and AI Services [done]
+### Dependencies: None
+### Description: Connect the AI features to the subscription system and integrate with Replicate API for AI processing.
+### Details:
+Implement subscription checks using the useSubscription hook to control feature access. Set up the connection to Replicate API for processing AI requests, including proper error handling and rate limiting. Implement caching for AI responses to improve performance and reduce API costs.
+

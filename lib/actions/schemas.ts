@@ -22,6 +22,7 @@ export const applicationSchema = z.object({
   company: z.string().min(1, "Company name is required"),
   role: z.string().min(1, "Role title is required"),
   role_link: z.string().url().optional().or(z.literal("")),
+  job_description: z.string().optional(),
   date_applied: z.string().min(1, "Date applied is required"),
   status: z.enum([
     "Applied",

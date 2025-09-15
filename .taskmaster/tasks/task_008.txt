@@ -1,0 +1,162 @@
+# Task ID: 8
+# Title: Integrate AI Coach Features into Application Context
+# Status: done
+# Dependencies: 5, 6, 7
+# Priority: medium
+# Description: Connect existing AI features with application context to provide job-specific AI analysis directly from application detail pages.
+# Details:
+Create API endpoints and UI components to integrate AI features with application context:
+
+1. Implement API routes for context-aware AI features
+2. Create database models for storing AI analysis results
+3. Build UI components for displaying AI insights on application pages
+4. Implement caching for AI responses to improve performance
+
+```typescript
+// API endpoint for job-specific AI analysis
+// pages/api/ai/job-fit-analysis.ts
+import { NextApiRequest, NextApiResponse } from 'next'
+import { supabase } from '@/lib/supabase'
+import { Replicate } from 'replicate'
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
+  
+  try {
+    const { company, role, jobDescription, userId } = req.body
+    
+    if (!company || !role || !jobDescription || !userId) {
+      return res.status(400).json({ error: 'Missing required fields' })
+    }
+    
+    // Check if user has AI Coach subscription
+    const { data: subscription, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select('plan')
+      .eq('user_id', userId)
+      .single()
+    
+    if (subError || subscription?.plan !== 'ai_coach') {
+      return res.status(403).json({ error: 'AI Coach subscription required' })
+    }
+    
+    // Check for cached analysis
+    const { data: existingAnalysis } = await supabase
+      .from('job_fit_analysis')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('company', company)
+      .eq('role', role)
+      .eq('job_description_hash', hashString(jobDescription))
+      .single()
+    
+    if (existingAnalysis) {
+      return res.status(200).json(existingAnalysis.analysis_result)
+    }
+    
+    // Get user resume for context
+    const { data: userResume } = await supabase
+      .from('user_resumes')
+      .select('resume_text')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    // Initialize Replicate client
+    const replicate = new Replicate({
+      auth: process.env.REPLICATE_API_TOKEN,
+    })
+    
+    // Generate prompt for job fit analysis
+    const prompt = `Analyze how well the candidate's resume matches the job description.
+
+Job Description:
+${jobDescription}
+
+Candidate Resume:
+${userResume?.resume_text || 'No resume provided'}
+
+Provide a detailed analysis of:
+1. Overall match score (0-100)
+2. Key strengths that align with the role
+3. Potential gaps or areas for improvement
+4. Specific qualifications that match the requirements
+5. Suggestions for highlighting relevant experience`
+    
+    // Call Replicate API
+    const output = await replicate.run(
+      "meta/llama-2-70b-chat:02e509c789964a7ea8736978a43525956ef40397be9033abf9fd2badfe68c9e3",
+      {
+        input: {
+          prompt,
+          system_prompt: "You are an expert career coach and job application analyst. Provide honest, constructive feedback to help job seekers improve their applications.",
+          max_new_tokens: 1000,
+          temperature: 0.7,
+        }
+      }
+    )
+    
+    // Process and structure the response
+    const analysisResult = {
+      overallScore: extractScore(output),
+      strengths: extractSection(output, 'strengths'),
+      gaps: extractSection(output, 'gaps'),
+      matchingQualifications: extractSection(output, 'qualifications'),
+      suggestions: extractSection(output, 'suggestions'),
+      fullAnalysis: output
+    }
+    
+    // Save to database
+    await supabase
+      .from('job_fit_analysis')
+      .insert({
+        user_id: userId,
+        company,
+        role,
+        job_description_hash: hashString(jobDescription),
+        analysis_result: analysisResult,
+        created_at: new Date().toISOString()
+      })
+    
+    return res.status(200).json(analysisResult)
+  } catch (error) {
+    console.error('Error in job fit analysis:', error)
+    return res.status(500).json({ error: 'Failed to generate analysis' })
+  }
+}
+
+// Helper functions for parsing AI output
+function extractScore(text) {
+  const scoreMatch = text.match(/Overall match score:\s*(\d+)/i)
+  return scoreMatch ? parseInt(scoreMatch[1]) : null
+}
+
+function extractSection(text, sectionName) {
+  // Implementation to extract specific sections from AI output
+  // This would parse the AI response to find relevant sections
+  return []
+}
+
+function hashString(str) {
+  // Simple hash function for caching purposes
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i)
+    hash |= 0
+  }
+  return hash.toString()
+}
+
+# Test Strategy:
+1. Unit test API endpoints for job-specific AI features
+2. Test caching mechanism for AI responses
+3. Verify subscription check logic
+4. Test parsing and structuring of AI responses
+5. Verify database storage of analysis results
+6. Test error handling for API failures
+7. Test integration with application detail pages
+8. End-to-end test with real Replicate API integration
+9. Performance test with various job descriptions and resume combinations

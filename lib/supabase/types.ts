@@ -13,6 +13,7 @@ export interface Application {
   company: string;
   role: string;
   role_link: string | null;
+  job_description: string | null;
   date_applied: string;
   status:
     | "Applied"
