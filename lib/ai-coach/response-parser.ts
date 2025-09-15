@@ -18,25 +18,64 @@ export function parseInterviewPreparation(
 ): InterviewPreparationResult {
   try {
     // Try to parse as JSON first (in case AI returns structured data)
-    const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      if (parsed.questions && Array.isArray(parsed.questions)) {
-        return {
-          ...parsed,
-          generatedAt: new Date().toISOString()
-        }
+    const trimmed = textResponse.trim()
+    
+    console.log('Attempting to parse interview prep response. Length:', trimmed.length)
+    console.log('Response starts with:', trimmed.substring(0, 100))
+    console.log('Full response:', trimmed) // Log the complete response for debugging
+    
+    let jsonContent = null;
+    
+    // Check if response is wrapped in markdown code blocks
+    const markdownJsonMatch = trimmed.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+    if (markdownJsonMatch) {
+      console.log('Detected JSON wrapped in markdown code blocks')
+      jsonContent = markdownJsonMatch[1].trim();
+    }
+    // Check if the entire response is pure JSON
+    else if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      console.log('Detected pure JSON response')
+      jsonContent = trimmed;
+    }
+    // Check for JSON embedded in text (without markdown)
+    else {
+      const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
+      if (jsonMatch) {
+        console.log('Found embedded JSON in text')
+        jsonContent = jsonMatch[0];
       }
     }
-  } catch {
-    // Fall through to text parsing
+    
+    if (jsonContent) {
+      console.log('Attempting to parse JSON content:', jsonContent.substring(0, 200))
+      const parsed = JSON.parse(jsonContent)
+      console.log('Parsed JSON structure:', Object.keys(parsed))
+      
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        console.log('Found valid questions array with', parsed.questions.length, 'questions')
+        return {
+          ...parsed,
+          generatedAt: parsed.generatedAt || new Date().toISOString()
+        }
+      } else {
+        console.warn('JSON response missing questions array or questions is not an array')
+      }
+    }
+    
+    console.log('No valid JSON structure found, falling back to text parsing')
+  } catch (error) {
+    console.warn('Failed to parse JSON response, falling back to text parsing:', error)
   }
 
   // Parse text response into structured format
+  console.log('Starting text parsing fallback...')
   const questions = extractQuestionsFromText(textResponse, context)
-  const sections = splitIntoSections(textResponse)
+  console.log('Extracted questions from text:', questions.length)
   
-  return {
+  const sections = splitIntoSections(textResponse)
+  console.log('Split into sections:', Object.keys(sections))
+  
+  const result = {
     questions,
     generalTips: extractTips(sections.tips || sections.general || ''),
     companyInsights: extractInsights(sections.company || sections.research || ''),
@@ -45,6 +84,16 @@ export function parseInterviewPreparation(
     estimatedDuration: Math.max(questions.length * 3, 30), // 3 min per question, min 30
     generatedAt: new Date().toISOString()
   }
+  
+  console.log('Final parsed result:', {
+    questionsCount: result.questions.length,
+    generalTipsCount: result.generalTips.length,
+    companyInsightsCount: result.companyInsights.length,
+    roleSpecificAdviceCount: result.roleSpecificAdvice.length,
+    practiceAreasCount: result.practiceAreas.length
+  })
+  
+  return result
 }
 
 /**
@@ -359,21 +408,35 @@ function extractRequirements(text: string): string[] {
 function extractBulletPoints(text: string): string[] {
   if (!text) return []
   
+  // Check if the text appears to be JSON - if so, skip processing
+  const trimmed = text.trim()
+  if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"questions"') || trimmed.includes('"id":')) {
+    console.warn('Skipping JSON content in bullet point extraction')
+    return []
+  }
+  
   const points: string[] = []
   const lines = text.split('\n')
   
   for (const line of lines) {
-    const trimmed = line.trim()
+    const lineTrimmed = line.trim()
+    
+    // Skip lines that look like JSON properties
+    if (lineTrimmed.includes('":') || lineTrimmed.startsWith('"') || 
+        lineTrimmed.includes('category') || lineTrimmed.includes('behavioral')) {
+      continue
+    }
     
     // Look for bullet points, numbered lists, or sentences
-    if (trimmed.match(/^[-•*]\s/) || trimmed.match(/^\d+\.\s/) || 
-        (trimmed.length > 10 && !isHeaderLine(trimmed.toLowerCase()))) {
-      const cleaned = trimmed
+    if (lineTrimmed.match(/^[-•*]\s/) || lineTrimmed.match(/^\d+\.\s/) || 
+        (lineTrimmed.length > 10 && !isHeaderLine(lineTrimmed.toLowerCase()))) {
+      const cleaned = lineTrimmed
         .replace(/^[-•*]\s*/, '')
         .replace(/^\d+\.\s*/, '')
+        .replace(/[,{}"\[\]]/g, '') // Remove JSON-like characters
         .trim()
       
-      if (cleaned.length > 5) {
+      if (cleaned.length > 5 && !cleaned.includes('id') && !cleaned.includes('category')) {
         points.push(cleaned)
       }
     }

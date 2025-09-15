@@ -301,59 +301,101 @@ export class InterviewPrepTransformerService {
    */
   private validateStructuredContent(content: InterviewPreparationResult): boolean {
     try {
-      if (!content || typeof content !== 'object') return false
+      console.log('=== VALIDATION STARTING ===')
+      console.log('Content keys:', Object.keys(content))
+      
+      if (!content || typeof content !== 'object') {
+        console.log('VALIDATION FAILED: Content is not an object')
+        return false
+      }
 
       // Check required arrays
       const requiredArrayFields = ['questions', 'generalTips', 'companyInsights', 'roleSpecificAdvice', 'practiceAreas']
       for (const field of requiredArrayFields) {
         if (!Array.isArray(content[field as keyof InterviewPreparationResult])) {
+          console.log(`VALIDATION FAILED: ${field} is not an array:`, content[field as keyof InterviewPreparationResult])
           return false
         }
       }
 
       // Validate questions array and count
-      if (!Array.isArray(content.questions) || 
-          content.questions.length < this.config.VALIDATION.MIN_QUESTIONS ||
-          content.questions.length > this.config.VALIDATION.MAX_QUESTIONS) {
+      if (!Array.isArray(content.questions)) {
+        console.log('VALIDATION FAILED: questions is not an array')
         return false
       }
 
-      // Validate each question
-      for (const question of content.questions) {
+      // Filter out invalid questions instead of failing completely
+      const validQuestions = []
+      for (let i = 0; i < content.questions.length; i++) {
+        const question = content.questions[i]
+        console.log(`Validating question ${i + 1}:`, question)
+        
+        let isValid = true
+        
         // Check required fields
         for (const field of this.config.VALIDATION.REQUIRED_QUESTION_FIELDS) {
           if (!question[field as keyof typeof question]) {
-            return false
+            console.log(`WARNING: Question ${i + 1} missing required field '${field}', skipping this question`)
+            isValid = false
+            break
           }
         }
         
-        // Validate category and difficulty
-        if (!InterviewPrepValidation.isValidCategory(question.category) ||
-            !InterviewPrepValidation.isValidDifficulty(question.difficulty)) {
-          return false
+        if (!isValid) continue
+        
+        // Handle unknown categories gracefully
+        if (!InterviewPrepValidation.isValidCategory(question.category)) {
+          console.log(`WARNING: Question ${i + 1} has unrecognized category: '${question.category}', defaulting to 'behavioral'`)
+          question.category = 'behavioral' // Default to behavioral for unknown categories
         }
+        
+        // Handle unknown difficulties gracefully
+        if (!InterviewPrepValidation.isValidDifficulty(question.difficulty)) {
+          console.log(`WARNING: Question ${i + 1} has unrecognized difficulty: '${question.difficulty}', defaulting to 'medium'`)
+          question.difficulty = 'medium' // Default to medium for unknown difficulties
+        }
+        
+        validQuestions.push(question)
+      }
+      
+      // Replace questions array with validated questions
+      const originalCount = content.questions.length
+      content.questions = validQuestions
+      console.log(`Filtered questions: ${validQuestions.length} valid out of ${originalCount} total`)
+      
+      // Check minimum question count after filtering
+      if (content.questions.length < this.config.VALIDATION.MIN_QUESTIONS) {
+        console.log(`VALIDATION FAILED: Not enough valid questions after filtering: ${content.questions.length} (min: ${this.config.VALIDATION.MIN_QUESTIONS})`)
+        return false
+      }
+      
+      if (content.questions.length > this.config.VALIDATION.MAX_QUESTIONS) {
+        console.log(`INFO: Truncating to ${this.config.VALIDATION.MAX_QUESTIONS} questions`)
+        content.questions = content.questions.slice(0, this.config.VALIDATION.MAX_QUESTIONS)
       }
 
       // Validate estimated duration
       if (!InterviewPrepValidation.isValidDuration(content.estimatedDuration)) {
+        console.log(`VALIDATION FAILED: Invalid duration: ${content.estimatedDuration} (min: ${this.config.VALIDATION.MIN_DURATION}, max: ${this.config.VALIDATION.MAX_DURATION})`)
         return false
       }
 
       // Validate generated date
       if (!content.generatedAt || typeof content.generatedAt !== 'string') {
+        console.log('VALIDATION FAILED: Missing or invalid generatedAt field:', content.generatedAt)
         return false
       }
       
       const date = new Date(content.generatedAt)
       if (isNaN(date.getTime())) {
+        console.log('VALIDATION FAILED: Invalid date format for generatedAt:', content.generatedAt)
         return false
       }
 
+      console.log('=== VALIDATION PASSED ===')
       return true
     } catch (error) {
-      if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
-        console.error('Error validating structured content:', error)
-      }
+      console.error('=== VALIDATION ERROR ===', error)
       return false
     }
   }

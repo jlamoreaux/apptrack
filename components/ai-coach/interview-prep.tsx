@@ -1,9 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { MessageSquare } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
@@ -11,9 +8,11 @@ import { COPY } from "@/lib/content/copy";
 import { useAICoachClient } from "@/hooks/use-ai-coach-client";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
-import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { AIToolLayout } from "./shared/AIToolLayout";
+import { InterviewContextCard } from "./shared/InterviewContextCard";
+import { InterviewPrepDisplay } from "./shared/InterviewPrepDisplay";
+import { InterviewPrepHistory } from "./shared/InterviewPrepHistory";
 
 interface InterviewPrepProps {
   applicationId?: string;
@@ -80,6 +79,16 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle structured conversion errors with fallback content
+        if (data.fallbackContent) {
+          console.warn("Server couldn't convert to structured format, received fallback content");
+          toast({
+            title: "Partial Success",
+            description: data.error + " Raw content was generated but couldn't be formatted properly.",
+            variant: "destructive",
+          });
+          return; // Don't set prep content since we only want structured data
+        }
         throw new Error(data.error || "Failed to generate interview prep");
       }
 
@@ -119,7 +128,7 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       error={error}
       result={
         prep ? (
-          <MarkdownOutputCard
+          <InterviewPrepDisplay
             title={copy.generatedTitle}
             icon={<MessageSquare className="h-5 w-5" />}
             content={prep}
@@ -135,28 +144,27 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
         onApplicationSelect={(appId, company, role) => {
           setSelectedApplicationId(appId);
           if (company && role) {
-            setInterviewContext(`Interview for ${role} position at ${company}`);
+            // Only set default context if current context is empty
+            setInterviewContext(prev => 
+              prev.trim() === "" ? `Interview for ${role} position at ${company}` : prev
+            );
           }
         }}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Additional Context</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="interviewContext">{copy.interviewContextLabel}</Label>
-            <Textarea
-              id="interviewContext"
-              placeholder={copy.interviewContextPlaceholder}
-              value={interviewContext}
-              onChange={(e) => setInterviewContext(e.target.value)}
-              rows={4}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <InterviewContextCard
+        interviewContext={interviewContext}
+        onInterviewContextChange={setInterviewContext}
+        label={copy.interviewContextLabel}
+        placeholder={copy.interviewContextPlaceholder}
+      />
+
+      <InterviewPrepHistory
+        currentUserId={user?.id}
+        onSelectPrep={(loadedPrep) => {
+          setPrep(loadedPrep);
+        }}
+      />
     </AIToolLayout>
   );
 };

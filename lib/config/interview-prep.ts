@@ -39,7 +39,7 @@ export const INTERVIEW_PREP_CONFIG = {
     MIN_DURATION: 10,
     MAX_DURATION: 180,
     REQUIRED_QUESTION_FIELDS: ['id', 'question', 'category', 'difficulty', 'suggestedApproach'],
-    VALID_CATEGORIES: ['behavioral', 'technical', 'company-specific', 'role-specific'] as const,
+    VALID_CATEGORIES: ['behavioral', 'technical', 'company-specific', 'role-specific', 'situational'] as const,
     VALID_DIFFICULTIES: ['easy', 'medium', 'hard'] as const,
   },
 

@@ -74,7 +74,6 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       interviewContext,
       userResumeId,
       resumeText,
-      structured = false,
       applicationId,
     } = body;
 
@@ -134,13 +133,32 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
     });
 
     if (existing) {
-      // Transform existing content using service
+      // Log existing content for debugging
+      console.log('=== EXISTING CACHED CONTENT ===');
+      console.log('Existing content type:', typeof existing.prep_content);
+      console.log('Existing content length:', typeof existing.prep_content === 'string' ? existing.prep_content.length : 'N/A');
+      console.log('Full existing content:', existing.prep_content);
+      console.log('=== END EXISTING CONTENT ===');
+
+      // Transform existing content using service (always request structured format)
       const transformResult = await transformer.transform({
         content: existing.prep_content as DatabasePrepContent,
-        structured,
+        structured: true, // Always convert to structured format
         jobDescription: effectiveJobDescription || effectiveJobUrl || '',
         isExistingContent: true
       });
+
+      // Ensure we got structured content, throw error if we got a string fallback
+      if (typeof transformResult.content === 'string') {
+        console.error('Failed to convert existing interview prep to structured format');
+        return NextResponse.json(
+          { 
+            error: "Failed to process existing interview preparation. Please regenerate.",
+            fallbackContent: transformResult.content
+          },
+          { status: 500 }
+        );
+      }
 
       return NextResponse.json({ 
         preparation: transformResult.content,
@@ -156,6 +174,13 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       interviewContext: finalInterviewContext,
       resumeText: finalResumeText,
     });
+
+    // Log the raw AI response for debugging
+    console.log('=== RAW AI RESPONSE ===');
+    console.log('Response type:', typeof preparation);
+    console.log('Response length:', typeof preparation === 'string' ? preparation.length : 'N/A');
+    console.log('Full AI response:', preparation);
+    console.log('=== END RAW AI RESPONSE ===');
 
     // 8. Save to database
     await aiCoachService.createInterviewPrep({
@@ -173,13 +198,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
       await AIDataFetcherService.saveJobDescription(user.id, applicationId, effectiveJobDescription);
     }
 
-    // 9. Transform new content using service
+    // 9. Transform new content using service (always request structured format)
     const transformResult = await transformer.transform({
       content: preparation,
-      structured,
+      structured: true, // Always convert to structured format
       jobDescription: effectiveJobDescription || effectiveJobUrl || '',
       isExistingContent: false
     });
+
+    // Ensure we got structured content, throw error if we got a string fallback
+    if (typeof transformResult.content === 'string') {
+      console.error('Failed to convert interview prep to structured format');
+      return NextResponse.json(
+        { 
+          error: "Failed to generate structured interview preparation. Please try again.",
+          fallbackContent: transformResult.content
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ 
       preparation: transformResult.content,
