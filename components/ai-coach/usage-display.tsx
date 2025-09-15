@@ -76,6 +76,12 @@ export function UsageDisplay({ userId, feature, compact = false }: UsageDisplayP
     );
   }
 
+  // Don't show usage display for Free tier users (all limits are 0)
+  const hasAnyLimits = usageStats.some(stat => stat.hourlyLimit > 0 || stat.dailyLimit > 0);
+  if (!hasAnyLimits) {
+    return null;
+  }
+
   if (compact && usageStats.length === 1) {
     const stat = usageStats[0];
     const hourlyPercentage = (stat.hourlyUsed / stat.hourlyLimit) * 100;

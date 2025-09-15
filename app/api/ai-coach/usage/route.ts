@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { rateLimitService, type AIFeature } from "@/lib/services/rate-limit.service";
+import { RateLimitService, type AIFeature } from "@/lib/services/rate-limit.service";
 import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 
 export async function GET(request: NextRequest) {
@@ -22,6 +22,9 @@ export async function GET(request: NextRequest) {
     
     // Get user's subscription tier
     const subscriptionTier = await getUserSubscriptionTier(user.id);
+
+    // Create rate limit service instance
+    const rateLimitService = new RateLimitService();
 
     // Get usage stats
     if (feature) {
