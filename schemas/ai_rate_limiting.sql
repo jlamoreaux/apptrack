@@ -103,26 +103,26 @@ CREATE POLICY "Users can view their own limit overrides"
 -- Insert default limits for each subscription tier
 INSERT INTO public.ai_feature_limits (feature_name, subscription_tier, daily_limit, hourly_limit)
 VALUES 
-  -- Free tier (very limited)
-  ('resume_analysis', 'free', 2, 1),
-  ('interview_prep', 'free', 3, 1),
-  ('cover_letter', 'free', 2, 1),
-  ('career_advice', 'free', 5, 2),
-  ('job_fit_analysis', 'free', 3, 1),
+  -- Free tier (NO AI access)
+  ('resume_analysis', 'free', 0, 0),
+  ('interview_prep', 'free', 0, 0),
+  ('cover_letter', 'free', 0, 0),
+  ('career_advice', 'free', 0, 0),
+  ('job_fit_analysis', 'free', 0, 0),
   
-  -- Pro tier (moderate limits)
-  ('resume_analysis', 'pro', 5, 2),
-  ('interview_prep', 'pro', 10, 3),
-  ('cover_letter', 'pro', 5, 2),
-  ('career_advice', 'pro', 20, 5),
-  ('job_fit_analysis', 'pro', 10, 3),
+  -- Pro tier (moderate limits - old AI Coach limits)
+  ('resume_analysis', 'pro', 10, 3),
+  ('interview_prep', 'pro', 20, 5),
+  ('cover_letter', 'pro', 15, 3),
+  ('career_advice', 'pro', 50, 10),
+  ('job_fit_analysis', 'pro', 30, 5),
   
-  -- AI Coach tier (generous limits)
-  ('resume_analysis', 'ai_coach', 10, 3),
-  ('interview_prep', 'ai_coach', 20, 5),
-  ('cover_letter', 'ai_coach', 15, 3),
-  ('career_advice', 'ai_coach', 50, 10),
-  ('job_fit_analysis', 'ai_coach', 30, 5)
+  -- AI Coach tier (VERY generous limits)
+  ('resume_analysis', 'ai_coach', 50, 10),
+  ('interview_prep', 'ai_coach', 100, 20),
+  ('cover_letter', 'ai_coach', 75, 15),
+  ('career_advice', 'ai_coach', 500, 50),
+  ('job_fit_analysis', 'ai_coach', 150, 30)
 ON CONFLICT (feature_name, subscription_tier) 
 DO UPDATE SET 
   daily_limit = EXCLUDED.daily_limit,

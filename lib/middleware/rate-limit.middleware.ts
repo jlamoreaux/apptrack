@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { rateLimitService, type AIFeature } from "@/lib/services/rate-limit.service";
+import { RateLimitService, type AIFeature } from "@/lib/services/rate-limit.service";
 
 export interface RateLimitOptions {
   feature: AIFeature;
   skipTracking?: boolean;
+  request: NextRequest;
 }
 
 /**
@@ -14,9 +15,10 @@ export interface RateLimitOptions {
 export async function withRateLimit(
   handler: (request: NextRequest) => Promise<NextResponse>,
   options: RateLimitOptions
-) {
-  return async (request: NextRequest): Promise<NextResponse> => {
-    try {
+): Promise<NextResponse> {
+  const request = options.request;
+  
+  try {
       const supabase = await createClient();
       
       // Get authenticated user
@@ -31,13 +33,23 @@ export async function withRateLimit(
 
       // Get user's subscription tier
       const { data: subscription } = await supabase
-        .from('subscription_plans')
-        .select('name')
+        .from('user_subscriptions')
+        .select('subscription_plans(name)')
         .eq('user_id', user.id)
+        .in('status', ['active', 'trialing'])
+        .order('created_at', { ascending: false })
+        .limit(1)
         .single();
       
-      const tier = subscription?.name?.toLowerCase().replace(' ', '_') || 'free';
-      const subscriptionTier = tier === 'ai_coach' ? 'ai_coach' : tier === 'pro' ? 'pro' : 'free';
+      const planName = subscription?.subscription_plans?.name?.toLowerCase();
+      const subscriptionTier = planName?.includes('ai') || planName?.includes('coach') 
+        ? 'ai_coach' 
+        : planName?.includes('pro') 
+        ? 'pro' 
+        : 'free';
+
+      // Create rate limit service instance
+      const rateLimitService = new RateLimitService();
 
       // Check rate limit
       const rateLimitResult = await rateLimitService.checkLimit(
@@ -101,7 +113,6 @@ export async function withRateLimit(
       // On error, be permissive but log it
       return handler(request);
     }
-  };
 }
 
 /**
@@ -112,20 +123,27 @@ export async function getUserSubscriptionTier(userId: string): Promise<'free' | 
     const supabase = await createClient();
     
     const { data: subscription } = await supabase
-      .from('subscriptions')
+      .from('user_subscriptions')
       .select('subscription_plans(name)')
       .eq('user_id', userId)
-      .eq('status', 'active')
+      .in('status', ['active', 'trialing'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
     
     const planName = subscription?.subscription_plans?.name?.toLowerCase();
     
+    console.log(`User ${userId} subscription plan: ${planName || 'none'}`);
+    
     if (planName?.includes('ai') || planName?.includes('coach')) {
+      console.log(`User ${userId} tier: ai_coach`);
       return 'ai_coach';
     } else if (planName?.includes('pro')) {
+      console.log(`User ${userId} tier: pro`);
       return 'pro';
     }
     
+    console.log(`User ${userId} tier: free (no subscription)`);
     return 'free';
   } catch (error) {
     console.error('Failed to get subscription tier:', error);

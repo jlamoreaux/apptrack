@@ -122,15 +122,20 @@ export class RateLimitService {
 
       // Increment Redis counters if available
       if (redis) {
-        const hourlyKey = `usage:${userId}:${feature}:hourly`;
-        const dailyKey = `usage:${userId}:${feature}:daily`;
-        
-        await Promise.all([
-          redis.incr(hourlyKey),
-          redis.incr(dailyKey),
-          redis.expire(hourlyKey, 3600), // 1 hour
-          redis.expire(dailyKey, 86400), // 24 hours
-        ]);
+        try {
+          const hourlyKey = `usage:${userId}:${feature}:hourly`;
+          const dailyKey = `usage:${userId}:${feature}:daily`;
+          
+          await Promise.all([
+            redis.incr(hourlyKey),
+            redis.incr(dailyKey),
+            redis.expire(hourlyKey, 3600), // 1 hour
+            redis.expire(dailyKey, 86400), // 24 hours
+          ]);
+        } catch (redisError) {
+          console.error('Redis trackUsage failed, continuing without Redis tracking:', redisError);
+          // Continue without Redis - database tracking still works
+        }
       }
     } catch (error) {
       console.error('Failed to track usage:', error);
@@ -150,20 +155,29 @@ export class RateLimitService {
     
     let hourlyUsed = 0;
     let dailyUsed = 0;
+    let useDatabase = !redis;
 
     if (redis) {
       // Get from Redis if available
-      const hourlyKey = `usage:${userId}:${feature}:hourly`;
-      const dailyKey = `usage:${userId}:${feature}:daily`;
-      
-      const [hourlyCount, dailyCount] = await Promise.all([
-        redis.get<number>(hourlyKey),
-        redis.get<number>(dailyKey),
-      ]);
-      
-      hourlyUsed = hourlyCount || 0;
-      dailyUsed = dailyCount || 0;
-    } else {
+      try {
+        const hourlyKey = `usage:${userId}:${feature}:hourly`;
+        const dailyKey = `usage:${userId}:${feature}:daily`;
+        
+        const [hourlyCount, dailyCount] = await Promise.all([
+          redis.get<number>(hourlyKey),
+          redis.get<number>(dailyKey),
+        ]);
+        
+        hourlyUsed = hourlyCount || 0;
+        dailyUsed = dailyCount || 0;
+      } catch (redisError) {
+        console.error('Redis getUsageStats failed, falling back to database:', redisError);
+        useDatabase = true;
+      }
+    }
+    
+    // If Redis failed or not available, use database
+    if (useDatabase) {
       // Fallback to database
       const supabase = await createClient();
       
@@ -251,12 +265,18 @@ export class RateLimitService {
       }
 
       // Get default limits for tier
-      const { data: limits } = await supabase
+      const { data: limits, error: limitsError } = await supabase
         .from('ai_feature_limits')
         .select('daily_limit, hourly_limit')
         .eq('feature_name', feature)
         .eq('subscription_tier', subscriptionTier)
         .single();
+      
+      if (limitsError) {
+        console.error(`No limits found for feature: ${feature}, tier: ${subscriptionTier}`, limitsError);
+      } else {
+        console.log(`Found limits for ${feature}/${subscriptionTier}:`, limits);
+      }
       
       return limits;
     } catch (error) {
@@ -274,14 +294,15 @@ export class RateLimitService {
       return this.checkDatabaseLimit(userId, feature, limits);
     }
 
-    const hourlyKey = `usage:${userId}:${feature}:hourly`;
-    const dailyKey = `usage:${userId}:${feature}:daily`;
-    
-    // Get current usage
-    const [hourlyCount, dailyCount] = await Promise.all([
-      redis.get<number>(hourlyKey),
-      redis.get<number>(dailyKey),
-    ]);
+    try {
+      const hourlyKey = `usage:${userId}:${feature}:hourly`;
+      const dailyKey = `usage:${userId}:${feature}:daily`;
+      
+      // Get current usage
+      const [hourlyCount, dailyCount] = await Promise.all([
+        redis.get<number>(hourlyKey),
+        redis.get<number>(dailyKey),
+      ]);
     
     const hourlyUsed = hourlyCount || 0;
     const dailyUsed = dailyCount || 0;
@@ -305,18 +326,23 @@ export class RateLimitService {
       };
     }
 
-    // Calculate remaining
-    const remaining = Math.min(
-      limits.hourly_limit - hourlyUsed,
-      limits.daily_limit - dailyUsed
-    );
+      // Calculate remaining
+      const remaining = Math.min(
+        limits.hourly_limit - hourlyUsed,
+        limits.daily_limit - dailyUsed
+      );
 
-    return {
-      allowed: true,
-      limit: limits.daily_limit,
-      remaining,
-      reset: new Date(Date.now() + 3600000),
-    };
+      return {
+        allowed: true,
+        limit: limits.daily_limit,
+        remaining,
+        reset: new Date(Date.now() + 3600000),
+      };
+    } catch (error) {
+      console.error('Redis rate limit check failed, falling back to database:', error);
+      // Fall back to database check if Redis fails
+      return this.checkDatabaseLimit(userId, feature, limits);
+    }
   }
 
   private async checkDatabaseLimit(
