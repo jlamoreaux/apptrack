@@ -95,6 +95,9 @@ async function careerAdviceHandler(request: NextRequest) {
 }
 
 // Export with rate limiting middleware
-export const POST = withRateLimit(careerAdviceHandler, {
-  feature: 'career_advice',
-});
+export const POST = async (request: NextRequest) => {
+  return withRateLimit(careerAdviceHandler, {
+    feature: 'career_advice',
+    request,
+  });
+};

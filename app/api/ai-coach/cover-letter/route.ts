@@ -137,6 +137,9 @@ async function coverLetterHandler(request: NextRequest) {
 }
 
 // Export with rate limiting middleware
-export const POST = withRateLimit(coverLetterHandler, {
-  feature: 'cover_letter',
-});
+export const POST = async (request: NextRequest) => {
+  return withRateLimit(coverLetterHandler, {
+    feature: 'cover_letter',
+    request,
+  });
+};

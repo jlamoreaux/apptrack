@@ -11,6 +11,7 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { JobDescriptionInput } from "./JobDescriptionInput";
 import { Separator } from "@/components/ui/separator";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
 interface ResumeAndJobInputProps {
   jobDescription: string;
@@ -36,7 +37,7 @@ export function ResumeAndJobInput({
   onResumeUpload,
 }: ResumeAndJobInputProps) {
   const { user } = useSupabaseAuth();
-  const { getCurrentResume } = useResumesClient(user?.id || null);
+  const { data: cachedData, loading: cacheLoading } = useAICoachData();
   const [userHasResume, setUserHasResume] = useState(false);
   const [isCheckingResume, setIsCheckingResume] = useState(true);
   const [currentResumeInfo, setCurrentResumeInfo] = useState<{
@@ -46,36 +47,30 @@ export function ResumeAndJobInput({
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  // Check for existing resume on mount
+  // Use cached resume data instead of fetching again
   useEffect(() => {
-    const checkUserResume = async () => {
-      if (!user?.id) {
-        setIsCheckingResume(false);
-        return;
-      }
+    if (!user?.id) {
+      setIsCheckingResume(false);
+      return;
+    }
 
-      try {
-        const resumeObj = await getCurrentResume();
-        if (resumeObj) {
-          setUserHasResume(true);
-          setCurrentResumeInfo({
-            name: resumeObj.file_type ? `Resume.${resumeObj.file_type.split('/').pop()}` : "Current Resume",
-            length: resumeObj.extracted_text?.length || 0,
-          });
-          // Don't set resumeText by default - only when explicitly uploading
-        } else {
-          setUserHasResume(false);
-        }
-      } catch (err) {
-        console.error("Error checking user resume:", err);
+    // Prefer passed resumeText prop over cached data
+    const effectiveResumeText = resumeText || cachedData.resumeText;
+    
+    // Check cache status once
+    if (!cacheLoading.resume) {
+      if (effectiveResumeText) {
+        setUserHasResume(true);
+        setCurrentResumeInfo({
+          name: "Current Resume",
+          length: effectiveResumeText.length || 0,
+        });
+      } else {
         setUserHasResume(false);
-      } finally {
-        setIsCheckingResume(false);
       }
-    };
-
-    checkUserResume();
-  }, [user?.id, getCurrentResume]);
+      setIsCheckingResume(false);
+    }
+  }, [user?.id, resumeText, cachedData.resumeText, cacheLoading.resume]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

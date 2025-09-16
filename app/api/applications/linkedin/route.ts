@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const LinkedInProfileSchema = z.object({
@@ -16,7 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createClient();
 
     // Get LinkedIn profiles
     const { data: profiles, error } = await supabase
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = LinkedInProfileSchema.parse(body);
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createClient();
 
     // Insert LinkedIn profile
     const { data: profile, error } = await supabase
@@ -99,7 +99,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Profile ID is required" }, { status: 400 });
     }
 
-    const supabase = createServerSupabaseClient();
+    const supabase = await createClient();
 
     // Delete LinkedIn profile (verify ownership)
     const { error } = await supabase

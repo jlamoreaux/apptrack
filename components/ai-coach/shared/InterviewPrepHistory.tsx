@@ -1,24 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { SavedItemCard } from "./SavedItemCard";
 import { 
   Clock, 
-  Calendar, 
-  Building2, 
-  Briefcase,
-  ChevronRight,
-  Trash2,
   Eye,
   EyeOff
 } from "lucide-react";
-import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/ui/toaster";
 import type { InterviewPreparationResult } from "@/types/ai-analysis";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
 interface SavedInterviewPrep {
   id: string;
@@ -36,15 +32,18 @@ interface SavedInterviewPrep {
 interface InterviewPrepHistoryProps {
   onSelectPrep: (prep: InterviewPreparationResult) => void;
   currentUserId?: string | null;
+  isExpandable?: boolean;
 }
 
 export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({ 
   onSelectPrep,
-  currentUserId 
+  currentUserId,
+  isExpandable = true
 }) => {
-  const [savedPreps, setSavedPreps] = useState<SavedInterviewPrep[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { data, loading, fetchInterviewPreps, invalidateCache } = useAICoachData();
+  const savedPreps = data.savedInterviewPreps as SavedInterviewPrep[];
+  const isLoading = loading.interviewPreps;
+  const [isExpanded, setIsExpanded] = useState(!isExpandable);
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; prepId: string | null }>({ 
     open: false, 
     prepId: null 
@@ -53,35 +52,9 @@ export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({
 
   useEffect(() => {
     if (currentUserId) {
-      fetchSavedPreps();
+      fetchInterviewPreps();
     }
-  }, [currentUserId]);
-
-  const fetchSavedPreps = async () => {
-    try {
-      setIsLoading(true);
-      const response = await fetch("/api/ai-coach/interview-prep/history", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch saved interview preps");
-      }
-
-      const data = await response.json();
-      setSavedPreps(data.preps || []);
-    } catch (error) {
-      console.error("Error fetching saved preps:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load saved interview preparations",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [currentUserId, fetchInterviewPreps]);
 
   const handleDeleteClick = (prepId: string) => {
     setDeleteConfirm({ open: true, prepId });
@@ -106,8 +79,9 @@ export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({
         throw new Error(errorData?.error || "Failed to delete interview prep");
       }
 
-      // Update state to remove the deleted prep
-      setSavedPreps(prev => prev.filter(p => p.id !== prepId));
+      // Invalidate cache and refetch
+      invalidateCache('interviewPreps');
+      await fetchInterviewPreps(true);
       
       // Close the dialog
       setDeleteConfirm({ open: false, prepId: null });
@@ -227,29 +201,33 @@ export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({
   return (
     <>
     <Card>
-      <CardHeader className="pb-3">
+      <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Saved Interview Preparations
-          </CardTitle>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <>
-                <EyeOff className="h-4 w-4 mr-1" />
-                Hide
-              </>
-            ) : (
-              <>
-                <Eye className="h-4 w-4 mr-1" />
-                Show ({savedPreps.length})
-              </>
-            )}
-          </Button>
+          <div>
+            <CardTitle className="text-lg">Your Saved Interview Preparations</CardTitle>
+            <CardDescription>
+              Previously generated interview questions and preparations
+            </CardDescription>
+          </div>
+          {isExpandable && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              {isExpanded ? (
+                <>
+                  <EyeOff className="h-4 w-4 mr-1" />
+                  Hide
+                </>
+              ) : (
+                <>
+                  <Eye className="h-4 w-4 mr-1" />
+                  Show ({savedPreps.length})
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </CardHeader>
       
@@ -264,61 +242,32 @@ export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({
               No saved interview preparations yet
             </div>
           ) : (
-            <div className="max-h-[400px] overflow-y-auto pr-2">
-              <div className="space-y-3">
-                {savedPreps.map((prep) => {
-                  const { company, role } = extractContext(prep);
-                  const parsedPrep = parsePreparation(prep);
-                  const questionCount = parsedPrep?.questions?.length || 0;
-                  
-                  return (
-                    <Card 
-                      key={prep.id} 
-                      className="cursor-pointer hover:bg-accent/50 transition-colors"
-                      onClick={() => handleSelectPrep(prep)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{company}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Briefcase className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">{role}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(prep.created_at), "MMM d, yyyy 'at' h:mm a")}
-                              </span>
-                            </div>
-                            {questionCount > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {questionCount} questions
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(prep.id);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+            <div className="space-y-3">
+              {savedPreps.map((prep) => {
+                const { company, role } = extractContext(prep);
+                const parsedPrep = parsePreparation(prep);
+                const questionCount = parsedPrep?.questions?.length || 0;
+                
+                return (
+                  <SavedItemCard
+                    key={prep.id}
+                    id={prep.id}
+                    title={company}
+                    subtitle={role}
+                    timestamp={prep.created_at}
+                    badge={
+                      questionCount > 0 ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {questionCount} questions
+                        </Badge>
+                      ) : undefined
+                    }
+                    onSelect={() => handleSelectPrep(prep)}
+                    onDelete={() => handleDeleteClick(prep.id)}
+                  />
+                );
+              })}
+
             </div>
           )}
         </CardContent>
