@@ -3,6 +3,32 @@
  * Tests clipboard copying and PDF download functionality
  */
 
+// Mock jsPDF and html2canvas before importing the module
+jest.mock('jspdf', () => ({
+  jsPDF: jest.fn().mockImplementation(() => ({
+    text: jest.fn(),
+    setFontSize: jest.fn(),
+    save: jest.fn(),
+    addPage: jest.fn(),
+    setFont: jest.fn(),
+    setTextColor: jest.fn(),
+    setFillColor: jest.fn(),
+    setDrawColor: jest.fn(),
+    setLineWidth: jest.fn(),
+    rect: jest.fn(),
+    line: jest.fn(),
+    splitTextToSize: jest.fn().mockReturnValue([]),
+    internal: {
+      pageSize: {
+        getWidth: jest.fn().mockReturnValue(210),
+        getHeight: jest.fn().mockReturnValue(297),
+      }
+    }
+  }))
+}));
+
+jest.mock('html2canvas', () => jest.fn());
+
 import {
   formatAnalysisForExport,
   formatAnalysisForRichText,
@@ -323,17 +349,30 @@ describe('Analysis Export Utilities', () => {
   });
 
   describe('downloadAnalysisPDF', () => {
-    it('should create and download a print-optimized HTML file', async () => {
-      const mockBlob = { type: 'text/html' };
-      const mockBlobURL = 'blob:http://localhost/test-url';
+    it('should create and download a PDF file', async () => {
+      const mockPDF = {
+        internal: {
+          pageSize: {
+            getWidth: jest.fn().mockReturnValue(210),
+            getHeight: jest.fn().mockReturnValue(297)
+          }
+        },
+        setFont: jest.fn(),
+        setFontSize: jest.fn(),
+        setTextColor: jest.fn(),
+        setFillColor: jest.fn(),
+        setDrawColor: jest.fn(),
+        setLineWidth: jest.fn(),
+        rect: jest.fn(),
+        line: jest.fn(),
+        text: jest.fn(),
+        splitTextToSize: jest.fn().mockReturnValue(['line 1', 'line 2']),
+        addPage: jest.fn(),
+        save: jest.fn()
+      };
       
-      global.Blob = jest.fn().mockImplementation((content, options) => ({
-        ...mockBlob,
-        content,
-        options
-      })) as any;
-      
-      mockCreateObjectURL.mockReturnValue(mockBlobURL);
+      const { jsPDF } = require('jspdf');
+      jsPDF.mockReturnValue(mockPDF);
       
       const applicationInfo = {
         company: 'Tech Corp',
@@ -342,74 +381,93 @@ describe('Analysis Export Utilities', () => {
       
       await downloadAnalysisPDF(mockAnalysis, applicationInfo);
       
-      // Verify blob creation with print-optimized HTML
-      expect(global.Blob).toHaveBeenCalledWith(
-        expect.arrayContaining([expect.stringContaining('print-instructions')]),
-        { type: 'text/html; charset=utf-8' }
-      );
-      
-      // Verify blob URL creation
-      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1);
-      
-      // Verify download link creation and triggering
-      expect(mockDocumentMethods.createElement).toHaveBeenCalledWith('a');
-      expect(mockDocumentMethods.appendChild).toHaveBeenCalled();
+      // Verify PDF methods were called
+      expect(mockPDF.setFont).toHaveBeenCalled();
+      expect(mockPDF.setFontSize).toHaveBeenCalled();
+      expect(mockPDF.save).toHaveBeenCalled();
     });
 
     it('should generate proper filename with company and role info', async () => {
-      const mockElement = {
-        href: '',
-        download: '',
-        click: jest.fn(),
-        style: {},
-        value: '',
-        focus: jest.fn(),
-        select: jest.fn(),
-        remove: jest.fn()
+      const mockPDF = {
+        internal: {
+          pageSize: {
+            getWidth: jest.fn().mockReturnValue(210),
+            getHeight: jest.fn().mockReturnValue(297)
+          }
+        },
+        setFont: jest.fn(),
+        setFontSize: jest.fn(),
+        setTextColor: jest.fn(),
+        setFillColor: jest.fn(),
+        setDrawColor: jest.fn(),
+        setLineWidth: jest.fn(),
+        rect: jest.fn(),
+        line: jest.fn(),
+        text: jest.fn(),
+        splitTextToSize: jest.fn().mockReturnValue(['line 1']),
+        addPage: jest.fn(),
+        save: jest.fn()
       };
       
-      mockDocumentMethods.createElement.mockReturnValue(mockElement);
+      const { jsPDF } = require('jspdf');
+      jsPDF.mockReturnValue(mockPDF);
       
       await downloadAnalysisPDF(mockAnalysis, {
         company: 'Tech Corp Inc',
         role: 'Senior Software Engineer'
       });
       
-      expect(mockElement.download).toBe(
-        'job-fit-analysis-tech-corp-inc-senior-software-engineer.html'
+      expect(mockPDF.save).toHaveBeenCalledWith(
+        'job-fit-analysis-tech-corp-inc-senior-software-engineer.pdf'
       );
     });
 
-    it('should include print instructions and analysis data in HTML content', async () => {
-      global.Blob = jest.fn().mockImplementation((content, options) => ({
-        content,
-        options,
-        type: 'text/html'
-      })) as any;
+    it('should include analysis data in PDF content', async () => {
+      const mockPDF = {
+        internal: {
+          pageSize: {
+            getWidth: jest.fn().mockReturnValue(210),
+            getHeight: jest.fn().mockReturnValue(297)
+          }
+        },
+        setFont: jest.fn(),
+        setFontSize: jest.fn(),
+        setTextColor: jest.fn(),
+        setFillColor: jest.fn(),
+        setDrawColor: jest.fn(),
+        setLineWidth: jest.fn(),
+        rect: jest.fn(),
+        line: jest.fn(),
+        text: jest.fn(),
+        splitTextToSize: jest.fn().mockReturnValue(['line 1']),
+        addPage: jest.fn(),
+        save: jest.fn()
+      };
+      
+      const { jsPDF } = require('jspdf');
+      jsPDF.mockReturnValue(mockPDF);
       
       await downloadAnalysisPDF(mockAnalysis, {
         company: 'Tech Corp',
         role: 'Software Engineer'
       });
       
-      const blobContent = (global.Blob as jest.Mock).mock.calls[0][0][0];
-      
-      // Verify it contains print instructions
-      expect(blobContent).toContain('To save as PDF: Press Ctrl+P');
+      // Verify PDF text method was called with analysis data
+      const textCalls = mockPDF.text.mock.calls.map((call: any) => call[0]);
+      const allText = textCalls.join(' ');
       
       // Verify it contains analysis data
-      expect(blobContent).toContain('85%');
-      expect(blobContent).toContain('Excellent Match');
-      expect(blobContent).toContain('Strong experience with React');
-      expect(blobContent).toContain('Limited experience with TypeScript');
-      expect(blobContent).toContain('Tech Corp');
-      expect(blobContent).toContain('Software Engineer');
-      expect(blobContent).toContain('Skills Match');
-      expect(blobContent).toContain('90%');
+      expect(allText).toContain('Job Fit Analysis Report');
+      expect(allText).toContain('Tech Corp');
+      expect(allText).toContain('Software Engineer');
       
-      // Verify it has print-optimized CSS
-      expect(blobContent).toContain('@media print');
-      expect(blobContent).toContain('@page');
+      // Verify score was formatted and added
+      expect(mockPDF.text).toHaveBeenCalledWith(
+        expect.stringContaining('85%'),
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Object)
+      );
     });
   });
 

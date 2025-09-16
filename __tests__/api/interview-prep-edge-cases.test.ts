@@ -237,7 +237,7 @@ describe('Interview Prep API Edge Cases', () => {
     })
 
     test('should handle BigInt in existing content', () => {
-      const bigIntContent = BigInt(123456789012345678901234567890n)
+      const bigIntContent = BigInt('123456789012345678901234567890')
       const result = handleExistingPrepContent(bigIntContent, false, 'Job description')
       expect(typeof result).toBe('string')
     })

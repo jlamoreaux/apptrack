@@ -27,10 +27,10 @@ const mockAnalysis: JobFitAnalysisResultType = {
     'Highlight transferable skills from previous projects'
   ],
   keyRequirements: [
-    'React development experience',
-    'TypeScript proficiency',
-    'Problem-solving skills',
-    'Team collaboration'
+    { requirement: 'React development experience', status: 'met' as const },
+    { requirement: 'TypeScript proficiency', status: 'partial' as const },
+    { requirement: 'Problem-solving skills', status: 'met' as const },
+    { requirement: 'Team collaboration', status: 'met' as const }
   ],
   matchDetails: {
     skillsMatch: 90,

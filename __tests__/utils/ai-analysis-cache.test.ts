@@ -40,7 +40,11 @@ const createMockAnalysisResult = (overallScore: number = 85): JobFitAnalysisResu
   strengths: ['Strong technical skills', 'Good culture fit'],
   weaknesses: ['Limited domain experience'],
   recommendations: ['Prepare specific examples', 'Research company culture'],
-  keyRequirements: ['JavaScript', 'React', 'Node.js'],
+  keyRequirements: [
+    { requirement: 'JavaScript', status: 'met', evidence: 'Strong JS experience' },
+    { requirement: 'React', status: 'met', evidence: '3+ years with React' },
+    { requirement: 'Node.js', status: 'partial', evidence: 'Some backend experience' }
+  ],
   matchDetails: {
     skillsMatch: 90,
     experienceMatch: 80,
@@ -387,7 +391,8 @@ describe('AI Analysis Cache Tests', () => {
       let successCount = 0
       for (let i = 0; i < 50; i++) {
         const result = aiAnalysisCache.get(`concurrent-key-${i}`)
-        if (result?.overallScore === i) {
+        // Type guard to check if it's a JobFitAnalysisResult
+        if (result && 'overallScore' in result && result.overallScore === i) {
           successCount++
         }
       }
