@@ -6,6 +6,8 @@ import { NavigationServer } from "@/components/navigation-server";
 import { getUser, getApplications } from "@/lib/supabase/server";
 import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ApplicationsPage() {
   const user = await getUser();
 

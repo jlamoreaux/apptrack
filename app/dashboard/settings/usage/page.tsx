@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
+export const dynamic = 'force-dynamic';
+
 export default async function UsagePage() {
   const user = await getUser()
 
