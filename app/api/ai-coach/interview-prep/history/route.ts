@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUser, createClient } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
@@ -9,7 +10,7 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = await createClient();
+    const supabase = createServerSupabaseClient();
 
     const { data: preps, error } = await supabase
       .from("interview_prep")
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const supabase = createServerSupabaseClient();
 
     const { data: prep, error } = await supabase
       .from("interview_prep")

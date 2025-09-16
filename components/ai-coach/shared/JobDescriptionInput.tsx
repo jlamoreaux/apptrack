@@ -15,7 +15,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Briefcase, FileText, Link, AlertCircle } from "lucide-react";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { getAIContextAction } from "@/lib/actions/ai-data";
 
 interface JobDescriptionInputProps {
@@ -33,9 +32,8 @@ export function JobDescriptionInput({
   label = "Job Description",
   onApplicationSelect,
 }: JobDescriptionInputProps) {
-  const { user } = useSupabaseAuth();
-  const { applications } = useSupabaseApplications(user?.id || null);
-  const [inputMethod, setInputMethod] = useState<"application" | "text" | "url">("application");
+  const { applications } = useSupabaseApplications();
+  const [inputMethod, setInputMethod] = useState<"application" | "text" | "url">("text");
   const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
   const [jobUrl, setJobUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);

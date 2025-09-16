@@ -326,18 +326,18 @@ export class RateLimitService {
       };
     }
 
-    // Calculate remaining
-    const remaining = Math.min(
-      limits.hourly_limit - hourlyUsed,
-      limits.daily_limit - dailyUsed
-    );
+      // Calculate remaining
+      const remaining = Math.min(
+        limits.hourly_limit - hourlyUsed,
+        limits.daily_limit - dailyUsed
+      );
 
-    return {
-      allowed: true,
-      limit: limits.daily_limit,
-      remaining,
-      reset: new Date(Date.now() + 3600000),
-    };
+      return {
+        allowed: true,
+        limit: limits.daily_limit,
+        remaining,
+        reset: new Date(Date.now() + 3600000),
+      };
     } catch (error) {
       console.error('Redis rate limit check failed, falling back to database:', error);
       // Fall back to database check if Redis fails

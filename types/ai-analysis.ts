@@ -59,7 +59,7 @@ export interface JobFitAnalysisResult {
 // Interview Preparation specific types
 export interface InterviewQuestion {
   id: string;
-  category: "behavioral" | "technical" | "company-specific" | "role-specific" | "situational";
+  category: "behavioral" | "technical" | "company-specific" | "role-specific";
   question: string;
   suggestedApproach: string;
   starFramework?: {
