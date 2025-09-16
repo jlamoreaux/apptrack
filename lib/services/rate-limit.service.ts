@@ -304,39 +304,46 @@ export class RateLimitService {
         redis.get<number>(dailyKey),
       ]);
     
-    const hourlyUsed = hourlyCount || 0;
-    const dailyUsed = dailyCount || 0;
-    
-    // Check if limits exceeded
-    const hourlyExceeded = hourlyUsed >= limits.hourly_limit;
-    const dailyExceeded = dailyUsed >= limits.daily_limit;
-    
-    if (hourlyExceeded || dailyExceeded) {
-      // Determine which limit was hit and when it resets
-      const resetTime = hourlyExceeded 
-        ? new Date(Date.now() + 3600000) 
-        : new Date(Date.now() + 86400000);
+      const hourlyUsed = hourlyCount || 0;
+      const dailyUsed = dailyCount || 0;
       
-      return {
-        allowed: false,
-        limit: hourlyExceeded ? limits.hourly_limit : limits.daily_limit,
-        remaining: 0,
-        reset: resetTime,
-        retryAfter: Math.ceil((resetTime.getTime() - Date.now()) / 1000),
-      };
-    }
-
-      // Calculate remaining
-      const remaining = Math.min(
-        limits.hourly_limit - hourlyUsed,
-        limits.daily_limit - dailyUsed
-      );
-
+      // Check if limits exceeded
+      const hourlyExceeded = hourlyUsed >= limits.hourly_limit;
+      const dailyExceeded = dailyUsed >= limits.daily_limit;
+      
+      if (hourlyExceeded || dailyExceeded) {
+        // Determine which limit was hit and when it resets
+        const resetTime = hourlyExceeded 
+          ? new Date(Date.now() + 3600000) 
+          : new Date(Date.now() + 86400000);
+        
+        return {
+          allowed: false,
+          limit: hourlyExceeded ? limits.hourly_limit : limits.daily_limit,
+          remaining: 0,
+          reset: resetTime,
+          retryAfter: Math.ceil((resetTime.getTime() - Date.now()) / 1000),
+        };
+      }
+      
+      // Increment usage counters
+      await Promise.all([
+        redis.incr(hourlyKey),
+        redis.incr(dailyKey),
+        redis.expire(hourlyKey, 3600), // 1 hour TTL
+        redis.expire(dailyKey, 86400), // 24 hour TTL
+      ]);
+      
+      // Return success with remaining counts
       return {
         allowed: true,
-        limit: limits.daily_limit,
-        remaining,
-        reset: new Date(Date.now() + 3600000),
+        limit: Math.min(limits.hourly_limit, limits.daily_limit),
+        remaining: Math.min(
+          limits.hourly_limit - hourlyUsed - 1,
+          limits.daily_limit - dailyUsed - 1
+        ),
+        reset: new Date(Date.now() + 3600000), // Next hourly reset
+        retryAfter: 0,
       };
     } catch (error) {
       console.error('Redis rate limit check failed, falling back to database:', error);

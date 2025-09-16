@@ -14,6 +14,10 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { AIToolLayout } from "./shared/AIToolLayout";
+import { InterviewPrepHistory } from "./shared/InterviewPrepHistory";
+import { InterviewContextCard } from "./shared/InterviewContextCard";
+import { InterviewPrepDisplay } from "./shared/InterviewPrepDisplay";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
 interface InterviewPrepProps {
   applicationId?: string;
@@ -30,11 +34,18 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
   const { getResumeText, loading: resumeLoading } = useResumesClient(
     user?.id || null
   );
+  const {
+    data,
+    loading: cacheLoading,
+    fetchInterviewPreps,
+    invalidateCache,
+  } = useAICoachData();
   const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
   const [jobDescription, setJobDescription] = useState("");
   const [interviewContext, setInterviewContext] = useState("");
-  const [prep, setPrep] = useState("");
+  const [prep, setPrep] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSavedPreps, setShowSavedPreps] = useState(false);
   const { toast } = useToast();
   const copy = COPY.aiCoach.interviewPrep;
 
@@ -44,6 +55,13 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       setSelectedApplicationId(applicationId);
     }
   }, [applicationId]);
+
+  // Fetch saved interview preps on mount (uses cache)
+  useEffect(() => {
+    if (user?.id) {
+      fetchInterviewPreps();
+    }
+  }, [user?.id, fetchInterviewPreps]);
 
   const handleGenerate = async () => {
     if (!jobDescription && !selectedApplicationId) {
@@ -58,7 +76,7 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
     }
 
     setIsLoading(true);
-    setPrep("");
+    setPrep(null);
     clearError();
 
     try {
@@ -88,6 +106,9 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       // Save to database
       if (user?.id) {
         await createInterviewPrep(jobDescription, data.preparation);
+        // Invalidate cache and refresh saved preps list
+        invalidateCache('interviewPreps');
+        await fetchInterviewPreps(true);
       }
 
       toast({
@@ -119,14 +140,37 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       error={error}
       result={
         prep ? (
-          <MarkdownOutputCard
-            title={copy.generatedTitle}
-            icon={<MessageSquare className="h-5 w-5" />}
-            content={prep}
-          />
+          typeof prep === 'string' ? (
+            <MarkdownOutputCard
+              title={copy.generatedTitle}
+              icon={<MessageSquare className="h-5 w-5" />}
+              content={prep}
+            />
+          ) : (
+            <div data-interview-prep-display>
+              <InterviewPrepDisplay
+                content={prep}
+                title={copy.generatedTitle}
+                icon={<MessageSquare className="h-5 w-5" />}
+              />
+            </div>
+          )
         ) : null
       }
+      savedItemsCount={data.savedInterviewPreps.length}
+      onViewSaved={() => setShowSavedPreps(!showSavedPreps)}
     >
+      {showSavedPreps && data.savedInterviewPreps.length > 0 && (
+        <InterviewPrepHistory
+          onSelectPrep={(preparation) => {
+            setPrep(preparation);
+            setShowSavedPreps(false);
+          }}
+          currentUserId={user?.id}
+          isExpandable={false}
+        />
+      )}
+
       <JobDescriptionInput
         jobDescription={jobDescription}
         setJobDescription={setJobDescription}
@@ -140,23 +184,12 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
         }}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Additional Context</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="interviewContext">{copy.interviewContextLabel}</Label>
-            <Textarea
-              id="interviewContext"
-              placeholder={copy.interviewContextPlaceholder}
-              value={interviewContext}
-              onChange={(e) => setInterviewContext(e.target.value)}
-              rows={4}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <InterviewContextCard
+        interviewContext={interviewContext}
+        onInterviewContextChange={setInterviewContext}
+        label={copy.interviewContextLabel}
+        placeholder={copy.interviewContextPlaceholder}
+      />
     </AIToolLayout>
   );
 };

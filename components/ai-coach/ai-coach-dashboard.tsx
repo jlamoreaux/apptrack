@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import { AICoachDataProvider } from "@/contexts/ai-coach-data-context";
 import {
   Card,
   CardDescription,
@@ -34,7 +35,7 @@ interface AICoachDashboardProps {
   userId: string;
 }
 
-export function AICoachDashboard({ userId }: AICoachDashboardProps) {
+function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
   const [isNewUser, setIsNewUser] = useState(false);
   const [activeTab, setActiveTab] = useState("resume");
   const searchParams = useSearchParams();
@@ -125,5 +126,16 @@ export function AICoachDashboard({ userId }: AICoachDashboardProps) {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export function AICoachDashboard({ userId }: AICoachDashboardProps) {
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "resume";
+  
+  return (
+    <AICoachDataProvider initialTab={initialTab}>
+      <AICoachDashboardInner userId={userId} />
+    </AICoachDataProvider>
   );
 }

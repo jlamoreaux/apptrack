@@ -37,7 +37,7 @@ export interface AnalysisContext {
 // Job Fit Analysis specific types
 export interface RequirementMatch {
   requirement: string;
-  status: 'met' | 'partial' | 'missing';
+  status: "met" | "partial" | "missing";
   evidence?: string; // Optional explanation of why it's met/missing
 }
 
@@ -59,7 +59,12 @@ export interface JobFitAnalysisResult {
 // Interview Preparation specific types
 export interface InterviewQuestion {
   id: string;
-  category: "behavioral" | "technical" | "company-specific" | "role-specific";
+  category:
+    | "behavioral"
+    | "technical"
+    | "company-specific"
+    | "role-specific"
+    | "situational";
   question: string;
   suggestedApproach: string;
   starFramework?: {

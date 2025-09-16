@@ -21,8 +21,6 @@ import {
   Info,
   RefreshCw,
   History,
-  Trash2,
-  Eye,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
@@ -38,6 +36,7 @@ import {
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { AIToolLayout } from "./shared/AIToolLayout";
 import { ResumeAndJobInput } from "./shared/ResumeAndJobInput";
+import { SavedItemCard } from "./shared/SavedItemCard";
 import {
   Select,
   SelectContent,
@@ -46,11 +45,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
 const CoverLetterGenerator = () => {
   const { user } = useSupabaseAuth();
-  const { applications } = useSupabaseApplications(user?.id || null);
   const { toast } = useToast();
+  const {
+    data,
+    loading: cacheLoading,
+    fetchCoverLetters,
+    fetchApplications,
+    fetchResume,
+    invalidateCache,
+  } = useAICoachData();
   
   // State management
   const [coverLetter, setCoverLetter] = useState("");
@@ -65,12 +72,32 @@ const CoverLetterGenerator = () => {
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
   
   // Saved cover letters state
-  const [savedCoverLetters, setSavedCoverLetters] = useState<any[]>([]);
   const [showSavedLetters, setShowSavedLetters] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
+
+  // Load cached data on mount
+  useEffect(() => {
+    if (user?.id && !hasInitialized) {
+      setHasInitialized(true);
+      fetchCoverLetters();
+      fetchApplications();
+      // Pre-load resume for faster UX
+      fetchResume().then(text => {
+        if (text) setResumeText(text);
+      });
+    }
+  }, [user?.id, hasInitialized]);
+  
+  // Also sync with cached data when it becomes available
+  useEffect(() => {
+    if (data.resumeText && !resumeText) {
+      setResumeText(data.resumeText);
+    }
+  }, [data.resumeText]);
 
   const handleApplicationSelect = (appId: string, company?: string, role?: string) => {
-    const app = applications.find((a) => a.id === appId);
+    const app = data.applications.find((a) => a.id === appId);
     if (app) {
       setCompanyName(company || app.company || "");
       setRoleName(role || app.role || "");
@@ -127,8 +154,9 @@ const CoverLetterGenerator = () => {
       const data = await response.json();
       setCoverLetter(data.coverLetter);
       
-      // Refresh saved letters list
-      await fetchSavedCoverLetters();
+      // Invalidate cache and refresh saved letters list
+      invalidateCache('coverLetters');
+      await fetchCoverLetters(true);
       
       toast({
         title: "Cover letter generated!",
@@ -180,17 +208,6 @@ const CoverLetterGenerator = () => {
     setError("");
   };
 
-  const fetchSavedCoverLetters = async () => {
-    try {
-      const response = await fetch("/api/ai-coach/cover-letters");
-      if (response.ok) {
-        const data = await response.json();
-        setSavedCoverLetters(data.coverLetters || []);
-      }
-    } catch (error) {
-      console.error("Error fetching saved cover letters:", error);
-    }
-  };
 
   const deleteCoverLetter = async (id: string) => {
     try {
@@ -198,7 +215,9 @@ const CoverLetterGenerator = () => {
         method: "DELETE",
       });
       if (response.ok) {
-        setSavedCoverLetters(prev => prev.filter(cl => cl.id !== id));
+        // Invalidate cache and refresh
+        invalidateCache('coverLetters');
+        await fetchCoverLetters(true);
         toast({
           title: "Deleted",
           description: "Cover letter deleted successfully",
@@ -214,12 +233,6 @@ const CoverLetterGenerator = () => {
     }
   };
 
-  // Fetch saved cover letters on mount
-  useEffect(() => {
-    if (user?.id) {
-      fetchSavedCoverLetters();
-    }
-  }, [user?.id]);
 
 
   const handleResumeUpload = async (file: File) => {
@@ -311,11 +324,11 @@ const CoverLetterGenerator = () => {
           </Card>
         </div>
       ) : null}
-      savedItemsCount={savedCoverLetters.length}
+      savedItemsCount={data.savedCoverLetters.length}
       onViewSaved={() => setShowSavedLetters(!showSavedLetters)}
     >
 
-      {showSavedLetters && savedCoverLetters.length > 0 && (
+      {showSavedLetters && data.savedCoverLetters.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Your Saved Cover Letters</CardTitle>
@@ -325,56 +338,26 @@ const CoverLetterGenerator = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {savedCoverLetters.map((letter) => (
-                <div
+              {data.savedCoverLetters.map((letter) => (
+                <SavedItemCard
                   key={letter.id}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="font-medium">{letter.company_name}</div>
-                      {letter.role_name && (
-                        <div className="text-sm text-muted-foreground">{letter.role_name}</div>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {new Date(letter.created_at).toLocaleDateString()} at{" "}
-                        {new Date(letter.created_at).toLocaleTimeString()}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setCoverLetter(letter.cover_letter);
-                          setShowSavedLetters(false);
-                        }}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(letter.cover_letter);
-                          toast({
-                            title: "Copied!",
-                            description: "Cover letter copied to clipboard",
-                          });
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => deleteCoverLetter(letter.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-red-500" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                  id={letter.id}
+                  title={letter.company_name}
+                  subtitle={letter.role_name}
+                  timestamp={letter.created_at}
+                  onSelect={() => {
+                    setCoverLetter(letter.cover_letter);
+                    setShowSavedLetters(false);
+                  }}
+                  onDelete={() => deleteCoverLetter(letter.id)}
+                  onCopy={() => {
+                    navigator.clipboard.writeText(letter.cover_letter);
+                    toast({
+                      title: "Copied!",
+                      description: "Cover letter copied to clipboard",
+                    });
+                  }}
+                />
               ))}
             </div>
           </CardContent>
