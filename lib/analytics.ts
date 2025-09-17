@@ -1,5 +1,6 @@
 import { track } from '@vercel/analytics';
 import { getPlanDisplayName } from '@/lib/utils/plan-helpers';
+import { clientAnalytics } from '@/lib/client/analytics.client';
 
 // AI Coach Analytics Events
 export const AI_COACH_EVENTS = {
@@ -191,12 +192,63 @@ export const applicationCardAnalytics = {
   },
 };
 
-// Analytics wrapper for error handling
+// Analytics wrapper for error handling - tracks to both Vercel and PostHog via API
 export function safeTrack(eventName: string, properties: Record<string, any>) {
   try {
-    track(eventName, properties);
+    // Track to Vercel Analytics (client-side only)
+    if (typeof window !== 'undefined') {
+      track(eventName, properties);
+    }
+    
+    // Track to PostHog via API route (works both client and server side)
+    clientAnalytics.trackEvent({
+      eventName,
+      properties,
+      requireAuth: false, // Most events don't require auth
+    });
   } catch (error) {
     // Silently fail - don't break user experience for analytics
     console.warn('Analytics tracking failed:', error);
   }
 }
+
+// Analytics service functions using API routes
+export const analyticsAPI = {
+  // User identification via API
+  identify: async (properties?: Record<string, any>) => {
+    try {
+      await clientAnalytics.identifyUser({ properties });
+    } catch (error) {
+      console.warn('User identification failed:', error);
+    }
+  },
+
+  // Track authenticated events
+  trackAuthenticated: async (eventName: string, properties: Record<string, any> = {}) => {
+    try {
+      await clientAnalytics.trackEvent({
+        eventName,
+        properties,
+        requireAuth: true,
+      });
+    } catch (error) {
+      console.warn('Authenticated event tracking failed:', error);
+    }
+  },
+
+  // Convenience methods
+  trackUserSignIn: (provider?: string) => clientAnalytics.trackUserSignIn(provider),
+  trackUserSignOut: () => clientAnalytics.trackUserSignOut(),
+  trackApplicationCreated: (properties?: { company?: string; role?: string; source?: string }) => 
+    clientAnalytics.trackApplicationCreated(properties),
+  trackApplicationViewed: (applicationId: string) => 
+    clientAnalytics.trackApplicationViewed(applicationId),
+  trackAIFeatureUsed: (featureType: string, properties?: Record<string, any>) => 
+    clientAnalytics.trackAIFeatureUsed(featureType, properties),
+  trackPageView: (page: string, properties?: Record<string, any>) => 
+    clientAnalytics.trackPageView(page, properties),
+  trackUpgradeViewed: (source?: string) => 
+    clientAnalytics.trackUpgradeViewed(source),
+  trackCheckoutStarted: (plan?: string) => 
+    clientAnalytics.trackCheckoutStarted(plan),
+};
