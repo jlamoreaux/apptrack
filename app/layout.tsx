@@ -11,6 +11,8 @@ import { SkipNavigation } from "@/components/accessibility/skip-link";
 import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posthog-provider";
 import { AuthTracker } from "@/components/analytics/auth-tracker";
 import { GlobalErrorTracker } from "@/components/analytics/global-error-tracker";
+import { Footer } from "@/components/footer";
+import { CookieBanner } from "@/components/cookie-banner";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -47,6 +49,8 @@ export default function RootLayout({
               <AuthTracker />
               <GlobalErrorTracker />
               {children}
+              <Footer />
+              <CookieBanner />
               <Analytics />
               <SpeedInsights />
             </Suspense>
