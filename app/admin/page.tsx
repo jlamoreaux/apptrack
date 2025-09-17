@@ -20,6 +20,8 @@ import {
   ArrowRight,
   Activity,
   UserCheck,
+  FileText,
+  Brain,
 } from "lucide-react";
 
 export default async function AdminDashboardPage() {
@@ -61,6 +63,24 @@ export default async function AdminDashboardPage() {
       color: "text-blue-500",
       bgColor: "bg-blue-50 dark:bg-blue-950/20",
       stats: `${adminCount} admin${adminCount !== 1 ? "s" : ""}`,
+    },
+    {
+      title: "Audit Logs",
+      description: "View all administrative actions and changes",
+      icon: FileText,
+      href: "/admin/audit-logs",
+      color: "text-purple-500",
+      bgColor: "bg-purple-50 dark:bg-purple-950/20",
+      stats: "Security tracking",
+    },
+    {
+      title: "AI Usage",
+      description: "Monitor AI feature usage across all users",
+      icon: Brain,
+      href: "/admin/ai-usage",
+      color: "text-cyan-500",
+      bgColor: "bg-cyan-50 dark:bg-cyan-950/20",
+      stats: "Real-time metrics",
     },
     {
       title: "Analytics",

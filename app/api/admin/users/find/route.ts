@@ -36,13 +36,13 @@ export async function GET(request: NextRequest) {
     // First try to find in profiles table
     const { data: profile } = await supabase
       .from("profiles")
-      .select("user_id, full_name, email")
+      .select("id, full_name, email")
       .eq("email", email.toLowerCase())
       .single();
 
     if (profile) {
       return NextResponse.json({ 
-        userId: profile.user_id,
+        userId: profile.id,
         email: profile.email,
         fullName: profile.full_name
       });

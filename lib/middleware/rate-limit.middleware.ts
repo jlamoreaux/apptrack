@@ -43,9 +43,9 @@ export async function withRateLimit(
       .in("status", ["active", "trialing"])
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const planName = subscription?.subscription_plans[0]?.name?.toLowerCase();
+    const planName = subscription?.subscription_plans?.name?.toLowerCase();
     const subscriptionTier =
       planName?.includes("ai") || planName?.includes("coach")
         ? "ai_coach"
@@ -134,17 +134,22 @@ export async function getUserSubscriptionTier(
   try {
     const supabase = await createClient();
 
-    const { data: subscription } = await supabase
+    const { data: subscription, error } = await supabase
       .from("user_subscriptions")
       .select("subscription_plans(name)")
       .eq("user_id", userId)
       .in("status", ["active", "trialing"])
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
-    const planName = subscription?.subscription_plans[0]?.name?.toLowerCase();
+    if (error) {
+      console.error(`Error fetching subscription for user ${userId}:`, error);
+    }
 
+    const planName = subscription?.subscription_plans?.name?.toLowerCase();
+
+    console.log(`User ${userId} subscription data:`, subscription);
     console.log(`User ${userId} subscription plan: ${planName || "none"}`);
 
     if (planName?.includes("ai") || planName?.includes("coach")) {

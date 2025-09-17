@@ -17,14 +17,30 @@ export function parseInterviewPreparation(
   context: { company: string; role: string }
 ): InterviewPreparationResult {
   try {
-    // Try to parse as JSON first (in case AI returns structured data)
+    // First, check if the response is wrapped in markdown code block
+    const codeBlockMatch = textResponse.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (codeBlockMatch && codeBlockMatch[1]) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1].trim())
+        if (parsed.questions && Array.isArray(parsed.questions)) {
+          return {
+            ...parsed,
+            generatedAt: parsed.generatedAt || new Date().toISOString()
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse JSON from code block:', e)
+      }
+    }
+    
+    // Try to parse as JSON without code block markers (in case AI returns structured data)
     const jsonMatch = textResponse.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
       if (parsed.questions && Array.isArray(parsed.questions)) {
         return {
           ...parsed,
-          generatedAt: new Date().toISOString()
+          generatedAt: parsed.generatedAt || new Date().toISOString()
         }
       }
     }

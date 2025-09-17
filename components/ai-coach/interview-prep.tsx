@@ -11,6 +11,7 @@ import { COPY } from "@/lib/content/copy";
 import { useAICoachClient } from "@/hooks/use-ai-coach-client";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useRateLimit } from "@/hooks/use-rate-limit";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { AIToolLayout } from "./shared/AIToolLayout";
@@ -48,6 +49,16 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
   const [showSavedPreps, setShowSavedPreps] = useState(false);
   const { toast } = useToast();
   const copy = COPY.aiCoach.interviewPrep;
+  
+  // Check rate limits for this feature
+  const { 
+    canUseFeature, 
+    isLimitReached, 
+    limitMessage, 
+    incrementUsage,
+    hourlyRemaining,
+    dailyRemaining 
+  } = useRateLimit('interview_prep');
 
   // Initialize selected application from URL parameter
   useEffect(() => {
@@ -64,6 +75,16 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
   }, [user?.id, fetchInterviewPreps]);
 
   const handleGenerate = async () => {
+    // Check rate limit first
+    if (!canUseFeature) {
+      toast({
+        title: "Rate Limit Reached",
+        description: limitMessage || "You've reached the usage limit for this feature. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     if (!jobDescription && !selectedApplicationId) {
       console.log("no job description or selected application");
       toast({
@@ -84,7 +105,8 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       const payload: any = { 
         interviewContext,
         jobDescription,
-        applicationId: selectedApplicationId || undefined
+        applicationId: selectedApplicationId || undefined,
+        structured: true // Always request structured format for proper display
       };
       const response = await fetch("/api/ai-coach/interview-prep", {
         method: "POST",
@@ -110,6 +132,9 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
         invalidateCache('interviewPreps');
         await fetchInterviewPreps(true);
       }
+      
+      // Update rate limit usage
+      await incrementUsage();
 
       toast({
         title: copy.successToast.title,
@@ -138,6 +163,8 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       submitLabel={copy.generateButton}
       isLoading={isLoadingState}
       error={error}
+      isDisabled={!canUseFeature}
+      disabledMessage={limitMessage}
       result={
         prep ? (
           typeof prep === 'string' ? (

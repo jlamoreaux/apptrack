@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/trial-notifications",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/sync-ai-usage",
+      "schedule": "5 * * * *"
     }
   ]
 }

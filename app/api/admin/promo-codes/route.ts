@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { AdminService } from "@/lib/services/admin.service";
+import { AuditService } from "@/lib/services/audit.service";
 
 // GET /api/admin/promo-codes - List all promo codes
 export async function GET(request: NextRequest) {
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
+    // Log the action with request for IP capture
+    await AuditService.logPromoCodeCreated(user.id, promoCode, request);
+
     return NextResponse.json({ 
       success: true, 
       promoCode,
@@ -152,6 +156,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const supabase = await createClient();
+    
+    // Get current promo code for audit log
+    const { data: oldPromoCode } = await supabase
+      .from("promo_codes")
+      .select("*")
+      .eq("id", id)
+      .single();
+    
     const updateData: any = {};
     
     if (typeof active === "boolean") updateData.active = active;
@@ -168,6 +180,20 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       throw error;
+    }
+
+    // Log the action
+    if (typeof active === "boolean" && oldPromoCode) {
+      await AuditService.logPromoCodeToggled(
+        user.id, 
+        id, 
+        promoCode.code,
+        oldPromoCode.active,
+        active,
+        request
+      );
+    } else if (oldPromoCode) {
+      await AuditService.logPromoCodeUpdated(user.id, id, oldPromoCode, promoCode, request);
     }
 
     return NextResponse.json({ 
