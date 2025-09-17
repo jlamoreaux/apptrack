@@ -6,6 +6,8 @@ import { NavigationServer } from "@/components/navigation-server";
 import { getUser, getApplications } from "@/lib/supabase/server";
 import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
 
+export const dynamic = 'force-dynamic';
+
 export default async function ApplicationsPage() {
   const user = await getUser();
 
@@ -19,9 +21,9 @@ export default async function ApplicationsPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <div className="container mx-auto py-8 space-y-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Header Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -29,7 +31,7 @@ export default async function ApplicationsPage() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-3xl font-bold text-primary">
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary">
               All Applications
             </h1>
             <p className="text-muted-foreground">

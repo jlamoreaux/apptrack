@@ -163,7 +163,7 @@ export function useLinkedinProfiles(applicationId: string | null) {
     }
 
     try {
-      const response = await fetch("/api/applications/linkedin", {
+      const response = await fetch(`/api/applications/${applicationId}/linkedin`, {
         method: "GET",
         credentials: "include",
       });
@@ -194,16 +194,13 @@ export function useLinkedinProfiles(applicationId: string | null) {
       return { success: false, error: "Application ID required" };
 
     try {
-      const response = await fetch("/api/applications/linkedin", {
+      const response = await fetch(`/api/applications/${applicationId}/linkedin`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-        body: JSON.stringify({
-          ...profileData,
-          linkedin_url: profileData.profile_url, // Map to expected API field
-        }),
+        body: JSON.stringify(profileData),
       });
 
       const result = await response.json();
@@ -221,7 +218,7 @@ export function useLinkedinProfiles(applicationId: string | null) {
 
   const deleteProfile = async (id: string) => {
     try {
-      const response = await fetch(`/api/applications/linkedin?id=${id}`, {
+      const response = await fetch(`/api/applications/${applicationId}/linkedin?profileId=${id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -238,11 +235,38 @@ export function useLinkedinProfiles(applicationId: string | null) {
     }
   };
 
+  const updateProfile = async (id: string, updates: { notes?: string; name?: string; title?: string; company?: string }) => {
+    try {
+      const response = await fetch(`/api/applications/${applicationId}/linkedin?profileId=${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(updates),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || "Failed to update LinkedIn profile" };
+      }
+
+      setProfiles((prev) =>
+        prev.map((profile) => (profile.id === id ? { ...profile, ...result.profile } : profile))
+      );
+      return { success: true, profile: result.profile };
+    } catch (error) {
+      return { success: false, error: "Failed to update LinkedIn profile" };
+    }
+  };
+
   return {
     profiles,
     loading,
     addProfile,
     deleteProfile,
+    updateProfile,
     refetch: fetchProfiles,
   };
 }

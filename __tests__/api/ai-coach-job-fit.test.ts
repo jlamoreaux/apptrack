@@ -153,7 +153,11 @@ const simulateJobFitAnalysisAPI = async (requestBody: any): Promise<{ status: nu
       strengths: ['Strong React experience', 'Node.js expertise'],
       weaknesses: ['Limited TypeScript experience'],
       recommendations: ['Consider TypeScript certification'],
-      keyRequirements: ['React', 'Node.js', 'TypeScript'],
+      keyRequirements: [
+        { requirement: 'React', status: 'met' as const },
+        { requirement: 'Node.js', status: 'met' as const },
+        { requirement: 'TypeScript', status: 'partial' as const }
+      ],
       matchDetails: {
         skillsMatch: 90,
         experienceMatch: 85,

@@ -51,7 +51,8 @@ export function SignUpForm() {
       if (result.error) {
         setError(result.error);
       } else {
-        router.push("/dashboard");
+        // New users always go to onboarding after signup
+        router.push("/onboarding/welcome");
         router.refresh();
       }
     } catch (error) {

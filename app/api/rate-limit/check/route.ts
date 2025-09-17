@@ -1,44 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUser, getSubscription } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { RateLimitService } from "@/lib/services/rate-limit.service";
+import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = await createClient();
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const { feature } = await request.json();
-
+    // Get feature from query params
+    const { searchParams } = new URL(request.url);
+    const feature = searchParams.get('feature');
+    
     if (!feature) {
       return NextResponse.json(
-        { error: "Feature name is required" },
+        { error: "Feature parameter is required" },
         { status: 400 }
       );
     }
 
-    // Get user's subscription
-    const subscription = await getSubscription(user.id);
-    let tier = 'free';
-    
-    if (subscription?.subscription_plans?.name === 'AI Coach') {
-      tier = 'ai_coach';
-    } else if (subscription?.subscription_plans?.name === 'Pro') {
-      tier = 'pro';
-    }
+    // Get user's subscription tier
+    const subscriptionTier = await getUserSubscriptionTier(user.id);
 
+    // Create rate limit service instance
     const rateLimitService = new RateLimitService();
-    const result = await rateLimitService.checkLimit(user.id, feature, tier);
 
-    return NextResponse.json({
-      allowed: result.allowed,
-      remaining: result.remaining,
-      limit: result.limit,
-      resetsAt: result.resetsAt,
-    });
+    // Check rate limit
+    const result = await rateLimitService.checkLimit(
+      user.id,
+      feature as any,
+      subscriptionTier
+    );
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Rate limit check error:", error);
+    console.error("Error checking rate limit:", error);
     return NextResponse.json(
       { error: "Failed to check rate limit" },
       { status: 500 }

@@ -61,17 +61,17 @@ async function careerAdviceHandler(request: NextRequest) {
 
     // Generate AI response using the AI Coach
     const aiCoach = createAICoach(user.id);
-    
+
     // Build context from conversation history
     const context = conversationHistory || [];
-    
+
     // Call the askCareerQuestion method with the message and context
     const response = await aiCoach.askCareerQuestion(message, context);
 
     // Save AI response to database
     const aiMessage = {
       user_id: user.id,
-      content: typeof response === 'string' ? response : response.advice || response.message || JSON.stringify(response),
+      content: response,
       is_user: false,
       created_at: new Date().toISOString(),
     };
@@ -97,7 +97,7 @@ async function careerAdviceHandler(request: NextRequest) {
 // Export with rate limiting middleware
 export const POST = async (request: NextRequest) => {
   return withRateLimit(careerAdviceHandler, {
-    feature: 'career_advice',
+    feature: "career_advice",
     request,
   });
 };

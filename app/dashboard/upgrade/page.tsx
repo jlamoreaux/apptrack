@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { PromoTrialBanner } from "@/components/promo-trial-banner";
 import Link from "next/link";
 import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
@@ -80,7 +81,7 @@ export default function UpgradePage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationClient />
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="flex items-center justify-center">
             <div className="text-center">Loading...</div>
           </div>
@@ -104,9 +105,9 @@ export default function UpgradePage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      <div className="container mx-auto py-8">
-        <div className="max-w-7xl mx-auto space-y-8">
-          <div className="flex items-center gap-4">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -136,6 +137,11 @@ export default function UpgradePage() {
             </p>
           </div>
 
+          {/* Show promo banner after title if user is on free tier */}
+          {subscription?.subscription_plans?.name === PLAN_NAMES.FREE && (
+            <PromoTrialBanner onActivate={() => window.location.reload()} />
+          )}
+
           {/* Billing Toggle */}
           <div className="flex justify-center">
             <div className="bg-muted p-1 rounded-lg">
@@ -161,10 +167,17 @@ export default function UpgradePage() {
               >
                 Yearly
                 <Badge variant="secondary" className="ml-2">
-                  Save 25%
+                  Save up to 33%
                 </Badge>
               </Button>
             </div>
+          </div>
+
+          <div className="text-center mt-4">
+            <p className="text-sm text-muted-foreground">
+              💰 Save with yearly billing: Pro saves $8/year, AI Coach saves
+              $28/year
+            </p>
           </div>
 
           {/* Pricing Cards */}
@@ -222,16 +235,6 @@ export default function UpgradePage() {
               );
             })}
           </div>
-
-          {/* Add yearly savings info */}
-          {selectedBilling === BILLING_CYCLES.YEARLY && (
-            <div className="text-center mt-4">
-              <p className="text-sm text-muted-foreground">
-                💰 Save with yearly billing: Pro saves $4/year, AI Coach saves
-                $18/year
-              </p>
-            </div>
-          )}
 
           {/* FAQ Section */}
           <div className="mt-16 space-y-8">

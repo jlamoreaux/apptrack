@@ -3,9 +3,10 @@ import { getUser, createClient } from "@/lib/supabase/server";
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getUser();
     
     if (!user) {
@@ -18,7 +19,7 @@ export async function DELETE(
     const { data: prep, error: fetchError } = await supabase
       .from("interview_prep")
       .select("id")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single();
 
@@ -30,7 +31,7 @@ export async function DELETE(
     const { error: deleteError } = await supabase
       .from("interview_prep")
       .delete()
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id);
 
     if (deleteError) {
@@ -48,9 +49,10 @@ export async function DELETE(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getUser();
     
     if (!user) {
@@ -62,7 +64,7 @@ export async function GET(
     const { data: prep, error } = await supabase
       .from("interview_prep")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("user_id", user.id)
       .single();
 

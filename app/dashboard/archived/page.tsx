@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -25,9 +26,9 @@ export default async function ArchivedApplicationsPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <div className="container mx-auto py-8 space-y-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
         {/* Header Section */}
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <Link href="/dashboard">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
@@ -35,7 +36,7 @@ export default async function ArchivedApplicationsPage() {
             </Button>
           </Link>
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-primary">
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary">
               Archived Applications
             </h1>
             <p className="text-muted-foreground">

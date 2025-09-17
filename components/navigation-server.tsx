@@ -2,7 +2,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Crown } from "lucide-react";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
+import { AdminService } from "@/lib/services/admin.service";
 import { UserMenu } from "./user-menu";
+import { MobileNavigation } from "./mobile-navigation";
 import { MainNavigation } from "./main-navigation";
 import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
 import { isOnFreePlan } from "@/lib/utils/plan-helpers";
@@ -36,9 +38,10 @@ export async function NavigationServer() {
   }
 
   // Get user data for authenticated navigation
-  const [profile, subscription] = await Promise.all([
+  const [profile, subscription, isAdmin] = await Promise.all([
     getProfile(user.id),
     getSubscription(user.id),
+    AdminService.isAdmin(user.id),
   ]);
 
   const planName = subscription?.subscription_plans?.name;
@@ -54,14 +57,23 @@ export async function NavigationServer() {
           <span className="font-bold text-xl text-primary">AppTrack</span>
         </Link>
 
-        <div className="ml-auto flex items-center space-x-2" role="toolbar" aria-label="User actions">
-          {/* Upgrade button for free users */}
+        <div className="ml-auto flex items-center space-x-2 sm:space-x-3" role="toolbar" aria-label="User actions">
+          {/* Mobile Navigation Menu */}
+          <MobileNavigation 
+            user={user} 
+            profile={profile} 
+            isOnFreePlan={isFreePlan}
+            userPlan={userPlan}
+            isAdmin={isAdmin}
+          />
+
+          {/* Desktop: Upgrade button for free users */}
           {isFreePlan && (
-            <Link href="/dashboard/upgrade">
+            <Link href="/dashboard/upgrade" className="hidden md:block">
               <Button
                 size="sm"
                 variant="outline"
-                className="hidden sm:flex border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+                className="border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
                 aria-label="Upgrade to premium plan"
               >
                 <Crown className="h-4 w-4 mr-2" aria-hidden="true" />
@@ -70,7 +82,10 @@ export async function NavigationServer() {
             </Link>
           )}
 
-          <UserMenu user={user} profile={profile} isOnFreePlan={isFreePlan} />
+          {/* Desktop: User Menu */}
+          <div className="hidden md:block">
+            <UserMenu user={user} profile={profile} isOnFreePlan={isFreePlan} isAdmin={isAdmin} />
+          </div>
         </div>
       </nav>
 

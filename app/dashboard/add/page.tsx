@@ -83,7 +83,7 @@ export default function AddApplicationPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
@@ -214,16 +214,16 @@ export default function AddApplicationPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-4">
                   <Button
                     type="submit"
-                    className="flex-1 bg-secondary hover:bg-secondary/90"
+                    className="w-full sm:flex-1 bg-secondary hover:bg-secondary/90"
                     disabled={loading}
                   >
                     {loading ? "Adding Application..." : "Add Application"}
                   </Button>
-                  <Link href="/dashboard">
-                    <Button type="button" variant="outline" disabled={loading}>
+                  <Link href="/dashboard" className="w-full sm:w-auto">
+                    <Button type="button" variant="outline" disabled={loading} className="w-full">
                       Cancel
                     </Button>
                   </Link>

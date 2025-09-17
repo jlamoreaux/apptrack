@@ -4,6 +4,75 @@ import { toHaveNoViolations } from 'jest-axe'
 // Extend Jest matchers with jest-axe custom matchers
 expect.extend(toHaveNoViolations)
 
+// Setup Next.js request/response mocks
+global.Request = class MockRequest {
+  constructor(url, init) {
+    this.url = url;
+    this.method = init?.method || 'GET';
+    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.body = init?.body;
+  }
+  
+  async text() {
+    return typeof this.body === 'string' ? this.body : JSON.stringify(this.body);
+  }
+  
+  async json() {
+    return typeof this.body === 'string' ? JSON.parse(this.body) : this.body;
+  }
+  
+  async formData() {
+    return this.body instanceof FormData ? this.body : new FormData();
+  }
+}
+
+global.NextRequest = class MockNextRequest extends global.Request {
+  constructor(url, init) {
+    super(url, init);
+  }
+}
+
+global.Response = class MockResponse {
+  constructor(body, init) {
+    this._body = body;
+    this.status = init?.status || 200;
+    this.statusText = init?.statusText || 'OK';
+    this.headers = new Map(Object.entries(init?.headers || {}));
+  }
+  
+  async json() {
+    return typeof this._body === 'string' ? JSON.parse(this._body) : this._body;
+  }
+  
+  async text() {
+    return typeof this._body === 'string' ? this._body : JSON.stringify(this._body);
+  }
+  
+  static json(data, init) {
+    const response = new MockResponse(JSON.stringify(data), init);
+    response._body = data;
+    return response;
+  }
+}
+
+global.NextResponse = class MockNextResponse extends global.Response {
+  constructor(body, init) {
+    super(body, init);
+  }
+  
+  static json(data, init) {
+    const response = new MockNextResponse(JSON.stringify(data), init);
+    response._body = data;
+    return response;
+  }
+}
+
+// Mock next/server module
+jest.mock('next/server', () => ({
+  NextRequest: global.NextRequest,
+  NextResponse: global.NextResponse,
+}))
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {
@@ -23,6 +92,16 @@ jest.mock('next/navigation', () => ({
     return '/'
   },
 }))
+
+// Mock Replicate module
+jest.mock('replicate', () => {
+  return jest.fn().mockImplementation(() => ({
+    run: jest.fn(),
+  }))
+})
+
+// Mock fetch for tests
+global.fetch = jest.fn()
 
 // Mock next/link
 jest.mock('next/link', () => {

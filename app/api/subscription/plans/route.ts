@@ -16,7 +16,7 @@ export async function GET() {
     const { data: plans, error } = await supabase
       .from("subscription_plans")
       .select("*")
-      .order("price", { ascending: true });
+      .order("price_monthly", { ascending: true });
 
     if (error) {
       console.error("Error fetching subscription plans:", error);

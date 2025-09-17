@@ -7,7 +7,7 @@ export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationStatic />
-      <div className="container mx-auto flex items-center justify-center min-h-[calc(100vh-3.5rem)] py-8">
+      <div className="container mx-auto px-4 flex items-center justify-center min-h-[calc(100vh-3.5rem)] py-8">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <CardTitle>Join AppTrack</CardTitle>

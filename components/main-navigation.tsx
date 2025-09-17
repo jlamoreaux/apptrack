@@ -27,11 +27,11 @@ import {
   Target,
   Brain,
 } from "lucide-react";
-import { 
-  NAV_ITEMS, 
+import {
+  NAV_ITEMS,
   AI_COACH_COLORS,
   NAVIGATION_URLS,
-  isRouteActive 
+  isRouteActive,
 } from "@/lib/constants/navigation";
 import { isOnAICoachPlan } from "@/lib/utils/plan-helpers";
 import { PLAN_NAMES } from "@/lib/constants/plans";
@@ -69,27 +69,40 @@ interface NavItemProps {
 function useActiveStates(pathname: string): Record<string, boolean> {
   return useMemo(() => {
     const activeStates: Record<string, boolean> = {};
-    
+
     NAV_ITEMS.forEach((item) => {
       activeStates[item.id] = isRouteActive(pathname, item.href, item.id);
     });
-    
+
     return activeStates;
   }, [pathname]);
 }
 
-function NavItemComponent({ item, isActive, userPlan, isMobile, onItemClick }: NavItemProps) {
+function NavItemComponent({
+  item,
+  isActive,
+  userPlan,
+  isMobile,
+  onItemClick,
+}: NavItemProps) {
   const hasAccess = !item.requiresPlan || userPlan === item.requiresPlan;
   const Icon = item.icon;
 
   const content = (
     <>
       <div className="flex items-center gap-2">
-        <Icon className={cn(UI_CONSTANTS.SIZES.ICON.SM, item.highlight && AI_COACH_COLORS.primary)} />
-        <span className={cn(item.highlight && "font-semibold")}>{item.label}</span>
+        <Icon
+          className={cn(
+            UI_CONSTANTS.SIZES.ICON.SM,
+            item.highlight && AI_COACH_COLORS.primary
+          )}
+        />
+        <span className={cn(item.highlight && "font-semibold")}>
+          {item.label}
+        </span>
         {item.badge && (
-          <Badge 
-            variant={hasAccess ? "default" : "secondary"} 
+          <Badge
+            variant={hasAccess ? "default" : "secondary"}
             className={cn(
               "h-5 text-xs",
               item.highlight && "bg-purple-600 text-white",
@@ -99,9 +112,18 @@ function NavItemComponent({ item, isActive, userPlan, isMobile, onItemClick }: N
             {item.badge}
           </Badge>
         )}
-        {!hasAccess && <Lock className={cn(UI_CONSTANTS.SIZES.ICON.XS, "text-muted-foreground")} />}
+        {!hasAccess && (
+          <Lock
+            className={cn(UI_CONSTANTS.SIZES.ICON.XS, "text-muted-foreground")}
+          />
+        )}
         {item.highlight && hasAccess && (
-          <Sparkles className={cn(UI_CONSTANTS.SIZES.ICON.XS, "text-purple-600 animate-pulse")} />
+          <Sparkles
+            className={cn(
+              UI_CONSTANTS.SIZES.ICON.XS,
+              "text-purple-600 animate-pulse"
+            )}
+          />
         )}
       </div>
       {isMobile && item.description && (
@@ -128,23 +150,23 @@ function NavItemComponent({ item, isActive, userPlan, isMobile, onItemClick }: N
         <DropdownMenuContent align="start" className="w-80">
           <div className="p-4 space-y-3">
             <div className="flex items-center gap-2">
-              <Icon className={cn(UI_CONSTANTS.SIZES.ICON.MD, AI_COACH_COLORS.primary)} />
+              <Icon
+                className={cn(
+                  UI_CONSTANTS.SIZES.ICON.MD,
+                  AI_COACH_COLORS.primary
+                )}
+              />
               <h3 className="font-semibold">{item.label}</h3>
               <Badge className="bg-purple-600 text-white">PRO</Badge>
             </div>
-            <p className={`${UI_CONSTANTS.SIZES.TEXT.SM} text-muted-foreground`}>
+            <p
+              className={`${UI_CONSTANTS.SIZES.TEXT.SM} text-muted-foreground`}
+            >
               {item.description}
             </p>
             <div className="flex gap-2">
               <Button size="sm" className="flex-1" asChild>
-                <Link href={NAVIGATION_URLS.UPGRADE}>
-                  Upgrade to Access
-                </Link>
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link href={item.href}>
-                  Preview
-                </Link>
+                <Link href={NAVIGATION_URLS.UPGRADE}>Upgrade to Access</Link>
               </Button>
             </div>
           </div>
@@ -167,9 +189,7 @@ function NavItemComponent({ item, isActive, userPlan, isMobile, onItemClick }: N
       asChild
       onClick={onItemClick}
     >
-      <Link href={item.href}>
-        {content}
-      </Link>
+      <Link href={item.href}>{content}</Link>
     </Button>
   );
 }
@@ -194,27 +214,51 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
   };
 
   return (
-    <nav id="main-navigation" aria-label="Main navigation" className={cn("border-b bg-background/95 backdrop-blur", className)}>
-      <div className={`container flex ${UI_CONSTANTS.SPACING.NAV_HEIGHT} items-center`}>
+    <nav
+      id="main-navigation"
+      aria-label="Main navigation"
+      className={cn("hidden md:block border-b bg-background/95 backdrop-blur", className)}
+    >
+      <div
+        className={`container flex ${UI_CONSTANTS.SPACING.NAV_HEIGHT} items-center`}
+      >
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center space-x-1" role="menubar" aria-label="Navigation menu">
+        <div
+          className="flex items-center space-x-1"
+          role="menubar"
+          aria-label="Navigation menu"
+        >
           {renderNavItems()}
         </div>
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden">
+        {/* Mobile Navigation - Removed, now handled by MobileNavigation component */}
+        <div className="hidden">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" aria-label="Open navigation menu" aria-expanded={mobileMenuOpen}>
-                <Menu className={UI_CONSTANTS.SIZES.ICON.SM} aria-hidden="true" />
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Open navigation menu"
+                aria-expanded={mobileMenuOpen}
+              >
+                <Menu
+                  className={UI_CONSTANTS.SIZES.ICON.SM}
+                  aria-hidden="true"
+                />
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className={UI_CONSTANTS.SIZES.CONTAINER.MOBILE_NAV}>
+            <SheetContent
+              side="left"
+              className={UI_CONSTANTS.SIZES.CONTAINER.MOBILE_NAV}
+            >
               <SheetHeader>
                 <SheetTitle>Navigation Menu</SheetTitle>
               </SheetHeader>
-              <nav className="mt-6 space-y-2" aria-label="Mobile navigation menu">
+              <nav
+                className="mt-6 space-y-2"
+                aria-label="Mobile navigation menu"
+              >
                 {renderNavItems(true)}
               </nav>
             </SheetContent>
@@ -236,26 +280,42 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
                   )}
                   aria-label="AI Coach quick actions menu"
                 >
-                  <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
+                  <Brain
+                    className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`}
+                    aria-hidden="true"
+                  />
                   Quick AI Actions
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-60" aria-label="AI Coach actions">
+              <DropdownMenuContent
+                align="end"
+                className="w-60"
+                aria-label="AI Coach actions"
+              >
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.RESUME}>
-                    <Brain className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
+                    <Brain
+                      className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`}
+                      aria-hidden="true"
+                    />
                     Analyze Resume
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.INTERVIEW}>
-                    <MessageSquare className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
+                    <MessageSquare
+                      className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`}
+                      aria-hidden="true"
+                    />
                     Interview Prep
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href={APP_ROUTES.AI_COACH_TABS.ADVICE}>
-                    <Target className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`} aria-hidden="true" />
+                    <Target
+                      className={`${UI_CONSTANTS.SIZES.ICON.SM} mr-2`}
+                      aria-hidden="true"
+                    />
                     Get Career Advice
                   </Link>
                 </DropdownMenuItem>

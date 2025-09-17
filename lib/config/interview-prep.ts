@@ -39,21 +39,31 @@ export const INTERVIEW_PREP_CONFIG = {
     MIN_DURATION: 10,
     MAX_DURATION: 180,
     REQUIRED_QUESTION_FIELDS: ['id', 'question', 'category', 'difficulty', 'suggestedApproach'],
-    VALID_CATEGORIES: ['behavioral', 'technical', 'company-specific', 'role-specific'] as const,
+    VALID_CATEGORIES: ['behavioral', 'technical', 'company-specific', 'role-specific', 'situational'] as const,
     VALID_DIFFICULTIES: ['easy', 'medium', 'hard'] as const,
   },
 
   // Content extraction patterns
   PATTERNS: {
     COMPANY_EXTRACTION: [
-      /(?:at|with|for)\s+([A-Z][a-zA-Z\s&,.-]+?)(?:\s+is|,|\s+we|\s+located|\s+offers|\.)/i,
-      /([A-Z][a-zA-Z\s&,.-]+?)\s+is\s+(?:seeking|looking|hiring)/i,
-      /join\s+(?:our\s+team\s+at\s+)?([A-Z][a-zA-Z\s&,.-]+?)(?:\s+as|,|\.)/i,
+      // Match company name before "is hiring/seeking/looking"
+      /^([A-Z][a-zA-Z0-9\s&(),.-]+?)\s+(?:is\s+)?(?:seeking|looking|hiring)/im,
+      // Match company name after "at/with/for"
+      /(?:at|with|for)\s+([A-Z][a-zA-Z0-9\s&(),.-]+?)(?:\s+is|,|\s+we|\s+located|\s+offers|$|\n)/i,
+      // Match company name in format "Company Name, Inc." or similar
+      /^([A-Z][a-zA-Z0-9\s&]+(?:\s+(?:Inc|LLC|Ltd|Corp|Corporation|Company))?\.?)[,.\s]/im,
+      // Match after "join"
+      /join\s+(?:our\s+team\s+at\s+)?([A-Z][a-zA-Z0-9\s&(),.-]+?)(?:\s+as|,|\.)/i,
     ],
     ROLE_EXTRACTION: [
-      /(?:position|role|job)\s+(?:title|of|as)?\s*:?\s*([A-Z][a-zA-Z\s-]+?)(?:\s+at|\s+with|\s+for|,|\n|\.)/i,
-      /(?:seeking|hiring|looking for)\s+an?\s+([A-Z][a-zA-Z\s-]+?)(?:\s+to|\s+who|\s+at|,|\n|\.)/i,
-      /^([A-Z][a-zA-Z\s-]+?)(?:\s+at|\s+with|\s+for|\s+-|,|\n)/i,
+      // Match role after "hiring a/an"
+      /(?:seeking|hiring|looking\s+for)\s+(?:a|an)?\s*([A-Z][a-zA-Z\s-]+?)(?:\s+to|\s+who|\s+with|,|\n|$)/i,
+      // Match role with "position/role/job"
+      /(?:position|role|job)(?:\s+(?:title|of|as))?\s*:?\s*([A-Z][a-zA-Z\s-]+?)(?:\s+at|\s+with|\s+for|,|\n|$)/i,
+      // Match role at beginning of line
+      /^([A-Z][a-zA-Z\s-]+?)\s+(?:Role|Position|Job|at|with|for)\s/im,
+      // Match role after "as a/an"
+      /\bas\s+(?:a|an)?\s*([A-Z][a-zA-Z\s-]+?)(?:\s+at|\s+with|,|\n|$)/i,
     ],
     INVALID_NAME: /^\d+$/,
   },

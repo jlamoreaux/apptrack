@@ -488,6 +488,30 @@ These commands make AI calls and may take up to a minute:
 
 ## Code Quality & Development Preferences
 
+### CRITICAL: Supabase Access Pattern
+
+**NEVER access Supabase directly from frontend/client components!**
+- **DO NOT** import from `@/lib/supabase/server` in client components
+- **DO NOT** use `createClient()` in components with `"use client"`
+- **ALWAYS** create API routes in `/app/api/` for database operations
+- **ALWAYS** call these API routes from client components using `fetch()`
+
+**Correct Pattern:**
+```typescript
+// ❌ BAD: Client component accessing Supabase directly
+"use client";
+import { createClient } from "@/lib/supabase/server";
+const supabase = await createClient();
+const { data } = await supabase.from("table").select();
+
+// ✅ GOOD: Client component calling API route
+"use client";
+const response = await fetch("/api/check-user");
+const data = await response.json();
+```
+
+**Why:** Server-side Supabase functions use `cookies()` from `next/headers`, which only works in Server Components. Client components must use API routes as a proxy.
+
 ### Code Documentation Standards
 
 **Comments and Documentation Policy:**
