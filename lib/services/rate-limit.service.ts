@@ -100,7 +100,7 @@ export class RateLimitService {
   }
 
   /**
-   * Track usage of an AI feature
+   * Track usage of an AI feature (Redis only for privacy)
    */
   public async trackUsage(
     userId: string,
@@ -108,37 +108,58 @@ export class RateLimitService {
     success: boolean = true,
     metadata?: Record<string, any>
   ): Promise<void> {
+    if (!redis) {
+      // No Redis available, skip tracking
+      console.log('Redis not available, skipping usage tracking');
+      return;
+    }
+    
     try {
-      const supabase = await createClient();
+      // Increment usage counters in Redis only
+      const hourlyKey = `usage:${userId}:${feature}:hourly`;
+      const dailyKey = `usage:${userId}:${feature}:daily`;
       
-      // Log to database for analytics
-      await supabase.from('ai_usage_tracking').insert({
-        user_id: userId,
-        feature_name: feature,
-        success,
-        metadata: metadata || {},
-        used_at: new Date().toISOString(),
-      });
-
-      // Increment Redis counters if available
-      if (redis) {
-        try {
-          const hourlyKey = `usage:${userId}:${feature}:hourly`;
-          const dailyKey = `usage:${userId}:${feature}:daily`;
-          
-          await Promise.all([
-            redis.incr(hourlyKey),
-            redis.incr(dailyKey),
-            redis.expire(hourlyKey, 3600), // 1 hour
-            redis.expire(dailyKey, 86400), // 24 hours
-          ]);
-        } catch (redisError) {
-          console.error('Redis trackUsage failed, continuing without Redis tracking:', redisError);
-          // Continue without Redis - database tracking still works
-        }
+      // Also track aggregated counts for the cron job
+      const hourlyAggKey = `usage:agg:${feature}:hourly:${new Date().toISOString().slice(0, 13)}`;
+      const dailyAggKey = `usage:agg:${feature}:daily:${new Date().toISOString().slice(0, 10)}`;
+      
+      // Calculate TTL to align with reset times
+      const now = new Date();
+      const nextHour = new Date(now);
+      nextHour.setMinutes(0, 0, 0);
+      nextHour.setHours(nextHour.getHours() + 1);
+      const hourlyTTL = Math.ceil((nextHour.getTime() - now.getTime()) / 1000);
+      
+      const nextDay = new Date(now);
+      nextDay.setHours(24, 0, 0, 0);
+      const dailyTTL = Math.ceil((nextDay.getTime() - now.getTime()) / 1000);
+      
+      await Promise.all([
+        // User-specific counters for rate limiting
+        redis.incr(hourlyKey),
+        redis.incr(dailyKey),
+        redis.expire(hourlyKey, hourlyTTL),
+        redis.expire(dailyKey, dailyTTL),
+        
+        // Aggregated counters for statistics
+        redis.incr(hourlyAggKey),
+        redis.incr(dailyAggKey),
+        redis.expire(hourlyAggKey, 86400), // Keep for 24 hours
+        redis.expire(dailyAggKey, 172800), // Keep for 48 hours
+        
+        // Track unique users
+        redis.sadd(`usage:users:${feature}:hourly:${new Date().toISOString().slice(0, 13)}`, userId),
+        redis.sadd(`usage:users:${feature}:daily:${new Date().toISOString().slice(0, 10)}`, userId),
+        redis.expire(`usage:users:${feature}:hourly:${new Date().toISOString().slice(0, 13)}`, 86400),
+        redis.expire(`usage:users:${feature}:daily:${new Date().toISOString().slice(0, 10)}`, 172800),
+      ]);
+      
+      // Track success rate
+      if (success) {
+        await redis.incr(`usage:success:${feature}:daily:${new Date().toISOString().slice(0, 10)}`);
       }
     } catch (error) {
-      console.error('Failed to track usage:', error);
+      console.error('Failed to track usage in Redis:', error);
       // Don't throw - we don't want tracking failures to break the app
     }
   }
@@ -181,29 +202,50 @@ export class RateLimitService {
       // Fallback to database
       const supabase = await createClient();
       
-      // Get hourly usage
-      const hourAgo = new Date(Date.now() - 3600000);
+      // Calculate time boundaries to match reset times
+      const now = new Date();
+      
+      // Start of current hour
+      const currentHourStart = new Date(now);
+      currentHourStart.setMinutes(0, 0, 0);
+      
+      // Start of current day (midnight)
+      const currentDayStart = new Date(now);
+      currentDayStart.setHours(0, 0, 0, 0);
+      
+      // Get hourly usage (from start of current hour)
       const { count: hourlyCount } = await supabase
         .from('ai_usage_tracking')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('feature_name', feature)
         .eq('success', true)
-        .gte('used_at', hourAgo.toISOString());
+        .gte('used_at', currentHourStart.toISOString());
       
-      // Get daily usage
-      const dayAgo = new Date(Date.now() - 86400000);
+      // Get daily usage (from start of current day)
       const { count: dailyCount } = await supabase
         .from('ai_usage_tracking')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)
         .eq('feature_name', feature)
         .eq('success', true)
-        .gte('used_at', dayAgo.toISOString());
+        .gte('used_at', currentDayStart.toISOString());
       
       hourlyUsed = hourlyCount || 0;
       dailyUsed = dailyCount || 0;
     }
+
+    // Calculate accurate reset times
+    const now = new Date();
+    
+    // Hourly reset: next hour boundary
+    const hourlyReset = new Date(now);
+    hourlyReset.setMinutes(0, 0, 0);
+    hourlyReset.setHours(hourlyReset.getHours() + 1);
+    
+    // Daily reset: next day at midnight (local time)
+    const dailyReset = new Date(now);
+    dailyReset.setHours(24, 0, 0, 0);
 
     return {
       feature,
@@ -214,8 +256,8 @@ export class RateLimitService {
       dailyLimit: limits?.daily_limit || 0,
       dailyRemaining: Math.max(0, (limits?.daily_limit || 0) - dailyUsed),
       resetAt: {
-        hourly: new Date(Date.now() + 3600000),
-        daily: new Date(Date.now() + 86400000),
+        hourly: hourlyReset,
+        daily: dailyReset,
       },
     };
   }
@@ -312,29 +354,53 @@ export class RateLimitService {
       const dailyExceeded = dailyUsed >= limits.daily_limit;
       
       if (hourlyExceeded || dailyExceeded) {
+        // Calculate accurate reset times
+        const now = new Date();
+        
+        const hourlyReset = new Date(now);
+        hourlyReset.setMinutes(0, 0, 0);
+        hourlyReset.setHours(hourlyReset.getHours() + 1);
+        
+        const dailyReset = new Date(now);
+        dailyReset.setHours(24, 0, 0, 0);
+        
         // Determine which limit was hit and when it resets
-        const resetTime = hourlyExceeded 
-          ? new Date(Date.now() + 3600000) 
-          : new Date(Date.now() + 86400000);
+        const resetTime = hourlyExceeded ? hourlyReset : dailyReset;
+        const retryAfterMs = resetTime.getTime() - now.getTime();
         
         return {
           allowed: false,
           limit: hourlyExceeded ? limits.hourly_limit : limits.daily_limit,
           remaining: 0,
           reset: resetTime,
-          retryAfter: Math.ceil((resetTime.getTime() - Date.now()) / 1000),
+          retryAfter: Math.ceil(retryAfterMs / 1000),
         };
       }
+      
+      // Calculate TTL to align with reset times
+      const now = new Date();
+      const nextHour = new Date(now);
+      nextHour.setMinutes(0, 0, 0);
+      nextHour.setHours(nextHour.getHours() + 1);
+      const hourlyTTL = Math.ceil((nextHour.getTime() - now.getTime()) / 1000);
+      
+      const nextDay = new Date(now);
+      nextDay.setHours(24, 0, 0, 0);
+      const dailyTTL = Math.ceil((nextDay.getTime() - now.getTime()) / 1000);
       
       // Increment usage counters
       await Promise.all([
         redis.incr(hourlyKey),
         redis.incr(dailyKey),
-        redis.expire(hourlyKey, 3600), // 1 hour TTL
-        redis.expire(dailyKey, 86400), // 24 hour TTL
+        redis.expire(hourlyKey, hourlyTTL), // TTL until next hour boundary
+        redis.expire(dailyKey, dailyTTL), // TTL until next day boundary
       ]);
       
       // Return success with remaining counts
+      const hourlyResetTime = new Date(now);
+      hourlyResetTime.setMinutes(0, 0, 0);
+      hourlyResetTime.setHours(hourlyResetTime.getHours() + 1);
+      
       return {
         allowed: true,
         limit: Math.min(limits.hourly_limit, limits.daily_limit),
@@ -342,7 +408,7 @@ export class RateLimitService {
           limits.hourly_limit - hourlyUsed - 1,
           limits.daily_limit - dailyUsed - 1
         ),
-        reset: new Date(Date.now() + 3600000), // Next hourly reset
+        reset: hourlyResetTime, // Next hourly reset
         retryAfter: 0,
       };
     } catch (error) {
@@ -359,47 +425,66 @@ export class RateLimitService {
   ): Promise<RateLimitResult> {
     const supabase = await createClient();
     
-    // Check hourly usage
-    const hourAgo = new Date(Date.now() - 3600000);
+    // Calculate time boundaries to match reset times
+    const now = new Date();
+    
+    // Start of current hour
+    const currentHourStart = new Date(now);
+    currentHourStart.setMinutes(0, 0, 0);
+    
+    // Start of current day (midnight)
+    const currentDayStart = new Date(now);
+    currentDayStart.setHours(0, 0, 0, 0);
+    
+    // Check hourly usage (from start of current hour)
     const { count: hourlyCount } = await supabase
       .from('ai_usage_tracking')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('feature_name', feature)
       .eq('success', true)
-      .gte('used_at', hourAgo.toISOString());
+      .gte('used_at', currentHourStart.toISOString());
     
-    // Check daily usage
-    const dayAgo = new Date(Date.now() - 86400000);
+    // Check daily usage (from start of current day)
     const { count: dailyCount } = await supabase
       .from('ai_usage_tracking')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .eq('feature_name', feature)
       .eq('success', true)
-      .gte('used_at', dayAgo.toISOString());
+      .gte('used_at', currentDayStart.toISOString());
     
     const hourlyUsed = hourlyCount || 0;
     const dailyUsed = dailyCount || 0;
     
+    // Calculate accurate reset times
+    const hourlyReset = new Date(now);
+    hourlyReset.setMinutes(0, 0, 0);
+    hourlyReset.setHours(hourlyReset.getHours() + 1);
+    
+    const dailyReset = new Date(now);
+    dailyReset.setHours(24, 0, 0, 0);
+    
     // Check limits
     if (hourlyUsed >= limits.hourly_limit) {
+      const retryAfterMs = hourlyReset.getTime() - now.getTime();
       return {
         allowed: false,
         limit: limits.hourly_limit,
         remaining: 0,
-        reset: new Date(Date.now() + 3600000),
-        retryAfter: 3600,
+        reset: hourlyReset,
+        retryAfter: Math.ceil(retryAfterMs / 1000),
       };
     }
     
     if (dailyUsed >= limits.daily_limit) {
+      const retryAfterMs = dailyReset.getTime() - now.getTime();
       return {
         allowed: false,
         limit: limits.daily_limit,
         remaining: 0,
-        reset: new Date(Date.now() + 86400000),
-        retryAfter: 86400,
+        reset: dailyReset,
+        retryAfter: Math.ceil(retryAfterMs / 1000),
       };
     }
     
@@ -412,7 +497,7 @@ export class RateLimitService {
       allowed: true,
       limit: limits.daily_limit,
       remaining,
-      reset: new Date(Date.now() + 3600000),
+      reset: hourlyReset, // Next reset is at hour boundary
     };
   }
 }

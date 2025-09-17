@@ -8,6 +8,7 @@ import { ResumeDAL } from "@/dal/resumes";
 import { InterviewPrepTransformerService } from "@/lib/services/interview-prep-transformer";
 import type { InterviewPreparationResult } from "@/types/ai-analysis";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
+import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -38,7 +39,41 @@ interface ParsedInterviewContext {
   role: string;
 }
 
-export async function POST(request: NextRequest): Promise<NextResponse<InterviewPrepResponse | InterviewPrepErrorResponse>> {
+/**
+ * Clean AI response to extract JSON if wrapped in code blocks
+ */
+function cleanAIResponse(content: string): string | InterviewPreparationResult {
+  if (typeof content !== 'string') return content;
+  
+  // Check if content is wrapped in markdown code blocks
+  const codeBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch && codeBlockMatch[1]) {
+    try {
+      // Parse and return the JSON object directly
+      const parsed = JSON.parse(codeBlockMatch[1].trim());
+      if (parsed.questions && Array.isArray(parsed.questions)) {
+        return parsed;
+      }
+    } catch (e) {
+      // If parsing fails, return the original content
+      console.warn('Failed to parse JSON from code block in AI response:', e);
+    }
+  }
+  
+  // Try to parse as plain JSON
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.questions && Array.isArray(parsed.questions)) {
+      return parsed;
+    }
+  } catch {
+    // Content is not JSON, return as-is
+  }
+  
+  return content;
+}
+
+async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<InterviewPrepResponse | InterviewPrepErrorResponse>> {
   const transformer = new InterviewPrepTransformerService();
   
   try {
@@ -151,13 +186,16 @@ export async function POST(request: NextRequest): Promise<NextResponse<Interview
     // 7. Generate new content
     const aiCoach = createAICoach(user.id);
     const prepJobDesc = effectiveJobDescription || effectiveJobUrl;
-    const preparation = await aiCoach.prepareForInterview({
+    const rawPreparation = await aiCoach.prepareForInterview({
       jobDescription: prepJobDesc!,
       interviewContext: finalInterviewContext,
       resumeText: finalResumeText,
     });
+    
+    // Clean the AI response to extract JSON if wrapped in code blocks
+    const preparation = cleanAIResponse(rawPreparation);
 
-    // 8. Save to database
+    // 8. Save to database (save the cleaned content)
     await aiCoachService.createInterviewPrep({
       user_id: user.id,
       user_resume_id: finalUserResumeId,
@@ -218,4 +256,12 @@ async function resolveResumeData(
 
   return { finalResumeText, finalUserResumeId };
 }
+
+// Export with rate limiting middleware
+export const POST = async (request: NextRequest) => {
+  return withRateLimit(interviewPrepHandler, {
+    feature: "interview_prep",
+    request,
+  });
+};
 

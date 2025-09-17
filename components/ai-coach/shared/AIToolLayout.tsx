@@ -24,6 +24,8 @@ interface AIToolLayoutProps {
   result?: ReactNode;
   savedItemsCount?: number;
   onViewSaved?: () => void;
+  isDisabled?: boolean;
+  disabledMessage?: string | null;
 }
 
 export function AIToolLayout({
@@ -38,6 +40,8 @@ export function AIToolLayout({
   result,
   savedItemsCount,
   onViewSaved,
+  isDisabled = false,
+  disabledMessage,
 }: AIToolLayoutProps) {
   return (
     <div className="space-y-6">
@@ -72,10 +76,17 @@ export function AIToolLayout({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          
+          {isDisabled && disabledMessage && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{disabledMessage}</AlertDescription>
+            </Alert>
+          )}
 
           <Button
             onClick={onSubmit}
-            disabled={isLoading}
+            disabled={isLoading || isDisabled}
             className="w-full"
             size="lg"
           >
@@ -84,6 +95,8 @@ export function AIToolLayout({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Processing...
               </>
+            ) : isDisabled ? (
+              "Limit Reached"
             ) : (
               submitLabel
             )}

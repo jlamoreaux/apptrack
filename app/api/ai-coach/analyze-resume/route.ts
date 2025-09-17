@@ -5,8 +5,9 @@ import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { ResumeDAL } from "@/dal/resumes";
+import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 
-export async function POST(request: NextRequest) {
+async function analyzeResumeHandler(request: NextRequest) {
   try {
     const supabase = await createClient();
 
@@ -93,3 +94,11 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+// Export with rate limiting middleware
+export const POST = async (request: NextRequest) => {
+  return withRateLimit(analyzeResumeHandler, {
+    feature: "resume_analysis",
+    request,
+  });
+};

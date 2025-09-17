@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { AdminService } from "@/lib/services/admin.service";
+import { AuditService } from "@/lib/services/audit.service";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
 // GET /api/admin/users - Get all admin users
@@ -29,12 +30,12 @@ export async function GET(request: NextRequest) {
     
     const { data: profiles } = await supabase
       .from("profiles")
-      .select("user_id, full_name, email")
-      .in("user_id", adminUserIds);
+      .select("id, full_name, email")
+      .in("id", adminUserIds);
 
     // Combine admin data with profile data
     const adminsWithProfiles = adminUsers.map(admin => {
-      const profile = profiles?.find(p => p.user_id === admin.user_id);
+      const profile = profiles?.find(p => p.id === admin.user_id);
       return {
         ...admin,
         full_name: profile?.full_name || null,
@@ -82,6 +83,9 @@ export async function POST(request: NextRequest) {
     const success = await AdminService.addAdminUser(userId, notes);
     
     if (success) {
+      // Log the action with request for IP capture
+      await AuditService.logAdminUserAdded(user.id, userId, undefined, notes, request);
+      
       return NextResponse.json({ 
         success: true, 
         message: "Admin user added successfully" 
@@ -140,6 +144,9 @@ export async function DELETE(request: NextRequest) {
     const success = await AdminService.removeAdminUser(userIdToRemove);
     
     if (success) {
+      // Log the action with request for IP capture
+      await AuditService.logAdminUserRemoved(user.id, userIdToRemove, undefined, request);
+      
       return NextResponse.json({ 
         success: true, 
         message: "Admin user removed successfully" 

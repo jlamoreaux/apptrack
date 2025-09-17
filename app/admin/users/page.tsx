@@ -38,12 +38,12 @@ export default async function AdminUsersPage() {
   // Fetch profiles for all admin users
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("user_id, full_name, email")
-    .in("user_id", adminUserIds);
+    .select("id, full_name, email")
+    .in("id", adminUserIds);
   
   // Map admin users with their profile details
   const adminsWithDetails = adminUsers.map(admin => {
-    const profile = profiles?.find(p => p.user_id === admin.user_id);
+    const profile = profiles?.find(p => p.id === admin.user_id);
     
     return {
       ...admin,
