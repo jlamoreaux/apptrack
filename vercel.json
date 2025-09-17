@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/cron/sync-ai-usage",
-      "schedule": "5 * * * *"
+      "schedule": "0 2 * * *"
     }
   ]
 }

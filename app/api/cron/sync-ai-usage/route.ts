@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 /**
  * Cron job to calculate and store aggregated AI usage statistics
- * Runs every hour to process Redis counters into database aggregates
+ * Runs daily at 2 AM to process Redis counters into database aggregates
  */
 export async function GET(request: NextRequest) {
   try {
@@ -31,9 +31,8 @@ export async function GET(request: NextRequest) {
     
     const supabase = await createClient();
     const now = new Date();
-    const currentHour = now.toISOString().slice(0, 13);
     const currentDate = now.toISOString().slice(0, 10);
-    const currentHourNum = now.getHours();
+    const yesterdayDate = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
     
     const features: AIFeature[] = [
       'resume_analysis',
@@ -44,56 +43,39 @@ export async function GET(request: NextRequest) {
     ];
     
     const statsToInsert = [];
+    const datesToProcess = [yesterdayDate, currentDate]; // Process yesterday and today
     
-    // Process each feature
+    // Process each feature for each date
     for (const feature of features) {
-      try {
-        // Get hourly stats from Redis
-        const hourlyCountKey = `usage:agg:${feature}:hourly:${currentHour}`;
-        const hourlyUsersKey = `usage:users:${feature}:hourly:${currentHour}`;
-        
-        const hourlyCount = await redis.get(hourlyCountKey) || 0;
-        const hourlyUsers = await redis.scard(hourlyUsersKey) || 0;
-        
-        // Get daily stats from Redis
-        const dailyCountKey = `usage:agg:${feature}:daily:${currentDate}`;
-        const dailyUsersKey = `usage:users:${feature}:daily:${currentDate}`;
-        const dailySuccessKey = `usage:success:${feature}:daily:${currentDate}`;
-        
-        const dailyCount = await redis.get(dailyCountKey) || 0;
-        const dailyUsers = await redis.scard(dailyUsersKey) || 0;
-        const dailySuccess = await redis.get(dailySuccessKey) || 0;
-        
-        // Calculate failed requests (total - successful)
-        const dailyFailed = Number(dailyCount) - Number(dailySuccess);
-        
-        // Prepare hourly stats record
-        if (Number(hourlyCount) > 0) {
-          statsToInsert.push({
-            feature_name: feature,
-            stat_date: currentDate,
-            stat_hour: currentHourNum,
-            total_requests: Number(hourlyCount),
-            unique_users: Number(hourlyUsers),
-            successful_requests: Number(hourlyCount), // Assume all are successful for hourly
-            failed_requests: 0,
-          });
+      for (const date of datesToProcess) {
+        try {
+          // Get daily stats from Redis
+          const dailyCountKey = `usage:agg:${feature}:daily:${date}`;
+          const dailyUsersKey = `usage:users:${feature}:daily:${date}`;
+          const dailySuccessKey = `usage:success:${feature}:daily:${date}`;
+          
+          const dailyCount = await redis.get(dailyCountKey) || 0;
+          const dailyUsers = await redis.scard(dailyUsersKey) || 0;
+          const dailySuccess = await redis.get(dailySuccessKey) || 0;
+          
+          // Calculate failed requests (total - successful)
+          const dailyFailed = Number(dailyCount) - Number(dailySuccess);
+          
+          // Only insert if there was actual usage
+          if (Number(dailyCount) > 0) {
+            statsToInsert.push({
+              feature_name: feature,
+              stat_date: date,
+              stat_hour: null, // NULL indicates daily summary
+              total_requests: Number(dailyCount),
+              unique_users: Number(dailyUsers),
+              successful_requests: Number(dailySuccess),
+              failed_requests: dailyFailed > 0 ? dailyFailed : 0,
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to process stats for ${feature} on ${date}:`, error);
         }
-        
-        // Prepare daily summary record (stat_hour = null for daily summaries)
-        if (Number(dailyCount) > 0) {
-          statsToInsert.push({
-            feature_name: feature,
-            stat_date: currentDate,
-            stat_hour: null, // NULL indicates daily summary
-            total_requests: Number(dailyCount),
-            unique_users: Number(dailyUsers),
-            successful_requests: Number(dailySuccess),
-            failed_requests: dailyFailed > 0 ? dailyFailed : 0,
-          });
-        }
-      } catch (error) {
-        console.error(`Failed to process stats for ${feature}:`, error);
       }
     }
     
