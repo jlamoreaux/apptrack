@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Copy, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Copy, Users, ArrowLeft, Ticket } from "lucide-react";
+import Link from "next/link";
 
 interface PromoCode {
   id: string;
@@ -127,16 +128,31 @@ export default function PromoCodesAdminPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <div className="text-center">Loading admin panel...</div>
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <div className="text-lg text-muted-foreground">Loading promo codes...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto py-8 max-w-6xl">
+    <>
+      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Promo Codes Admin</h1>
+        <div className="flex items-center gap-4 mb-4">
+          <Link href="/admin">
+            <Button variant="ghost" size="sm">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Admin Dashboard
+            </Button>
+          </Link>
+        </div>
+        
+        <div className="flex items-center gap-2 mb-2">
+          <Ticket className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">Promo Codes</h1>
+        </div>
         <p className="text-muted-foreground">
           Manage trial promo codes for beta testing and promotions
         </p>
@@ -307,6 +323,6 @@ export default function PromoCodesAdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </>
   );
 }

@@ -217,22 +217,22 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
     <nav
       id="main-navigation"
       aria-label="Main navigation"
-      className={cn("border-b bg-background/95 backdrop-blur", className)}
+      className={cn("hidden md:block border-b bg-background/95 backdrop-blur", className)}
     >
       <div
         className={`container flex ${UI_CONSTANTS.SPACING.NAV_HEIGHT} items-center`}
       >
         {/* Desktop Navigation */}
         <div
-          className="hidden md:flex items-center space-x-1"
+          className="flex items-center space-x-1"
           role="menubar"
           aria-label="Navigation menu"
         >
           {renderNavItems()}
         </div>
 
-        {/* Mobile Navigation */}
-        <div className="md:hidden">
+        {/* Mobile Navigation - Removed, now handled by MobileNavigation component */}
+        <div className="hidden">
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button

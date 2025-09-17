@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ArrowLeft, ExternalLink, Plus, Trash2, Linkedin, Edit, MoreVertical, Archive, Trash } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, Edit, MoreVertical, Archive, Trash } from "lucide-react"
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { useSupabaseApplications, useLinkedinProfiles } from "@/hooks/use-supabase-applications"
 import type { Application } from "@/lib/supabase"
@@ -38,13 +38,13 @@ import { StatusSelector } from "@/components/status-selector"
 import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
 import { ApplicationAIAnalysis } from "@/components/ai-coach/ApplicationAIAnalysis"
+import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
 
 export default function ApplicationDetailPage() {
   const { user, loading: authLoading } = useSupabaseAuth()
   const { getApplication, updateApplication } = useSupabaseApplications(user?.id || null)
   const [application, setApplication] = useState<Application | null>(null)
   const [newNote, setNewNote] = useState("")
-  const [newLinkedinProfile, setNewLinkedinProfile] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const router = useRouter()
@@ -55,7 +55,7 @@ export default function ApplicationDetailPage() {
   const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const { profiles: linkedinProfiles, addProfile, deleteProfile } = useLinkedinProfiles(application?.id || null)
+  const { profiles: linkedinProfiles, addProfile, deleteProfile, updateProfile } = useLinkedinProfiles(application?.id || null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -115,22 +115,6 @@ export default function ApplicationDetailPage() {
     setNewNote("")
   }
 
-  const handleAddLinkedinProfile = async () => {
-    if (!newLinkedinProfile.trim()) return
-
-    const result = await addProfile({
-      profile_url: newLinkedinProfile,
-    })
-
-    if (result.success) {
-      setNewLinkedinProfile("")
-    }
-  }
-
-  const handleRemoveLinkedinProfile = async (profileId: string) => {
-    await deleteProfile(profileId)
-  }
-
   const handleArchiveApplication = async () => {
     if (!application) return
 
@@ -171,7 +155,7 @@ export default function ApplicationDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationClient />
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="flex items-center justify-center">
             <div className="text-center">Loading...</div>
           </div>
@@ -185,9 +169,9 @@ export default function ApplicationDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      <div className="container mx-auto py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex items-center gap-4">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -334,51 +318,35 @@ export default function ApplicationDetailPage() {
             </Card>
 
             {/* LinkedIn Contacts */}
-            <Card>
-              <CardHeader>
-                <CardTitle>LinkedIn Contacts</CardTitle>
-                <CardDescription>Save relevant LinkedIn profiles for networking</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {linkedinProfiles.map((profile) => (
-                    <div key={profile.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Linkedin className="h-4 w-4 text-blue-600" />
-                        <a
-                          href={profile.profile_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {profile.name || profile.profile_url.split("/").pop() || profile.profile_url}
-                        </a>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveLinkedinProfile(profile.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="newProfile">Add LinkedIn Profile</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="newProfile"
-                      value={newLinkedinProfile}
-                      onChange={(e) => setNewLinkedinProfile(e.target.value)}
-                      placeholder="https://linkedin.com/in/username"
-                    />
-                    <Button onClick={handleAddLinkedinProfile} size="sm" disabled={!newLinkedinProfile.trim()}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <LinkedInContactsSection
+              profiles={linkedinProfiles}
+              onAddProfile={async (profileData) => {
+                const result = await addProfile({
+                  profile_url: profileData.profile_url,
+                  name: profileData.name,
+                  title: profileData.title,
+                  company: profileData.company
+                })
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+              onDeleteProfile={async (profileId) => {
+                const result = await deleteProfile(profileId)
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+              onUpdateProfile={async (profileId, updates) => {
+                const result = await updateProfile(profileId, updates)
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+            />
           </div>
         </div>
       </div>

@@ -77,7 +77,7 @@ export function ApplicationCardPresentation({
       aria-label={`View details for ${application.role} position at ${application.company}. Status: ${application.status}. Applied ${daysSinceApplied} days ago.`}
       aria-describedby={`application-${application.id}-details`}
     >
-      <div className="flex items-center justify-between p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 gap-3 sm:gap-4">
         <ApplicationCardContent
           application={application}
           formattedDate={formattedDate}
@@ -113,7 +113,7 @@ function ApplicationCardContent({
     >
       <div className="flex items-center gap-2">
         <h3 
-          className="font-semibold truncate"
+          className="font-semibold line-clamp-2 sm:truncate"
           id={`application-${application.id}-title`}
         >
           {application.role}
@@ -133,7 +133,7 @@ function ApplicationCardContent({
         )}
       </div>
       <p 
-        className="text-sm text-muted-foreground truncate"
+        className="text-sm text-muted-foreground"
         aria-label={`Company: ${application.company}`}
       >
         {application.company}
@@ -164,7 +164,7 @@ function ApplicationCardActions({
 }) {
   return (
     <div 
-      className="flex items-center gap-3 flex-shrink-0"
+      className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto sm:flex-shrink-0"
       role="group"
       aria-label="Application actions and status"
     >

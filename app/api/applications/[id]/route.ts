@@ -16,9 +16,10 @@ const ApplicationUpdateSchema = z.object({
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getUser();
     
     if (!user) {
@@ -26,7 +27,12 @@ export async function GET(
     }
 
     const applicationDAL = new ApplicationDAL();
-    const application = await applicationDAL.getById(params.id, user.id);
+    const application = await applicationDAL.findById(id);
+    
+    // Verify the application belongs to the user
+    if (application && application.user_id !== user.id) {
+      return NextResponse.json({ error: "Application not found" }, { status: 404 });
+    }
 
     if (!application) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
@@ -42,9 +48,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getUser();
     
     if (!user) {
@@ -58,13 +65,13 @@ export async function PUT(
     const applicationDAL = new ApplicationDAL();
     
     // Verify application belongs to user
-    const existingApp = await applicationDAL.getById(params.id, user.id);
-    if (!existingApp) {
+    const existingApp = await applicationDAL.findById(id);
+    if (!existingApp || existingApp.user_id !== user.id) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
     // Update application
-    const updatedApp = await applicationDAL.update(params.id, validatedData);
+    const updatedApp = await applicationDAL.update(id, validatedData);
 
     return NextResponse.json({ application: updatedApp });
 
@@ -83,9 +90,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const user = await getUser();
     
     if (!user) {
@@ -95,13 +103,13 @@ export async function DELETE(
     const applicationDAL = new ApplicationDAL();
     
     // Verify application belongs to user
-    const existingApp = await applicationDAL.getById(params.id, user.id);
-    if (!existingApp) {
+    const existingApp = await applicationDAL.findById(id);
+    if (!existingApp || existingApp.user_id !== user.id) {
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
     // Delete application
-    await applicationDAL.delete(params.id);
+    await applicationDAL.delete(id);
 
     return NextResponse.json({ success: true });
 

@@ -81,6 +81,7 @@ export function SignInForm() {
         <Input
           id="email"
           type="email"
+          autoComplete="email"
           {...register("email")}
           disabled={loading}
         />
@@ -94,6 +95,7 @@ export function SignInForm() {
         <Input
           id="password"
           type="password"
+          autoComplete="current-password"
           {...register("password")}
           disabled={loading}
         />

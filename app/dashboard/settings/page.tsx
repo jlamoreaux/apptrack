@@ -33,8 +33,8 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <div className="container mx-auto py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Settings</h1>
             <p className="text-muted-foreground">
               Manage your account settings and preferences
             </p>

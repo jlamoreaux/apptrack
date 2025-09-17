@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Crown, Settings } from "lucide-react";
+import { User, LogOut, Crown, Settings, Shield } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/actions";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -19,9 +19,10 @@ interface UserMenuProps {
   user: SupabaseUser;
   profile: Profile | null;
   isOnFreePlan: boolean;
+  isAdmin?: boolean;
 }
 
-export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
+export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserMenuProps) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -63,8 +64,8 @@ export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="max-w-[200px]">
-          <User className="h-4 w-4 mr-2 flex-shrink-0" />
-          <span className="truncate">{getDisplayName()}</span>
+          <User className="h-4 w-4 sm:mr-2 flex-shrink-0" />
+          <span className="hidden sm:inline truncate">{getDisplayName()}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -88,6 +89,15 @@ export function UserMenu({ user, profile, isOnFreePlan }: UserMenuProps) {
             {isOnFreePlan ? "Upgrade to Pro" : "Manage Subscription"}
           </DropdownMenuItem>
         </Link>
+
+        {isAdmin && (
+          <Link href="/admin">
+            <DropdownMenuItem>
+              <Shield className="h-4 w-4 mr-2" />
+              Admin Dashboard
+            </DropdownMenuItem>
+          </Link>
+        )}
 
         <DropdownMenuItem onClick={handleSignOut} disabled={loading}>
           <LogOut className="h-4 w-4 mr-2" />

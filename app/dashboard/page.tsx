@@ -99,11 +99,11 @@ export default async function DashboardPage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationServer />
-        <main id="main-content" className="container mx-auto py-8 space-y-8">
+        <main id="main-content" className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
           {/* Header Section */}
           <header className="space-y-2">
-            <h1 className="text-3xl font-bold text-primary">Dashboard</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary">Dashboard</h1>
+            <p className="text-sm sm:text-base text-muted-foreground">
               Track your job application progress
             </p>
           </header>
@@ -111,56 +111,56 @@ export default async function DashboardPage() {
           {/* Subscription Usage Banner */}
           <SubscriptionUsageBannerServer userId={user.id} />
 
-          {/* Stats Cards */}
-          <section aria-labelledby="stats-heading" className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          {/* Stats Cards - Progressive responsive grid */}
+          <section aria-labelledby="stats-heading" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
             <h2 id="stats-heading" className="sr-only">Application Statistics</h2>
             <Card className="border-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Applications
+                <CardTitle className="text-xs sm:text-sm font-medium">
+                  Total
                 </CardTitle>
                 <Building2 className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.total}</div>
               </CardContent>
             </Card>
             <Card className="border-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Applied</CardTitle>
+                <CardTitle className="text-xs sm:text-sm font-medium">Applied</CardTitle>
                 <Calendar className="h-4 w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.applied}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.applied}</div>
               </CardContent>
             </Card>
             <Card className="border-secondary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                   Interviews
                 </CardTitle>
                 <TrendingUp className="h-4 w-4 text-secondary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.interviews}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.interviews}</div>
               </CardContent>
             </Card>
             <Card className="border-secondary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Offers</CardTitle>
+                <CardTitle className="text-xs sm:text-sm font-medium">Offers</CardTitle>
                 <TrendingUp className="h-4 w-4 text-secondary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.offers}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.offers}</div>
               </CardContent>
             </Card>
-            <Card className="border-green-500/20">
+            <Card className="border-green-500/20 col-span-2 sm:col-span-1 lg:col-span-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Hired</CardTitle>
+                <CardTitle className="text-xs sm:text-sm font-medium">Hired</CardTitle>
                 <TrendingUp className="h-4 w-4 text-green-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{stats.hired}</div>
+                <div className="text-xl sm:text-2xl font-bold">{stats.hired}</div>
               </CardContent>
             </Card>
           </section>

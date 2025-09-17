@@ -4,8 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
 const LinkedInProfileSchema = z.object({
-  linkedin_url: z.string().url("Must be a valid LinkedIn URL"),
-  profile_data: z.object({}).optional(),
+  application_id: z.string().uuid("Must be a valid application ID"),
+  profile_url: z.string().url("Must be a valid LinkedIn URL"),
+  name: z.string().optional(),
+  title: z.string().optional(),
+  company: z.string().optional(),
+  location: z.string().optional(),
+  headline: z.string().optional(),
+  profile_photo_url: z.string().url().optional(),
 });
 
 export async function GET() {
@@ -52,12 +58,23 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
 
+    // Extract username from URL
+    const username = validatedData.profile_url.match(/linkedin\.com\/in\/([^/?]+)/i)?.[1] || null;
+    
     // Insert LinkedIn profile
     const { data: profile, error } = await supabase
       .from("linkedin_profiles")
       .insert([
         {
-          ...validatedData,
+          application_id: validatedData.application_id,
+          profile_url: validatedData.profile_url,
+          username,
+          name: validatedData.name,
+          title: validatedData.title,
+          company: validatedData.company,
+          location: validatedData.location,
+          headline: validatedData.headline,
+          profile_photo_url: validatedData.profile_photo_url,
           user_id: user.id,
         }
       ])

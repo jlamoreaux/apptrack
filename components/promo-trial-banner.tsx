@@ -43,7 +43,7 @@ export function PromoTrialBanner({ onActivate }: PromoTrialBannerProps) {
       } else {
         setSuccess(true);
         onActivate?.();
-        
+
         // Show success message then hide banner
         setTimeout(() => setShowBanner(false), 5000);
       }
@@ -64,9 +64,11 @@ export function PromoTrialBanner({ onActivate }: PromoTrialBannerProps) {
                 <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div className="flex-1">
-                <h3 className="font-bold text-lg text-green-900 dark:text-green-100">Trial Activated Successfully! 🎉</h3>
+                <h3 className="font-bold text-lg text-green-900 dark:text-green-100">
+                  Promo Code Applied Successfully! 🎉
+                </h3>
                 <p className="text-green-800 dark:text-green-200 mt-1">
-                  Check your email for details about your trial duration and features. You now have access to all AI-powered tools!
+                  Your promo code has been activated. Check your email for details about your benefits.
                 </p>
               </div>
             </div>
@@ -77,82 +79,69 @@ export function PromoTrialBanner({ onActivate }: PromoTrialBannerProps) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative px-4 sm:px-0">
       <Card className="border-2 border-purple-500/20 dark:border-purple-400/30 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 dark:from-purple-500/5 dark:via-blue-500/5 dark:to-purple-500/5 shadow-lg">
-        <CardContent className="p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-500/10 dark:bg-purple-400/10 rounded-full">
-                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-xl text-foreground">Limited Time Offer</h3>
-                  <p className="text-sm text-purple-700 dark:text-purple-400 font-medium">90-Day AI Coach Trial</p>
-                </div>
+        <CardContent className="p-4 relative">
+          <div className="space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-1.5 bg-purple-500/10 dark:bg-purple-400/10 rounded-full flex-shrink-0 mt-0.5">
+                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
               </div>
-            
-              <p className="text-muted-foreground mb-4 leading-relaxed">
-                Get full access to AI-powered resume analysis, interview prep, and career coaching.
-              </p>
-              
-              <div className="bg-background/60 border border-border rounded-lg p-3 mb-4">
-                <p className="text-sm text-foreground">
-                  <strong className="text-purple-600 dark:text-purple-400">✓ No credit card required</strong><br/>
-                  <strong className="text-purple-600 dark:text-purple-400">✓ Trial duration varies by promo code</strong><br/>
-                  <strong className="text-purple-600 dark:text-purple-400">✓ Automatic downgrade after trial expires</strong>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-bold text-base sm:text-lg text-foreground">
+                  Have a Promo Code?
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                  Enter your code below to activate special offers
                 </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 max-w-lg">
-                <Input
-                  placeholder="Enter promo code (e.g., AICOACH90)"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleActivate()}
-                  disabled={loading}
-                  className="bg-background border-input focus:border-purple-500 dark:focus:border-purple-400 focus:ring-purple-500 dark:focus:ring-purple-400 text-base"
-                />
-                <Button 
-                  onClick={handleActivate} 
-                  disabled={loading || !promoCode.trim()}
-                  className="bg-gradient-to-r from-purple-700 to-blue-700 hover:from-purple-800 hover:to-blue-800 dark:from-purple-600 dark:to-blue-600 dark:hover:from-purple-700 dark:hover:to-blue-700 text-white font-semibold px-6 py-2 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Activating...
-                    </>
-                  ) : (
-                    "Activate Trial"
-                  )}
-                </Button>
-              </div>
-
-              {error && (
-                <div className="mt-4 p-3 border border-destructive/50 bg-destructive/10 dark:bg-destructive/5 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0" />
-                    <p className="text-destructive text-sm">{error}</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
-                <Clock className="h-4 w-4 text-purple-500 dark:text-purple-400" />
-                <span>You'll receive email reminders before your trial expires</span>
               </div>
             </div>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowBanner(false)}
-              className="ml-4 hover:bg-background/50 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <Input
+                placeholder="Enter your promo code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleActivate()}
+                disabled={loading}
+                className="bg-background border-input focus:border-purple-500 dark:focus:border-purple-400 focus:ring-purple-500 dark:focus:ring-purple-400 flex-1"
+              />
+              <Button
+                onClick={handleActivate}
+                disabled={loading || !promoCode.trim()}
+                className="bg-gradient-to-r from-purple-700 to-blue-700 hover:from-purple-800 hover:to-blue-800 dark:from-purple-600 dark:to-blue-600 dark:hover:from-purple-700 dark:hover:to-blue-700 text-white font-semibold px-4 sm:px-6 shadow-md disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Activating...
+                  </>
+                ) : (
+                  "Apply Code"
+                )}
+              </Button>
+            </div>
+
+            {error && (
+              <div className="p-2.5 border border-destructive/50 bg-destructive/10 dark:bg-destructive/5 rounded-md">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
+                  <p className="text-destructive text-xs sm:text-sm">{error}</p>
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Close button positioned absolutely */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowBanner(false)}
+            className="absolute top-2 right-2 hover:bg-background/50 text-muted-foreground hover:text-foreground"
+            aria-label="Close banner"
+          >
+            <X className="h-4 w-4 sm:h-5 sm:w-5" />
+          </Button>
         </CardContent>
       </Card>
     </div>

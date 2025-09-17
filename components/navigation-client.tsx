@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,14 +8,37 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, BarChart3, Crown } from "lucide-react";
+import { User, LogOut, BarChart3, Crown, Shield } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 
 export function NavigationClient() {
   const { user, profile, signOut } = useSupabaseAuth();
   const { isOnFreePlan } = useSubscription(user?.id || null);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdminStatus() {
+      if (!user?.id) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/check');
+        const data = await response.json();
+        setIsAdmin(data.isAdmin || false);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        setIsAdmin(false);
+      }
+    }
+
+    checkAdminStatus();
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await signOut();
@@ -110,6 +134,20 @@ export function NavigationClient() {
                 </DropdownMenuItem>
               </Link>
 
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <Link href="/admin">
+                    <DropdownMenuItem>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  </Link>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+              
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout

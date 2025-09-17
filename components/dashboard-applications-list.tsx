@@ -99,17 +99,17 @@ export function DashboardApplicationsList({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-primary">Applications</CardTitle>
+            <CardTitle className="text-primary text-lg sm:text-xl">Applications</CardTitle>
             <CardDescription>
               Track and manage your job applications
             </CardDescription>
           </div>
-          <Link href="/dashboard/add">
-            <Button className="bg-secondary hover:bg-secondary/90">
+          <Link href="/dashboard/add" className="w-full sm:w-auto">
+            <Button className="bg-secondary hover:bg-secondary/90 w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
-              Add Application
+              <span className="sm:inline">Add Application</span>
             </Button>
           </Link>
         </div>
@@ -118,7 +118,7 @@ export function DashboardApplicationsList({
       <CardContent>
         {/* Filters and Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex flex-wrap items-center gap-2 flex-1">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 flex-1">
             <SortDropdown
               field={state.sortField}
               direction={state.sortDirection}
@@ -154,10 +154,10 @@ export function DashboardApplicationsList({
             <div className="mx-auto w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center mb-4">
               <Building2 className="h-12 w-12 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold mb-2">
+            <h3 className="text-base sm:text-lg font-semibold mb-2">
               {hasActiveFilters ? "No applications match your filters" : "No applications yet"}
             </h3>
-            <p className="text-muted-foreground mb-6 max-w-sm mx-auto">
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-sm mx-auto px-4 sm:px-0">
               {hasActiveFilters 
                 ? "Try adjusting your filters to see more applications."
                 : "Start tracking your job search by adding your first application. Keep all your opportunities organized in one place."
@@ -190,7 +190,7 @@ export function DashboardApplicationsList({
               {applications.map((app) => (
                 <div
                   key={app.id}
-                  className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${
+                  className={`flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border rounded-lg transition-colors gap-3 sm:gap-4 ${
                     isLoading 
                       ? 'opacity-50 cursor-not-allowed' 
                       : 'hover:bg-muted/50 cursor-pointer'
@@ -198,13 +198,13 @@ export function DashboardApplicationsList({
                 >
                   <Link 
                     href={`/dashboard/application/${app.id}`}
-                    className="flex-1 min-w-0"
+                    className="flex-1 min-w-0 w-full sm:w-auto"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold truncate">{app.role}</h3>
+                        <h3 className="font-semibold text-base sm:text-base line-clamp-2 sm:truncate">{app.role}</h3>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">
+                      <p className="text-sm text-muted-foreground">
                         {app.company}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -215,26 +215,25 @@ export function DashboardApplicationsList({
                       </p>
                     </div>
                   </Link>
-                  {app.role_link && (
-                    <a
-                      href={app.role_link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-foreground flex-shrink-0 p-1"
-                      onClick={(e) => e.stopPropagation()}
-                      aria-label={`Open ${app.role} at ${app.company} in new tab`}
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
-                  
-                  <div className="flex items-center gap-3 flex-shrink-0">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto sm:flex-shrink-0">
+                    {app.role_link && (
+                      <a
+                        href={app.role_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-muted-foreground hover:text-foreground p-1"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Open ${app.role} at ${app.company} in new tab`}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
                     <StatusBadge status={app.status} />
                     <Link href={`/dashboard/application/${app.id}`}>
                       <Button
                         variant="outline"
                         size="sm"
-                        className="border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
+                        className="border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground text-xs sm:text-sm"
                       >
                         View
                       </Button>

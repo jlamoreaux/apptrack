@@ -23,13 +23,13 @@ export default async function AICoachPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-primary flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
-                <span className="text-white text-xl">🤖</span>
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center flex-shrink-0">
+                <span className="text-white text-lg sm:text-xl">🤖</span>
               </div>
               AI Career Coach
             </h1>

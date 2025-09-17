@@ -16,6 +16,7 @@
   "dependencies": {
     "@hookform/resolvers": "latest",
     "@radix-ui/react-alert-dialog": "latest",
+    "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "latest",
     "@radix-ui/react-dropdown-menu": "latest",
     "@radix-ui/react-label": "latest",
