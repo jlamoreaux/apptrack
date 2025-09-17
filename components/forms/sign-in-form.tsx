@@ -39,8 +39,26 @@ export function SignInForm() {
 
       if (result.error) {
         setError(result.error);
-      } else {
-        router.push("/dashboard");
+      } else if (result.user) {
+        // Check if this is a new user who needs onboarding via API
+        try {
+          const response = await fetch("/api/auth/check-new-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: result.user.id }),
+          });
+          
+          const { needsOnboarding } = await response.json();
+          
+          if (needsOnboarding) {
+            router.push("/onboarding/welcome");
+          } else {
+            router.push("/dashboard");
+          }
+        } catch (error) {
+          // If check fails, default to dashboard
+          router.push("/dashboard");
+        }
         router.refresh();
       }
     } catch (error) {

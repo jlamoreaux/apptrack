@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { PromoTrialBanner } from "@/components/promo-trial-banner";
 import Link from "next/link";
 import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,11 @@ export default function UpgradePage() {
               plan.
             </p>
           </div>
+
+          {/* Show promo banner after title if user is on free tier */}
+          {subscription?.plan === PLAN_NAMES.FREE && (
+            <PromoTrialBanner onActivate={() => window.location.reload()} />
+          )}
 
           {/* Billing Toggle */}
           <div className="flex justify-center">

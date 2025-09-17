@@ -57,6 +57,7 @@
     "react-markdown": "^10.1.0",
     "react-plotly.js": "latest",
     "replicate": "latest",
+    "resend": "^6.1.0",
     "stripe": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",

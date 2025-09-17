@@ -397,11 +397,183 @@
         ],
         "status": "done",
         "subtasks": []
+      },
+      {
+        "id": 12,
+        "title": "Mobile Responsiveness Audit",
+        "description": "Conduct comprehensive audit of all pages for mobile responsiveness (320px-768px breakpoints).",
+        "details": "Systematically audit every page and component in the application to ensure full mobile responsiveness across all device sizes from 320px to 768px width.\n\n### Audit Checklist for Each Page:\n\n1. **Layout and Structure**\n   - [ ] Page layout adapts properly at 320px (minimum mobile)\n   - [ ] Page layout adapts properly at 375px (iPhone SE)\n   - [ ] Page layout adapts properly at 390px (standard mobile)\n   - [ ] Page layout adapts properly at 768px (tablet)\n   - [ ] No horizontal scrolling at any breakpoint\n   - [ ] Content remains readable and accessible\n\n2. **Navigation and Menus**\n   - [ ] Mobile menu functions correctly\n   - [ ] Navigation items are touch-friendly (44px minimum touch target)\n   - [ ] Dropdown menus work on touch devices\n   - [ ] Back navigation is accessible\n\n3. **Text and Typography**\n   - [ ] No text overflow or clipping\n   - [ ] Font sizes are readable on mobile (minimum 14px)\n   - [ ] Line heights provide comfortable reading\n   - [ ] Text wraps properly without breaking layout\n\n4. **Forms and Inputs**\n   - [ ] Form fields are sized appropriately for touch input\n   - [ ] Labels are positioned correctly on mobile\n   - [ ] Error messages display properly\n   - [ ] Submit buttons are easily tappable\n   - [ ] Keyboard types are appropriate (email, number, etc.)\n\n5. **Interactive Elements**\n   - [ ] Buttons meet 44px minimum touch target\n   - [ ] Links are spaced adequately to prevent mis-taps\n   - [ ] Modals/dialogs fit within viewport\n   - [ ] Tooltips work on touch devices (or have alternatives)\n   - [ ] Swipe gestures work where applicable\n\n6. **Images and Media**\n   - [ ] Images scale responsively\n   - [ ] No image overflow\n   - [ ] Appropriate image sizes for mobile bandwidth\n   - [ ] Icons remain visible and clear\n\n7. **Tables and Data**\n   - [ ] Tables scroll horizontally if needed\n   - [ ] Data remains readable\n   - [ ] Alternative mobile layouts for complex tables\n\n8. **Performance**\n   - [ ] Page loads quickly on mobile networks\n   - [ ] Animations perform smoothly\n   - [ ] Touch interactions are responsive\n\n### Testing Methodology:\n\n1. Use Chrome DevTools device emulation for initial testing\n2. Test on actual devices when possible (iPhone, Android)\n3. Use BrowserStack or similar for comprehensive device testing\n4. Test both portrait and landscape orientations\n5. Test with slow 3G network throttling\n6. Document all issues with screenshots\n7. Create fix tickets for each identified issue\n\n### Component Audit:\n\nFor each component used in pages, verify:\n- Component renders correctly at all breakpoints\n- Props and content don't break mobile layout\n- Component is reusable across different mobile contexts\n- Touch interactions work as expected",
+        "testStrategy": "1. Automated visual regression testing at key breakpoints\n2. Manual testing on real devices (iOS and Android)\n3. Cross-browser testing (Safari iOS, Chrome Android)\n4. Accessibility testing with mobile screen readers\n5. Performance testing on mobile networks\n6. User testing with actual mobile users\n7. Document all findings in a comprehensive report",
+        "priority": "high",
+        "dependencies": [],
+        "status": "pending",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Audit Landing Page (app/page.tsx)",
+            "description": "Comprehensive mobile responsiveness audit of the landing/home page",
+            "dependencies": [],
+            "details": "Audit the landing page for mobile responsiveness. Check hero section, feature cards, CTA buttons, navigation menu, footer, and any animations or interactive elements. Verify text readability, image scaling, and overall layout at all breakpoints.",
+            "status": "in-progress",
+            "testStrategy": "Test at 320px, 375px, 390px, and 768px widths. Check both portrait and landscape orientations."
+          },
+          {
+            "id": 2,
+            "title": "Audit Login Page (app/login/page.tsx)",
+            "description": "Mobile responsiveness audit of the login page",
+            "dependencies": [],
+            "details": "Check login form layout, input field sizes, button placement, error message display, social login buttons if present, and forgot password link accessibility. Ensure keyboard behavior is correct on mobile.",
+            "status": "pending",
+            "testStrategy": "Test form submission, error states, and keyboard interaction on mobile devices."
+          },
+          {
+            "id": 3,
+            "title": "Audit Signup Page (app/signup/page.tsx)",
+            "description": "Mobile responsiveness audit of the signup/registration page",
+            "dependencies": [],
+            "details": "Verify signup form layout, multi-step form navigation if applicable, field validation messages, terms and conditions display, and submit button accessibility. Check password strength indicators on mobile.",
+            "status": "pending",
+            "testStrategy": "Test complete signup flow on mobile, including validation and error handling."
+          },
+          {
+            "id": 4,
+            "title": "Audit Dashboard Main (app/dashboard/page.tsx)",
+            "description": "Mobile responsiveness audit of the main dashboard",
+            "dependencies": [],
+            "details": "Check dashboard cards layout, statistics display, navigation sidebar/menu, quick actions accessibility, and data visualization components. Verify that all dashboard widgets are usable on mobile.",
+            "status": "pending",
+            "testStrategy": "Test dashboard functionality including filtering, sorting, and interaction with cards."
+          },
+          {
+            "id": 5,
+            "title": "Audit Applications List (app/dashboard/applications/page.tsx)",
+            "description": "Mobile responsiveness audit of the applications list page",
+            "dependencies": [],
+            "details": "Check application cards layout on mobile, filtering and search functionality, pagination controls, sort options, and bulk actions if present. Verify that application cards are fully clickable and action buttons work.",
+            "status": "pending",
+            "testStrategy": "Test list interactions, filtering, pagination, and card interactions on touch devices."
+          },
+          {
+            "id": 6,
+            "title": "Audit Application Detail (app/dashboard/application/[id]/page.tsx)",
+            "description": "Mobile responsiveness audit of individual application detail pages",
+            "dependencies": [],
+            "details": "Check application information layout, status display, action buttons, notes section, document attachments, timeline/history view, and AI analysis section. Ensure all tabs and sections are accessible on mobile.",
+            "status": "pending",
+            "testStrategy": "Test all interactive elements, tabs, modals, and forms within the application detail view."
+          },
+          {
+            "id": 7,
+            "title": "Audit Add Application (app/dashboard/add/page.tsx)",
+            "description": "Mobile responsiveness audit of the add new application page",
+            "dependencies": [],
+            "details": "Verify form layout for adding applications, field grouping, date pickers, dropdown selects, file upload functionality, and form validation. Check that long forms are easy to navigate on mobile.",
+            "status": "pending",
+            "testStrategy": "Test complete form submission flow including validation and file uploads on mobile."
+          },
+          {
+            "id": 8,
+            "title": "Audit AI Coach Page (app/dashboard/ai-coach/page.tsx)",
+            "description": "Mobile responsiveness audit of the AI Coach dashboard",
+            "dependencies": [],
+            "details": "Check AI feature cards layout, chat interface if present, results display, file upload for resume analysis, and navigation between AI features. Verify that AI responses are readable on mobile.",
+            "status": "pending",
+            "testStrategy": "Test each AI feature interaction, including file uploads and long-form content display."
+          },
+          {
+            "id": 9,
+            "title": "Audit Analytics Page (app/dashboard/analytics/page.tsx)",
+            "description": "Mobile responsiveness audit of the analytics dashboard",
+            "dependencies": [],
+            "details": "Check charts and graphs rendering on mobile, data table layouts, filter controls, date range pickers, and export functionality. Ensure visualizations are interpretable on small screens.",
+            "status": "pending",
+            "testStrategy": "Test chart interactions, filtering, and data table scrolling on mobile devices."
+          },
+          {
+            "id": 10,
+            "title": "Audit Settings Pages (app/dashboard/settings/)",
+            "description": "Mobile responsiveness audit of all settings pages",
+            "dependencies": [],
+            "details": "Check settings forms layout, toggle switches, preference selections, account information display, subscription management, and usage statistics. Verify all settings are accessible and modifiable on mobile.",
+            "status": "pending",
+            "testStrategy": "Test all settings modifications, form submissions, and navigation between settings sections."
+          },
+          {
+            "id": 11,
+            "title": "Audit Archived Page (app/dashboard/archived/page.tsx)",
+            "description": "Mobile responsiveness audit of the archived applications page",
+            "dependencies": [],
+            "details": "Check archived items list layout, restore functionality, permanent delete options, search within archives, and bulk operations. Ensure archived items are manageable on mobile.",
+            "status": "pending",
+            "testStrategy": "Test archive operations including restore, delete, and search on mobile."
+          },
+          {
+            "id": 12,
+            "title": "Audit Upgrade Pages (app/dashboard/upgrade/)",
+            "description": "Mobile responsiveness audit of subscription upgrade flow",
+            "dependencies": [],
+            "details": "Check pricing cards layout, feature comparison tables, payment form, checkout process, and success page. Verify that pricing information is clear and payment process works on mobile.",
+            "status": "pending",
+            "testStrategy": "Test complete upgrade flow including payment form on mobile devices."
+          },
+          {
+            "id": 13,
+            "title": "Audit Onboarding (app/onboarding/welcome/page.tsx)",
+            "description": "Mobile responsiveness audit of the onboarding flow",
+            "dependencies": [],
+            "details": "Check welcome screens, tutorial steps, progress indicators, skip options, and getting started actions. Ensure onboarding is smooth and intuitive on mobile devices.",
+            "status": "pending",
+            "testStrategy": "Test complete onboarding flow including all interactive elements on mobile."
+          },
+          {
+            "id": 14,
+            "title": "Audit Admin Pages (app/admin/)",
+            "description": "Mobile responsiveness audit of admin panel pages",
+            "dependencies": [],
+            "details": "Check admin dashboard layout, promo code management, user management tables, and admin actions. Verify that admin functions are accessible on mobile for emergency access.",
+            "status": "pending",
+            "testStrategy": "Test admin functionality including data tables and management actions on mobile."
+          },
+          {
+            "id": 15,
+            "title": "Audit Shared Components",
+            "description": "Comprehensive audit of all shared components used across pages",
+            "dependencies": [],
+            "details": "Audit reusable components including: Header/Navigation, Footer, Modals/Dialogs, Forms/Inputs, Buttons, Cards, Tables, Charts, Alerts/Toasts, Loading states, Error boundaries. Check each component in isolation and in various page contexts.",
+            "status": "pending",
+            "testStrategy": "Test each component in Storybook or isolation at all breakpoints, then verify in actual page usage."
+          },
+          {
+            "id": 16,
+            "title": "Document Findings and Create Fix Tasks",
+            "description": "Compile audit results and create actionable fix tasks",
+            "dependencies": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15
+            ],
+            "details": "Create a comprehensive report documenting all mobile responsiveness issues found. Prioritize issues by severity (Critical, High, Medium, Low). Create individual fix tasks for each issue or group of related issues. Include screenshots and specific reproduction steps.",
+            "status": "pending",
+            "testStrategy": "Review report for completeness and ensure all issues have corresponding fix tasks created."
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-06-29T02:28:44.227Z",
-      "updated": "2025-09-16T11:55:45.070Z",
+      "updated": "2025-09-17T11:38:20.027Z",
       "description": "Tasks for master context"
     }
   }
