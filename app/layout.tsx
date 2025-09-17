@@ -8,6 +8,9 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { SkipNavigation } from "@/components/accessibility/skip-link";
+import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posthog-provider";
+import { AuthTracker } from "@/components/analytics/auth-tracker";
+import { GlobalErrorTracker } from "@/components/analytics/global-error-tracker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,24 +29,29 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <SkipNavigation />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Suspense
-            fallback={
-              <div aria-live="polite" aria-busy="true">
-                Loading...
-              </div>
-            }
+        <CSPostHogProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
           >
-            {children}
-            <Analytics />
-            <SpeedInsights />
-          </Suspense>
-        </ThemeProvider>
+            <Suspense
+              fallback={
+                <div aria-live="polite" aria-busy="true">
+                  Loading...
+                </div>
+              }
+            >
+              <PostHogPageView />
+              <AuthTracker />
+              <GlobalErrorTracker />
+              {children}
+              <Analytics />
+              <SpeedInsights />
+            </Suspense>
+          </ThemeProvider>
+        </CSPostHogProvider>
       </body>
     </html>
   );
