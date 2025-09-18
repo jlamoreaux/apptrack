@@ -27,14 +27,6 @@ export async function GET() {
     if (welcomeOffer) {
       if (welcomeOffer.discount_percent) {
         offerMessage = `Welcome Bonus: Get ${welcomeOffer.discount_percent}% off`;
-        if (welcomeOffer.discount_duration === "repeating" && welcomeOffer.discount_duration_months) {
-          offerMessage += ` any paid plan for your first ${welcomeOffer.discount_duration_months} months!`;
-
-    // Format user-friendly offer message if we have a welcome offer
-    let offerMessage = null;
-    if (welcomeOffer) {
-      if (welcomeOffer.discount_percent) {
-        offerMessage = `Welcome Bonus: Get ${welcomeOffer.discount_percent}% off`;
         
         if (welcomeOffer.discount_duration === "repeating" && welcomeOffer.discount_duration_months) {
           offerMessage += ` any paid plan for your first ${welcomeOffer.discount_duration_months} months!`;
