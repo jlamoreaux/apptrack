@@ -17,10 +17,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planId, billingCycle, discountCode } = await request.json();
+    const { planId, billingCycle, promoCode, couponId, discountCode } = await request.json();
 
     console.log(
-      `Creating checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}, discount: ${discountCode || 'none'}`
+      `Creating checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}`
     );
 
     if (!planId || !billingCycle) {
@@ -105,8 +105,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build checkout session configuration
-    const sessionConfig: Stripe.Checkout.SessionCreateParams = {
+    // Create checkout session with optional promo code
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
       customer: customer.id,
       payment_method_types: ["card"],
       line_items: [
@@ -133,9 +133,14 @@ export async function POST(request: NextRequest) {
         },
       },
     };
+    
+    // Only add allow_promotion_codes if we don't have any discount
+    if (!promoCode && !couponId && !discountCode) {
+      sessionParams.allow_promotion_codes = true;
+    }
 
-    // Handle discount code
-    if (discountCode) {
+    // Handle legacy discount code parameter
+    if (discountCode && !promoCode && !couponId) {
       try {
         // First, try to find the promotion code
         const promotionCodes = await stripe.promotionCodes.list({
@@ -146,30 +151,44 @@ export async function POST(request: NextRequest) {
 
         if (promotionCodes.data.length > 0) {
           // Apply the coupon associated with the promotion code
-          const promoCode = promotionCodes.data[0];
-          sessionConfig.discounts = [
+          const promoCodeData = promotionCodes.data[0];
+          sessionParams.discounts = [
             {
-              coupon: promoCode.coupon.id,
+              promotion_code: promoCodeData.id,
             },
           ];
-          console.log(`Applied promotion code: ${discountCode} (coupon: ${promoCode.coupon.id})`);
+          console.log(`Applied promotion code: ${discountCode} (id: ${promoCodeData.id})`);
         } else {
           // If no promotion code found, still allow promotion codes to be entered
-          sessionConfig.allow_promotion_codes = true;
+          sessionParams.allow_promotion_codes = true;
           console.log(`Promotion code not found: ${discountCode}, allowing manual entry`);
         }
       } catch (error) {
         console.error("Error applying promotion code:", error);
         // Fallback to allowing promotion codes
-        sessionConfig.allow_promotion_codes = true;
+        sessionParams.allow_promotion_codes = true;
       }
-    } else {
-      // No discount code provided, allow customer to enter one
-      sessionConfig.allow_promotion_codes = true;
     }
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create(sessionConfig);
+    // If we have a promo code or coupon, add it as a discount
+    if (promoCode) {
+      console.log(`Applying promotion code: ${promoCode}`);
+      sessionParams.discounts = [
+        {
+          promotion_code: promoCode,
+        },
+      ];
+    } else if (couponId) {
+      console.log(`Applying coupon: ${couponId}`);
+      sessionParams.discounts = [
+        {
+          coupon: couponId,
+        },
+      ];
+    }
+
+    console.log("Creating session with params:", JSON.stringify(sessionParams, null, 2));
+    const session = await stripe.checkout.sessions.create(sessionParams);
 
     console.log(`Created checkout session: ${session.id}`);
 

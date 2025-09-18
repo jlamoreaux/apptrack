@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { promoCode } = await request.json();
+    
+    const supabase = await createClient();
 
     // Validate promo code against database
     const { data: promoCodeData, error: promoError } = await supabase
@@ -47,7 +49,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
     const subscriptionService = new SubscriptionService();
 
     // Check if user already has or had a trial
