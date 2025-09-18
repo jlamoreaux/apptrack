@@ -30,7 +30,7 @@ export function PostHogPageView(): JSX.Element {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (pathname && posthog.__loaded) {
+    if (pathname) {
       let url = window.origin + pathname;
       if (searchParams.toString()) {
         url = url + `?${searchParams.toString()}`;
