@@ -153,6 +153,7 @@ export class InterviewPrepTransformerService {
       };
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error in extractCleanContent:', error);
       }
 
       // Return safe fallback
@@ -216,8 +217,7 @@ export class InterviewPrepTransformerService {
               jobContext,
             });
             if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
-                "Parsed content failed validation, returning original string"
-              );
+              console.log("Parsed content failed validation, returning original string");
             }
             return content;
           }
@@ -226,6 +226,7 @@ export class InterviewPrepTransformerService {
         } catch (error) {
           // If parsing fails, return original content
           if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+            console.error('Error parsing structured content:', error);
           }
           return content;
         }
@@ -257,6 +258,7 @@ export class InterviewPrepTransformerService {
       };
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error extracting job context:', error);
       }
       return {
         company: this.config.DEFAULTS.COMPANY_NAME,
@@ -333,6 +335,7 @@ export class InterviewPrepTransformerService {
       return this.config.DEFAULTS.COMPANY_NAME;
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error extracting company name:', error);
       }
       return this.config.DEFAULTS.COMPANY_NAME;
     }
@@ -395,6 +398,7 @@ export class InterviewPrepTransformerService {
       return this.config.DEFAULTS.ROLE_NAME;
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error extracting role name:', error);
       }
       return this.config.DEFAULTS.ROLE_NAME;
     }
@@ -470,6 +474,7 @@ export class InterviewPrepTransformerService {
       return true;
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error validating parsed content:', error);
       }
       return false;
     }
@@ -601,6 +606,7 @@ export class InterviewPrepTransformerService {
       this.cleanExpiredCache();
     } catch (error) {
       if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
+        console.error('Error in cache operation:', error);
       }
     }
   }

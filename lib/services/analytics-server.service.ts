@@ -26,6 +26,7 @@ export class ServerAnalyticsService {
         }
         
         // Log the event for debugging
+        console.log('Analytics event:', {
           name: event.name,
           properties: event.properties,
           timestamp: new Date().toISOString()
