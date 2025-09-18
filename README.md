@@ -30,7 +30,7 @@ A modern job application tracking system with AI-powered coaching features to he
 - **Database**: PostgreSQL with Drizzle ORM
 - **Authentication**: Clerk
 - **Styling**: Tailwind CSS
-- **AI Integration**: Replicate API (Llama models)
+- **AI Integration**: OpenAI API (GPT-4o-mini)
 - **Payments**: Stripe
 - **Type Safety**: TypeScript
 - **Testing**: Jest & React Testing Library
@@ -64,8 +64,8 @@ STRIPE_SECRET_KEY="sk_..."
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
-# Replicate AI
-REPLICATE_API_TOKEN="r8_..."
+# OpenAI API (Required for AI features)
+OPENAI_API_KEY="sk-proj-..."
 
 # App URL
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
@@ -177,6 +177,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Acknowledgments
 
 - Built with Next.js and the modern web stack
-- AI features powered by Meta's Llama models via Replicate
+- AI features powered by OpenAI GPT-4o-mini for cost-effective performance
 - Authentication by Clerk
 - Payments processed by Stripe

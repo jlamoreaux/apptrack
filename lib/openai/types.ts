@@ -5,11 +5,12 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface CareerCoachOptions {
+export interface OpenAIOptions {
   messages: ChatMessage[];
   maxTokens?: number;
   temperature?: number;
   model?: ModelType;
+  systemPrompt?: string;
 }
 
 export type { ModelType };
