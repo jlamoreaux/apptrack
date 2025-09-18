@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { ApplicationDAL } from "@/dal/applications";
+import { ApplicationDAL, type CreateApplicationInput } from "@/dal/applications";
 import type { ApplicationQueryOptions } from "@/dal/applications";
+import { APPLICATION_STATUS } from "@/lib/constants/application-status";
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,6 +43,49 @@ export async function GET(request: NextRequest) {
     console.error("Error fetching applications:", error);
     return NextResponse.json(
       { error: "Failed to fetch applications" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const user = await getUser();
+    
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { company, role, role_link, job_description, date_applied, status, notes } = body;
+
+    // Validate required fields
+    if (!company || !role || !date_applied) {
+      return NextResponse.json(
+        { error: "Missing required fields: company, role, and date_applied are required" },
+        { status: 400 }
+      );
+    }
+
+    // Prepare application data
+    const applicationData: CreateApplicationInput = {
+      user_id: user.id,
+      company,
+      role,
+      role_link,
+      date_applied,
+      status: status || APPLICATION_STATUS.APPLIED,
+      notes,
+    };
+
+    const applicationDAL = new ApplicationDAL();
+    const newApplication = await applicationDAL.create(applicationData);
+
+    return NextResponse.json(newApplication, { status: 201 });
+  } catch (error) {
+    console.error("Error creating application:", error);
+    return NextResponse.json(
+      { error: "Failed to create application" },
       { status: 500 }
     );
   }
