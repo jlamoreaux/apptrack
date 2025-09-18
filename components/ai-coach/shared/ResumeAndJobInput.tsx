@@ -65,12 +65,16 @@ export function ResumeAndJobInput({
           name: "Current Resume",
           length: effectiveResumeText.length || 0,
         });
+        // Update parent component's resumeText if it's empty but we have cached data
+        if (!resumeText && cachedData.resumeText && setResumeText) {
+          setResumeText(cachedData.resumeText);
+        }
       } else {
         setUserHasResume(false);
       }
       setIsCheckingResume(false);
     }
-  }, [user?.id, resumeText, cachedData.resumeText, cacheLoading.resume]);
+  }, [user?.id, resumeText, cachedData.resumeText, cacheLoading.resume, setResumeText]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
