@@ -286,10 +286,12 @@ Format as a structured JSON-like response.`;
     messages: ChatMessage[]
   ): Promise<string> {
     // TODO: Implement database save
-    // For now, just return a mock session ID
-      type,
-      messages,
-    });
+    // TODO: Ideally, save to database like this:
+    // await this.db.insert(coachingSessions).values({
+    //   userId: this.userId,
+    //   type,
+    //   messages,
+    // });
     return `session_${Date.now()}`;
   }
 

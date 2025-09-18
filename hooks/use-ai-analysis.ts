@@ -149,6 +149,7 @@ export function useAIAnalysis({
       onSuccess?.(result)
 
       // Log successful analysis
+      console.log('AI Analysis successful:', {
         applicationId,
         userId,
         timestamp: new Date().toISOString(),

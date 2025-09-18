@@ -209,6 +209,7 @@ export async function copyAnalysisToClipboard(
       return;
     } catch (error) {
       // Fall back to plain text if rich text fails
+      console.error(
         "Rich text clipboard failed, falling back to plain text:",
         error
       );

@@ -670,6 +670,7 @@ export class InterviewPrepTransformerService {
       totalRequests > 10 &&
       hitRate < this.config.PERFORMANCE.CACHE_HIT_RATE_WARNING
     ) {
+      console.warn(
         `Low cache hit rate detected: ${(hitRate * 100).toFixed(1)}%`
       );
     }

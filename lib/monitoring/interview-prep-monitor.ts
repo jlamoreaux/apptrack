@@ -362,10 +362,14 @@ export class InterviewPrepMonitor {
         
       case 'slow_operation':
         if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
-            event,
-            duration: metadata?.duration,
-            threshold: this.alertThresholds.maxResponseTime
-          })
+          console.warn(
+            `[InterviewPrep] Slow Operation: ${event}`,
+            { 
+              event,
+              duration: metadata?.duration,
+              threshold: this.alertThresholds.maxResponseTime
+            }
+          )
         }
         break
     }
