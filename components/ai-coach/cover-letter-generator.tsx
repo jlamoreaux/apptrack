@@ -254,7 +254,11 @@ const CoverLetterGenerator = () => {
         
         if (response.ok) {
           const data = await response.json();
-          setResumeText(data.text);
+          // Handle both old and new response formats
+          const extractedText = data.text || data.resume?.extracted_text;
+          if (extractedText) {
+            setResumeText(extractedText);
+          }
         }
       } catch (error) {
         console.error("Error uploading resume:", error);

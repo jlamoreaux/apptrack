@@ -139,11 +139,16 @@ export class ResumeDAL
       const supabase = await createClient();
       const { data: resume, error } = await supabase
         .from("user_resumes")
-        .upsert({
-          ...data,
-          user_id: userId,
-          updated_at: new Date().toISOString(),
-        })
+        .upsert(
+          {
+            ...data,
+            user_id: userId,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "user_id",
+          }
+        )
         .select()
         .single();
 
