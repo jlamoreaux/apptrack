@@ -5,8 +5,8 @@ import {
   analyzeJobDescription,
   generateCareerAdvice,
 } from "./functions";
-import { callCareerCoach } from "../replicate/client";
-import { type ChatMessage } from "../replicate/types";
+import { callCareerCoach } from "../openai/client";
+import { type ChatMessage } from "../openai/types";
 
 export interface PrepareForInterviewParams {
   jobDescription: string;

@@ -1,6 +1,6 @@
-import { callCareerCoach } from "../replicate/client";
-import { PROMPT_BUILDERS } from "@/lib/constants/ai-prompts";
-import { ChatMessage, ModelType } from "../replicate/types";
+import { callCareerCoach } from "../openai/client";
+import { PROMPT_BUILDERS, SYSTEM_PROMPTS } from "@/lib/constants/ai-prompts";
+import { ChatMessage, ModelType } from "../openai/types";
 
 export async function generateResumeAdvice(
   resumeText: string,
