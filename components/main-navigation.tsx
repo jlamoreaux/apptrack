@@ -217,7 +217,10 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
     <nav
       id="main-navigation"
       aria-label="Main navigation"
-      className={cn("hidden md:block border-b bg-background/95 backdrop-blur", className)}
+      className={cn(
+        "hidden md:block border-b bg-background/95 backdrop-blur",
+        className
+      )}
     >
       <div
         className={`container flex ${UI_CONSTANTS.SPACING.NAV_HEIGHT} items-center`}
@@ -266,7 +269,7 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
         </div>
 
         {/* AI Coach Quick Access (Desktop) */}
-        {isAICoachUser && (
+        {/* {isAICoachUser && (
           <div className="hidden lg:flex ml-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -322,7 +325,7 @@ export function MainNavigation({ userPlan, className }: MainNavigationProps) {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        )}
+        )} */}
       </div>
     </nav>
   );

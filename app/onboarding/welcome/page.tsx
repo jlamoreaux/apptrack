@@ -18,12 +18,16 @@ import {
   Brain,
 } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useSubscription } from "@/hooks/use-subscription";
 import { PLAN_NAMES } from "@/lib/constants/plans";
 
 export default function OnboardingWelcomePage() {
   const { user, loading } = useSupabaseAuth();
+  const { plans: dbPlans, loading: plansLoading } = useSubscription(user?.id || null);
   const router = useRouter();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [welcomeOffer, setWelcomeOffer] = useState<any>(null);
+  const [offerLoading, setOfferLoading] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -31,7 +35,24 @@ export default function OnboardingWelcomePage() {
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  useEffect(() => {
+    // Fetch the welcome offer
+    const fetchWelcomeOffer = async () => {
+      try {
+        const response = await fetch("/api/promo-codes/welcome-offer");
+        const data = await response.json();
+        setWelcomeOffer(data.welcomeOffer);
+      } catch (error) {
+        console.error("Failed to fetch welcome offer:", error);
+      } finally {
+        setOfferLoading(false);
+      }
+    };
+    
+    fetchWelcomeOffer();
+  }, []);
+
+  if (loading || plansLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -111,14 +132,37 @@ export default function OnboardingWelcomePage() {
       // Go to dashboard for free users
       router.push("/dashboard");
     } else {
-      // Go to upgrade page with selected plan
-      const plan = plans.find((p) => p.name === planName);
-      if (plan) {
-        router.push(
-          `/dashboard/upgrade/checkout?planId=${planName
-            .toLowerCase()
-            .replace(" ", "-")}&billingCycle=monthly`
-        );
+      // Find the actual plan from database
+      const dbPlan = dbPlans.find((p) => p.name === planName);
+      if (dbPlan) {
+        try {
+          // Create checkout session with onboarding discount
+          const response = await fetch("/api/stripe/create-onboarding-checkout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              planId: dbPlan.id,
+              billingCycle: "monthly",
+            }),
+          });
+
+          const data = await response.json();
+          
+          if (data.url) {
+            // Redirect to Stripe checkout with discount already applied
+            window.location.href = data.url;
+          } else {
+            console.error("Failed to create checkout session:", data.error);
+            router.push("/dashboard/upgrade");
+          }
+        } catch (error) {
+          console.error("Error creating checkout:", error);
+          router.push("/dashboard/upgrade");
+        }
+      } else {
+        // Fallback if plan not found
+        console.error(`Plan ${planName} not found in database`);
+        router.push("/dashboard/upgrade");
       }
     }
   };
@@ -143,6 +187,7 @@ export default function OnboardingWelcomePage() {
         </div>
 
         {/* Special Offer Banner */}
+        {welcomeOffer && (
         <div className="max-w-4xl mx-auto mb-8">
           <Card className="border-2 border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-yellow-500/5">
             <CardContent className="p-6">
@@ -151,8 +196,7 @@ export default function OnboardingWelcomePage() {
                   <Gift className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
                   <div>
                     <p className="font-semibold text-foreground">
-                      🎊 Welcome Bonus: Get 20% off any paid plan for your first
-                      3 months!
+                      🎊 Welcome Bonus: {welcomeOffer ? welcomeOffer.offerMessage : 'Special offer available'}!
                     </p>
                     <p className="text-sm text-muted-foreground">
                       Discount automatically applied at checkout • No code
@@ -164,6 +208,7 @@ export default function OnboardingWelcomePage() {
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Plan Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12 px-4 md:px-0">

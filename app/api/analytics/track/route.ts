@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyticsService } from "@/lib/services/analytics.service";
+import { serverAnalyticsService } from "@/lib/services/analytics-server.service";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
@@ -38,8 +38,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Track the event
-    await analyticsService.trackEvent({
+    // Track the event using server-side analytics
+    await serverAnalyticsService.trackEvent({
       name: eventName,
       properties: properties || {},
     });

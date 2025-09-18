@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
-import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
 
@@ -17,10 +16,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planId, billingCycle, discountCode } = await request.json();
+    const { planId, billingCycle } = await request.json();
 
     console.log(
-      `Creating checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}, discount: ${discountCode || 'none'}`
+      `Creating onboarding checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}`
     );
 
     if (!planId || !billingCycle) {
@@ -51,6 +50,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
+    // Get the onboarding discount code from database
+    const { data: promoCode } = await supabase
+      .from("promo_codes")
+      .select("*")
+      .eq("code", "WELCOME20")
+      .eq("active", true)
+      .single();
+
     // Determine the price ID based on billing cycle
     const priceId =
       billingCycle === BILLING_CYCLES.YEARLY
@@ -59,17 +66,11 @@ export async function POST(request: NextRequest) {
 
     if (!priceId) {
       console.error(
-        `No Stripe price ID found for plan ${plan.name} (${planId}) with billing cycle ${billingCycle}`,
-        {
-          planName: plan.name,
-          monthlyPriceId: plan.stripe_monthly_price_id,
-          yearlyPriceId: plan.stripe_yearly_price_id,
-        }
+        `No Stripe price ID found for plan ${plan.name} (${planId}) with billing cycle ${billingCycle}`
       );
       return NextResponse.json(
         { 
-          error: `This plan is not yet configured for ${billingCycle} billing. Please contact support or try a different billing cycle.`,
-          details: `Missing Stripe price ID for ${plan.name} plan (${billingCycle})`
+          error: `This plan is not yet configured for ${billingCycle} billing.`,
         },
         { status: 400 }
       );
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
     // Create or get customer
     let customer;
     try {
+      // Check if customer already exists
       const customers = await stripe.customers.list({
         email: user.email!,
         limit: 1,
@@ -118,64 +120,68 @@ export async function POST(request: NextRequest) {
       mode: "subscription",
       success_url: `${request.headers.get(
         "origin"
-      )}/dashboard/upgrade/success?session_id={CHECKOUT_SESSION_ID}`,
+      )}/dashboard?upgrade_success=true&message=${encodeURIComponent(
+        `Welcome! You've successfully upgraded to ${plan.name} with 20% off for 3 months!`
+      )}`,
       cancel_url: `${request.headers.get("origin")}/dashboard/upgrade`,
       metadata: {
         userId: user.id,
         planId: planId,
         billingCycle: billingCycle,
+        onboarding: "true",
       },
       subscription_data: {
         metadata: {
           userId: user.id,
           planId: planId,
           billingCycle: billingCycle,
+          onboarding: "true",
         },
       },
     };
 
-    // Handle discount code
-    if (discountCode) {
+    // Apply the onboarding discount if found
+    if (promoCode && promoCode.stripe_coupon_id) {
+      // Try to find the Stripe promotion code
       try {
-        // First, try to find the promotion code
         const promotionCodes = await stripe.promotionCodes.list({
-          code: discountCode,
+          coupon: promoCode.stripe_coupon_id,
           active: true,
           limit: 1,
         });
 
         if (promotionCodes.data.length > 0) {
-          // Apply the coupon associated with the promotion code
-          const promoCode = promotionCodes.data[0];
           sessionConfig.discounts = [
             {
-              coupon: promoCode.coupon.id,
+              promotion_code: promotionCodes.data[0].id,
             },
           ];
-          console.log(`Applied promotion code: ${discountCode} (coupon: ${promoCode.coupon.id})`);
+          console.log(`Applied onboarding discount: ${promoCode.code}`);
         } else {
-          // If no promotion code found, still allow promotion codes to be entered
-          sessionConfig.allow_promotion_codes = true;
-          console.log(`Promotion code not found: ${discountCode}, allowing manual entry`);
+          // Fallback: apply the coupon directly
+          sessionConfig.discounts = [
+            {
+              coupon: promoCode.stripe_coupon_id,
+            },
+          ];
+          console.log(`Applied onboarding coupon directly: ${promoCode.stripe_coupon_id}`);
         }
       } catch (error) {
-        console.error("Error applying promotion code:", error);
-        // Fallback to allowing promotion codes
-        sessionConfig.allow_promotion_codes = true;
+        console.error("Error applying onboarding discount:", error);
+        // Continue without discount if there's an error
       }
     } else {
-      // No discount code provided, allow customer to enter one
-      sessionConfig.allow_promotion_codes = true;
+      console.log("No onboarding discount found or configured");
     }
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
-    console.log(`Created checkout session: ${session.id}`);
+    console.log(`Created onboarding checkout session: ${session.id}`);
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    console.error("Error creating onboarding checkout session:", error);
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }
