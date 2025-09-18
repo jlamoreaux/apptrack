@@ -71,8 +71,15 @@ export function SignInForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {error && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           {error}
+          {error.includes("Email not confirmed") && (
+            <div className="mt-2">
+              <p className="text-xs">
+                Please check your email and click the confirmation link.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

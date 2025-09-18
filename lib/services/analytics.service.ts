@@ -1,9 +1,6 @@
 import { track } from '@vercel/analytics';
 import posthog from 'posthog-js';
 
-// Server-side PostHog initialization would go here if needed
-// For now, we'll keep PostHog client-side but controlled
-
 export interface AnalyticsEvent {
   name: string;
   properties?: Record<string, any>;
@@ -23,8 +20,10 @@ export class AnalyticsService {
    */
   async trackEvent(event: AnalyticsEvent): Promise<void> {
     try {
-      // Always track to Vercel Analytics (works server and client side)
-      track(event.name, event.properties || {});
+      // Track to Vercel Analytics (client-side only)
+      if (this.isClientSide) {
+        track(event.name, event.properties || {});
+      }
 
       // Track to PostHog only on client side
       if (this.isClientSide && posthog?.capture) {

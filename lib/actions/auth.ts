@@ -140,8 +140,15 @@ export async function signUpWithPassword(
       return { error: error.message };
     }
 
+    // Check if email confirmation is required
+    const requiresEmailConfirmation = data.user && !data.session;
+
     revalidatePath("/", "layout");
-    return { success: true, user: data.user };
+    return { 
+      success: true, 
+      user: data.user,
+      requiresEmailConfirmation 
+    };
   } catch (error) {
     console.error("Sign up error:", error);
     return { error: "An unexpected error occurred during sign up" };

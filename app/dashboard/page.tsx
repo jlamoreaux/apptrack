@@ -38,6 +38,8 @@ import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
 import { APPLICATION_LIMITS } from "@/lib/constants/navigation";
 import type { Application, ApplicationHistory } from "@/types";
 import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
+import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
+import { Toaster } from "@/components/ui/toaster";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -99,6 +101,8 @@ export default async function DashboardPage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationServer />
+        <DashboardSuccessToast />
+        <Toaster />
         <main id="main-content" className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
           {/* Header Section */}
           <header className="space-y-2">

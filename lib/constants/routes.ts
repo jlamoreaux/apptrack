@@ -10,7 +10,7 @@ export const APP_ROUTES = {
     ROOT: "/dashboard",
     APPLICATIONS: "/dashboard/applications",
     AI_COACH: "/dashboard/ai-coach",
-    ANALYTICS: "/dashboard/analytics", 
+    // ANALYTICS: "/dashboard/analytics",
     SETTINGS: "/dashboard/settings",
     UPGRADE: "/dashboard/upgrade",
     ARCHIVED: "/dashboard/archived",
@@ -20,7 +20,7 @@ export const APP_ROUTES = {
   // AI Coach sub-routes with query params
   AI_COACH_TABS: {
     RESUME: "/dashboard/ai-coach?tab=resume",
-    INTERVIEW: "/dashboard/ai-coach?tab=interview", 
+    INTERVIEW: "/dashboard/ai-coach?tab=interview",
     COVER_LETTER: "/dashboard/ai-coach?tab=cover-letter",
     ADVICE: "/dashboard/ai-coach?tab=advice",
     JOB_FIT: "/dashboard/ai-coach?tab=job-fit",
@@ -32,7 +32,7 @@ export const APP_ROUTES = {
   // Dynamic routes (functions for parameterized URLs)
   DYNAMIC: {
     application: (id: string) => `/dashboard/application/${id}`,
-    aiCoachWithApplication: (applicationId: string, tab: string) => 
+    aiCoachWithApplication: (applicationId: string, tab: string) =>
       `/dashboard/ai-coach?tab=${tab}&applicationId=${applicationId}`,
   },
 } as const;
@@ -40,9 +40,9 @@ export const APP_ROUTES = {
 // Navigation breadcrumb helpers
 export const ROUTE_LABELS = {
   [APP_ROUTES.DASHBOARD.ROOT]: "Dashboard",
-  [APP_ROUTES.DASHBOARD.APPLICATIONS]: "Applications", 
+  [APP_ROUTES.DASHBOARD.APPLICATIONS]: "Applications",
   [APP_ROUTES.DASHBOARD.AI_COACH]: "AI Coach",
-  [APP_ROUTES.DASHBOARD.ANALYTICS]: "Analytics",
+  // [APP_ROUTES.DASHBOARD.ANALYTICS]: "Analytics",
   [APP_ROUTES.DASHBOARD.SETTINGS]: "Settings",
   [APP_ROUTES.DASHBOARD.UPGRADE]: "Upgrade",
 } as const;

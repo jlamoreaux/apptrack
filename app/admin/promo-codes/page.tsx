@@ -10,20 +10,37 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit, Trash2, Copy, Users, ArrowLeft, Ticket } from "lucide-react";
+import { Plus, Edit, Trash2, Copy, Users, ArrowLeft, Ticket, Gift } from "lucide-react";
 import Link from "next/link";
+import { PromoCodeForm } from "./PromoCodeForm";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface PromoCode {
   id: string;
   code: string;
   description: string;
+  code_type: "trial" | "discount" | "free_forever";
   trial_days: number;
   plan_name: string;
+  applicable_plans?: string[];
   max_uses: number | null;
   used_count: number;
   active: boolean;
   expires_at: string | null;
   created_at: string;
+  stripe_coupon_id?: string | null;
+  stripe_promotion_code_id?: string | null;
+  discount_percent?: number | null;
+  discount_amount?: number | null;
+  discount_duration?: string | null;
+  discount_duration_months?: number | null;
+  is_welcome_offer?: boolean;
 }
 
 export default function PromoCodesAdminPage() {
@@ -32,16 +49,7 @@ export default function PromoCodesAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [editingCode, setEditingCode] = useState<PromoCode | null>(null);
-
-  // Form state for creating new promo codes
-  const [newCode, setNewCode] = useState({
-    code: "",
-    description: "",
-    trialDays: 90,
-    planName: "AI Coach",
-    maxUses: "",
-    expiresAt: "",
-  });
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     loadPromoCodes();
@@ -64,42 +72,6 @@ export default function PromoCodesAdminPage() {
     }
   };
 
-  const createPromoCode = async () => {
-    try {
-      setError(null);
-      const response = await fetch("/api/admin/promo-codes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: newCode.code,
-          description: newCode.description,
-          trialDays: newCode.trialDays,
-          planName: newCode.planName,
-          maxUses: newCode.maxUses ? parseInt(newCode.maxUses) : null,
-          expiresAt: newCode.expiresAt || null,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create promo code");
-      }
-
-      setSuccess(data.message);
-      setNewCode({
-        code: "",
-        description: "",
-        trialDays: 90,
-        planName: "AI Coach",
-        maxUses: "",
-        expiresAt: "",
-      });
-      loadPromoCodes();
-    } catch (err) {
-      setError(String(err));
-    }
-  };
 
   const togglePromoCode = async (id: string, active: boolean) => {
     try {
@@ -124,6 +96,38 @@ export default function PromoCodesAdminPage() {
     navigator.clipboard.writeText(text);
     setSuccess(`Copied "${text}" to clipboard`);
     setTimeout(() => setSuccess(null), 3000);
+  };
+
+  const handleEdit = (code: PromoCode) => {
+    setEditingCode(code);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setEditingCode(null);
+    setIsEditDialogOpen(false);
+  };
+
+  const toggleWelcomeOffer = async (id: string, isWelcomeOffer: boolean) => {
+    try {
+      const response = await fetch("/api/admin/promo-codes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, is_welcome_offer: isWelcomeOffer }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update welcome offer");
+      }
+
+      setSuccess(isWelcomeOffer 
+        ? "Promo code set as welcome offer" 
+        : "Welcome offer designation removed");
+      loadPromoCodes();
+    } catch (err) {
+      setError(String(err));
+    }
   };
 
   if (loading) {
@@ -197,6 +201,11 @@ export default function PromoCodesAdminPage() {
                         <Badge variant={promo.active ? "default" : "secondary"}>
                           {promo.active ? "Active" : "Inactive"}
                         </Badge>
+                        {promo.is_welcome_offer && (
+                          <Badge variant="default" className="bg-green-600">
+                            Welcome Offer
+                          </Badge>
+                        )}
                         {promo.expires_at && new Date(promo.expires_at) < new Date() && (
                           <Badge variant="destructive">Expired</Badge>
                         )}
@@ -206,23 +215,73 @@ export default function PromoCodesAdminPage() {
                         {promo.description || "No description"}
                       </p>
                       
-                      <div className="text-xs text-muted-foreground grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <span><strong>Plan:</strong> {promo.plan_name}</span>
-                        <span><strong>Days:</strong> {promo.trial_days}</span>
-                        <span>
-                          <strong>Usage:</strong> {promo.used_count}
-                          {promo.max_uses ? `/${promo.max_uses}` : " (unlimited)"}
-                        </span>
-                        <span>
-                          <strong>Expires:</strong>{" "}
-                          {promo.expires_at
-                            ? new Date(promo.expires_at).toLocaleDateString()
-                            : "Never"}
-                        </span>
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                          <span><strong>Type:</strong> {promo.code_type}</span>
+                          <span><strong>Plans:</strong> {promo.applicable_plans?.join(", ") || promo.plan_name}</span>
+                          <span>
+                            <strong>Usage:</strong> {promo.used_count}
+                            {promo.max_uses ? `/${promo.max_uses}` : " (unlimited)"}
+                          </span>
+                          <span>
+                            <strong>Expires:</strong>{" "}
+                            {promo.expires_at
+                              ? new Date(promo.expires_at).toLocaleDateString()
+                              : "Never"}
+                          </span>
+                        </div>
+                        {promo.code_type === 'discount' && (
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            {promo.discount_percent && (
+                              <span><strong>Discount:</strong> {promo.discount_percent}%</span>
+                            )}
+                            {promo.discount_duration && (
+                              <span><strong>Duration:</strong> {promo.discount_duration} 
+                                {promo.discount_duration_months ? ` (${promo.discount_duration_months} months)` : ''}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {promo.code_type === 'trial' && (
+                          <div>
+                            <span><strong>Trial Days:</strong> {promo.trial_days}</span>
+                          </div>
+                        )}
+                        {(promo.stripe_coupon_id || promo.stripe_promotion_code_id) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-1 p-2 bg-muted/50 rounded">
+                            {promo.stripe_coupon_id && (
+                              <span className="font-mono text-xs">
+                                <strong>Stripe Coupon:</strong> {promo.stripe_coupon_id}
+                              </span>
+                            )}
+                            {promo.stripe_promotion_code_id && (
+                              <span className="font-mono text-xs">
+                                <strong>Stripe Promo:</strong> {promo.stripe_promotion_code_id}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-2 ml-4">
+                      {promo.code_type === "discount" && promo.active && (
+                        <Button
+                          variant={promo.is_welcome_offer ? "secondary" : "outline"}
+                          size="sm"
+                          onClick={() => toggleWelcomeOffer(promo.id, !promo.is_welcome_offer)}
+                          title={promo.is_welcome_offer ? "Remove as welcome offer" : "Set as welcome offer"}
+                        >
+                          <Gift className="h-4 w-4" />
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(promo)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       <Switch
                         checked={promo.active}
                         onCheckedChange={(checked) => togglePromoCode(promo.id, checked)}
@@ -244,85 +303,37 @@ export default function PromoCodesAdminPage() {
         </TabsContent>
 
         <TabsContent value="create" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Promo Code</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="code">Promo Code *</Label>
-                  <Input
-                    id="code"
-                    value={newCode.code}
-                    onChange={(e) => setNewCode({ ...newCode, code: e.target.value.toUpperCase() })}
-                    placeholder="BETA2024"
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="trialDays">Trial Days *</Label>
-                  <Input
-                    id="trialDays"
-                    type="number"
-                    value={newCode.trialDays}
-                    onChange={(e) => setNewCode({ ...newCode, trialDays: parseInt(e.target.value) || 90 })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="planName">Plan Name *</Label>
-                  <select
-                    id="planName"
-                    value={newCode.planName}
-                    onChange={(e) => setNewCode({ ...newCode, planName: e.target.value })}
-                    className="w-full p-2 border rounded-md"
-                  >
-                    <option value="AI Coach">AI Coach</option>
-                    <option value="Pro">Pro</option>
-                  </select>
-                </div>
-
-                <div>
-                  <Label htmlFor="maxUses">Max Uses (optional)</Label>
-                  <Input
-                    id="maxUses"
-                    type="number"
-                    value={newCode.maxUses}
-                    onChange={(e) => setNewCode({ ...newCode, maxUses: e.target.value })}
-                    placeholder="Leave empty for unlimited"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newCode.description}
-                    onChange={(e) => setNewCode({ ...newCode, description: e.target.value })}
-                    placeholder="Description of this promo code..."
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="expiresAt">Expires At (optional)</Label>
-                  <Input
-                    id="expiresAt"
-                    type="datetime-local"
-                    value={newCode.expiresAt}
-                    onChange={(e) => setNewCode({ ...newCode, expiresAt: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <Button onClick={createPromoCode} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Create Promo Code
-              </Button>
-            </CardContent>
-          </Card>
+          <PromoCodeForm 
+            onSuccess={loadPromoCodes}
+            setError={setError}
+            setSuccess={setSuccess}
+          />
         </TabsContent>
       </Tabs>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Promo Code</DialogTitle>
+            <DialogDescription>
+              Update the promo code details below
+            </DialogDescription>
+          </DialogHeader>
+          {editingCode && (
+            <PromoCodeForm
+              editingCode={editingCode}
+              onSuccess={() => {
+                loadPromoCodes();
+                handleCloseEdit();
+              }}
+              onCancel={handleCloseEdit}
+              setError={setError}
+              setSuccess={setSuccess}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

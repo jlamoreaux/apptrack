@@ -51,8 +51,17 @@ export function SignUpForm() {
       if (result.error) {
         setError(result.error);
       } else {
-        // New users always go to onboarding after signup
-        router.push("/onboarding/welcome");
+        // Store email for confirmation page
+        localStorage.setItem("pendingEmailConfirmation", data.email);
+        
+        // Check if email confirmation is required
+        if (result.requiresEmailConfirmation) {
+          // Redirect to email confirmation page
+          router.push("/auth/confirm-email");
+        } else {
+          // If already confirmed (e.g., in dev mode), go to onboarding
+          router.push("/onboarding/welcome");
+        }
         router.refresh();
       }
     } catch (error) {

@@ -21,6 +21,7 @@ function CheckoutContent() {
 
   const planId = searchParams.get("planId");
   const billingCycle = searchParams.get("billingCycle") as "monthly" | "yearly";
+  const discountCode = searchParams.get("discount");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -29,18 +30,24 @@ function CheckoutContent() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (!planId || !billingCycle) {
-      router.push("/dashboard/upgrade");
-    }
-  }, [planId, billingCycle, router]);
+    console.log("Checkout page - planId:", planId, "billingCycle:", billingCycle);
+    console.log("Available plans:", plans);
+  }, [planId, billingCycle, plans]);
 
   const handleCheckout = async () => {
-    if (!user || !planId || !billingCycle) return;
+    console.log("handleCheckout called with:", { user: user?.id, planId, billingCycle, discountCode });
+    
+    if (!user || !planId || !billingCycle) {
+      console.error("Missing required data:", { hasUser: !!user, planId, billingCycle });
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
+      console.log("Sending checkout request with:", { planId, billingCycle, discountCode });
+      
       const response = await fetch("/api/stripe/create-checkout", {
         method: "POST",
         headers: {
@@ -49,19 +56,39 @@ function CheckoutContent() {
         body: JSON.stringify({
           planId,
           billingCycle,
+          discountCode,
         }),
       });
 
+      console.log("Response status:", response.status, "OK:", response.ok);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API error response:", errorData);
+        const errorMessage = errorData.details 
+          ? `${errorData.error}\n\nDetails: ${errorData.details}` 
+          : (errorData.error || `Server error: ${response.status}`);
+        setError(errorMessage);
+        return;
+      }
+      
       const data = await response.json();
+      console.log("Checkout response data:", data);
 
       if (data.url) {
         // Redirect to Stripe checkout
+        console.log("Redirecting to Stripe:", data.url);
         window.location.href = data.url;
       } else {
-        setError(data.error || "Failed to create checkout session");
+        console.error("No URL in response:", data);
+        const errorMessage = data.details 
+          ? `${data.error}\n\nDetails: ${data.details}` 
+          : (data.error || "Failed to create checkout session - no URL returned");
+        setError(errorMessage);
       }
     } catch (err) {
-      setError("Failed to create checkout session");
+      console.error("Checkout error:", err);
+      setError(`Failed to create checkout session: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -80,12 +107,56 @@ function CheckoutContent() {
     );
   }
 
-  if (!user || !planId || !billingCycle) return null;
+  if (!user) return null;
+  
+  // Don't render if we don't have the required params
+  if (!planId || !billingCycle) {
+    return (
+      <div className="min-h-screen bg-background">
+        <NavigationClient />
+        <div className="container mx-auto py-8">
+          <div className="flex items-center justify-center">
+            <div className="text-center">Loading checkout...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const plan = plans.find((p) => p.id === planId);
+  
+  // If plans are loaded but plan not found, show error
+  if (plans.length > 0 && !plan) {
+    return (
+      <div className="min-h-screen bg-background">
+        <NavigationClient />
+        <div className="container mx-auto py-8">
+          <div className="max-w-2xl mx-auto text-center space-y-4">
+            <h1 className="text-2xl font-bold text-destructive">Plan Not Found</h1>
+            <p className="text-muted-foreground">
+              The selected plan could not be found. Please try again.
+            </p>
+            <Link href="/dashboard/upgrade">
+              <Button>Back to Plans</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  // If plans aren't loaded yet, wait
   if (!plan) {
-    router.push("/dashboard/upgrade");
-    return null;
+    return (
+      <div className="min-h-screen bg-background">
+        <NavigationClient />
+        <div className="container mx-auto py-8">
+          <div className="flex items-center justify-center">
+            <div className="text-center">Loading plan details...</div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const planPrice =
@@ -124,6 +195,13 @@ function CheckoutContent() {
                   ${planPrice}/{billingCycle === "monthly" ? "month" : "year"}
                 </Badge>
               </CardTitle>
+              {discountCode && (
+                <div className="mt-2">
+                  <Badge variant="outline" className="text-green-600 border-green-600">
+                    Discount Code Applied: {discountCode}
+                  </Badge>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               <ul className="space-y-2">
@@ -141,7 +219,7 @@ function CheckoutContent() {
           <Card>
             <CardContent className="pt-6">
               {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md mb-4">
+                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md mb-4 whitespace-pre-wrap">
                   {error}
                 </div>
               )}

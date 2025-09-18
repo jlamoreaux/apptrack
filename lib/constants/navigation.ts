@@ -22,7 +22,7 @@ export const NAV_ITEMS = [
     description: "Overview of your job search progress",
   },
   {
-    id: "applications", 
+    id: "applications",
     label: "Applications",
     href: APP_ROUTES.DASHBOARD.APPLICATIONS,
     icon: Building2,
@@ -38,17 +38,17 @@ export const NAV_ITEMS = [
     requiresPlan: "ai_coach" as PermissionLevel,
     description: "AI-powered career coaching and insights",
   },
-  {
-    id: "analytics",
-    label: "Analytics", 
-    href: APP_ROUTES.DASHBOARD.ANALYTICS,
-    icon: BarChart3,
-    description: "Track your application performance",
-  },
+  // {
+  //   id: "analytics",
+  //   label: "Analytics",
+  //   href: APP_ROUTES.DASHBOARD.ANALYTICS,
+  //   icon: BarChart3,
+  //   description: "Track your application performance",
+  // },
   {
     id: "settings",
     label: "Settings",
-    href: APP_ROUTES.DASHBOARD.SETTINGS, 
+    href: APP_ROUTES.DASHBOARD.SETTINGS,
     icon: Settings,
     description: "Account and profile settings",
   },
@@ -70,7 +70,7 @@ export const AI_COACH_COLORS = {
 // Action colors for different AI Coach features
 export const ACTION_COLORS = {
   purple: "text-purple-600 bg-purple-100 hover:bg-purple-200",
-  blue: "text-blue-600 bg-blue-100 hover:bg-blue-200", 
+  blue: "text-blue-600 bg-blue-100 hover:bg-blue-200",
   green: "text-green-600 bg-green-100 hover:bg-green-200",
   orange: "text-orange-600 bg-orange-100 hover:bg-orange-200",
 } as const;
@@ -85,7 +85,7 @@ export const QUICK_ACTIONS = [
     href: APP_ROUTES.AI_COACH_TABS.RESUME,
   },
   {
-    id: "interview", 
+    id: "interview",
     label: "Interview Prep",
     icon: "MessageSquare",
     color: "blue" as keyof typeof ACTION_COLORS,
@@ -93,7 +93,7 @@ export const QUICK_ACTIONS = [
   },
   {
     id: "advice",
-    label: "Get Advice", 
+    label: "Get Advice",
     icon: "Target",
     color: "green" as keyof typeof ACTION_COLORS,
     href: APP_ROUTES.AI_COACH_TABS.ADVICE,
@@ -117,14 +117,16 @@ export const NAVIGATION_URLS = {
 // Plan mapping to types
 export const PLAN_TO_PERMISSION_LEVEL: Record<string, PermissionLevel> = {
   [PLAN_NAMES.FREE]: "free",
-  [PLAN_NAMES.PRO]: "pro", 
+  [PLAN_NAMES.PRO]: "pro",
   [PLAN_NAMES.AI_COACH]: "ai_coach",
 } as const;
 
 /**
  * Convert subscription plan name to permission level
  */
-export function getPermissionLevelFromPlan(planName?: string | null): PermissionLevel {
+export function getPermissionLevelFromPlan(
+  planName?: string | null
+): PermissionLevel {
   if (!planName) return "free";
   return PLAN_TO_PERMISSION_LEVEL[planName] || "free";
 }
@@ -132,12 +134,16 @@ export function getPermissionLevelFromPlan(planName?: string | null): Permission
 /**
  * Check if a route should be considered active
  */
-export function isRouteActive(pathname: string, itemHref: string, itemId: string): boolean {
+export function isRouteActive(
+  pathname: string,
+  itemHref: string,
+  itemId: string
+): boolean {
   // For exact matches (like dashboard), require exact path
   if (itemHref === APP_ROUTES.DASHBOARD.ROOT) {
     return pathname === APP_ROUTES.DASHBOARD.ROOT;
   }
-  
+
   // For other routes, check if pathname starts with href
   return pathname.startsWith(itemHref);
 }
