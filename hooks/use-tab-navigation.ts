@@ -36,7 +36,6 @@ export function useTabNavigation({
   const setActiveTab = useCallback((tab: AIAnalysisTab) => {
     // Validate that the tab is available
     if (!tabs.some(t => t.id === tab)) {
-      console.warn(`Attempted to set unavailable tab: ${tab}`)
       return
     }
 

@@ -32,16 +32,10 @@ function CheckoutContent() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    console.log("Checkout page - planId:", planId, "billingCycle:", billingCycle);
-    console.log("Available plans:", plans);
-  }, [planId, billingCycle, plans]);
 
   const handleCheckout = async () => {
-    console.log("handleCheckout called with:", { user: user?.id, planId, billingCycle, discountCode });
     
     if (!user || !planId || !billingCycle) {
-      console.error("Missing required data:", { hasUser: !!user, planId, billingCycle });
       return;
     }
 
@@ -49,7 +43,6 @@ function CheckoutContent() {
     setError(null);
 
     try {
-      console.log("Sending checkout request with:", { planId, billingCycle, discountCode });
       
       const response = await fetch("/api/stripe/create-checkout", {
         method: "POST",
@@ -65,11 +58,9 @@ function CheckoutContent() {
         }),
       });
 
-      console.log("Response status:", response.status, "OK:", response.ok);
       
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API error response:", errorData);
         const errorMessage = errorData.details 
           ? `${errorData.error}\n\nDetails: ${errorData.details}` 
           : (errorData.error || `Server error: ${response.status}`);
@@ -78,21 +69,17 @@ function CheckoutContent() {
       }
       
       const data = await response.json();
-      console.log("Checkout response data:", data);
 
       if (data.url) {
         // Redirect to Stripe checkout
-        console.log("Redirecting to Stripe:", data.url);
         window.location.href = data.url;
       } else {
-        console.error("No URL in response:", data);
         const errorMessage = data.details 
           ? `${data.error}\n\nDetails: ${data.details}` 
           : (data.error || "Failed to create checkout session - no URL returned");
         setError(errorMessage);
       }
     } catch (err) {
-      console.error("Checkout error:", err);
       setError(`Failed to create checkout session: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);

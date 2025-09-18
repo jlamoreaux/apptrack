@@ -209,7 +209,7 @@ export async function copyAnalysisToClipboard(
       return;
     } catch (error) {
       // Fall back to plain text if rich text fails
-      console.warn(
+      console.error(
         "Rich text clipboard failed, falling back to plain text:",
         error
       );
@@ -577,7 +577,6 @@ export async function downloadAnalysisPDF(
     // Save the PDF
     pdf.save(filename);
   } catch (error) {
-    console.error("PDF generation failed:", error);
     throw new Error("Failed to generate PDF report. Please try again.");
   }
 }
@@ -1266,7 +1265,6 @@ async function downloadAnalysisHTML(
       URL.revokeObjectURL(url);
     }, 100);
   } catch (error) {
-    console.error("Download failed:", error);
     throw new Error("Failed to download analysis report. Please try again.");
   }
 }

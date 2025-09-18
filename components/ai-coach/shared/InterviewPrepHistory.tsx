@@ -92,7 +92,6 @@ export const InterviewPrepHistory: React.FC<InterviewPrepHistoryProps> = ({
         description: `Interview prep for ${role} at ${company} has been deleted`,
       });
     } catch (error) {
-      console.error("Error deleting prep:", error);
       
       // Close the dialog
       setDeleteConfirm({ open: false, prepId: null });

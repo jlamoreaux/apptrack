@@ -246,12 +246,10 @@ export function validateContrast(foreground: string, background: string, level: 
   // Development-only validation warnings
   if (process.env.NODE_ENV === 'development') {
     if (!foreground || !background) {
-      console.warn('validateContrast: Missing foreground or background color')
       return false
     }
     
     if (!foreground.startsWith('#') || !background.startsWith('#')) {
-      console.warn('validateContrast: Colors should be in hex format (#RRGGBB)')
     }
   }
   

@@ -75,7 +75,6 @@ export default function ApplicationDetailPage() {
       const app = await getApplication(params.id as string)
       setApplication(app)
     } catch (error) {
-      console.error("Failed to fetch application:", error)
     } finally {
       setLoading(false)
     }
@@ -96,7 +95,6 @@ export default function ApplicationDetailPage() {
         }
       }
     } catch (error) {
-      console.error("Failed to update application:", error)
     } finally {
       setSaving(false)
     }
@@ -158,10 +156,8 @@ export default function ApplicationDetailPage() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        console.error("Failed to archive application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to archive application:", error)
     } finally {
       setIsArchiving(false)
     }
@@ -176,10 +172,8 @@ export default function ApplicationDetailPage() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        console.error("Failed to delete application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to delete application:", error)
     } finally {
       setIsDeleting(false)
     }

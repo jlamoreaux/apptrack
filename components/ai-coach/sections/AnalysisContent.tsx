@@ -200,7 +200,6 @@ export function AnalysisContent({
                     announceSuccess("Analysis results copied to clipboard");
                   }
                 } catch (error) {
-                  console.error('Copy failed:', error);
                   announceError("Failed to copy results");
                 }
               }}
@@ -220,7 +219,6 @@ export function AnalysisContent({
                     announceError("PDF download only available for job fit analysis");
                   }
                 } catch (error) {
-                  console.error('Download failed:', error);
                   announceError("Failed to download report");
                 }
               }}

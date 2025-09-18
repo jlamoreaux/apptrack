@@ -112,13 +112,11 @@ export class AuditService {
         });
       
       if (error) {
-        console.error("Failed to create audit log:", error);
         return false;
       }
       
       return true;
     } catch (error) {
-      console.error("Error logging audit entry:", error);
       return false;
     }
   }
@@ -176,13 +174,11 @@ export class AuditService {
       const { data, error } = await query;
       
       if (error) {
-        console.error("Failed to fetch audit logs:", error);
         return [];
       }
       
       return data || [];
     } catch (error) {
-      console.error("Error fetching audit logs:", error);
       return [];
     }
   }

@@ -59,7 +59,6 @@ export function JobDescriptionInput({
             }
           }
         } catch (error) {
-          console.error("Error loading application data:", error);
         } finally {
           setIsLoading(false);
         }

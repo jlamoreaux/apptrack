@@ -75,7 +75,6 @@ export function ApplicationCardContainer({
     // Rate limit clicks to prevent abuse
     const rateLimitKey = `${userId || 'anonymous'}-${sanitizedApplication.id}`;
     if (!clickRateLimiter.isAllowed(rateLimitKey)) {
-      console.warn('Click rate limit exceeded for application card');
       stopMeasure();
       return;
     }
@@ -94,7 +93,6 @@ export function ApplicationCardContainer({
           user_id: userId,
         });
       } catch (error) {
-        console.error('Analytics tracking error:', error);
       }
     }
     
@@ -111,7 +109,6 @@ export function ApplicationCardContainer({
     
     // Verify the link is safe before tracking
     if (!sanitizedApplication.role_link) {
-      console.warn('Attempted to click invalid external link');
       e.preventDefault();
       stopMeasure();
       return;
@@ -128,7 +125,6 @@ export function ApplicationCardContainer({
           user_id: userId,
         });
       } catch (error) {
-        console.error('External link analytics error:', error);
       }
     }
     

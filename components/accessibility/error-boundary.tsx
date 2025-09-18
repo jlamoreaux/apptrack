@@ -59,7 +59,6 @@ export class AccessibleErrorBoundary extends Component<ErrorBoundaryProps, Error
     }
 
     // Log error for debugging (remove in production or send to error reporting service)
-    console.error('Error caught by boundary:', error, errorInfo);
 
     // Focus the error announcement for screen readers
     setTimeout(() => {

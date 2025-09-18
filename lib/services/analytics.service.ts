@@ -33,7 +33,6 @@ export class AnalyticsService {
         });
       }
     } catch (error) {
-      console.warn('Analytics tracking failed:', error);
     }
   }
 
@@ -46,7 +45,6 @@ export class AnalyticsService {
         posthog.identify(identification.userId, identification.properties);
       }
     } catch (error) {
-      console.warn('User identification failed:', error);
     }
   }
 
@@ -59,7 +57,6 @@ export class AnalyticsService {
         posthog.setPersonProperties(properties);
       }
     } catch (error) {
-      console.warn('Setting user properties failed:', error);
     }
   }
 
@@ -74,7 +71,6 @@ export class AnalyticsService {
         });
       }
     } catch (error) {
-      console.warn('Page view tracking failed:', error);
     }
   }
 
@@ -88,7 +84,6 @@ export class AnalyticsService {
       }
       return {};
     } catch (error) {
-      console.warn('Getting feature flags failed:', error);
       return {};
     }
   }

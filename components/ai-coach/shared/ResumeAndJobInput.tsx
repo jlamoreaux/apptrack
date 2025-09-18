@@ -149,7 +149,6 @@ export function ResumeAndJobInput({
         setResumeText(text);
       }
     } catch (error) {
-      console.error("Error uploading file:", error);
       toast({
         title: "Upload failed",
         description: "Failed to process your resume. Please try again.",

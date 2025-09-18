@@ -203,7 +203,6 @@ export default async function DashboardPage() {
       </div>
     );
   } catch (error) {
-    console.error("Dashboard error:", error);
     // If there's an error fetching the user or applications, redirect to login
     redirect("/login?error=session_expired");
   }

@@ -48,7 +48,6 @@ export async function addApplicationAction(formData: FormData) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Add application error:", error);
     return {
       error: "An unexpected error occurred while adding the application",
     };
@@ -105,7 +104,6 @@ export async function updateApplicationAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Update application error:", error);
     return {
       error: "An unexpected error occurred while updating the application",
     };
@@ -165,7 +163,6 @@ export async function addLinkedinProfileAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Add LinkedIn profile error:", error);
     return {
       error: "An unexpected error occurred while adding the LinkedIn profile",
     };
@@ -212,7 +209,6 @@ export async function deleteLinkedinProfileAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Delete LinkedIn profile error:", error);
     return {
       error: "An unexpected error occurred while deleting the LinkedIn profile",
     };
@@ -247,7 +243,6 @@ export async function archiveApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Archive application error:", error);
     return {
       error: "An unexpected error occurred while archiving the application",
     };
@@ -282,7 +277,6 @@ export async function unarchiveApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Unarchive application error:", error);
     return {
       error: "An unexpected error occurred while unarchiving the application",
     };
@@ -314,7 +308,6 @@ export async function deleteApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Delete application error:", error);
     return {
       error: "An unexpected error occurred while deleting the application",
     };

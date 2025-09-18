@@ -44,14 +44,12 @@ export async function saveJobDescriptionAction(
       .eq("user_id", user.id);
 
     if (updateError) {
-      console.error("Error updating job description:", updateError);
       // Try alternative storage method
       await AIDataFetcherService.saveJobDescription(user.id, applicationId, jobDescription);
     }
 
     return { success: true };
   } catch (error) {
-    console.error("Save job description error:", error);
     return {
       error: "Failed to save job description",
     };
@@ -80,7 +78,6 @@ export async function getAIContextAction(applicationId?: string) {
 
     return { data: context };
   } catch (error) {
-    console.error("Get AI context error:", error);
     return {
       error: "Failed to get AI context",
     };

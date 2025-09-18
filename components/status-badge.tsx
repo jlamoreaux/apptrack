@@ -31,7 +31,6 @@ export function StatusBadge({
   // Type-safe status validation with fallback
   if (!isApplicationStatus(status)) {
     if (process.env.NODE_ENV === 'development') {
-      console.warn(`Invalid status provided to StatusBadge: ${status}. Falling back to 'Applied'.`)
     }
     status = 'Applied'
   }

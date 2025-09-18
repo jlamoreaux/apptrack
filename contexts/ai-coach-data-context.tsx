@@ -144,7 +144,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return resumeText;
       }
     } catch (error) {
-      console.error('Error fetching resume:', error);
     } finally {
       setLoading(prev => ({ ...prev, resume: false }));
       fetchingRef.current.resume = false;
@@ -184,7 +183,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return coverLetters;
       }
     } catch (error) {
-      console.error('Error fetching cover letters:', error);
     } finally {
       setLoading(prev => ({ ...prev, coverLetters: false }));
       fetchingRef.current.coverLetters = false;
@@ -224,7 +222,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return preps;
       }
     } catch (error) {
-      console.error('Error fetching interview preps:', error);
     } finally {
       setLoading(prev => ({ ...prev, interviewPreps: false }));
       fetchingRef.current.interviewPreps = false;
@@ -264,7 +261,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return messages;
       }
     } catch (error) {
-      console.error('Error fetching career advice:', error);
     } finally {
       setLoading(prev => ({ ...prev, careerAdvice: false }));
       fetchingRef.current.careerAdvice = false;
@@ -304,7 +300,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return analyses;
       }
     } catch (error) {
-      console.error('Error fetching resume analyses:', error);
     } finally {
       setLoading(prev => ({ ...prev, resumeAnalyses: false }));
       fetchingRef.current.resumeAnalyses = false;
@@ -343,7 +338,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         return apps || [];
       }
     } catch (error) {
-      console.error('Error fetching applications:', error);
     } finally {
       setLoading(prev => ({ ...prev, applications: false }));
       fetchingRef.current.applications = false;
@@ -389,7 +383,6 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
 
     // Fire and forget - let them complete in background
     Promise.all(promises).catch(error => {
-      console.error('Error preloading data:', error);
     });
   }, [user?.id]);
 

@@ -94,7 +94,6 @@ export function PlanCard({
   const isFree = planName === PLAN_NAMES.FREE;
 
   if (!theme) {
-    console.warn(`No theme found for plan: ${planName}`);
     return null;
   }
 

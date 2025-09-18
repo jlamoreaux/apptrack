@@ -165,7 +165,6 @@ export class AIDataFetcherService {
         .eq("id", applicationId)
         .eq("user_id", userId);
     } catch (error) {
-      console.log("job_description column might not exist yet in applications table");
     }
 
     // Also save in job_fit_analyses for backward compatibility

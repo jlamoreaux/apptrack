@@ -66,7 +66,6 @@ export function AddLinkedInProfile({
       setCompany("");
       setOpen(false);
     } catch (error) {
-      console.error("Error adding LinkedIn profile:", error);
       setError("Failed to add LinkedIn profile");
     } finally {
       setIsAdding(false);

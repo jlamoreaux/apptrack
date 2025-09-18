@@ -44,7 +44,6 @@ export async function signUpAction(formData: FormData) {
 
     redirect("/dashboard");
   } catch (error) {
-    console.error("Sign up error:", error);
     return { error: "An unexpected error occurred during sign up" };
   }
 }
@@ -80,7 +79,6 @@ export async function signInAction(formData: FormData) {
 
     redirect("/dashboard");
   } catch (error) {
-    console.error("Sign in error:", error);
     return { error: "An unexpected error occurred during sign in" };
   }
 }
@@ -91,7 +89,6 @@ export async function signOutAction() {
     await supabase.auth.signOut();
     redirect("/");
   } catch (error) {
-    console.error("Sign out error:", error);
     redirect("/");
   }
 }
@@ -113,7 +110,6 @@ export async function signInWithPassword(email: string, password: string) {
     revalidatePath("/", "layout");
     return { success: true, user: data.user };
   } catch (error) {
-    console.error("Sign in error:", error);
     return { error: "An unexpected error occurred during sign in" };
   }
 }
@@ -150,7 +146,6 @@ export async function signUpWithPassword(
       requiresEmailConfirmation 
     };
   } catch (error) {
-    console.error("Sign up error:", error);
     return { error: "An unexpected error occurred during sign up" };
   }
 }
@@ -162,7 +157,6 @@ export async function signOut() {
     revalidatePath("/", "layout");
     return { success: true };
   } catch (error) {
-    console.error("Sign out error:", error);
     return { error: "An unexpected error occurred during sign out" };
   }
 }
@@ -206,7 +200,6 @@ export async function updateProfileAction(data: { full_name: string }) {
 
     return { success: true };
   } catch (error) {
-    console.error("Profile update error:", error);
     return { error: "An unexpected error occurred during profile update" };
   }
 }

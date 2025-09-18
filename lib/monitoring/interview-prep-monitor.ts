@@ -362,11 +362,14 @@ export class InterviewPrepMonitor {
         
       case 'slow_operation':
         if (this.config.FEATURES.ENABLE_DETAILED_LOGGING) {
-          console.warn('Slow operation detected:', {
-            event,
-            duration: metadata?.duration,
-            threshold: this.alertThresholds.maxResponseTime
-          })
+          console.warn(
+            `[InterviewPrep] Slow Operation: ${event}`,
+            { 
+              event,
+              duration: metadata?.duration,
+              threshold: this.alertThresholds.maxResponseTime
+            }
+          )
         }
         break
     }
@@ -377,12 +380,10 @@ export class InterviewPrepMonitor {
    */
   private checkAlerts(): void {
     if (this.consecutiveFailures >= this.alertThresholds.maxConsecutiveFailures) {
-      console.error(`ALERT: ${this.consecutiveFailures} consecutive failures detected`)
     }
     
     const metrics = this.getMetrics()
     if (metrics.errorRate > this.alertThresholds.maxErrorRate && metrics.totalRequests > 5) {
-      console.warn(`ALERT: High error rate detected: ${(metrics.errorRate * 100).toFixed(1)}%`)
     }
   }
 
@@ -399,16 +400,12 @@ export class InterviewPrepMonitor {
 
     switch (logLevel) {
       case 'error':
-        console.error(message)
         break
       case 'warn':
-        console.warn(message)
         break
       case 'info':
-        console.info(message)
         break
       case 'debug':
-        console.debug(message)
         break
     }
   }

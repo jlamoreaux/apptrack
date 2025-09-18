@@ -35,7 +35,6 @@ const getCategoryIcon = (category: InterviewQuestion['category']) => {
 const QuestionCard: React.FC<{ question: InterviewQuestion; index: number }> = ({ question, index }) => {
   // Add safety checks for required properties
   if (!question || !question.question) {
-    console.warn('Invalid question object:', question);
     return null;
   }
 
@@ -106,15 +105,12 @@ export const InterviewPrepDisplay: React.FC<InterviewPrepDisplayProps> = ({
   // Content is always structured now
   const prep = content;
   
-  // Debug: Log the questions to console and check for duplicate IDs
-  console.log('Total questions received:', prep.questions.length);
-  console.log('Questions data:', prep.questions);
   
   // Check for duplicate IDs
   const questionIds = prep.questions.map(q => q.id).filter(Boolean);
   const uniqueIds = new Set(questionIds);
   if (questionIds.length !== uniqueIds.size) {
-    console.warn('Duplicate question IDs detected:', questionIds);
+    console.warn('[InterviewPrep] Duplicate question IDs detected');
   }
   
   return (

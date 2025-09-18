@@ -55,7 +55,6 @@ export default function OnboardingWelcomePage() {
     }
     // If user already has a paid subscription, redirect to dashboard
     if (!loading && !plansLoading && subscription?.subscription_plans?.name !== PLAN_NAMES.FREE) {
-      console.log("User already has subscription, redirecting to dashboard");
       router.push("/dashboard");
     }
   }, [user, loading, plansLoading, subscription, router]);
@@ -66,10 +65,8 @@ export default function OnboardingWelcomePage() {
       try {
         const response = await fetch("/api/promo-codes/welcome-offer");
         const data = await response.json();
-        console.log("Welcome offer fetched:", data.welcomeOffer);
         setWelcomeOffer(data.welcomeOffer);
       } catch (error) {
-        console.error("Failed to fetch welcome offer:", error);
       }
     };
 
@@ -171,8 +168,6 @@ export default function OnboardingWelcomePage() {
     },
   ];
   
-  console.log("dbPlans:", dbPlans);
-  console.log("plans:", plans);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) {
@@ -199,7 +194,6 @@ export default function OnboardingWelcomePage() {
       }
 
       // Store the applied promo for later use
-      console.log("Promo code validated:", checkData.promoCode);
       setAppliedPromo(checkData.promoCode);
       setPromoSuccess(true);
       setShowPromoDialog(false);
@@ -245,7 +239,6 @@ export default function OnboardingWelcomePage() {
         headers: { "Content-Type": "application/json" },
       });
     } catch (error) {
-      console.error("Failed to mark onboarding complete:", error);
     }
 
     if (planName === PLAN_NAMES.FREE) {
@@ -259,17 +252,10 @@ export default function OnboardingWelcomePage() {
         
         // Check if we have a premium free code (no payment required - friends & family)
         const activeCode = appliedPromo || welcomeOffer;
-        console.log("Active code details:", {
-          code: activeCode?.code,
-          code_type: activeCode?.code_type,
-          appliedPromo,
-          welcomeOffer
-        });
         const isPremiumFree = activeCode?.code_type === "premium_free";
         
         // If it's a premium free code, apply it directly without Stripe checkout
         if (isPremiumFree && activeCode?.code) {
-          console.log("Applying premium free code (no payment required):", activeCode.code);
           
           const response = await fetch("/api/promo/activate-trial", {
             method: "POST",
@@ -280,15 +266,12 @@ export default function OnboardingWelcomePage() {
           });
 
           const data = await response.json();
-          console.log("Trial activation response:", response.status, data);
 
           if (!response.ok) {
-            console.error("Failed to apply free trial:", data.error);
             setIsCreatingCheckout(false);
             // Fall through to regular checkout
           } else {
             // Successfully applied free trial, go to dashboard
-            console.log("Trial applied successfully, redirecting to dashboard");
             router.push("/dashboard?welcome=success");
             return;
           }
@@ -312,7 +295,6 @@ export default function OnboardingWelcomePage() {
           }
         }
 
-        console.log("Using discount:", { promoCode, couponId });
 
         // Create Stripe checkout session directly
         const response = await fetch("/api/stripe/create-checkout", {
@@ -334,7 +316,6 @@ export default function OnboardingWelcomePage() {
           // Redirect directly to Stripe checkout
           window.location.href = data.url;
         } else {
-          console.error("Failed to create checkout session:", data.error);
           setIsCreatingCheckout(false);
           // Fallback to checkout page with discount info
           let fallbackUrl = `/dashboard/upgrade/checkout?planId=${planId}&billingCycle=${selectedBilling}`;
@@ -352,7 +333,6 @@ export default function OnboardingWelcomePage() {
           router.push(fallbackUrl);
         }
       } catch (error) {
-        console.error("Error creating checkout:", error);
         setIsCreatingCheckout(false);
       }
     }

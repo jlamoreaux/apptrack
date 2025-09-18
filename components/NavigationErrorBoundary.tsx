@@ -37,7 +37,6 @@ export class NavigationErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error to monitoring service
-    console.error('Navigation Error:', error, errorInfo);
   }
 
   handleRetry = () => {

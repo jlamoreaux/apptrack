@@ -41,7 +41,6 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
       await onSave(formData)
       onClose()
     } catch (error) {
-      console.error("Failed to save application:", error)
     } finally {
       setIsSaving(false)
     }

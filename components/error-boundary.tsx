@@ -45,7 +45,6 @@ export class ErrorBoundary extends Component<Props, State> {
       this.props.onError(error, errorInfo)
     }
 
-    console.error('Error caught by boundary:', error, errorInfo)
   }
 
   render() {

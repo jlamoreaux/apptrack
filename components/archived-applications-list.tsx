@@ -77,7 +77,6 @@ export function ArchivedApplicationsList({
         setApplications(result.applications);
         setTotalItems(result.totalCount);
       } catch (error) {
-        console.error('Error fetching archived applications:', error);
         // Show error toast/notification here
       } finally {
         setIsLoading(false);

@@ -208,7 +208,6 @@ export function safeTrack(eventName: string, properties: Record<string, any>) {
     });
   } catch (error) {
     // Silently fail - don't break user experience for analytics
-    console.warn('Analytics tracking failed:', error);
   }
 }
 
@@ -219,7 +218,6 @@ export const analyticsAPI = {
     try {
       await clientAnalytics.identifyUser({ properties });
     } catch (error) {
-      console.warn('User identification failed:', error);
     }
   },
 
@@ -232,7 +230,6 @@ export const analyticsAPI = {
         requireAuth: true,
       });
     } catch (error) {
-      console.warn('Authenticated event tracking failed:', error);
     }
   },
 

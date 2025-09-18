@@ -29,7 +29,6 @@ export async function deleteAccountAction(formData: FormData) {
       try {
         await stripe.subscriptions.cancel(subscription.stripe_subscription_id);
       } catch (stripeError) {
-        console.error("Error canceling Stripe subscription:", stripeError);
         // Continue with account deletion even if Stripe cancellation fails
       }
     }
@@ -50,7 +49,6 @@ export async function deleteAccountAction(formData: FormData) {
         .delete()
         .eq("user_id", user.id);
       if (error) {
-        console.error(`Error deleting from ${table}:`, error);
       }
     }
 
@@ -66,7 +64,6 @@ export async function deleteAccountAction(formData: FormData) {
     revalidatePath("/");
     return { success: true };
   } catch (error) {
-    console.error("Delete account error:", error);
     return { error: "An unexpected error occurred while deleting the account" };
   }
 }

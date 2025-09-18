@@ -16,13 +16,11 @@ async function getPlans() {
       .order("price_monthly", { ascending: true })
 
     if (error) {
-      console.error("Error fetching plans:", error)
       return []
     }
 
     return plans || []
   } catch (error) {
-    console.error("Exception fetching plans:", error)
     return []
   }
 }

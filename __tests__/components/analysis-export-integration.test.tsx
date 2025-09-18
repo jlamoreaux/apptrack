@@ -157,7 +157,6 @@ describe('Analysis Export Integration', () => {
     const mockAnnounceError = jest.fn();
 
     beforeEach(() => {
-      // Mock console.error to avoid noise in test output
       jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
@@ -202,7 +201,6 @@ describe('Analysis Export Integration', () => {
           await mockCopyAnalysisToClipboard(mockAnalysis);
           mockAnnounceSuccess('Analysis copied to clipboard');
         } catch (error) {
-          console.error('Copy failed:', error);
           mockAnnounceError('Failed to copy results');
         }
       };
@@ -221,7 +219,6 @@ describe('Analysis Export Integration', () => {
       await waitFor(() => {
         expect(mockCopyAnalysisToClipboard).toHaveBeenCalledWith(mockAnalysis);
         expect(mockAnnounceError).toHaveBeenCalledWith('Failed to copy results');
-        expect(console.error).toHaveBeenCalledWith('Copy failed:', expect.any(Error));
       });
     });
   });
@@ -284,7 +281,6 @@ describe('Analysis Export Integration', () => {
           });
           mockAnnounceSuccess('Analysis report downloaded');
         } catch (error) {
-          console.error('Download failed:', error);
           mockAnnounceError('Failed to download report');
         }
       };
@@ -306,7 +302,6 @@ describe('Analysis Export Integration', () => {
           { company: 'Tech Corp', role: 'Software Engineer' }
         );
         expect(mockAnnounceError).toHaveBeenCalledWith('Failed to download report');
-        expect(console.error).toHaveBeenCalledWith('Download failed:', expect.any(Error));
       });
     });
   });

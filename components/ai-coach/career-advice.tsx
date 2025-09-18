@@ -36,7 +36,6 @@ export function CareerAdvice() {
           setMessages(messages || []);
         }
       } catch (error) {
-        console.error("Error fetching conversation:", error);
       } finally {
         setIsLoadingHistory(false);
       }
@@ -96,7 +95,6 @@ export function CareerAdvice() {
 
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
-      console.error("Error in chat:", error);
       // Remove the optimistically added message on error
       setMessages(prev => prev.filter(msg => msg.id !== userMessage.id));
       setInputMessage(inputMessage); // Restore input

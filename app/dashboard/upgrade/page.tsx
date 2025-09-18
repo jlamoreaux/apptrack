@@ -156,7 +156,6 @@ export default function UpgradePage() {
         router.push("/dashboard?premium_activated=true");
         return;
       } catch (error) {
-        console.error("Error activating premium free code:", error);
         setPromoError(error instanceof Error ? error.message : "Failed to activate premium free code");
         setLoading(false);
         return;
@@ -184,7 +183,6 @@ export default function UpgradePage() {
         router.push("/dashboard");
         return;
       } catch (error) {
-        console.error("Error processing downgrade:", error);
         alert(error instanceof Error ? error.message : "Failed to process downgrade");
         setLoading(false);
         return;
@@ -227,13 +225,6 @@ export default function UpgradePage() {
   const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
   const currentPlan = currentPlanName ? { name: currentPlanName } : undefined;
   
-  // Debug logging
-  console.log("Current subscription info:", {
-    subscription,
-    currentPlan,
-    currentPlanName,
-    subscriptionStatus: subscription?.status,
-  });
 
   const renderFeatureIcon = (iconName: string, className = "h-4 w-4") => {
     const IconComponent = ICON_MAP[iconName as keyof typeof ICON_MAP] || Check;
@@ -422,14 +413,6 @@ export default function UpgradePage() {
                 isCurrentPlan
               );
               
-              // Debug logging for each plan
-              console.log(`Plan ${plan.name}:`, {
-                isCurrentPlan,
-                isDowngrade,
-                buttonText,
-                currentPlanName: currentPlan?.name,
-                planName: plan.name,
-              });
 
               return (
                 <div 

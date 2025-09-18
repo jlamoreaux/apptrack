@@ -26,7 +26,6 @@ export function CookieBanner() {
         const savedPreferences = JSON.parse(cookieConsent)
         setPreferences(savedPreferences)
       } catch (error) {
-        console.warn('Failed to parse cookie preferences')
       }
     }
   }, [])

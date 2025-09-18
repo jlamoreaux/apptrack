@@ -54,7 +54,6 @@ export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserM
       router.push("/");
       router.refresh();
     } catch (error) {
-      console.error("Sign out error:", error);
     } finally {
       setLoading(false);
     }
