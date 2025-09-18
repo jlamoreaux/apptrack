@@ -237,6 +237,26 @@ async function handleSubscriptionUpdated(
     console.log(
       `Updating subscription ${subscription.id} for user ${userId} with status: ${subscription.status}`
     );
+    
+    // Get the current price ID from the subscription
+    const currentPriceId = subscription.items.data[0]?.price?.id;
+    let newPlanId: string | undefined;
+    
+    if (currentPriceId) {
+      // Look up the plan based on the Stripe price ID
+      const supabase = await createClient();
+      const { data: plan } = await supabase
+        .from("subscription_plans")
+        .select("id")
+        .or(`stripe_monthly_price_id.eq.${currentPriceId},stripe_yearly_price_id.eq.${currentPriceId}`)
+        .single();
+      
+      if (plan) {
+        newPlanId = plan.id;
+        console.log(`Detected plan change to: ${newPlanId} (price: ${currentPriceId})`);
+      }
+    }
+    
     const currentPeriodStart =
       subscription.billing_cycle_anchor && subscription.billing_cycle_anchor > 0
         ? new Date(subscription.billing_cycle_anchor * 1000).toISOString()
@@ -278,13 +298,20 @@ async function handleSubscriptionUpdated(
         currentPeriodEnd = endDate.toISOString();
       }
     }
-    await subscriptionService.updateFromStripeWebhook(subscription.id, {
+    const updateData: any = {
       status: mapStripeStatus(subscription.status),
       current_period_start: currentPeriodStart,
       current_period_end: currentPeriodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-    });
-    console.log(`Successfully updated subscription for user ${userId}`);
+    };
+    
+    // Include plan_id if it changed
+    if (newPlanId) {
+      updateData.plan_id = newPlanId;
+    }
+    
+    await subscriptionService.updateFromStripeWebhook(subscription.id, updateData);
+    console.log(`Successfully updated subscription for user ${userId}${newPlanId ? ' with new plan' : ''}`);
   } catch (error) {
     console.error("Error in handleSubscriptionUpdated:", error);
   }

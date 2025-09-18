@@ -8,6 +8,15 @@ import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Check,
@@ -21,9 +30,8 @@ import {
   MessageSquare,
   Target,
   Tag,
+  X,
 } from "lucide-react";
-import { DiscountCodeModal } from "@/components/discount-code-modal";
-import { PromoSuccessModal } from "@/components/promo-success-modal";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { PLAN_NAMES, BILLING_CYCLES } from "@/lib/constants/plans";
@@ -62,11 +70,11 @@ export default function UpgradePage() {
     BILLING_CYCLES.YEARLY
   );
   const [loading, setLoading] = useState(false);
-  const [showDiscountModal, setShowDiscountModal] = useState(false);
-  const [discountCode, setDiscountCode] = useState<string | null>(null);
-  const [applyingFreeCode, setApplyingFreeCode] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  const [showPromoDialog, setShowPromoDialog] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoSuccess, setPromoSuccess] = useState(false);
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -75,65 +83,134 @@ export default function UpgradePage() {
     }
   }, [user, authLoading, router]);
 
-  const handleUpgrade = async (
-    planId: string,
-    billingCycle: "monthly" | "yearly"
-  ) => {
-    if (!user) return;
-    let url = `/dashboard/upgrade/checkout?planId=${planId}&billingCycle=${billingCycle}`;
-    if (discountCode) {
-      url += `&discount=${encodeURIComponent(discountCode)}`;
+  const handlePromoCode = async () => {
+    if (!promoCode.trim()) {
+      setPromoError("Please enter a promo code");
+      return;
     }
-    router.push(url);
+
+    setPromoError(null);
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/promo-codes/check", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code: promoCode.toUpperCase() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPromoError(data.error || "Invalid promo code");
+        setPromoSuccess(false);
+        setAppliedPromo(null);
+        return;
+      }
+
+      setPromoSuccess(true);
+      setAppliedPromo(data);
+      setShowPromoDialog(false);
+      
+      // Clear any previous error
+      setPromoError(null);
+    } catch (error) {
+      setPromoError("Failed to apply promo code");
+      setPromoSuccess(false);
+      setAppliedPromo(null);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDiscountApply = async (code: string, codeType?: string) => {
-    // If it's a "free forever" code, apply it immediately without checkout
-    if (codeType === "free_forever") {
-      setApplyingFreeCode(true);
+  const handleUpgrade = async (
+    planId: string,
+    billingCycle: "monthly" | "yearly",
+    isDowngrade: boolean = false
+  ) => {
+    if (!user) return;
+    
+    // Check if we have a premium_free code
+    const activeCode = appliedPromo;
+    const isPremiumFree = activeCode?.code_type === "premium_free";
+    
+    // If it's a premium free code, apply it directly without Stripe checkout
+    if (isPremiumFree && activeCode?.code) {
+      setLoading(true);
       try {
-        const response = await fetch("/api/stripe/apply-free-code", {
+        const response = await fetch("/api/promo/activate-trial", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ code }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ promoCode: activeCode.code }),
         });
         
         const data = await response.json();
         
-        if (data.success) {
-          setApplyingFreeCode(false);
-          setSuccessMessage(data.message || "Your free forever access has been activated!");
-          setShowSuccessModal(true);
-          
-          // Redirect to dashboard with success message
-          setTimeout(() => {
-            const successMessage = encodeURIComponent(data.message || "Successfully upgraded!");
-            router.push(`/dashboard?upgrade_success=true&message=${successMessage}`);
-          }, 2000);
-        } else {
-          setApplyingFreeCode(false);
-          alert(data.error || "Failed to apply code");
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to activate premium free code");
         }
+        
+        // Success! Redirect to dashboard
+        router.push("/dashboard?premium_activated=true");
+        return;
       } catch (error) {
-        console.error("Error applying free code:", error);
-        alert("Failed to apply code. Please try again.");
-        setApplyingFreeCode(false);
+        console.error("Error activating premium free code:", error);
+        setPromoError(error instanceof Error ? error.message : "Failed to activate premium free code");
+        setLoading(false);
+        return;
       }
-    } else {
-      // For regular discount codes, save for checkout
-      setDiscountCode(code);
     }
+    
+    // Handle downgrades differently
+    if (isDowngrade) {
+      setLoading(true);
+      try {
+        const response = await fetch("/api/stripe/downgrade", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId, billingCycle }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to process downgrade");
+        }
+        
+        // Show success message and redirect
+        alert(data.message || "Your plan change has been scheduled.");
+        router.push("/dashboard");
+        return;
+      } catch (error) {
+        console.error("Error processing downgrade:", error);
+        alert(error instanceof Error ? error.message : "Failed to process downgrade");
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // Regular checkout flow for upgrades with optional promo code
+    let checkoutUrl = `/dashboard/upgrade/checkout?planId=${planId}&billingCycle=${billingCycle}`;
+    if (appliedPromo) {
+      if (appliedPromo.stripe_promotion_code_id) {
+        checkoutUrl += `&promoCode=${appliedPromo.stripe_promotion_code_id}`;
+      } else if (appliedPromo.stripe_coupon_id) {
+        checkoutUrl += `&couponId=${appliedPromo.stripe_coupon_id}`;
+      }
+    }
+    router.push(checkoutUrl);
   };
 
-  if (authLoading || subLoading || plans.length === 0) {
+
+  if (authLoading || subLoading) {
     return (
       <div className="min-h-screen bg-background">
         <NavigationClient />
         <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="flex items-center justify-center">
-            <div className="text-center">Loading plans...</div>
+            <div className="text-center">Loading...</div>
           </div>
         </div>
       </div>
@@ -145,19 +222,17 @@ export default function UpgradePage() {
   const freePlan = plans.find((plan) => plan.name === PLAN_NAMES.FREE);
   const proPlan = plans.find((plan) => plan.name === PLAN_NAMES.PRO);
   const aiCoachPlan = plans.find((plan) => plan.name === PLAN_NAMES.AI_COACH);
-  const currentPlan = subscription?.subscription_plans;
   
-  console.log("Upgrade page - all plans from DB:", plans);
-  console.log("Upgrade page - plan names in DB:", plans.map(p => p.name));
-  console.log("Upgrade page - looking for:", { 
-    FREE: PLAN_NAMES.FREE, 
-    PRO: PLAN_NAMES.PRO, 
-    AI_COACH: PLAN_NAMES.AI_COACH 
-  });
-  console.log("Upgrade page - found plans:", {
-    freePlan: freePlan?.name || "NOT FOUND",
-    proPlan: proPlan?.name || "NOT FOUND", 
-    aiCoachPlan: aiCoachPlan?.name || "NOT FOUND"
+  // Handle both possible subscription structures
+  const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
+  const currentPlan = currentPlanName ? { name: currentPlanName } : undefined;
+  
+  // Debug logging
+  console.log("Current subscription info:", {
+    subscription,
+    currentPlan,
+    currentPlanName,
+    subscriptionStatus: subscription?.status,
   });
 
   const renderFeatureIcon = (iconName: string, className = "h-4 w-4") => {
@@ -168,24 +243,6 @@ export default function UpgradePage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      
-      {/* Loading overlay when applying free code */}
-      {applyingFreeCode && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <Card className="p-6 max-w-sm">
-            <div className="text-center space-y-4">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-              <div>
-                <p className="text-lg font-semibold">Applying Free Forever Code</p>
-                <p className="text-sm text-muted-foreground">
-                  Cancelling any active subscriptions and upgrading you to free forever...
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-      
       <div className="container mx-auto px-4 py-6 sm:py-8">
         <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -208,24 +265,25 @@ export default function UpgradePage() {
               </span>
               {" out of "}
               <span className="font-semibold">
-                {currentPlan ? getPlanDisplayLimit(currentPlan) : "5"}
+                {currentPlanName === PLAN_NAMES.PRO ? "Unlimited" : 
+                 currentPlanName === PLAN_NAMES.AI_COACH ? "Unlimited" : "5"}
               </span>
               {" applications on the "}
               <span className="font-semibold">
-                {currentPlan?.name || PLAN_NAMES.FREE}
+                {currentPlanName || PLAN_NAMES.FREE}
               </span>{" "}
               plan.
             </p>
           </div>
 
           {/* Show promo banner after title if user is on free tier */}
-          {subscription?.subscription_plans?.name === PLAN_NAMES.FREE && (
+          {(!currentPlanName || currentPlanName === PLAN_NAMES.FREE) && (
             <PromoTrialBanner onActivate={() => window.location.reload()} />
           )}
 
-          {/* Billing Toggle and Discount Code */}
-          <div className="space-y-4">
-            <div className="flex justify-center">
+          {/* Billing Toggle and Promo Code */}
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex items-center gap-4">
               <div className="bg-muted p-1 rounded-lg">
                 <Button
                   variant={
@@ -253,20 +311,80 @@ export default function UpgradePage() {
                   </Badge>
                 </Button>
               </div>
+              
+              {/* Promo Code Button */}
+              <Dialog open={showPromoDialog} onOpenChange={setShowPromoDialog}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Tag className="h-4 w-4 mr-2" />
+                    {promoSuccess ? "Change Code" : "Have a promo code?"}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Enter Promo Code</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Input
+                      placeholder="Enter promo code"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setPromoError(null);
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          handlePromoCode();
+                        }
+                      }}
+                    />
+                    {promoError && (
+                      <Alert variant="destructive">
+                        <AlertDescription>{promoError}</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowPromoDialog(false);
+                          setPromoCode("");
+                          setPromoError(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handlePromoCode} disabled={loading}>
+                        {loading ? "Checking..." : "Apply"}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             
-            {/* Discount Code Button */}
-            <div className="flex justify-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowDiscountModal(true)}
-                className="gap-2"
-              >
-                <Tag className="h-4 w-4" />
-                {discountCode ? `Code: ${discountCode}` : "Have a discount code?"}
-              </Button>
-            </div>
+            {/* Show applied promo */}
+            {promoSuccess && appliedPromo && (
+              <div className="flex items-center gap-2 text-sm">
+                <Badge variant="secondary" className="gap-1">
+                  <Check className="h-3 w-3" />
+                  {appliedPromo.code} applied
+                  {appliedPromo.discount_percent && ` - ${appliedPromo.discount_percent}% off`}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-1"
+                  onClick={() => {
+                    setAppliedPromo(null);
+                    setPromoSuccess(false);
+                    setPromoCode("");
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="text-center mt-4">
@@ -279,65 +397,90 @@ export default function UpgradePage() {
           {/* Pricing Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {[freePlan, proPlan, aiCoachPlan].map((plan) => {
-              if (!plan || !plan.id) {
-                console.warn("Plan missing or has no ID:", plan);
-                return null;
-              }
+              if (!plan) return null;
 
-              const price = getPlanPrice(plan, selectedBilling);
+              const originalPrice = getPlanPrice(plan, selectedBilling);
+              
+              // Calculate discounted price if promo is applied
+              let discountedPrice = originalPrice;
+              let showDiscount = false;
+              
+              if (appliedPromo && appliedPromo.discount_percent && plan.name !== PLAN_NAMES.FREE) {
+                discountedPrice = Math.round(originalPrice * (1 - appliedPromo.discount_percent / 100));
+                showDiscount = true;
+              }
+              
               const yearlySavings = getYearlySavings(plan.name);
               const features = getPlanFeatures(plan);
-              const isCurrentPlan = currentPlan?.name === plan.name;
+              const isCurrentPlan = currentPlanName === plan.name;
               const isDowngrade =
-                currentPlan?.name &&
-                isPlanDowngrade(currentPlan.name, plan.name);
+                currentPlanName &&
+                isPlanDowngrade(currentPlanName, plan.name);
               const buttonText = getPlanButtonText(
-                currentPlan?.name || PLAN_NAMES.FREE,
+                currentPlanName || PLAN_NAMES.FREE,
                 plan.name,
                 isCurrentPlan
               );
               
-              let checkoutUrl = "#";
-              if (!isCurrentPlan && !isDowngrade) {
-                checkoutUrl = `/dashboard/upgrade/checkout?planId=${plan.id}&billingCycle=${selectedBilling}`;
-                if (discountCode) {
-                  checkoutUrl += `&discount=${encodeURIComponent(discountCode)}`;
-                }
-              }
-              
-              console.log(`Plan ${plan.name} - ID: ${plan.id}, URL: ${checkoutUrl}, Discount: ${discountCode || 'none'}`);
+              // Debug logging for each plan
+              console.log(`Plan ${plan.name}:`, {
+                isCurrentPlan,
+                isDowngrade,
+                buttonText,
+                currentPlanName: currentPlan?.name,
+                planName: plan.name,
+              });
 
               return (
-                <PlanCard
-                  key={plan.id}
-                  planName={plan.name}
-                  title={plan.name}
-                  subtitle={
-                    plan.name === PLAN_NAMES.FREE
-                      ? "Perfect for getting started"
-                      : plan.name === PLAN_NAMES.PRO
-                      ? "For serious job seekers"
-                      : "AI-powered career coaching"
-                  }
-                  price={
-                    plan.name === PLAN_NAMES.FREE
-                      ? null
-                      : {
-                          amount: price,
-                          period:
-                            selectedBilling === BILLING_CYCLES.MONTHLY
-                              ? "month"
-                              : "year",
-                        }
-                  }
-                  features={features}
-                  cta={{
-                    text: buttonText,
-                    href: checkoutUrl,
+                <div 
+                  key={plan.id} 
+                  onClick={(e) => {
+                    // Intercept clicks on downgrade buttons
+                    if (isDowngrade && !isCurrentPlan) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const target = e.target as HTMLElement;
+                      // Check if click was on the button or its parent link
+                      if (target.closest('a') || target.closest('button')) {
+                        handleUpgrade(plan.id, selectedBilling, true);
+                      }
+                    }
                   }}
-                  isCurrentPlan={isCurrentPlan}
-                  variant="upgrade"
-                />
+                >
+                  <PlanCard
+                    planName={plan.name}
+                    title={plan.name}
+                    subtitle={
+                      plan.name === PLAN_NAMES.FREE
+                        ? "Perfect for getting started"
+                        : plan.name === PLAN_NAMES.PRO
+                        ? "For serious job seekers"
+                        : "AI-powered career coaching"
+                    }
+                    price={
+                      plan.name === PLAN_NAMES.FREE
+                        ? null
+                        : {
+                            amount: showDiscount ? discountedPrice : originalPrice,
+                            originalAmount: showDiscount ? originalPrice : undefined,
+                            period:
+                              selectedBilling === BILLING_CYCLES.MONTHLY
+                                ? "month"
+                                : "year",
+                          }
+                    }
+                    features={features}
+                    cta={{
+                      text: buttonText,
+                      href:
+                        isCurrentPlan || isDowngrade
+                          ? "#"
+                          : `/dashboard/upgrade/checkout?planId=${plan.id}&billingCycle=${selectedBilling}`,
+                    }}
+                    isCurrentPlan={isCurrentPlan}
+                    variant="upgrade"
+                  />
+                </div>
               );
             })}
           </div>
@@ -394,20 +537,6 @@ export default function UpgradePage() {
           </div>
         </div>
       </div>
-      
-      {/* Discount Code Modal */}
-      <DiscountCodeModal
-        open={showDiscountModal}
-        onOpenChange={setShowDiscountModal}
-        onApply={handleDiscountApply}
-      />
-      
-      {/* Success Modal for Free Forever Codes */}
-      <PromoSuccessModal
-        open={showSuccessModal}
-        onOpenChange={setShowSuccessModal}
-        message={successMessage}
-      />
     </div>
   );
 }

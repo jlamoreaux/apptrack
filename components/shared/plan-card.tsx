@@ -45,6 +45,7 @@ interface PlanCardProps {
   subtitle: string;
   price?: {
     amount: number;
+    originalAmount?: number;
     period: string;
   } | null;
   features: string[];
@@ -130,6 +131,11 @@ export function PlanCard({
         <div className={`text-2xl font-bold ${theme.colors.text}`}>
           {price ? (
             <>
+              {price.originalAmount && (
+                <span className="text-sm line-through text-muted-foreground mr-2">
+                  ${price.originalAmount}
+                </span>
+              )}
               ${price.amount}
               <span className={`text-sm font-normal ${theme.colors.muted}`}>
                 /{price.period}
@@ -168,18 +174,26 @@ export function PlanCard({
 
         {/* CTA Button - always at bottom */}
         <div className="mt-auto">
-          <Link href={cta.href} className="block">
+          {(isCurrentPlan && isUpgradeVariant) ? (
             <Button
               className={`w-full ${theme.colors.button}`}
               variant={isFree ? "outline" : "default"}
-              disabled={
-                (isCurrentPlan && isUpgradeVariant) || cta.text === "Downgrade"
-              }
+              disabled={true}
               size={isUpgradeVariant ? "default" : "lg"}
             >
               {cta.text}
             </Button>
-          </Link>
+          ) : (
+            <Link href={cta.href} className="block">
+              <Button
+                className={`w-full ${theme.colors.button}`}
+                variant={isFree ? "outline" : "default"}
+                size={isUpgradeVariant ? "default" : "lg"}
+              >
+                {cta.text}
+              </Button>
+            </Link>
+          )}
         </div>
       </CardContent>
     </>
@@ -255,6 +269,11 @@ export function PlanCard({
         <div className={theme.colors.text}>
           {price ? (
             <>
+              {price.originalAmount && (
+                <span className="text-sm line-through text-muted-foreground mr-2">
+                  ${price.originalAmount}
+                </span>
+              )}
               <span className="text-3xl font-bold">${price.amount}</span>
               <span className="text-sm font-normal">/{price.period}</span>
             </>
@@ -287,14 +306,24 @@ export function PlanCard({
 
       {/* CTA Button - always at bottom */}
       <div className="mt-auto">
-        <Link href={cta.href} className="block">
+        {isCurrentPlan ? (
           <Button
             className={`w-full transition-all duration-200 ${theme.colors.button}`}
             size="lg"
+            disabled={true}
           >
             {cta.text}
           </Button>
-        </Link>
+        ) : (
+          <Link href={cta.href} className="block">
+            <Button
+              className={`w-full transition-all duration-200 ${theme.colors.button}`}
+              size="lg"
+            >
+              {cta.text}
+            </Button>
+          </Link>
+        )}
       </div>
     </div>
   );

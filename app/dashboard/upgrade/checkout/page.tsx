@@ -21,7 +21,10 @@ function CheckoutContent() {
 
   const planId = searchParams.get("planId");
   const billingCycle = searchParams.get("billingCycle") as "monthly" | "yearly";
+  const promoCode = searchParams.get("promoCode");
+  const couponId = searchParams.get("couponId");
   const discountCode = searchParams.get("discount");
+  const discountPercent = searchParams.get("discountPercent");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -56,6 +59,8 @@ function CheckoutContent() {
         body: JSON.stringify({
           planId,
           billingCycle,
+          promoCode,
+          couponId,
           discountCode,
         }),
       });
@@ -159,8 +164,13 @@ function CheckoutContent() {
     );
   }
 
-  const planPrice =
+  const originalPrice =
     billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly;
+  
+  // Calculate discounted price if we have a discount
+  const planPrice = discountPercent 
+    ? originalPrice * (1 - parseInt(discountPercent) / 100)
+    : originalPrice;
 
   return (
     <div className="min-h-screen bg-background">
@@ -191,9 +201,21 @@ function CheckoutContent() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>{plan.name} Plan</span>
-                <Badge className="bg-secondary text-secondary-foreground">
-                  ${planPrice}/{billingCycle === "monthly" ? "month" : "year"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {discountPercent && (
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-600">
+                      {discountPercent}% OFF
+                    </Badge>
+                  )}
+                  <Badge className="bg-secondary text-secondary-foreground">
+                    {discountPercent && (
+                      <span className="line-through text-muted-foreground mr-2">
+                        ${originalPrice}
+                      </span>
+                    )}
+                    ${planPrice.toFixed(planPrice % 1 === 0 ? 0 : 2)}/{billingCycle === "monthly" ? "month" : "year"}
+                  </Badge>
+                </div>
               </CardTitle>
               {discountCode && (
                 <div className="mt-2">
@@ -236,7 +258,7 @@ function CheckoutContent() {
                   </>
                 ) : (
                   <>
-                    Continue to Secure Checkout - ${planPrice}/
+                    Continue to Secure Checkout - ${planPrice.toFixed(planPrice % 1 === 0 ? 0 : 2)}/
                     {billingCycle === "monthly" ? "mo" : "yr"}
                   </>
                 )}
