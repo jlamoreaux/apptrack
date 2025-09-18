@@ -24,7 +24,7 @@ function CheckoutContent() {
   const promoCode = searchParams.get("promoCode");
   const couponId = searchParams.get("couponId");
   const discountCode = searchParams.get("discount");
-  const discountPercent = searchParams.get("discountPercent");
+  const discountPercent = searchParams.get("discountPercent") || searchParams.get("discount");
 
   useEffect(() => {
     if (!authLoading && !user) {
