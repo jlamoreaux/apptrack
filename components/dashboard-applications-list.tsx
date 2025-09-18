@@ -86,7 +86,6 @@ export function DashboardApplicationsList({
         setTotalItems(result.totalCount);
         setStatusCounts(result.statusCounts || {});
       } catch (error) {
-        console.error('Error fetching applications:', error);
         // Show error toast/notification here
       } finally {
         setIsLoading(false);

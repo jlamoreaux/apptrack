@@ -112,7 +112,6 @@ export function useRateLimit(feature: AIFeature) {
         limitMessage,
       });
     } catch (err) {
-      console.error("Error checking rate limit:", err);
       setState(prev => ({
         ...prev,
         loading: false,

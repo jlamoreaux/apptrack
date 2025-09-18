@@ -72,7 +72,6 @@ export function SubscriptionManagement({
         setErrorModalOpen(true);
       }
     } catch (error) {
-      console.error("Error canceling subscription:", error);
       setErrorMessage(
         "Something went wrong. Please try again or contact support."
       );
@@ -100,7 +99,6 @@ export function SubscriptionManagement({
         setErrorModalOpen(true);
       }
     } catch (error) {
-      console.error("Error opening billing portal:", error);
       setErrorMessage(
         "Something went wrong. Please try again or contact support."
       );

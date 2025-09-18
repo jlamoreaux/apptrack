@@ -22,7 +22,6 @@ export async function withRateLimit(
   const request = options.request;
 
   try {
-    console.log("Using rate limiter");
     const supabase = await createClient();
 
     // Get authenticated user
@@ -63,7 +62,6 @@ export async function withRateLimit(
       subscriptionTier as any
     );
 
-    console.log({ rateLimitResult });
 
     // Add rate limit headers
     const headers = new Headers();
@@ -99,7 +97,6 @@ export async function withRateLimit(
       rateLimitService
         .trackUsage(user.id, options.feature, true)
         .catch((err) => {
-          console.error("Failed to track usage:", err);
         });
     }
 
@@ -118,7 +115,6 @@ export async function withRateLimit(
       headers: newHeaders,
     });
   } catch (error) {
-    console.error("Rate limit middleware error:", error);
 
     // On error, be permissive but log it
     return handler(request);
@@ -144,26 +140,19 @@ export async function getUserSubscriptionTier(
       .maybeSingle();
 
     if (error) {
-      console.error(`Error fetching subscription for user ${userId}:`, error);
     }
 
     const planName = subscription?.subscription_plans?.name?.toLowerCase();
 
-    console.log(`User ${userId} subscription data:`, subscription);
-    console.log(`User ${userId} subscription plan: ${planName || "none"}`);
 
     if (planName?.includes("ai") || planName?.includes("coach")) {
-      console.log(`User ${userId} tier: ai_coach`);
       return "ai_coach";
     } else if (planName?.includes("pro")) {
-      console.log(`User ${userId} tier: pro`);
       return "pro";
     }
 
-    console.log(`User ${userId} tier: free (no subscription)`);
     return "free";
   } catch (error) {
-    console.error("Failed to get subscription tier:", error);
     return "free";
   }
 }

@@ -53,7 +53,6 @@ export class AICareerCoach {
 
       return advice;
     } catch (error) {
-      console.error("Error analyzing resume:", error);
       throw new Error("Failed to analyze resume. Please try again.");
     }
   }
@@ -83,7 +82,6 @@ export class AICareerCoach {
 
       return prep;
     } catch (error) {
-      console.error("Error preparing interview:", error);
       throw new Error(
         "Failed to generate interview preparation. Please try again."
       );
@@ -115,7 +113,6 @@ export class AICareerCoach {
 
       return coverLetter;
     } catch (error) {
-      console.error("Error generating cover letter:", error);
       throw new Error("Failed to generate cover letter. Please try again.");
     }
   }
@@ -137,7 +134,6 @@ export class AICareerCoach {
 
       return analysis;
     } catch (error) {
-      console.error("Error analyzing job:", error);
       throw new Error("Failed to analyze job description. Please try again.");
     }
   }
@@ -233,7 +229,6 @@ Format as a structured JSON-like response.`;
 
       return analysis;
     } catch (error) {
-      console.error("Error analyzing job fit:", error);
       throw new Error("Failed to analyze job fit. Please try again.");
     }
   }
@@ -255,7 +250,6 @@ Format as a structured JSON-like response.`;
 
       return advice;
     } catch (error) {
-      console.error("Error getting career advice:", error);
       throw new Error("Failed to get career advice. Please try again.");
     }
   }
@@ -283,7 +277,6 @@ Format as a structured JSON-like response.`;
 
       return response;
     } catch (error) {
-      console.error("Error continuing conversation:", error);
       throw new Error("Failed to continue conversation. Please try again.");
     }
   }
@@ -294,7 +287,6 @@ Format as a structured JSON-like response.`;
   ): Promise<string> {
     // TODO: Implement database save
     // For now, just return a mock session ID
-    console.log(`Saving coaching session for user ${this.userId}:`, {
       type,
       messages,
     });
@@ -306,7 +298,6 @@ Format as a structured JSON-like response.`;
     messages: ChatMessage[]
   ): Promise<void> {
     // TODO: Implement database update
-    console.log(`Updating coaching session ${sessionId}:`, { messages });
   }
 }
 

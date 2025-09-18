@@ -89,7 +89,6 @@ export default function ConfirmEmailPage() {
         setCheckingAuth(false);
       }
     } catch (error) {
-      console.error("Error checking confirmation:", error);
       setResendError("Unable to verify confirmation status. Please try again.");
       setCheckingAuth(false);
     }

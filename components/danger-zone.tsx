@@ -56,7 +56,6 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
         // Optionally redirect after closing modal
       }
     } catch (error) {
-      console.error("Error deleting account:", error);
       setModalTitle("Error");
       setModalMessage(
         "Something went wrong. Please try again or contact support."

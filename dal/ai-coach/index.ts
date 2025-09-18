@@ -358,11 +358,9 @@ export class ResumeAnalysisDAL
           "QUERY_ERROR"
         );
       }
-      console.log("Found existing resume analysis", data[0]?.id);
       return data && data.length > 0 ? data[0] : null;
     } catch (error) {
       if (error instanceof DALError) throw error;
-      console.error(error);
       throw new DALError(
         "Failed to find existing resume analysis",
         "QUERY_ERROR",

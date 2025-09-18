@@ -37,7 +37,6 @@ export class ErrorTrackingService {
 
       await analyticsService.trackEvent(errorEvent);
     } catch (trackingError) {
-      console.error('Failed to track error:', trackingError);
     }
   }
 
@@ -67,7 +66,6 @@ export class ErrorTrackingService {
 
       await analyticsService.trackEvent(errorEvent);
     } catch (trackingError) {
-      console.error('Failed to track API error:', trackingError);
     }
   }
 
@@ -95,7 +93,6 @@ export class ErrorTrackingService {
 
       await analyticsService.trackEvent(errorEvent);
     } catch (trackingError) {
-      console.error('Failed to track component error:', trackingError);
     }
   }
 
@@ -119,7 +116,6 @@ export class ErrorTrackingService {
 
       await analyticsService.trackEvent(errorEvent);
     } catch (trackingError) {
-      console.error('Failed to track unhandled rejection:', trackingError);
     }
   }
 
@@ -147,7 +143,6 @@ export class ErrorTrackingService {
 
       await analyticsService.trackEvent(errorEvent);
     } catch (trackingError) {
-      console.error('Failed to track custom error:', trackingError);
     }
   }
 

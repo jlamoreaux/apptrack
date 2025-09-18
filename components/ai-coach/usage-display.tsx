@@ -47,7 +47,6 @@ export function UsageDisplay({ userId, feature, compact = false }: UsageDisplayP
       setUsageStats(Array.isArray(data) ? data : [data]);
       setError(null);
     } catch (err) {
-      console.error('Error fetching usage stats:', err);
       setError('Unable to load usage information');
     } finally {
       setLoading(false);

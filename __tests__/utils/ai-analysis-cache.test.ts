@@ -218,7 +218,6 @@ describe('AI Analysis Cache Tests', () => {
         throw new Error('Storage full')
       })
       
-      // Mock console.warn to suppress warning in tests
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
       
       // Should not throw error, but will log warning
@@ -232,7 +231,6 @@ describe('AI Analysis Cache Tests', () => {
       // Mock corrupted data
       localStorageMock.getItem.mockImplementationOnce(() => 'invalid-json')
       
-      // Mock console.warn to suppress warning in tests
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
       
       const result = persistentCache.get(testKey)

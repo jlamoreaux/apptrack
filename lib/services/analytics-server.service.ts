@@ -23,18 +23,15 @@ export class ServerAnalyticsService {
         // Vercel Analytics might not be available in development
         // or in certain deployment environments
         if (process.env.NODE_ENV === 'production') {
-          console.warn('Vercel Analytics server tracking not available');
         }
         
         // Log the event for debugging
-        console.log('Analytics Event:', {
           name: event.name,
           properties: event.properties,
           timestamp: new Date().toISOString()
         });
       }
     } catch (error) {
-      console.warn('Server analytics tracking failed:', error);
     }
   }
 }

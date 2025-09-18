@@ -88,7 +88,6 @@ export class RateLimitService {
       // Fallback to database-only rate limiting
       return await this.checkDatabaseLimit(userId, feature, limits);
     } catch (error) {
-      console.error('Rate limit check failed:', error);
       // On error, be permissive but log it
       return {
         allowed: true,
@@ -110,7 +109,6 @@ export class RateLimitService {
   ): Promise<void> {
     if (!redis) {
       // No Redis available, skip tracking
-      console.log('Redis not available, skipping usage tracking');
       return;
     }
     
@@ -159,7 +157,6 @@ export class RateLimitService {
         await redis.incr(`usage:success:${feature}:daily:${new Date().toISOString().slice(0, 10)}`);
       }
     } catch (error) {
-      console.error('Failed to track usage in Redis:', error);
       // Don't throw - we don't want tracking failures to break the app
     }
   }
@@ -192,7 +189,6 @@ export class RateLimitService {
         hourlyUsed = hourlyCount || 0;
         dailyUsed = dailyCount || 0;
       } catch (redisError) {
-        console.error('Redis getUsageStats failed, falling back to database:', redisError);
         useDatabase = true;
       }
     }
@@ -315,14 +311,11 @@ export class RateLimitService {
         .single();
       
       if (limitsError) {
-        console.error(`No limits found for feature: ${feature}, tier: ${subscriptionTier}`, limitsError);
       } else {
-        console.log(`Found limits for ${feature}/${subscriptionTier}:`, limits);
       }
       
       return limits;
     } catch (error) {
-      console.error('Failed to get user limits:', error);
       return null;
     }
   }
@@ -412,7 +405,6 @@ export class RateLimitService {
         retryAfter: 0,
       };
     } catch (error) {
-      console.error('Redis rate limit check failed, falling back to database:', error);
       // Fall back to database check if Redis fails
       return this.checkDatabaseLimit(userId, feature, limits);
     }

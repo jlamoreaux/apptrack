@@ -15,7 +15,6 @@ try {
   // Monitoring not available, use fallback
   getInterviewPrepMonitor = () => ({
     recordEvent: (event: string, data: any) => {
-      console.log(`[Performance] ${event}:`, data);
     }
   });
 }
@@ -442,7 +441,6 @@ export const PerformanceUtils = {
     const memoryUsedMB = memoryDelta.heapUsed / (1024 * 1024)
     
     if (memoryUsedMB > maxMemoryMB) {
-      console.warn(`Operation used ${memoryUsedMB.toFixed(2)}MB, exceeding limit of ${maxMemoryMB}MB`)
       
       const monitor = getInterviewPrepMonitor?.()
       monitor?.recordEvent('high_memory_usage', {

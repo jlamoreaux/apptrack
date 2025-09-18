@@ -176,7 +176,6 @@ export function ApplicationAIAnalysis({
         // Only log error if it's not an abort error and in development
         if (error instanceof Error && error.name !== "AbortError") {
           if (process.env.NODE_ENV === "development") {
-            console.warn("Failed to fetch job fit history:", error.message);
           }
           // In production, could send to error tracking service here
         }
@@ -287,7 +286,6 @@ export function ApplicationAIAnalysis({
           // Only log if error is not from abort
           if (error instanceof Error && error.name !== "AbortError") {
             if (process.env.NODE_ENV === "development") {
-              console.warn(
                 "Failed to load most recent analysis:",
                 error.message
               );
@@ -572,7 +570,6 @@ export function ApplicationAIAnalysis({
                           }
                         } catch (error) {
                           if (process.env.NODE_ENV === "development") {
-                            console.warn(
                               "Copy failed:",
                               error instanceof Error
                                 ? error.message
@@ -606,7 +603,6 @@ export function ApplicationAIAnalysis({
                           }
                         } catch (error) {
                           if (process.env.NODE_ENV === "development") {
-                            console.warn(
                               "Download failed:",
                               error instanceof Error
                                 ? error.message

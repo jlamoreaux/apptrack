@@ -61,7 +61,6 @@ export const ResumeSection: React.FC<ResumeSectionProps> = ({
         throw new Error("No text extracted from resume");
       }
     } catch (error: any) {
-      console.error("Error uploading file:", error);
       setUploadError(error.message || "Failed to process file");
     } finally {
       setUploadLoading(false);

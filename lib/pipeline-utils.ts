@@ -47,7 +47,6 @@ export function buildStatusPath(
     if (app.status === "Rejected") {
       // For rejected status, find the last non-rejected status from history
       const lastNonRejectedHistory = appHistory[0];
-      console.log({ appHistory });
 
       if (lastNonRejectedHistory) {
         // If we have history, use the last non-rejected status

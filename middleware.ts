@@ -50,7 +50,6 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   } catch (error) {
     // If there's an error with Supabase, just continue without auth
-    console.error("Middleware error:", error)
     return NextResponse.next({
       request,
     })

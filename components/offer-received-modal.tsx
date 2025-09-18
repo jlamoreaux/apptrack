@@ -70,7 +70,6 @@ export function OfferReceivedModal({
         setModalOpen(true);
       }
     } catch (error) {
-      console.error("Error canceling subscription:", error);
       setModalTitle("Error");
       setModalMessage(
         "Something went wrong. Please try again or contact support."

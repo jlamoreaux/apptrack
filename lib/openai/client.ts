@@ -59,7 +59,6 @@ export async function callOpenAI({
 
     throw new Error("No content in response");
   } catch (error) {
-    console.error("Error calling OpenAI API:", error);
     
     // Provide more specific error messages
     if (error instanceof Error) {

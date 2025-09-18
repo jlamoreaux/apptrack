@@ -1,7 +1,6 @@
 import { Resend } from 'resend';
 
 if (!process.env.RESEND_API_KEY) {
-  console.warn('RESEND_API_KEY not set - emails will not be sent');
 }
 
 export const resend = process.env.RESEND_API_KEY 
@@ -20,7 +19,6 @@ export async function sendEmail({
   from?: string;
 }) {
   if (!resend) {
-    console.log('Email (mock):', { to, subject });
     return { success: true, mock: true };
   }
 
@@ -38,7 +36,6 @@ export async function sendEmail({
 
     return { success: true, data };
   } catch (error) {
-    console.error('Failed to send email:', error);
     throw error;
   }
 }

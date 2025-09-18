@@ -51,7 +51,6 @@ export function AdminUsersList({ admins }: AdminUsersListProps) {
       // Success - refresh the page
       router.refresh();
     } catch (error) {
-      console.error("Error removing admin:", error);
       alert(error instanceof Error ? error.message : "Failed to remove admin");
     } finally {
       setRemovingUserId(null);

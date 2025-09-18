@@ -283,16 +283,6 @@ export class SubscriptionService
     billingCycle: "monthly" | "yearly" = "monthly"
   ): Promise<Subscription> {
     try {
-      console.log("Creating subscription from Stripe with data:", {
-        userId,
-        planId,
-        stripeCustomerId,
-        stripeSubscriptionId,
-        status,
-        billingCycle,
-        currentPeriodStart,
-        currentPeriodEnd,
-      });
 
       const result = await this.create({
         user_id: userId,
@@ -306,10 +296,8 @@ export class SubscriptionService
         cancel_at_period_end: false,
       });
 
-      console.log("Successfully created subscription:", result);
       return result;
     } catch (error) {
-      console.error("Error in createSubscriptionFromStripe:", error);
       throw wrapDALError(error, "Failed to create subscription from Stripe");
     }
   }

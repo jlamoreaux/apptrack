@@ -86,7 +86,6 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
     }
     
     if (!jobDescription && !selectedApplicationId) {
-      console.log("no job description or selected application");
       toast({
         title: "Job Description Required",
         description:
@@ -141,7 +140,6 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
         description: copy.successToast.description,
       });
     } catch (error) {
-      console.error("Error generating interview prep:", error);
       toast({
         title: "Error Generating Prep",
         description: (error as Error).message || ERROR_MESSAGES.UNEXPECTED,

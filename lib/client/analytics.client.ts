@@ -37,13 +37,11 @@ export class ClientAnalytics {
       });
 
       if (!response.ok) {
-        console.warn('Analytics tracking failed:', response.status);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.warn('Analytics tracking error:', error);
       return false;
     }
   }
@@ -64,13 +62,11 @@ export class ClientAnalytics {
       });
 
       if (!response.ok) {
-        console.warn('User identification failed:', response.status);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.warn('User identification error:', error);
       return false;
     }
   }

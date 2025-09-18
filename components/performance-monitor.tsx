@@ -25,7 +25,7 @@ export function usePerformanceMonitor(componentName: string, enabled: boolean = 
     const renderDuration = renderEndTime - renderStartTime.current;
     
     if (renderDuration > 16) { // Flag renders taking longer than 16ms (60fps threshold)
-      console.warn(`[Performance] ${componentName} render took ${renderDuration.toFixed(2)}ms (render #${renderCount.current})`);
+      console.warn(`[Performance] ${componentName} render took ${renderDuration.toFixed(2)}ms (render #${renderCount.current})`)
     }
     
     // Log to analytics if available

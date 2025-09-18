@@ -149,7 +149,6 @@ export function useAIAnalysis({
       onSuccess?.(result)
 
       // Log successful analysis
-      console.info(`AI Analysis completed: ${analysisType}`, {
         applicationId,
         userId,
         timestamp: new Date().toISOString(),
@@ -163,12 +162,10 @@ export function useAIAnalysis({
       onError?.(error)
 
       // Log error for debugging
-      console.error('AI Analysis failed:', createErrorSummary(error, analysisType))
 
       // Show user notification for certain error types
       if (shouldShowErrorToUser(error)) {
         // You could integrate with a toast notification system here
-        console.warn('User should be notified of error:', error.message)
       }
     }
   }, [applicationId, userId, onSuccess, onError])

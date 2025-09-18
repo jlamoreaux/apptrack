@@ -82,7 +82,6 @@ export function useResumesClient(userId: string | null) {
 
   const getCurrentResume = useCallback(async (): Promise<UserResume | null> => {
     if (!userId) {
-      console.log("no user id");
       setError("User not authenticated");
       return null;
     }
@@ -91,7 +90,6 @@ export function useResumesClient(userId: string | null) {
     setError(null);
 
     try {
-      console.log("getting current resume", userId);
       const response = await fetch("/api/resumes/current", {
         method: "GET",
         credentials: "include",
@@ -99,7 +97,6 @@ export function useResumesClient(userId: string | null) {
 
       if (!response.ok) {
         if (response.status === 404) {
-          console.log("no resume found");
           return null; // Not found
         }
         const result = await response.json();
@@ -111,7 +108,6 @@ export function useResumesClient(userId: string | null) {
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Failed to get current resume";
-      console.log("error getting current resume", errorMessage);
       setError(errorMessage);
       return null;
     } finally {

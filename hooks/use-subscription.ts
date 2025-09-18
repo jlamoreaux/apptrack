@@ -56,7 +56,6 @@ export function useSubscription(userId: string | null) {
         setUsage(usageData);
       }
     } catch (error) {
-      console.error("Error fetching subscription data:", error);
     } finally {
       setLoading(false);
     }
@@ -73,10 +72,8 @@ export function useSubscription(userId: string | null) {
         const { plans: plansData } = await response.json();
         setPlans(plansData || []);
       } else {
-        console.error("Error fetching plans:", response.status);
       }
     } catch (error) {
-      console.error("Error fetching plans:", error);
     }
   };
 

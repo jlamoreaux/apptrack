@@ -24,7 +24,6 @@ export function useSupabaseAuth() {
           await fetchProfile(session.user.id);
         }
       } catch (error) {
-        console.error("Error getting initial session:", error);
       } finally {
         setLoading(false);
       }
@@ -58,7 +57,6 @@ export function useSupabaseAuth() {
       });
 
       if (!response.ok) {
-        console.error(`Profile fetch error: ${response.status}`);
         return;
       }
 
@@ -70,7 +68,6 @@ export function useSupabaseAuth() {
 
       setProfile(profile);
     } catch (error) {
-      console.error(`Profile fetch exception: ${error}`);
     }
   };
 
@@ -126,10 +123,8 @@ export function useSupabaseAuth() {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Error signing out:", error);
       }
     } catch (error) {
-      console.error("Error signing out:", error);
     } finally {
       setLoading(false);
     }

@@ -209,7 +209,6 @@ class PersistentCacheManager {
 
       localStorage.setItem(this.storageKey, JSON.stringify(cache))
     } catch (error) {
-      console.warn('Failed to store analysis result in localStorage:', error)
     }
   }
 
@@ -234,7 +233,6 @@ class PersistentCacheManager {
 
       return entry.result
     } catch (error) {
-      console.warn('Failed to retrieve analysis result from localStorage:', error)
       return null
     }
   }
@@ -257,7 +255,6 @@ class PersistentCacheManager {
       localStorage.setItem(this.storageKey, JSON.stringify(cache))
       return existed
     } catch (error) {
-      console.warn('Failed to delete analysis result from localStorage:', error)
       return false
     }
   }
@@ -269,7 +266,6 @@ class PersistentCacheManager {
     try {
       localStorage.removeItem(this.storageKey)
     } catch (error) {
-      console.warn('Failed to clear localStorage cache:', error)
     }
   }
 
@@ -281,7 +277,6 @@ class PersistentCacheManager {
       const stored = localStorage.getItem(this.storageKey)
       return stored ? JSON.parse(stored) : {}
     } catch (error) {
-      console.warn('Failed to parse localStorage cache, clearing:', error)
       localStorage.removeItem(this.storageKey)
       return {}
     }

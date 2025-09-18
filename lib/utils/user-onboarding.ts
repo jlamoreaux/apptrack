@@ -31,7 +31,6 @@ export async function isNewUser(userId: string): Promise<boolean> {
     
     return createdAt > fiveMinutesAgo;
   } catch (error) {
-    console.error("Error checking if user is new:", error);
     return false; // Default to not interrupting flow
   }
 }
@@ -45,6 +44,5 @@ export async function markOnboardingComplete(userId: string): Promise<void> {
       .update({ onboarding_completed: true })
       .eq("id", userId);
   } catch (error) {
-    console.error("Error marking onboarding complete:", error);
   }
 }

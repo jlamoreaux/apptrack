@@ -32,7 +32,6 @@ export function NavigationClient() {
         const data = await response.json();
         setIsAdmin(data.isAdmin || false);
       } catch (error) {
-        console.error('Error checking admin status:', error);
         setIsAdmin(false);
       }
     }

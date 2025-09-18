@@ -50,7 +50,6 @@ export class ApplicationErrorBoundary extends React.Component<
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('ApplicationErrorBoundary caught an error:', error, errorInfo);
     }
   }
 

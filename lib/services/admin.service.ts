@@ -18,13 +18,11 @@ export class AdminService {
         .maybeSingle();
       
       if (error) {
-        console.error("Admin check error:", error);
         return false;
       }
       
       return !!data;
     } catch (error) {
-      console.error("Error checking admin status:", error);
       return false;
     }
   }
@@ -41,13 +39,11 @@ export class AdminService {
         .order("created_at", { ascending: false });
       
       if (error) {
-        console.error("Error fetching admin users:", error);
         return [];
       }
       
       return data || [];
     } catch (error) {
-      console.error("Error fetching admin users:", error);
       return [];
     }
   }
@@ -66,13 +62,11 @@ export class AdminService {
         });
       
       if (error) {
-        console.error("Error adding admin user:", error);
         return false;
       }
       
       return true;
     } catch (error) {
-      console.error("Error adding admin user:", error);
       return false;
     }
   }
@@ -89,13 +83,11 @@ export class AdminService {
         .eq("user_id", userId);
       
       if (error) {
-        console.error("Error removing admin user:", error);
         return false;
       }
       
       return true;
     } catch (error) {
-      console.error("Error removing admin user:", error);
       return false;
     }
   }

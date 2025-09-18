@@ -48,7 +48,6 @@ export const isRedisAvailable = () => redis !== null;
 // Create rate limiter instances for different windows
 export const createRateLimiter = (tokens: number, window: string) => {
   if (!redis) {
-    console.warn("Redis not configured, rate limiting disabled");
     return null;
   }
   

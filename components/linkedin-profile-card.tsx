@@ -39,7 +39,6 @@ export function LinkedInProfileCard({
     try {
       await onDelete(profile.id);
     } catch (error) {
-      console.error("Error deleting profile:", error);
     } finally {
       setIsDeleting(false);
     }

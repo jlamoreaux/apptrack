@@ -29,7 +29,6 @@ export function parseInterviewPreparation(
           }
         }
       } catch (e) {
-        console.warn('Failed to parse JSON from code block:', e)
       }
     }
     

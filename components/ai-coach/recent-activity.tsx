@@ -63,7 +63,6 @@ export function RecentActivity({ userId }: RecentActivityProps) {
         setActivities(activities || []);
       }
     } catch (error) {
-      console.error("Error fetching recent activity:", error);
     } finally {
       setIsLoading(false);
     }

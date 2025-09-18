@@ -163,7 +163,6 @@ const CoverLetterGenerator = () => {
         description: "Your personalized cover letter is ready and saved.",
       });
     } catch (err: any) {
-      console.error("Error generating cover letter:", err);
       setError(err.message || ERROR_MESSAGES.UNEXPECTED);
       toast({
         title: "Generation failed",
@@ -224,7 +223,6 @@ const CoverLetterGenerator = () => {
         });
       }
     } catch (error) {
-      console.error("Error deleting cover letter:", error);
       toast({
         title: "Error",
         description: "Failed to delete cover letter",
@@ -261,7 +259,6 @@ const CoverLetterGenerator = () => {
           }
         }
       } catch (error) {
-        console.error("Error uploading resume:", error);
         toast({
           title: "Upload failed",
           description: "Failed to process resume file",

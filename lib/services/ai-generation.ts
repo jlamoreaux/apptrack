@@ -42,7 +42,6 @@ export class AIGenerationService {
       const prompt = this.buildInterviewPreparationPrompt(context, jobDescription, profile)
       
       if (!AI_CONFIG.apiKey) {
-        console.warn("AI API key not configured, falling back to mock generation")
         return this.generateMockInterviewPreparation(context, profile)
       }
 
@@ -50,7 +49,6 @@ export class AIGenerationService {
       return this.parseInterviewPreparationResponse(aiResponse)
       
     } catch (error) {
-      console.error("AI generation failed, falling back to mock:", error)
       return this.generateMockInterviewPreparation(context, profile)
     }
   }
@@ -67,7 +65,6 @@ export class AIGenerationService {
       const prompt = this.buildJobFitAnalysisPrompt(context, jobDescription, profile)
       
       if (!AI_CONFIG.apiKey) {
-        console.warn("AI API key not configured, falling back to mock generation")
         return this.generateMockJobFitAnalysis(context, jobDescription, profile)
       }
 
@@ -75,7 +72,6 @@ export class AIGenerationService {
       return this.parseJobFitAnalysisResponse(aiResponse)
       
     } catch (error) {
-      console.error("AI generation failed, falling back to mock:", error)
       return this.generateMockJobFitAnalysis(context, jobDescription, profile)
     }
   }
@@ -296,7 +292,6 @@ Analyze the job fit compatibility:`
         generatedAt: new Date().toISOString(),
       }
     } catch (error) {
-      console.error("Failed to parse AI response:", error)
       throw new Error("Invalid AI response format")
     }
   }
@@ -328,7 +323,6 @@ Analyze the job fit compatibility:`
         generatedAt: new Date().toISOString(),
       }
     } catch (error) {
-      console.error("Failed to parse AI response:", error)
       throw new Error("Invalid AI response format")
     }
   }

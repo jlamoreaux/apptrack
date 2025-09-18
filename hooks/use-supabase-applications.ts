@@ -25,10 +25,8 @@ export function useSupabaseApplications(userId: string | null) {
         const { applications: data } = await response.json();
         setApplications(data || []);
       } else {
-        console.error("Error fetching applications:", response.status);
       }
     } catch (error) {
-      console.error("Error fetching applications:", error);
     } finally {
       setLoading(false);
     }
@@ -129,14 +127,12 @@ export function useSupabaseApplications(userId: string | null) {
       });
 
       if (!response.ok) {
-        console.error("Error fetching application:", response.status);
         return null;
       }
 
       const { application } = await response.json();
       return application;
     } catch (error) {
-      console.error("Error fetching application:", error);
       return null;
     }
   };
@@ -172,10 +168,8 @@ export function useLinkedinProfiles(applicationId: string | null) {
         const { profiles } = await response.json();
         setProfiles(profiles || []);
       } else {
-        console.error("Error fetching LinkedIn profiles:", response.status);
       }
     } catch (error) {
-      console.error("Error fetching LinkedIn profiles:", error);
     } finally {
       setLoading(false);
     }

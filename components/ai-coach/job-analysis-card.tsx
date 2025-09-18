@@ -33,15 +33,6 @@ export function JobAnalysisCard({ jobUrl, userId, companyName, roleName }: JobAn
     setError("")
     setAnalysis(null)
 
-    // Debug: Log the values being sent
-    console.log("🔍 Job Analysis Request Data:", {
-      jobUrl,
-      companyName,
-      roleName,
-      hasJobUrl: !!jobUrl,
-      hasCompanyName: !!companyName,
-      hasRoleName: !!roleName,
-    })
 
     // Validate required fields before making the request
     if (!jobUrl || !companyName || !roleName) {

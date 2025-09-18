@@ -158,7 +158,6 @@ export function LinkedInContactsSection({
         setNotesValue("");
       }
     } catch (error) {
-      console.error("Failed to save notes:", error);
     }
   };
 
@@ -190,7 +189,6 @@ export function LinkedInContactsSection({
         setEditCompany("");
       }
     } catch (error) {
-      console.error("Failed to save profile:", error);
     }
   };
 
