@@ -11,9 +11,11 @@ if (typeof window !== "undefined") {
   const posthogKey =
     isDevelopment && process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
       ? process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
-      : process.env.NEXT_PUBLIC_POSTHOG_KEY!;
+      : process.env.NEXT_PUBLIC_POSTHOG_KEY;
 
-  posthog.init(posthogKey, {
+  // Only initialize PostHog if we have a valid key
+  if (posthogKey) {
+    posthog.init(posthogKey, {
     api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
     person_profiles: "identified_only",
     capture_pageview: false, // Disable automatic pageview capture, as we capture manually
@@ -37,7 +39,8 @@ if (typeof window !== "undefined") {
         });
       }
     },
-  });
+    });
+  }
 }
 
 export function CSPostHogProvider({ children }: { children: React.ReactNode }) {
@@ -49,7 +52,7 @@ export function PostHogPageView(): JSX.Element {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (pathname) {
+    if (pathname && posthog.__loaded) {
       let url = window.origin + pathname;
       if (searchParams.toString()) {
         url = url + `?${searchParams.toString()}`;
