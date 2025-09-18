@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ArrowLeft, ExternalLink, Plus, Edit, MoreVertical, Archive, Trash } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, Edit, MoreVertical, Archive, Trash, Pencil, X, Check } from "lucide-react"
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { useSupabaseApplications, useLinkedinProfiles } from "@/hooks/use-supabase-applications"
 import type { Application } from "@/lib/supabase"
@@ -54,6 +54,8 @@ export default function ApplicationDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null)
+  const [editedNoteText, setEditedNoteText] = useState("")
 
   const { profiles: linkedinProfiles, addProfile, deleteProfile, updateProfile } = useLinkedinProfiles(application?.id || null)
 
@@ -113,6 +115,38 @@ export default function ApplicationDetailPage() {
       application.notes + (application.notes ? "\n\n" : "") + `[${new Date().toLocaleDateString()}] ${newNote}`
     handleUpdateNotes(updatedNotes)
     setNewNote("")
+  }
+
+  const handleEditNote = (index: number) => {
+    if (!application) return
+    const notes = application.notes.split('\n\n')
+    setEditingNoteIndex(index)
+    setEditedNoteText(notes[index])
+  }
+
+  const handleSaveEditedNote = () => {
+    if (!application || editingNoteIndex === null) return
+    
+    const notes = application.notes.split('\n\n')
+    notes[editingNoteIndex] = editedNoteText
+    const updatedNotes = notes.join('\n\n')
+    handleUpdateNotes(updatedNotes)
+    setEditingNoteIndex(null)
+    setEditedNoteText("")
+  }
+
+  const handleCancelEdit = () => {
+    setEditingNoteIndex(null)
+    setEditedNoteText("")
+  }
+
+  const handleDeleteNote = (index: number) => {
+    if (!application) return
+    
+    const notes = application.notes.split('\n\n')
+    notes.splice(index, 1)
+    const updatedNotes = notes.join('\n\n')
+    handleUpdateNotes(updatedNotes)
   }
 
   const handleArchiveApplication = async () => {
@@ -284,21 +318,7 @@ export default function ApplicationDetailPage() {
                 <CardDescription>Keep track of interview questions, feedback, and follow-ups</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={application.notes}
-                    onChange={(e) => handleUpdateNotes(e.target.value)}
-                    placeholder="Add your interview notes here..."
-                    className="min-h-[200px]"
-                    disabled={saving}
-                  />
-                  {saving && <p className="text-xs text-muted-foreground">Saving...</p>}
-                </div>
-
-                <Separator />
-
+                {/* Add New Note */}
                 <div className="space-y-2">
                   <Label htmlFor="newNote">Add New Note</Label>
                   <div className="flex gap-2">
@@ -309,10 +329,92 @@ export default function ApplicationDetailPage() {
                       placeholder="Add a new note..."
                       className="min-h-[80px]"
                     />
-                    <Button onClick={handleAddNote} size="sm" disabled={!newNote.trim()}>
+                    <Button onClick={handleAddNote} size="sm" disabled={!newNote.trim() || saving}>
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
+                  {saving && <p className="text-xs text-muted-foreground">Saving...</p>}
+                </div>
+
+                <Separator />
+
+                {/* Notes List */}
+                <div className="space-y-2">
+                  <Label>Notes History</Label>
+                  {application.notes ? (
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {application.notes.split('\n\n').map((note, index) => (
+                        <div key={index} className="p-3 bg-muted/50 rounded-lg relative group">
+                          {editingNoteIndex === index ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editedNoteText}
+                                onChange={(e) => setEditedNoteText(e.target.value)}
+                                className="min-h-[60px] text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={handleSaveEditedNote} disabled={saving}>
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Save
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                  <X className="h-3 w-3 mr-1" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap pr-16">{note}</p>
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleEditNote(index)}
+                                  disabled={saving}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 hover:bg-destructive/10"
+                                      disabled={saving}
+                                    >
+                                      <Trash className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this note? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteNote(index)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No notes yet. Add your first note above.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
