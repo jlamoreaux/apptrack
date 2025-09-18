@@ -5,6 +5,11 @@ import { useSupabaseAuth } from '@/hooks/use-supabase-auth';
 
 interface CachedData {
   resumeText: string | null;
+  resumeInfo: {
+    fileName?: string;
+    uploadedAt?: string;
+    fileUrl?: string;
+  } | null;
   savedCoverLetters: any[];
   savedInterviewPreps: any[];
   careerAdviceHistory: any[];
@@ -54,6 +59,7 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
   
   const [data, setData] = useState<CachedData>({
     resumeText: null,
+    resumeInfo: null,
     savedCoverLetters: [],
     savedInterviewPreps: [],
     careerAdviceHistory: [],
@@ -113,9 +119,25 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         // Check for both parsed_text and extracted_text (different field names in the database)
         const resumeText = result.resume?.parsed_text || result.resume?.extracted_text || null;
         
+        // Extract filename from file_url if available
+        let fileName = 'Resume';
+        if (result.resume?.file_url) {
+          const urlParts = result.resume.file_url.split('/');
+          const fullName = urlParts[urlParts.length - 1];
+          // Remove timestamp prefix (e.g., "1234567890-filename.pdf" -> "filename.pdf")
+          fileName = fullName.replace(/^\d+-/, '');
+        }
+        
+        const resumeInfo = result.resume ? {
+          fileName,
+          uploadedAt: result.resume.uploaded_at || result.resume.updated_at,
+          fileUrl: result.resume.file_url,
+        } : null;
+        
         setData(prev => ({
           ...prev,
           resumeText,
+          resumeInfo,
           lastFetched: { ...prev.lastFetched, resume: Date.now() },
         }));
         

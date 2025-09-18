@@ -65,7 +65,11 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         );
       }
 
-      setResumeText(data.text);
+      // Handle both old and new response formats
+      const extractedText = data.text || data.resume?.extracted_text;
+      if (extractedText) {
+        setResumeText(extractedText);
+      }
       toast({
         title: "Resume uploaded",
         description: "Your resume has been processed successfully",
