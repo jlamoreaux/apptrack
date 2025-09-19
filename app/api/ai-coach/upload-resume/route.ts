@@ -1,18 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // Check authentication and AI Coach access
+    const authResult = await checkAICoachAccess('UPLOAD_RESUME');
+    if (!authResult.authorized) {
+      return authResult.response!;
     }
+
+    const supabase = await createClient();
+    const user = authResult.user;
 
     const formData = await request.formData();
     const file = formData.get("file") as File;

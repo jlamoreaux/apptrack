@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
+import { checkAICoachAccess } from '@/lib/middleware/ai-coach-auth';
 import type { JobFitAnalysisResult } from '@/types/ai-analysis';
 
 interface PDFRequest {
@@ -12,6 +13,12 @@ interface PDFRequest {
 
 export async function POST(req: NextRequest) {
   try {
+    // Check authentication and AI Coach access
+    const authResult = await checkAICoachAccess('JOB_FIT_ANALYSIS');
+    if (!authResult.authorized) {
+      return authResult.response!;
+    }
+
     const body: PDFRequest = await req.json();
     const { analysis, applicationInfo } = body;
 
