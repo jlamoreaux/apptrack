@@ -11,6 +11,7 @@ import { SkipNavigation } from "@/components/accessibility/skip-link";
 import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posthog-provider";
 import { AuthTracker } from "@/components/analytics/auth-tracker";
 import { GlobalErrorTracker } from "@/components/analytics/global-error-tracker";
+import { LinkedInInsight } from "@/components/analytics/linkedin-insight";
 import { Footer } from "@/components/footer";
 import { CookieBanner } from "@/components/cookie-banner";
 
@@ -48,6 +49,7 @@ export default function RootLayout({
               <PostHogPageView />
               <AuthTracker />
               <GlobalErrorTracker />
+              <LinkedInInsight />
               {children}
               <Footer />
               <CookieBanner />
