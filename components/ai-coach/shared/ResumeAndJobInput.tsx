@@ -13,6 +13,7 @@ import { JobDescriptionInput } from "./JobDescriptionInput";
 import { Separator } from "@/components/ui/separator";
 import { useAICoachData } from "@/contexts/ai-coach-data-context";
 import { useToast } from "@/hooks/use-toast";
+import { FileInfo } from "@/components/ui/file-info";
 
 interface ResumeAndJobInputProps {
   jobDescription: string;
@@ -188,29 +189,26 @@ export function ResumeAndJobInput({
 
         {userHasResume ? (
           <Alert className="border-green-600">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">
-                    {currentResumeInfo.name || "Current Resume"}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      {currentResumeInfo.length ? `${currentResumeInfo.length.toLocaleString()} characters` : "Resume loaded"}
-                    </p>
-                    {currentResumeInfo.isNewUpload && (
-                      <span className="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-1.5 py-0.5 rounded">
-                        Just uploaded
-                      </span>
-                    )}
-                  </div>
+            <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+            <AlertDescription className="w-full">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <FileInfo 
+                    fileName={currentResumeInfo.name || "Current Resume"}
+                    characterCount={currentResumeInfo.length}
+                    showCharacterCount={!!currentResumeInfo.length}
+                  />
+                  {currentResumeInfo.isNewUpload && (
+                    <span className="inline-block mt-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-1.5 py-0.5 rounded">
+                      Just uploaded
+                    </span>
+                  )}
                 </div>
                 {allowResumeUpload && (
                   <Button
                     variant="outline"
                     size="sm"
-                    className="ml-4"
+                    className="w-full sm:w-auto"
                     onClick={() => document.getElementById("resume-upload")?.click()}
                     disabled={isUploading}
                   >

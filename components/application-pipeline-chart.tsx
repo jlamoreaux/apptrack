@@ -192,7 +192,7 @@ export function ApplicationPipelineChart({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px] w-full">
+        <div className="h-[300px] sm:h-[350px] md:h-[400px] w-full">
           <Plot
             data={data}
             layout={layout}

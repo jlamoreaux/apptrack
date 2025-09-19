@@ -274,8 +274,8 @@ export default function UpgradePage() {
 
           {/* Billing Toggle and Promo Code */}
           <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-4">
-              <div className="bg-muted p-1 rounded-lg">
+            <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
+              <div className="bg-muted p-1 rounded-lg flex items-center">
                 <Button
                   variant={
                     selectedBilling === BILLING_CYCLES.MONTHLY
@@ -284,6 +284,7 @@ export default function UpgradePage() {
                   }
                   size="sm"
                   onClick={() => setSelectedBilling(BILLING_CYCLES.MONTHLY)}
+                  className="text-xs sm:text-sm"
                 >
                   Monthly
                 </Button>
@@ -295,10 +296,11 @@ export default function UpgradePage() {
                   }
                   size="sm"
                   onClick={() => setSelectedBilling(BILLING_CYCLES.YEARLY)}
+                  className="text-xs sm:text-sm"
                 >
                   Yearly
-                  <Badge variant="secondary" className="ml-2">
-                    Save up to 33%
+                  <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+                    Save 33%
                   </Badge>
                 </Button>
               </div>
@@ -306,7 +308,7 @@ export default function UpgradePage() {
               {/* Promo Code Button */}
               <Dialog open={showPromoDialog} onOpenChange={setShowPromoDialog}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
                     <Tag className="h-4 w-4 mr-2" />
                     {promoSuccess ? "Change Code" : "Have a promo code?"}
                   </Button>
