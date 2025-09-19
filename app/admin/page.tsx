@@ -111,7 +111,7 @@ export default async function AdminDashboardPage() {
       href: "/admin/all-users",
       color: "text-indigo-500",
       bgColor: "bg-indigo-50 dark:bg-indigo-950/20",
-      stats: "Coming soon",
+      stats: "User management",
     },
     {
       title: "Settings",
@@ -250,10 +250,12 @@ export default async function AdminDashboardPage() {
                 Manage Admins
               </Button>
             </Link>
-            <Button variant="outline" size="sm" disabled>
-              <Users className="h-4 w-4 mr-2" />
-              View All Users
-            </Button>
+            <Link href="/admin/all-users">
+              <Button variant="outline" size="sm">
+                <Users className="h-4 w-4 mr-2" />
+                View All Users
+              </Button>
+            </Link>
             <Button variant="outline" size="sm" disabled>
               <BarChart3 className="h-4 w-4 mr-2" />
               View Analytics

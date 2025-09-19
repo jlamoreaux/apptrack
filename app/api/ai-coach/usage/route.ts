@@ -23,8 +23,8 @@ export async function GET(request: NextRequest) {
     // Get user's subscription tier
     const subscriptionTier = await getUserSubscriptionTier(user.id);
 
-    // Create rate limit service instance
-    const rateLimitService = new RateLimitService();
+    // Get rate limit service instance
+    const rateLimitService = RateLimitService.getInstance();
 
     // Get usage stats
     if (feature) {
