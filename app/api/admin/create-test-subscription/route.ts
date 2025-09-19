@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
+import { AdminService } from "@/lib/services/admin.service";
 import { stripe } from "@/lib/stripe";
 
 // Admin endpoint to create test subscriptions
-// Protect this endpoint in production!
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Check admin access
+    const isAdmin = await AdminService.isAdmin(user.id);
+    if (!isAdmin) {
+      return NextResponse.json(
+        { error: "Forbidden - Admin access required" },
+        { status: 403 }
+      );
+    }
+
     const { userId, planId } = await request.json();
-    
-    // TODO: Add admin authentication check here
-    // if (!isAdmin) return unauthorized response
     
     const supabase = await createClient();
     

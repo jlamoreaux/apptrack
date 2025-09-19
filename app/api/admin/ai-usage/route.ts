@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     const isAdmin = await AdminService.isAdmin(user.id);
     if (!isAdmin) {
       return NextResponse.json(
-        { error: "Unauthorized" },
+        { error: "Forbidden - Admin access required" },
         { status: 403 }
       );
     }

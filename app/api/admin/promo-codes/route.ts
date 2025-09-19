@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     if (!(await AdminService.isAdmin(user.id))) {
       return NextResponse.json(
-        { error: "Admin access required" },
+        { error: "Forbidden - Admin access required" },
         { status: 403 }
       );
     }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     if (!(await AdminService.isAdmin(user.id))) {
       return NextResponse.json(
-        { error: "Admin access required" },
+        { error: "Forbidden - Admin access required" },
         { status: 403 }
       );
     }
@@ -183,7 +183,7 @@ export async function PUT(request: NextRequest) {
 
     if (!(await AdminService.isAdmin(user.id))) {
       return NextResponse.json(
-        { error: "Admin access required" },
+        { error: "Forbidden - Admin access required" },
         { status: 403 }
       );
     }
