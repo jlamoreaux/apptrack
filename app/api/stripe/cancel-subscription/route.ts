@@ -2,17 +2,21 @@ import { type NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { getUser } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await request.json();
-
-    if (!userId) {
+    // CRITICAL: Authenticate user first
+    const user = await getUser();
+    if (!user) {
       return NextResponse.json(
-        { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
-        { status: 400 }
+        { error: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
       );
     }
+
+    // Use authenticated user's ID, NOT from request body
+    const userId = user.id;
 
     const subscriptionService = new SubscriptionService();
 

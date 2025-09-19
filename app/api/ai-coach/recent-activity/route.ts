@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
-
-    // Get authenticated user
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return NextResponse.json({ error: ERROR_MESSAGES.UNAUTHORIZED }, { status: 401 });
+    // Check authentication and AI Coach access
+    // Using JOB_FIT_ANALYSIS as a general AI Coach permission
+    const authResult = await checkAICoachAccess('JOB_FIT_ANALYSIS');
+    if (!authResult.authorized) {
+      return authResult.response!;
     }
+
+    const supabase = await createClient();
+    const user = authResult.user;
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);

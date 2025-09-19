@@ -3,18 +3,23 @@ import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const { planId, billingCycle, userId } = await request.json();
-
-    if (!userId) {
+    // CRITICAL: Authenticate user first
+    const user = await getUser();
+    if (!user) {
       return NextResponse.json(
-        { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
-        { status: 400 }
+        { error: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
       );
     }
+
+    const { planId, billingCycle } = await request.json();
+
+    // Use authenticated user's ID, NOT from request body
+    const userId = user.id;
 
     // Get user profile
     const supabase = await createClient();
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
     // Get plan details
