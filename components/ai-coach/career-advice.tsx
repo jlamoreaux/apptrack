@@ -119,7 +119,7 @@ export function CareerAdvice() {
       </Card>
 
       {/* Chat Interface Card */}
-      <Card className="flex flex-col h-[600px]">
+      <Card className="flex flex-col min-h-[400px] sm:min-h-[500px] md:h-[600px]">
 
         <CardContent className="flex-1 overflow-y-auto p-6">
         {isLoadingHistory ? (

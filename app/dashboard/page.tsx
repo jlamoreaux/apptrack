@@ -158,7 +158,7 @@ export default async function DashboardPage() {
                 <div className="text-xl sm:text-2xl font-bold">{stats.offers}</div>
               </CardContent>
             </Card>
-            <Card className="border-green-500/20 col-span-2 sm:col-span-1 lg:col-span-1">
+            <Card className="border-green-500/20 col-span-full sm:col-span-1 lg:col-span-1">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium">Hired</CardTitle>
                 <TrendingUp className="h-4 w-4 text-green-500" />

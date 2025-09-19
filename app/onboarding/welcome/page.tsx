@@ -358,10 +358,10 @@ export default function OnboardingWelcomePage() {
         </div>
 
         {/* Combined Offer Banner */}
-        <div className="max-w-4xl mx-auto mb-8">
+        <div className="max-w-4xl mx-auto mb-8 px-4 sm:px-0">
           <Card className="border-2 border-yellow-500/20 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-yellow-500/5">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:justify-between">
                 <div className="flex items-center gap-3 flex-1">
                   <Gift className="h-6 w-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                   <div className="flex-1">
@@ -391,7 +391,7 @@ export default function OnboardingWelcomePage() {
                 </div>
                 <Dialog open={showPromoDialog} onOpenChange={setShowPromoDialog}>
                   <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="ml-4">
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
                       <Tag className="h-4 w-4 mr-2" />
                       {promoSuccess ? "Change Code" : "Have a promo code?"}
                     </Button>
@@ -440,12 +440,13 @@ export default function OnboardingWelcomePage() {
         </div>
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-6">
-          <div className="bg-muted p-1 rounded-lg">
+        <div className="flex justify-center mb-6 px-4 sm:px-0">
+          <div className="bg-muted p-1 rounded-lg flex items-center">
             <Button
               variant={selectedBilling === "monthly" ? "default" : "ghost"}
               size="sm"
               onClick={() => setSelectedBilling("monthly")}
+              className="text-xs sm:text-sm"
             >
               Monthly
             </Button>
@@ -453,10 +454,11 @@ export default function OnboardingWelcomePage() {
               variant={selectedBilling === "yearly" ? "default" : "ghost"}
               size="sm"
               onClick={() => setSelectedBilling("yearly")}
+              className="text-xs sm:text-sm"
             >
               Yearly
-              <Badge variant="secondary" className="ml-2">
-                Save up to 33%
+              <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+                Save 33%
               </Badge>
             </Button>
           </div>

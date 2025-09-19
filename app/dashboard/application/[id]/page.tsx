@@ -211,20 +211,20 @@ export default function ApplicationDetailPage() {
           {/* Application Overview */}
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl">{application.role}</CardTitle>
-                  <CardDescription className="text-lg">{application.company}</CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <CardTitle className="text-xl sm:text-2xl break-words">{application.role}</CardTitle>
+                  <CardDescription className="text-base sm:text-lg break-words">{application.company}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusSelector
                     currentStatus={application.status}
                     onStatusChange={(status: Application["status"]) => handleUpdateApplication({ status })}
                     disabled={saving}
                   />
                   <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
+                    <Edit className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Edit</span>
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

@@ -292,15 +292,17 @@ export function LinkedInContactsSection({
                       </div>
                     ) : (
                       <>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <a
                             href={profile.profile_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="font-medium text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1"
+                            className="font-medium text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-1 truncate"
                           >
-                            {profile.name || profile.profile_url.split("/").pop() || "LinkedIn Profile"}
-                            <ExternalLink className="h-3 w-3" />
+                            <span className="truncate">
+                              {profile.name || profile.profile_url.split("/").pop() || "LinkedIn Profile"}
+                            </span>
+                            <ExternalLink className="h-3 w-3 flex-shrink-0" />
                           </a>
                         </div>
                         {(profile.title || profile.company) && (

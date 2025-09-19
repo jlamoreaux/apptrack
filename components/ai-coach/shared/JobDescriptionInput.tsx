@@ -83,8 +83,36 @@ export function JobDescriptionInput({
     <div className="space-y-4">
       <Label>{label}</Label>
       
-      {/* Method selector */}
-      <div className="flex gap-2">
+      {/* Method selector - Select on mobile, buttons on desktop */}
+      <div className="block sm:hidden">
+        <Select value={inputMethod} onValueChange={(value) => setInputMethod(value as "application" | "text" | "url")}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="application">
+              <div className="flex items-center">
+                <Briefcase className="mr-2 h-4 w-4" />
+                Saved Application
+              </div>
+            </SelectItem>
+            <SelectItem value="text">
+              <div className="flex items-center">
+                <FileText className="mr-2 h-4 w-4" />
+                Paste Description
+              </div>
+            </SelectItem>
+            <SelectItem value="url">
+              <div className="flex items-center">
+                <Link className="mr-2 h-4 w-4" />
+                From URL
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      
+      <div className="hidden sm:flex gap-2">
         <Button
           variant={inputMethod === "application" ? "default" : "outline"}
           size="sm"

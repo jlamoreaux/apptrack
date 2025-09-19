@@ -299,7 +299,52 @@ export function AllUsersClient({ initialData, initialStats }: AllUsersClientProp
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          {/* Mobile Card View */}
+          <div className="block sm:hidden space-y-4">
+            {filteredUsers.map((user) => (
+              <Card key={user.id} className="p-4">
+                <div className="space-y-3">
+                  <div>
+                    <div className="font-medium text-sm">{user.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {user.full_name || "No name"}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {getStatusBadge(user.subscription, user.is_admin)}
+                      <Badge variant="outline" className="text-xs">
+                        {user.subscription?.plan_name || "Free"}
+                      </Badge>
+                    </div>
+                    {user.subscription && (
+                      <div className="flex items-center gap-1 text-sm">
+                        <DollarSign className="h-3 w-3" />
+                        {user.subscription.price || "0"}
+                        <span className="text-xs text-muted-foreground">
+                          /{user.subscription.billing_cycle === "yearly" ? "yr" : "mo"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Joined: {format(new Date(user.created_at), "MMM d, yyyy")}</span>
+                    {user.subscription?.current_period_end && (
+                      <span>Next: {format(new Date(user.subscription.current_period_end), "MMM d")}</span>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            ))}
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                No users found matching your criteria
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Table View */}
+          <div className="hidden sm:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>

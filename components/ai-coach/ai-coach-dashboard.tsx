@@ -77,31 +77,26 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="resume" className="flex items-center gap-2">
-            <Brain className="h-4 w-4" />
-            <span className="hidden sm:inline">{tabs.resume}</span>
-            <span className="sm:hidden">Resume</span>
+        <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 w-full h-auto p-1 gap-1">
+          <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
+            <Brain className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Resume</span>
           </TabsTrigger>
-          <TabsTrigger value="interview" className="flex items-center gap-2">
-            <MessageSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">{tabs.interview}</span>
-            <span className="sm:hidden">Interview</span>
+          <TabsTrigger value="interview" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
+            <MessageSquare className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Interview</span>
           </TabsTrigger>
-          <TabsTrigger value="cover-letter" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">{tabs.coverLetter}</span>
-            <span className="sm:hidden">Cover</span>
+          <TabsTrigger value="cover-letter" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
+            <FileText className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Cover</span>
           </TabsTrigger>
-          <TabsTrigger value="advice" className="flex items-center gap-2">
-            <Target className="h-4 w-4" />
-            <span className="hidden sm:inline">{tabs.advice}</span>
-            <span className="sm:hidden">Advice</span>
+          <TabsTrigger value="advice" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
+            <Target className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Advice</span>
           </TabsTrigger>
-          <TabsTrigger value="job-fit" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">{tabs.jobFit}</span>
-            <span className="sm:hidden">Job Fit</span>
+          <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] col-start-2 sm:col-start-auto">
+            <BarChart3 className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Job Fit</span>
           </TabsTrigger>
         </TabsList>
 

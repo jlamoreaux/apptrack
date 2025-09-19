@@ -32,6 +32,7 @@ import {
 import { getFileTypeLabel } from "@/lib/utils/text-extraction";
 import { useResumesClient } from "@/hooks/use-resumes-client";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { FileInfo } from "@/components/ui/file-info";
 import type { UserResume } from "@/types";
 
 interface ResumeManagementProps {
@@ -91,6 +92,19 @@ export function ResumeManagement({
     });
   };
 
+  // Extract filename from URL
+  const getFileName = (url: string) => {
+    try {
+      // Get the last part of the URL path
+      const urlParts = url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      // Remove any query parameters
+      return fileName.split('?')[0] || 'Resume';
+    } catch {
+      return 'Resume';
+    }
+  };
+
   useEffect(() => {
     fetchResume();
   }, [user?.id, getCurrentResume]);
@@ -140,58 +154,65 @@ export function ResumeManagement({
           </Alert>
         )}
 
-        <div className="flex items-center justify-between p-4 border rounded-lg">
-          <div className="flex items-center gap-3">
-            <FileText className="h-8 w-8 text-primary" />
-            <div>
-              <p className="font-medium">Resume</p>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Badge variant="secondary">
-                  {getFileTypeLabel(resume.file_type)}
-                </Badge>
-                <span>•</span>
-                <span>Uploaded {formatDate(resume.uploaded_at)}</span>
+        <div className="p-4 border rounded-lg space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <FileText className="h-8 w-8 text-primary flex-shrink-0 mt-1" />
+              <div className="flex-1 min-w-0">
+                <FileInfo 
+                  fileName={getFileName(resume.file_url)}
+                  characterCount={resume.extracted_text?.length}
+                  showCharacterCount={false}
+                />
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mt-2">
+                  <Badge variant="secondary">
+                    {getFileTypeLabel(resume.file_type)}
+                  </Badge>
+                  <span className="hidden sm:inline">•</span>
+                  <span>Uploaded {formatDate(resume.uploaded_at)}</span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open(resume.file_url, "_blank")}
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download
-            </Button>
+            <div className="flex flex-row sm:flex-col gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open(resume.file_url, "_blank")}
+                className="flex-1 sm:flex-initial"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" disabled={deleting}>
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Resume</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Are you sure you want to delete your resume? This action
-                    cannot be undone and will disable AI features that depend on
-                    your resume.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDelete}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete Resume
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={deleting} className="flex-1 sm:flex-initial">
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Resume</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete your resume? This action
+                      cannot be undone and will disable AI features that depend on
+                      your resume.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete Resume
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </div>
 
