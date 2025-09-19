@@ -22,7 +22,7 @@ export function PromoCodeForm({ onSuccess, setError, setSuccess, editingCode, on
   const [newCode, setNewCode] = useState({
     code: editingCode?.code || "",
     description: editingCode?.description || "",
-    codeType: (editingCode?.code_type || "trial") as "trial" | "discount" | "free_forever",
+    codeType: (editingCode?.code_type || "trial") as "trial" | "discount" | "premium_free",
     trialDays: editingCode?.trial_days ?? 90,
     applicablePlans: editingCode?.applicable_plans || ["AI Coach"],
     maxUses: editingCode?.max_uses?.toString() || "",
@@ -56,7 +56,7 @@ export function PromoCodeForm({ onSuccess, setError, setSuccess, editingCode, on
         code: newCode.code,
         description: newCode.description,
         code_type: newCode.codeType,
-        trial_days: newCode.codeType === 'free_forever' ? 36500 : newCode.trialDays, // 100 years for free_forever
+        trial_days: newCode.trialDays, // Now configurable for all types
         applicable_plans: newCode.applicablePlans,
         max_uses: newCode.maxUses ? parseInt(newCode.maxUses) : null,
         expires_at: newCode.expiresAt || null,
@@ -139,7 +139,7 @@ export function PromoCodeForm({ onSuccess, setError, setSuccess, editingCode, on
               <Label htmlFor="codeType">Code Type *</Label>
               <Select
                 value={newCode.codeType}
-                onValueChange={(value: "trial" | "discount" | "free_forever") => 
+                onValueChange={(value: "trial" | "discount" | "premium_free") => 
                   setNewCode({ ...newCode, codeType: value })
                 }
               >
@@ -149,7 +149,7 @@ export function PromoCodeForm({ onSuccess, setError, setSuccess, editingCode, on
                 <SelectContent>
                   <SelectItem value="trial">Free Trial</SelectItem>
                   <SelectItem value="discount">Discount</SelectItem>
-                  <SelectItem value="free_forever">Premium Free (No Payment)</SelectItem>
+                  <SelectItem value="premium_free">Premium Free (No Payment)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -255,45 +255,48 @@ export function PromoCodeForm({ onSuccess, setError, setSuccess, editingCode, on
           </div>
         )}
 
-        {/* Trial Details (only for trial types) */}
-        {newCode.codeType === 'trial' && (
+        {/* Trial/Access Duration Details (for trial and premium_free types) */}
+        {(newCode.codeType === 'trial' || newCode.codeType === 'premium_free') && (
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Trial Details</h3>
+            <h3 className="text-sm font-semibold">
+              {newCode.codeType === 'trial' ? 'Trial Details' : 'Access Duration'}
+            </h3>
             <div>
-              <Label htmlFor="trialDays">Trial Days</Label>
+              <Label htmlFor="trialDays">
+                {newCode.codeType === 'trial' ? 'Trial Days' : 'Access Duration (Days)'}
+              </Label>
               <Input
                 id="trialDays"
                 type="number"
                 min="1"
                 value={newCode.trialDays}
                 onChange={(e) => setNewCode({ ...newCode, trialDays: parseInt(e.target.value) || 30 })}
-                placeholder="30"
+                placeholder={newCode.codeType === 'trial' ? "30" : "365"}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Number of days the trial lasts
+                {newCode.codeType === 'trial' 
+                  ? 'Number of days the trial lasts'
+                  : 'Number of days of premium access (e.g., 365 for 1 year)'}
               </p>
             </div>
-          </div>
-        )}
 
-        {/* Free Forever Details */}
-        {newCode.codeType === 'free_forever' && (
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Free Forever Details</h3>
-            <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
-              <p className="text-sm text-blue-900 dark:text-blue-100">
-                This gives permanent premium access without requiring payment. Perfect for:
-              </p>
-              <ul className="list-disc list-inside text-sm text-blue-900 dark:text-blue-100 mt-2 space-y-1">
-                <li>Beta testers and early adopters</li>
-                <li>Partners and influencers</li>
-                <li>Customer service compensations</li>
-                <li>Internal team members</li>
-              </ul>
-              <p className="text-xs text-blue-800 dark:text-blue-200 mt-2">
-                ⚠️ Users can apply this code without entering credit card details
-              </p>
-            </div>
+            {/* Additional info for premium_free type */}
+            {newCode.codeType === 'premium_free' && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 p-4 rounded-lg">
+                <p className="text-sm text-blue-900 dark:text-blue-100">
+                  Premium access without requiring payment. Perfect for:
+                </p>
+                <ul className="list-disc list-inside text-sm text-blue-900 dark:text-blue-100 mt-2 space-y-1">
+                  <li>Beta testers and early adopters</li>
+                  <li>Partners and influencers</li>
+                  <li>Customer service compensations</li>
+                  <li>Internal team members</li>
+                </ul>
+                <p className="text-xs text-blue-800 dark:text-blue-200 mt-2">
+                  ⚠️ Users can apply this code without entering credit card details
+                </p>
+              </div>
+            )}
           </div>
         )}
 
