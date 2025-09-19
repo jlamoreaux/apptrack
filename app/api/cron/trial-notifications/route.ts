@@ -28,32 +28,33 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Check for expired trials
-    const { data: expiredTrials } = await supabase
+    // Check for expired trials and premium_free subscriptions
+    const { data: expiredSubscriptions } = await supabase
       .from("user_subscriptions")
       .select("*")
-      .eq("status", "trialing")
+      .or("status.eq.trialing,and(status.eq.active,cancel_at_period_end.eq.true)")
       .lte("current_period_end", now.toISOString());
 
-    if (expiredTrials) {
+    if (expiredSubscriptions) {
       const subscriptionService = new SubscriptionService();
       
-      for (const trial of expiredTrials) {
-        // Cancel the trial subscription
-        await subscriptionService.update(trial.id, {
+      for (const subscription of expiredSubscriptions) {
+        // Cancel the expired subscription
+        await subscriptionService.update(subscription.id, {
           status: "canceled",
           cancel_at_period_end: false,
         });
 
         // Log the expiration
-        console.log(`Trial expired for user ${trial.user_id}`);
+        const subType = subscription.status === 'trialing' ? 'Trial' : 'Premium free access';
+        console.log(`${subType} expired for user ${subscription.user_id}`);
       }
     }
 
     return NextResponse.json({
       success: true,
       notificationsProcessed: pendingNotifications?.length || 0,
-      trialsExpired: expiredTrials?.length || 0,
+      subscriptionsExpired: expiredSubscriptions?.length || 0,
     });
   } catch (error) {
     console.error("Error processing trial notifications:", error);
@@ -112,7 +113,7 @@ async function sendNotificationEmail(
       content: `
         <h2>Your AI Coach trial ends in 7 days</h2>
         <p>We hope you're enjoying the AI-powered features in AppTrack!</p>
-        <p>Your 90-day trial will end in 7 days, after which you'll automatically return to the free tier.</p>
+        <p>Your trial will end in 7 days, after which you'll automatically return to the free tier.</p>
         <p><strong>Want to continue with AI Coach?</strong></p>
         <p>Upgrade now to keep all your AI-powered features without interruption.</p>
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Upgrade Options</a>
@@ -148,6 +149,51 @@ async function sendNotificationEmail(
           <li>Take interview notes</li>
         </ul>
         <p>Ready for more? You can upgrade to AI Coach anytime to regain access to all AI-powered features.</p>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Plans</a>
+      `,
+    },
+    premium_ending_7_days: {
+      subject: "Your premium access ends in 7 days",
+      preview: "Make the most of your remaining premium time",
+      content: `
+        <h2>Your premium access ends in 7 days</h2>
+        <p>We hope you're enjoying the premium features in AppTrack!</p>
+        <p>Your premium access will end in 7 days, after which you'll automatically return to the free tier.</p>
+        <p><strong>Want to continue with premium features?</strong></p>
+        <p>Upgrade now to keep all your premium features without interruption.</p>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Upgrade Options</a>
+      `,
+    },
+    premium_ending_1_day: {
+      subject: "Your premium access ends tomorrow",
+      preview: "Last day to upgrade and keep your premium features",
+      content: `
+        <h2>Your premium access ends tomorrow</h2>
+        <p>This is your final reminder that your premium access ends tomorrow.</p>
+        <p>After tomorrow, you'll lose access to:</p>
+        <ul>
+          <li>AI Resume Analysis</li>
+          <li>Interview Preparation</li>
+          <li>Job Fit Analysis</li>
+          <li>Cover Letter Generation</li>
+        </ul>
+        <p><strong>Don't lose your premium features!</strong></p>
+        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">Upgrade Now</a>
+      `,
+    },
+    premium_ended: {
+      subject: "Your premium access has ended",
+      preview: "You can upgrade anytime to regain premium features",
+      content: `
+        <h2>Your premium access has ended</h2>
+        <p>Thank you for using AppTrack's premium features!</p>
+        <p>You've been automatically moved to the free tier, where you can still:</p>
+        <ul>
+          <li>Track up to 5 applications</li>
+          <li>Manage interviews and contacts</li>
+          <li>Take interview notes</li>
+        </ul>
+        <p>Ready for more? You can upgrade anytime to regain access to all premium features.</p>
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Plans</a>
       `,
     },
