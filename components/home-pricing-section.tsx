@@ -71,8 +71,15 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
         </div>
       </div>
 
+      {/* Ethical Promise */}
+      <div className="text-center mt-8 p-4 bg-primary/5 rounded-lg max-w-2xl mx-auto">
+        <p className="text-sm font-medium text-foreground">
+          🎯 {COPY.pricing.ethicalPromise}
+        </p>
+      </div>
+
       {/* Additional info */}
-      <div className="text-center mt-8">
+      <div className="text-center mt-4">
         <p className="text-sm text-muted-foreground">
           {COPY.pricing.footer}{" "}
           <Link href="/dashboard/upgrade" className="text-blue-600 hover:text-blue-700 underline font-medium">

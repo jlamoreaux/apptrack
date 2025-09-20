@@ -2,7 +2,10 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NavigationStatic } from "@/components/navigation-static"
 import { HomePricingSection } from "@/components/home-pricing-section"
-import { BarChart3 } from "lucide-react"
+import { HomeProblemSolution } from "@/components/home-problem-solution"
+import { HomeSocialProof } from "@/components/home-social-proof"
+import { HomeFaq } from "@/components/home-faq"
+import { HomeFinalCta } from "@/components/home-final-cta"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -32,36 +35,57 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
       <NavigationStatic />
-      <main className="flex-1 flex items-center justify-center py-8 px-4">
-        <div className="container mx-auto">
-          <div className="text-center space-y-8 max-w-4xl mx-auto">
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-center mb-6 gap-4">
-                <BarChart3 className="h-12 w-12 sm:h-16 sm:w-16 text-primary" />
-                <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground text-center sm:text-left">{COPY.hero.title}</h1>
+      <main className="flex-1">
+        {/* Hero Section */}
+        <section className="py-16 px-4">
+          <div className="container mx-auto">
+            <div className="text-center space-y-8 max-w-4xl mx-auto">
+              <div className="space-y-4">
+                <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground text-center mb-6">
+                  {COPY.hero.title}
+                </h1>
+                <p className="text-base sm:text-lg lg:text-xl text-foreground max-w-xl sm:max-w-3xl mx-auto px-4 sm:px-0">
+                  {COPY.hero.subtitle}
+                </p>
+                <p className="text-sm font-medium text-primary">
+                  {COPY.hero.stats}
+                </p>
               </div>
-              <p className="text-base sm:text-lg lg:text-xl text-foreground max-w-xl sm:max-w-2xl mx-auto px-4 sm:px-0">{COPY.hero.subtitle}</p>
-            </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/signup">
-                <Button size="lg" className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white">
-                  {COPY.hero.cta.primary}
-                </Button>
-              </Link>
-              <Link href="/login">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
-                >
-                  {COPY.hero.cta.secondary}
-                </Button>
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/signup">
+                  <Button size="lg" className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white">
+                    {COPY.hero.cta.primary}
+                  </Button>
+                </Link>
+                <Link href="/login">
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
+                  >
+                    {COPY.hero.cta.secondary}
+                  </Button>
+                </Link>
+              </div>
+              
+              <p className="text-sm text-muted-foreground">
+                {COPY.hero.supportingText}
+              </p>
             </div>
+          </div>
+        </section>
 
-            {/* Features Grid - Fixed responsive behavior */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 mt-16 justify-items-center px-4 sm:px-0">
+        {/* Problem/Solution Section */}
+        <HomeProblemSolution />
+
+        {/* Features Section */}
+        <section className="py-16 px-4">
+          <div className="container mx-auto">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-12">
+              {COPY.features.title}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-items-center px-4 sm:px-0">
               {features.map((feature, index) => {
                 const isSecondary = index % 2 === 1
 
@@ -78,10 +102,22 @@ export default async function HomePage() {
                 )
               })}
             </div>
-
-            <HomePricingSection plans={plans} />
           </div>
+        </section>
+
+        {/* Social Proof Section - Hidden for now */}
+        {/* <HomeSocialProof /> */}
+
+        {/* Pricing Section */}
+        <div className="py-16 px-4">
+          <HomePricingSection plans={plans} />
         </div>
+
+        {/* FAQ Section */}
+        <HomeFaq />
+
+        {/* Final CTA Section */}
+        <HomeFinalCta />
       </main>
     </div>
   )

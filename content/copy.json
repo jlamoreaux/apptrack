@@ -1,32 +1,58 @@
 {
   "hero": {
-    "title": "AppTrack",
-    "subtitle": "The smart way to track your job applications. Stay organized and never lose track of your job search progress. Start free with 5 applications, then upgrade to Pro for unlimited tracking.",
+    "title": "Never lose track of your dream job again",
+    "subtitle": "The smart job application tracker with AI-powered career coaching. Organize applications, visualize your pipeline, and get expert help with resumes, cover letters, and interview prep.",
+    "stats": "Start organizing your job search today",
+    "supportingText": "No credit card required • Start free today",
     "cta": {
-      "primary": "Get Started Free",
+      "primary": "Start Tracking Free",
       "secondary": "Sign In"
     }
   },
+  "problemSolution": {
+    "title": "Job searching is overwhelming. We make it simple.",
+    "problems": [
+      "Forgetting which jobs you've applied to",
+      "Losing track of interview stages and outcomes",
+      "Writing cover letters from scratch every time",
+      "Not knowing how to improve your resume"
+    ],
+    "solutions": [
+      "Track every application with status updates",
+      "Visualize your pipeline with interactive Sankey charts",
+      "AI-generated cover letters tailored to each role",
+      "AI resume analysis with actionable feedback"
+    ]
+  },
   "pricing": {
-    "title": "Simple, Transparent Pricing",
+    "title": "Simple pricing that works for your job search",
     "subtitle": "Choose the plan that works best for your job search",
+    "ethicalPromise": "We'll remind you to cancel when you get hired. We don't want you paying for something you no longer need.",
     "plans": {
       "free": {
         "title": "Free Plan",
-        "subtitle": "Perfect for getting started",
-        "features": ["Up to 5 applications", "Application tracking", "Interview notes", "Contact management"],
+        "subtitle": "Perfect to Start",
+        "price": "$0/month",
+        "features": [
+          "Track your job applications",
+          "Status tracking & updates",
+          "Save LinkedIn profile URLs",
+          "Basic pipeline visualization"
+        ],
         "cta": {
-          "text": "Get Started Free",
+          "text": "Start Free - No Credit Card",
           "href": "/signup"
         }
       },
       "pro": {
         "title": "Pro Plan",
-        "subtitle": "For serious job seekers",
+        "subtitle": "For Serious Job Seekers",
+        "price": "$9/month",
         "features": [
           "Unlimited applications",
-          "All Free plan features",
-          "Cancel reminder when hired",
+          "Advanced Sankey charts",
+          "Application archiving",
+          "Application history tracking",
           "Priority support"
         ],
         "cta": {
@@ -36,13 +62,15 @@
       },
       "ai_coach": {
         "title": "AI Coach",
-        "subtitle": "AI-powered career coaching",
+        "subtitle": "Your personal career assistant",
+        "price": "$29/month",
         "features": [
           "Everything in Pro",
-          "AI resume analysis",
-          "AI interview preparation",
+          "AI resume analysis & feedback",
           "AI cover letter generation",
-          "Personalized career advice"
+          "AI interview preparation",
+          "Job fit analysis",
+          "Personalized career advice chat"
         ],
         "cta": {
           "text": "Get AI Coaching",
@@ -50,30 +78,79 @@
         }
       }
     },
-    "footer": "All plans include our core job tracking features."
+    "footer": "All plans include core job tracking features."
   },
   "features": {
+    "title": "Everything you need to land your next role",
     "core": [
       {
-        "title": "Track Applications",
-        "description": "Keep track of every application with company details, role information, and application dates.",
+        "title": "Smart Application Tracking",
+        "description": "Track every application with company details, role information, and real-time status updates. Archive completed applications to keep your dashboard clean.",
         "icon": "Target"
       },
       {
-        "title": "Interview Notes",
-        "description": "Document interview experiences, questions asked, and follow-up actions.",
-        "icon": "FileText"
+        "title": "AI Career Coaching",
+        "description": "Get AI-powered help with resume analysis, custom cover letters, interview prep, and personalized career advice whenever you need it.",
+        "icon": "Brain"
       },
       {
-        "title": "Network Contacts",
-        "description": "Save LinkedIn profiles and networking contacts for each application.",
+        "title": "Visual Pipeline Analytics",
+        "description": "See your entire job search journey with interactive Sankey charts. Understand where applications are in your pipeline at a glance.",
+        "icon": "BarChart3"
+      },
+      {
+        "title": "Save Key Contacts",
+        "description": "Store LinkedIn profile URLs and recruiter contacts for each application. Keep all your networking connections organized in one place.",
         "icon": "Users"
-      },
-      {
-        "title": "Ethical Billing",
-        "description": "We'll remind you to cancel your subscription when you get hired. We don't want you paying for something you no longer need.",
-        "icon": "Heart"
       }
     ]
+  },
+  "socialProof": {
+    "title": "Built for job seekers, by job seekers",
+    "testimonials": [],
+    "stats": [
+      {
+        "value": "5+",
+        "label": "AI coaching tools"
+      },
+      {
+        "value": "Unlimited",
+        "label": "applications tracked (Pro)"
+      },
+      {
+        "value": "24/7",
+        "label": "AI assistance available"
+      }
+    ]
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "items": [
+      {
+        "question": "Do I need a credit card to start?",
+        "answer": "No! Start tracking your applications immediately, no credit card required. Upgrade to Pro when you need unlimited tracking."
+      },
+      {
+        "question": "What AI features are included?",
+        "answer": "AI Coach plan includes resume analysis, cover letter generation, interview preparation, job fit analysis, and personalized career advice chat."
+      },
+      {
+        "question": "What happens when I get hired?",
+        "answer": "When you mark that you've accepted a job offer, we'll prompt you to cancel your subscription. We don't want you paying for something you no longer need."
+      },
+      {
+        "question": "How does the AI Coach help?",
+        "answer": "Our AI analyzes your resume, generates tailored cover letters, prepares you for interviews, and provides personalized career advice - all based on specific job descriptions."
+      }
+    ]
+  },
+  "finalCta": {
+    "title": "Ready to take control of your job search?",
+    "subtitle": "Get organized, stay on track, and land your dream role with AI-powered assistance.",
+    "cta": {
+      "text": "Start Your Free Account",
+      "href": "/signup"
+    },
+    "supportingText": "Start free • Upgrade anytime • Cancel when you get hired"
   }
 }
