@@ -22,6 +22,7 @@ import {
   UserCheck,
   FileText,
   Brain,
+  Megaphone,
 } from "lucide-react";
 
 export default async function AdminDashboardPage() {
@@ -50,6 +51,15 @@ export default async function AdminDashboardPage() {
       : "Local development";
 
   const adminSections = [
+    {
+      title: "Announcements",
+      description: "Create and manage platform-wide announcements",
+      icon: Megaphone,
+      href: "/admin/announcements",
+      color: "text-yellow-500",
+      bgColor: "bg-yellow-50 dark:bg-yellow-950/20",
+      stats: "Broadcast messages",
+    },
     {
       title: "Promo Codes",
       description: "Manage promotional codes for trials and discounts",
