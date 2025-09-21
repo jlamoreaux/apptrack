@@ -106,7 +106,10 @@ export function DashboardApplicationsList({
             </CardDescription>
           </div>
           <Link href="/dashboard/add" className="w-full sm:w-auto">
-            <Button className="bg-secondary hover:bg-secondary/90 w-full sm:w-auto">
+            <Button 
+              className="bg-secondary hover:bg-secondary/90 w-full sm:w-auto"
+              data-onboarding="add-application-button"
+            >
               <Plus className="h-4 w-4 mr-2" />
               <span className="sm:inline">Add Application</span>
             </Button>

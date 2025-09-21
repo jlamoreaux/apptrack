@@ -15,6 +15,8 @@ import {
   countTransitions,
   buildSankeyData,
 } from "@/lib/pipeline-utils";
+import { useOnboarding } from '@/lib/onboarding/context';
+import { FakeOnboardingPipelineChart } from './onboarding/fake-pipeline-chart';
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -29,6 +31,21 @@ export function ApplicationPipelineChart({
   history = [],
 }: ApplicationPipelineChartProps) {
   const [mounted, setMounted] = useState(false);
+  
+  // Safely use the onboarding context - it might not be available
+  let currentStep = null;
+  let currentFlow = null;
+  try {
+    const onboarding = useOnboarding();
+    currentStep = onboarding?.currentStep;
+    currentFlow = onboarding?.currentFlow;
+  } catch (e) {
+    // Context not available, that's fine
+  }
+  
+  // Check if we're in any onboarding flow (show fake chart during onboarding)
+  const isInOnboarding = currentFlow !== null;
+  const isOnboardingPipelineStep = currentStep?.id === 'view-pipeline';
 
   useEffect(() => {
     setMounted(true);
@@ -36,7 +53,7 @@ export function ApplicationPipelineChart({
 
   if (!mounted) {
     return (
-      <Card>
+      <Card data-onboarding="pipeline-chart">
         <CardHeader>
           <CardTitle>Application Pipeline</CardTitle>
           <CardDescription>Visualize your job search progress</CardDescription>
@@ -50,9 +67,10 @@ export function ApplicationPipelineChart({
     );
   }
 
+  // Show fake chart during onboarding or when no applications
   if (applications.length === 0) {
     return (
-      <Card>
+      <Card data-onboarding="pipeline-chart">
         <CardHeader>
           <CardTitle>Application Pipeline</CardTitle>
           <CardDescription>
@@ -60,10 +78,14 @@ export function ApplicationPipelineChart({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-            No applications to display. Add your first application to see the
-            pipeline visualization.
-          </div>
+          {isInOnboarding ? (
+            <FakeOnboardingPipelineChart />
+          ) : (
+            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+              No applications to display. Add your first application to see the
+              pipeline visualization.
+            </div>
+          )}
         </CardContent>
       </Card>
     );
@@ -184,7 +206,7 @@ export function ApplicationPipelineChart({
   }, {} as Record<string, number>);
 
   return (
-    <Card>
+    <Card data-onboarding="pipeline-chart">
       <CardHeader>
         <CardTitle>Application Pipeline Flow</CardTitle>
         <CardDescription>

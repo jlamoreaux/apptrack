@@ -613,6 +613,19 @@ const { bg, text, border } = getStatusColors(status);
 - Document complex types with JSDoc
 - Use union types and enums for constrained values
 
+### Database Schema Updates
+
+**To run SQL schema files**, use the existing script:
+```bash
+./scripts/run-schema.sh schemas/your-schema.sql
+```
+
+This script:
+- Automatically loads database credentials from `.env`
+- Uses non-pooling connection when available
+- Provides clear success/failure feedback
+- Works with all schema files in the `/schemas` directory
+
 ### Important Git Commit Instructions
 
 **NEVER commit changes unless explicitly asked by the user**. Always wait for the user to say something like:
