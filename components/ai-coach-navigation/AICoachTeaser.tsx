@@ -80,6 +80,7 @@ export function AICoachTeaser({
   return (
     <Card
       className={`border-2 border-purple-500/20 dark:border-purple-400/30 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 dark:from-purple-500/5 dark:via-blue-500/5 dark:to-purple-500/5 ${className}`}
+      data-onboarding="ai-coach-nav"
     >
       <CardHeader>
         <div className="flex items-center justify-between">

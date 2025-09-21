@@ -76,7 +76,7 @@ export function AICoachQuickActions({
     });
   };
   return (
-    <Card className={`${AI_COACH_COLORS.border} ${className}`}>
+    <Card className={`${AI_COACH_COLORS.border} ${className}`} data-onboarding="ai-coach-nav">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Brain className={`${UI_CONSTANTS.SIZES.ICON.MD} ${AI_COACH_COLORS.primary}`} />

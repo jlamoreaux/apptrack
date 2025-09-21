@@ -1,4 +1,4 @@
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import type { Application, ApplicationHistory } from "@/types";
 import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
 import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
+import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -99,108 +100,140 @@ export default async function DashboardPage() {
     };
 
     return (
-      <div className="min-h-screen bg-background">
-        <NavigationServer />
-        <DashboardSuccessToast />
-        <Toaster />
-        <main id="main-content" className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8">
-          {/* Header Section */}
-          <header className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">Dashboard</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              Track your job application progress
-            </p>
-          </header>
+      <DashboardWithOnboarding>
+        <div className="min-h-screen bg-background">
+          <NavigationServer />
+          <DashboardSuccessToast />
+          <Toaster />
+          <main
+            id="main-content"
+            className="container mx-auto px-4 py-6 sm:py-8 space-y-6 sm:space-y-8"
+          >
+            {/* Header Section */}
+            <header className="space-y-2">
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+                Dashboard
+              </h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
+                Track your job application progress
+              </p>
+            </header>
 
-          {/* Subscription Usage Banner */}
-          <SubscriptionUsageBannerServer userId={user.id} />
+            {/* Subscription Usage Banner */}
+            <SubscriptionUsageBannerServer userId={user.id} />
 
-          {/* Stats Cards - Progressive responsive grid */}
-          <section aria-labelledby="stats-heading" className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-            <h2 id="stats-heading" className="sr-only">Application Statistics</h2>
-            <Card className="border-primary/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">
-                  Total
-                </CardTitle>
-                <Building2 className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{stats.total}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-primary/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">Applied</CardTitle>
-                <Calendar className="h-4 w-4 text-primary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{stats.applied}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-secondary/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">
-                  Interviews
-                </CardTitle>
-                <TrendingUp className="h-4 w-4 text-secondary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{stats.interviews}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-secondary/20">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">Offers</CardTitle>
-                <TrendingUp className="h-4 w-4 text-secondary" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{stats.offers}</div>
-              </CardContent>
-            </Card>
-            <Card className="border-green-500/20 col-span-full sm:col-span-1 lg:col-span-1">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">Hired</CardTitle>
-                <TrendingUp className="h-4 w-4 text-green-500" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-xl sm:text-2xl font-bold">{stats.hired}</div>
-              </CardContent>
-            </Card>
-          </section>
+            {/* Stats Cards - Progressive responsive grid */}
+            <section
+              aria-labelledby="stats-heading"
+              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6"
+            >
+              <h2 id="stats-heading" className="sr-only">
+                Application Statistics
+              </h2>
+              <Card className="border-primary/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">
+                    Total
+                  </CardTitle>
+                  <Building2 className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stats.total}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-primary/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">
+                    Applied
+                  </CardTitle>
+                  <Calendar className="h-4 w-4 text-primary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stats.applied}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-secondary/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">
+                    Interviews
+                  </CardTitle>
+                  <TrendingUp className="h-4 w-4 text-secondary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stats.interviews}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-secondary/20">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">
+                    Offers
+                  </CardTitle>
+                  <TrendingUp className="h-4 w-4 text-secondary" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stats.offers}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-green-500/20 col-span-full sm:col-span-1 lg:col-span-1">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-xs sm:text-sm font-medium">
+                    Hired
+                  </CardTitle>
+                  <TrendingUp className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-xl sm:text-2xl font-bold">
+                    {stats.hired}
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
 
-          {/* AI Coach Integration */}
-          <NavigationErrorBoundary fallback={<AICoachFallback />}>
-            <AICoachDashboardIntegration
-              userPlan={userPlan}
-              recentApplications={applications.slice(
-                0,
-                APPLICATION_LIMITS.DASHBOARD_DISPLAY
-              )}
-              userId={user.id}
-            />
-          </NavigationErrorBoundary>
+            {/* AI Coach Integration */}
+            <NavigationErrorBoundary fallback={<AICoachFallback />}>
+              <AICoachDashboardIntegration
+                userPlan={userPlan}
+                recentApplications={applications.slice(
+                  0,
+                  APPLICATION_LIMITS.DASHBOARD_DISPLAY
+                )}
+                userId={user.id}
+              />
+            </NavigationErrorBoundary>
 
-          {/* Application Pipeline Chart */}
-          <section aria-labelledby="chart-heading">
-            <h2 id="chart-heading" className="sr-only">Application Pipeline Visualization</h2>
-            <ApplicationPipelineChart
-              applications={applications}
-              history={history}
-            />
-          </section>
+            {/* Applications List */}
+            <section aria-labelledby="applications-heading">
+              <h2 id="applications-heading" className="sr-only">
+                Recent Applications
+              </h2>
+              <DashboardApplicationsList
+                userId={user.id}
+                initialApplications={applications}
+                initialTotal={applications.length}
+              />
+            </section>
 
-          {/* Applications List */}
-          <section aria-labelledby="applications-heading">
-            <h2 id="applications-heading" className="sr-only">Recent Applications</h2>
-            <DashboardApplicationsList
-              userId={user.id}
-              initialApplications={applications}
-              initialTotal={applications.length}
-            />
-          </section>
-        </main>
-      </div>
+            {/* Application Pipeline Chart */}
+            <section aria-labelledby="chart-heading">
+              <h2 id="chart-heading" className="sr-only">
+                Application Pipeline Visualization
+              </h2>
+              <ApplicationPipelineChart
+                applications={applications}
+                history={history}
+              />
+            </section>
+          </main>
+        </div>
+      </DashboardWithOnboarding>
     );
   } catch (error) {
     // If there's an error fetching the user or applications, redirect to login

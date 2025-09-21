@@ -128,7 +128,7 @@
   padding: 8px;
   text-decoration: none;
   border-radius: 4px;
-  z-index: 9999;
+  z-index: 10000; /* Above onboarding tooltips */
   font-weight: 600;
   transition: top 0.3s;
 }
@@ -205,5 +205,36 @@ a[href] {
   .status-badge {
     /* Only define what Tailwind utilities can't provide */
     transition: opacity 0.2s ease-in-out;
+  }
+  
+  /* Onboarding specific styles */
+  .onboarding-highlight {
+    position: relative;
+    z-index: 9997 !important; /* Matches spotlight Z_INDEX.HIGHLIGHT_ELEMENT */
+    animation: pulse-highlight 2s ease-in-out infinite;
+  }
+  
+  /* Remove focus outlines on child elements during onboarding */
+  .onboarding-highlight *:focus,
+  .onboarding-highlight *:focus-visible {
+    outline: none !important;
+  }
+
+  @keyframes pulse-highlight {
+    0%, 100% {
+      box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+    }
+  }
+
+  /* Ensure proper z-index for onboarding elements */
+  .onboarding-overlay {
+    z-index: 9998; /* Matches spotlight Z_INDEX.OVERLAY */
+  }
+
+  .onboarding-tooltip {
+    z-index: 9999; /* Matches spotlight Z_INDEX.TOOLTIP */
   }
 }
