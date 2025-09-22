@@ -1,8 +1,22 @@
 import OpenAI from "openai";
+import { Models } from "@/lib/openai/models";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-});
+// Reuse singleton pattern from lib/openai/client.ts
+let openaiClient: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set");
+  }
+
+  if (!openaiClient) {
+    openaiClient = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+  }
+
+  return openaiClient;
+}
 
 export interface RoastCategories {
   buzzwordBingo: boolean;
@@ -63,8 +77,9 @@ export async function generateRoast(
   firstName: string | null
 ): Promise<RoastResult> {
   try {
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const client = getOpenAIClient();
+    const completion = await client.chat.completions.create({
+      model: Models.default, // Using the default model from shared config
       messages: [
         {
           role: "system",

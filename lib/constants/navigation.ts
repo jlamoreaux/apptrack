@@ -5,6 +5,7 @@ import {
   Brain,
   BarChart3,
   Settings,
+  Flame,
 } from "lucide-react";
 import { PLAN_NAMES } from "./plans";
 import { PLAN_THEMES } from "./plan-themes";
@@ -46,11 +47,12 @@ export const NAV_ITEMS = [
   //   description: "Track your application performance",
   // },
   {
-    id: "settings",
-    label: "Settings",
-    href: APP_ROUTES.DASHBOARD.SETTINGS,
-    icon: Settings,
-    description: "Account and profile settings",
+    id: "resume-roast",
+    label: "Resume Roast",
+    href: "/roast-my-resume",
+    icon: Flame,
+    badge: "NEW",
+    description: "Get brutally honest AI feedback on your resume",
   },
 ] as const;
 

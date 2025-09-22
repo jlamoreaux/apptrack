@@ -106,6 +106,7 @@ function NavItemComponent({
             className={cn(
               "h-5 text-xs",
               item.highlight && "bg-purple-600 text-white",
+              item.badge === "NEW" && "bg-green-500 text-white hover:bg-green-600",
               !hasAccess && "opacity-60"
             )}
           >
