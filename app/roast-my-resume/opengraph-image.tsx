@@ -1,12 +1,9 @@
 import { ImageResponse } from "next/og";
+import { OG_COLORS, OG_SIZE } from "@/components/og";
 
 export const runtime = "edge";
-
 export const alt = "Resume Roast - Get Brutally Honest AI Feedback";
-export const size = {
-  width: 1200,
-  height: 630,
-};
+export const size = OG_SIZE;
 export const contentType = "image/png";
 
 export default async function Image() {
@@ -20,20 +17,35 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          background: `linear-gradient(135deg, ${OG_COLORS.fire.orange} 0%, ${OG_COLORS.fire.red} 50%, ${OG_COLORS.fire.purple} 100%)`,
           position: "relative",
         }}
       >
-        {/* Background pattern */}
+        {/* Flame decorations */}
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px)",
-            opacity: 0.4,
+            top: 40,
+            left: 40,
+            width: 120,
+            height: 120,
+            background: `linear-gradient(135deg, ${OG_COLORS.fire.yellow} 0%, ${OG_COLORS.fire.orange} 100%)`,
+            borderRadius: "50% 0% 50% 0%",
+            transform: "rotate(45deg)",
+            opacity: 0.2,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 40,
+            right: 40,
+            width: 120,
+            height: 120,
+            background: `linear-gradient(135deg, ${OG_COLORS.fire.red} 0%, ${OG_COLORS.fire.purple} 100%)`,
+            borderRadius: "50% 0% 50% 0%",
+            transform: "rotate(45deg)",
+            opacity: 0.2,
           }}
         />
         
@@ -46,190 +58,90 @@ export default async function Image() {
             justifyContent: "center",
             backgroundColor: "white",
             borderRadius: 24,
-            padding: "80px 100px",
-            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+            padding: "60px 80px",
+            boxShadow: "0 30px 60px -15px rgba(0, 0, 0, 0.3)",
             position: "relative",
+            maxWidth: "90%",
           }}
         >
-          {/* NEW badge */}
+          {/* Main Title with Flame Icons */}
           <div
             style={{
-              position: "absolute",
-              top: -30,
-              right: 40,
-              backgroundColor: "#10b981",
-              color: "white",
-              padding: "12px 24px",
-              borderRadius: 100,
-              fontSize: 20,
-              fontWeight: "bold",
-              textTransform: "uppercase",
-              letterSpacing: 2,
-            }}
-          >
-            NEW
-          </div>
-          
-          {/* Main Title */}
-          <div
-            style={{
-              fontSize: 72,
-              fontWeight: "bold",
+              fontSize: 80,
+              fontWeight: "900",
               marginBottom: 20,
               display: "flex",
               alignItems: "center",
-              gap: 20,
+              gap: 30,
             }}
           >
-            {/* Flame Icon (SVG-like) */}
-            <div
-              style={{
-                width: 60,
-                height: 60,
-                background: "linear-gradient(135deg, #f97316 0%, #ef4444 100%)",
-                borderRadius: "50% 0% 50% 0%",
-                transform: "rotate(45deg)",
-              }}
-            />
-            <span style={{
-              background: "linear-gradient(135deg, #f97316 0%, #ef4444 50%, #9333ea 100%)",
+            <svg
+              width="70"
+              height="70"
+              viewBox="0 0 24 24"
+              fill={OG_COLORS.fire.orange}
+              style={{ display: 'flex' }}
+            >
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+            </svg>
+            <div style={{
+              background: `linear-gradient(135deg, ${OG_COLORS.fire.orange} 0%, ${OG_COLORS.fire.red} 50%, ${OG_COLORS.fire.purple} 100%)`,
               backgroundClip: "text",
               color: "transparent",
+              display: "flex",
+              flexDirection: "column",
+              lineHeight: 0.9,
             }}>
-              Resume Roast
-            </span>
-            {/* Flame Icon (SVG-like) */}
-            <div
-              style={{
-                width: 60,
-                height: 60,
-                background: "linear-gradient(135deg, #ef4444 0%, #9333ea 100%)",
-                borderRadius: "50% 0% 50% 0%",
-                transform: "rotate(45deg)",
-              }}
-            />
+              <span>Resume</span>
+              <span>Roast</span>
+            </div>
+            <svg
+              width="70"
+              height="70"
+              viewBox="0 0 24 24"
+              fill={OG_COLORS.fire.red}
+              style={{ display: 'flex' }}
+            >
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+            </svg>
           </div>
           
           {/* Subtitle */}
           <div
             style={{
-              fontSize: 32,
-              color: "#4b5563",
-              marginBottom: 40,
+              fontSize: 28,
+              color: OG_COLORS.muted,
+              marginBottom: 35,
               textAlign: "center",
+              fontWeight: "500",
             }}
           >
             Get Brutally Honest AI Feedback
           </div>
           
-          {/* Icon representations */}
+          {/* Score emojis */}
           <div
             style={{
               display: "flex",
-              gap: 30,
-              marginBottom: 40,
+              gap: 35,
+              marginBottom: 35,
+              fontSize: 50,
             }}
           >
-            {/* Skull-like icon */}
-            <div style={{
-              width: 50,
-              height: 50,
-              borderRadius: "50%",
-              background: "#374151",
-              position: "relative",
-            }}>
-              <div style={{
-                position: "absolute",
-                top: 15,
-                left: 12,
-                width: 8,
-                height: 8,
-                background: "white",
-                borderRadius: "50%",
-              }} />
-              <div style={{
-                position: "absolute",
-                top: 15,
-                right: 12,
-                width: 8,
-                height: 8,
-                background: "white",
-                borderRadius: "50%",
-              }} />
-            </div>
-            
-            {/* Alert icon */}
-            <div style={{
-              width: 50,
-              height: 50,
-              borderRadius: "50%",
-              background: "#10b981",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontSize: 30,
-              fontWeight: "bold",
-            }}>
-              !
-            </div>
-            
-            {/* Frown icon */}
-            <div style={{
-              width: 50,
-              height: 50,
-              borderRadius: "50%",
-              background: "#fbbf24",
-              position: "relative",
-            }}>
-              <div style={{
-                position: "absolute",
-                bottom: 12,
-                left: "50%",
-                transform: "translateX(-50%)",
-                width: 20,
-                height: 10,
-                borderBottom: "3px solid #374151",
-                borderRadius: "0 0 20px 20px",
-              }} />
-            </div>
-            
-            {/* Fire icon */}
-            <div style={{
-              width: 50,
-              height: 50,
-              background: "linear-gradient(135deg, #f97316 0%, #ef4444 100%)",
-              borderRadius: "50% 0% 50% 0%",
-              transform: "rotate(45deg)",
-            }} />
-            
-            {/* Trash icon */}
-            <div style={{
-              width: 50,
-              height: 50,
-              borderRadius: 8,
-              background: "#6b7280",
-              position: "relative",
-            }}>
-              <div style={{
-                position: "absolute",
-                top: -5,
-                left: 10,
-                right: 10,
-                height: 10,
-                background: "#6b7280",
-                borderRadius: 4,
-              }} />
-            </div>
+            <span>💀</span>
+            <span>🤢</span>
+            <span>😬</span>
+            <span>🔥</span>
+            <span>🗑️</span>
           </div>
           
           {/* Feature text */}
           <div
             style={{
-              fontSize: 24,
-              color: "#6b7280",
+              fontSize: 22,
+              color: OG_COLORS.mutedLight,
               textAlign: "center",
-              lineHeight: 1.5,
+              fontWeight: "500",
             }}
           >
             Upload your resume • Get roasted • Share the laughs
@@ -240,29 +152,24 @@ export default async function Image() {
         <div
           style={{
             position: "absolute",
-            bottom: 30,
+            bottom: 20,
             display: "flex",
             alignItems: "center",
-            gap: 12,
+            gap: 8,
           }}
         >
-          <div
+          <span
             style={{
-              backgroundColor: "white",
-              padding: "8px 16px",
-              borderRadius: 8,
-              fontSize: 20,
-              fontWeight: "600",
-              color: "#6b7280",
+              color: "white",
+              fontSize: "16px",
+              opacity: 0.8,
             }}
           >
-            AppTrack.fyi
-          </div>
+            apptrack.ing
+          </span>
         </div>
       </div>
     ),
-    {
-      ...size,
-    }
+    size
   );
 }

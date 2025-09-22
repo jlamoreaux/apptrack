@@ -36,7 +36,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       siteName: "AppTrack",
       images: [
         {
-          url: `/roast/${id}/opengraph-image`,
+          url: `https://apptrack.ing/roast/${id}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: "Resume Roast Results",
@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       card: "summary_large_image",
       title,
       description,
-      images: [`/roast/${id}/opengraph-image`],
+      images: [`https://apptrack.ing/roast/${id}/opengraph-image`],
       creator: "@apptrack",
     },
   };
