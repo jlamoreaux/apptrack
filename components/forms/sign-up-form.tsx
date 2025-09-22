@@ -25,6 +25,52 @@ function checkPasswordCriteria(password: string) {
   };
 }
 
+// Password criteria display component
+function PasswordCriteria({ criteria }: { criteria: ReturnType<typeof checkPasswordCriteria> }) {
+  const criteriaList = [
+    { 
+      met: criteria.minLength, 
+      label: `At least ${passwordRequirements.minLength} characters` 
+    },
+    { 
+      met: criteria.hasUppercase, 
+      label: "One uppercase letter" 
+    },
+    { 
+      met: criteria.hasLowercase, 
+      label: "One lowercase letter" 
+    },
+    { 
+      met: criteria.hasNumber, 
+      label: "One number" 
+    },
+    { 
+      met: criteria.hasSpecialChar, 
+      label: "One special character (!@#$%^&*...)" 
+    },
+  ];
+
+  return (
+    <div className="text-sm space-y-1 mt-2">
+      <p className="text-muted-foreground font-medium">Password must contain:</p>
+      <div className="space-y-1">
+        {criteriaList.map((item, index) => (
+          <div key={index} className="flex items-center gap-2">
+            {item.met ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <X className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className={item.met ? "text-green-600" : "text-muted-foreground"}>
+              {item.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function SignUpForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -142,61 +188,7 @@ export function SignUpForm() {
         />
         
         {/* Password criteria display with real-time validation */}
-        <div className="text-sm space-y-1 mt-2">
-          <p className="text-muted-foreground font-medium">Password must contain:</p>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              {passwordCriteria.minLength ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <X className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={passwordCriteria.minLength ? "text-green-600" : "text-muted-foreground"}>
-                At least {passwordRequirements.minLength} characters
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {passwordCriteria.hasUppercase ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <X className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={passwordCriteria.hasUppercase ? "text-green-600" : "text-muted-foreground"}>
-                One uppercase letter
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {passwordCriteria.hasLowercase ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <X className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={passwordCriteria.hasLowercase ? "text-green-600" : "text-muted-foreground"}>
-                One lowercase letter
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {passwordCriteria.hasNumber ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <X className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={passwordCriteria.hasNumber ? "text-green-600" : "text-muted-foreground"}>
-                One number
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              {passwordCriteria.hasSpecialChar ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <X className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className={passwordCriteria.hasSpecialChar ? "text-green-600" : "text-muted-foreground"}>
-                One special character (!@#$%^&*...)
-              </span>
-            </div>
-          </div>
-        </div>
+        <PasswordCriteria criteria={passwordCriteria} />
       </div>
 
       <div className="space-y-2">
