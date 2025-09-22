@@ -23,6 +23,21 @@ export class ErrorTrackingService {
    */
   async trackError(error: Error, context?: ErrorContext): Promise<void> {
     try {
+      // Flatten the context to avoid nested objects
+      const flattenedContext = context ? {
+        userId: context.userId,
+        userAgent: context.userAgent,
+        url: context.url,
+        timestamp: context.timestamp,
+        component: context.component,
+        action: context.action,
+        // Flatten metadata if it exists
+        ...(context.metadata ? Object.entries(context.metadata).reduce((acc, [key, value]) => ({
+          ...acc,
+          [`metadata_${key}`]: value
+        }), {}) : {})
+      } : {};
+
       const errorEvent = {
         name: 'javascript_error',
         properties: {
@@ -30,7 +45,7 @@ export class ErrorTrackingService {
           error_message: error.message,
           error_stack: error.stack,
           error_type: 'javascript',
-          ...context,
+          ...flattenedContext,
           timestamp: new Date().toISOString(),
         },
       };
@@ -51,6 +66,21 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      // Flatten the context to avoid nested objects
+      const flattenedContext = context ? {
+        userId: context.userId,
+        userAgent: context.userAgent,
+        url: context.url,
+        timestamp: context.timestamp,
+        component: context.component,
+        action: context.action,
+        // Flatten metadata if it exists
+        ...(context.metadata ? Object.entries(context.metadata).reduce((acc, [key, value]) => ({
+          ...acc,
+          [`metadata_${key}`]: value
+        }), {}) : {})
+      } : {};
+
       const errorEvent = {
         name: 'api_error',
         properties: {
@@ -59,7 +89,7 @@ export class ErrorTrackingService {
           status_code: statusCode,
           error_message: errorMessage,
           error_type: 'api',
-          ...context,
+          ...flattenedContext,
           timestamp: new Date().toISOString(),
         },
       };
@@ -78,6 +108,21 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      // Flatten the context to avoid nested objects
+      const flattenedContext = context ? {
+        userId: context.userId,
+        userAgent: context.userAgent,
+        url: context.url,
+        timestamp: context.timestamp,
+        component: context.component,
+        action: context.action,
+        // Flatten metadata if it exists
+        ...(context.metadata ? Object.entries(context.metadata).reduce((acc, [key, value]) => ({
+          ...acc,
+          [`metadata_${key}`]: value
+        }), {}) : {})
+      } : {};
+
       const errorEvent = {
         name: 'component_error',
         properties: {
@@ -86,7 +131,7 @@ export class ErrorTrackingService {
           error_message: error.message,
           error_stack: error.stack,
           error_type: 'react',
-          ...context,
+          ...flattenedContext,
           timestamp: new Date().toISOString(),
         },
       };
@@ -104,12 +149,27 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      // Flatten the context to avoid nested objects
+      const flattenedContext = context ? {
+        userId: context.userId,
+        userAgent: context.userAgent,
+        url: context.url,
+        timestamp: context.timestamp,
+        component: context.component,
+        action: context.action,
+        // Flatten metadata if it exists
+        ...(context.metadata ? Object.entries(context.metadata).reduce((acc, [key, value]) => ({
+          ...acc,
+          [`metadata_${key}`]: value
+        }), {}) : {})
+      } : {};
+
       const errorEvent = {
         name: 'unhandled_promise_rejection',
         properties: {
           reason: reason?.toString() || 'Unknown reason',
           error_type: 'promise_rejection',
-          ...context,
+          ...flattenedContext,
           timestamp: new Date().toISOString(),
         },
       };
@@ -129,6 +189,21 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      // Flatten the context to avoid nested objects
+      const flattenedContext = context ? {
+        userId: context.userId,
+        userAgent: context.userAgent,
+        url: context.url,
+        timestamp: context.timestamp,
+        component: context.component,
+        action: context.action,
+        // Flatten metadata if it exists
+        ...(context.metadata ? Object.entries(context.metadata).reduce((acc, [key, value]) => ({
+          ...acc,
+          [`metadata_${key}`]: value
+        }), {}) : {})
+      } : {};
+
       const errorEvent = {
         name: 'custom_error',
         properties: {
@@ -136,7 +211,7 @@ export class ErrorTrackingService {
           error_message: errorMessage,
           severity,
           error_type: 'custom',
-          ...context,
+          ...flattenedContext,
           timestamp: new Date().toISOString(),
         },
       };

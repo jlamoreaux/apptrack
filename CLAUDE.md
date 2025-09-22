@@ -460,7 +460,7 @@ These commands make AI calls and may take up to a minute:
 
 ### Build Validation Process
 
-**IMPORTANT**: Do NOT run `pnpm dev` or `pnpm build` automatically. The user will handle running these commands.
+**CRITICAL**: NEVER run `pnpm dev`, `pnpm build`, `pnpm start`, or any development server commands. The user will handle ALL development server and build commands. Do not attempt to start, stop, or restart the development server.
 
 **Before marking any task as done, ensure:**
 1. TypeScript types are correct and consistent

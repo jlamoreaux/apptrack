@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,7 +11,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, BarChart3, Crown, Shield } from "lucide-react";
+import { User, LogOut, Crown, Shield } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 
@@ -69,7 +70,13 @@ export function NavigationClient() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
+            <Image
+              src="/logo_square.png"
+              alt="AppTrack Logo"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
             <span className="font-bold text-xl text-primary">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
@@ -91,7 +98,13 @@ export function NavigationClient() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
+          <Image
+            src="/logo_square.png"
+            alt="AppTrack Logo"
+            width={24}
+            height={24}
+            className="h-6 w-6"
+          />
           <span className="font-bold text-xl text-primary">AppTrack</span>
         </Link>
 
