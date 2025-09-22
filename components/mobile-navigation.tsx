@@ -20,6 +20,7 @@ import {
   Lock,
   Sparkles,
   Shield,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/actions";
@@ -32,6 +33,7 @@ import { UI_CONSTANTS } from "@/lib/constants/ui";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/supabase";
 import type { PermissionLevel } from "@/types";
+import { NavItemTag } from "@/components/ui/nav-item-tag";
 
 interface MobileNavigationProps {
   user: SupabaseUser;
@@ -52,6 +54,9 @@ export function MobileNavigation({
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  
+  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
+  const resumeRoastNewTagExpiry = new Date('2026-03-22');
 
   const handleSignOut = async () => {
     setLoading(true);
@@ -152,6 +157,22 @@ export function MobileNavigation({
           >
             <Settings className="h-4 w-4" />
             <span>Settings</span>
+          </Link>
+
+          <Link
+            href="/roast-my-resume"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors"
+          >
+            <Flame className="h-4 w-4" />
+            <span className="flex items-center gap-1">
+              Resume Roast
+              <NavItemTag 
+                label="new" 
+                variant="new" 
+                expiresAt={resumeRoastNewTagExpiry}
+              />
+            </span>
           </Link>
 
           {isOnFreePlan && (

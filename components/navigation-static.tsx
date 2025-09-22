@@ -29,6 +29,11 @@ export function NavigationStatic() {
         <div className="ml-auto flex items-center">
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center space-x-4">
+            <Link href="/roast-my-resume">
+              <Button variant="ghost" className="text-primary hover:text-primary/80">
+                🔥 Roast My Resume
+              </Button>
+            </Link>
             <Link href="/login">
               <Button variant="ghost">Login</Button>
             </Link>
@@ -57,6 +62,11 @@ export function NavigationStatic() {
       {isOpen && (
         <div className="sm:hidden border-t bg-background">
           <div className="container px-4 py-4 space-y-3">
+            <Link href="/roast-my-resume" className="block" onClick={() => setIsOpen(false)}>
+              <Button variant="ghost" className="w-full justify-start h-11 text-primary hover:text-primary/80">
+                🔥 Roast My Resume
+              </Button>
+            </Link>
             <Link href="/login" className="block" onClick={() => setIsOpen(false)}>
               <Button variant="ghost" className="w-full justify-start h-11">
                 Login
