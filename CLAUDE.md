@@ -626,6 +626,17 @@ This script:
 - Provides clear success/failure feedback
 - Works with all schema files in the `/schemas` directory
 
+### Analytics Setup
+
+**The project uses PostHog as the primary analytics platform and Vercel Analytics as secondary.**
+
+- PostHog is available via `window.posthog` in client components
+- Vercel Analytics is available via `window.va` in client components
+- Use existing analytics functions in `/lib/` for tracking events
+- For Resume Roast feature, use `trackRoastEvent` function in `/lib/roast/analytics.ts`
+- PostHog captures user events, feature usage, and conversion metrics
+- Vercel Analytics tracks web vitals and performance metrics
+
 ### Important Git Commit Instructions
 
 **NEVER commit changes unless explicitly asked by the user**. Always wait for the user to say something like:
