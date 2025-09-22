@@ -30,6 +30,12 @@ export const siteMetadata: Metadata = {
     locale: "en_US",
     type: "website",
   },
+  other: {
+    "og:logo": `${SITE_CONFIG.url}/logo_square.png`,
+    "og:email": "support@apptrack.ing",
+    "og:country-name": "USA",
+    "twitter:domain": "apptrack.ing",
+  },
   twitter: {
     card: "summary_large_image",
     title: SITE_CONFIG.title,
