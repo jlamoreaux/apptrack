@@ -19,35 +19,21 @@ export class AIDataFetcherService {
   static async getUserResume(userId: string): Promise<{ text: string | null; id: string | null }> {
     const supabase = await createClient();
     
+    // Get the most recent resume for the user
     const { data: resume, error } = await supabase
       .from("user_resumes")
-      .select("id, extracted_text, parsed_content")
+      .select("id, extracted_text")
       .eq("user_id", userId)
-      .eq("is_current", true)
-      .single();
+      .order("uploaded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (error || !resume) {
-      // Fallback to most recent resume if no current resume marked
-      const { data: latestResume } = await supabase
-        .from("user_resumes")
-        .select("id, extracted_text, parsed_content")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (latestResume) {
-        return {
-          text: latestResume.extracted_text || latestResume.parsed_content || null,
-          id: latestResume.id
-        };
-      }
-      
       return { text: null, id: null };
     }
 
     return {
-      text: resume.extracted_text || resume.parsed_content || null,
+      text: resume.extracted_text || null,
       id: resume.id
     };
   }
@@ -78,9 +64,9 @@ export class AIDataFetcherService {
       return application.job_description as string;
     }
 
-    // Check if we have it stored in job_fit_analyses table
+    // Check if we have it stored in job_fit_analysis table
     const { data: analysis } = await supabase
-      .from("job_fit_analyses")
+      .from("job_fit_analysis")
       .select("job_description")
       .eq("application_id", applicationId)
       .eq("user_id", userId)
@@ -167,9 +153,9 @@ export class AIDataFetcherService {
     } catch (error) {
     }
 
-    // Also save in job_fit_analyses for backward compatibility
+    // Also save in job_fit_analysis table
     await supabase
-      .from("job_fit_analyses")
+      .from("job_fit_analysis")
       .upsert({
         user_id: userId,
         application_id: applicationId,
