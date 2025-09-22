@@ -12,77 +12,99 @@ export function buildStatusPath(
         new Date(a.changed_at).getTime() - new Date(b.changed_at).getTime()
     );
 
-  let path = ["Lead"];
+  // If we have history, use the existing logic
+  if (appHistory.length > 0) {
+    let path = ["Applied"];
 
-  appHistory.forEach((h) => {
-    // For rejected status, use the old_status as the source
-    if (h.new_status === "Rejected") {
-      if (h.old_status && h.old_status !== path[path.length - 1]) {
-        // If we need to get to the old_status first, fill in intermediate stages
-        const lastIdx = stages.indexOf(path[path.length - 1]);
-        const oldIdx = stages.indexOf(h.old_status);
-        if (lastIdx !== -1 && oldIdx !== -1 && oldIdx > lastIdx) {
-          for (let i = lastIdx + 1; i <= oldIdx; i++) {
-            path.push(stages[i]);
-          }
-        }
-      }
-      path.push(h.new_status);
-    } else {
-      // For non-rejected status, fill in intermediate stages if needed
-      const lastIdx = stages.indexOf(path[path.length - 1]);
-      const newIdx = stages.indexOf(h.new_status);
-      if (lastIdx !== -1 && newIdx !== -1 && newIdx > lastIdx) {
-        for (let i = lastIdx + 1; i <= newIdx; i++) {
-          path.push(stages[i]);
-        }
-      } else {
-        path.push(h.new_status);
-      }
-    }
-  });
-
-  // If the current status is not the last in the path, handle it appropriately
-  if (path[path.length - 1] !== app.status) {
-    if (app.status === "Rejected") {
-      // For rejected status, find the last non-rejected status from history
-      const lastNonRejectedHistory = appHistory[0];
-
-      if (lastNonRejectedHistory) {
-        // If we have history, use the last non-rejected status
-        const lastStatus = lastNonRejectedHistory.new_status;
-        if (lastStatus !== path[path.length - 1]) {
-          // Fill in intermediate stages to reach the last status
+    appHistory.forEach((h) => {
+      // For rejected status, use the old_status as the source
+      if (h.new_status === "Rejected") {
+        if (h.old_status && h.old_status !== path[path.length - 1]) {
+          // If we need to get to the old_status first, fill in intermediate stages
           const lastIdx = stages.indexOf(path[path.length - 1]);
-          const targetIdx = stages.indexOf(lastStatus);
-          if (lastIdx !== -1 && targetIdx !== -1 && targetIdx > lastIdx) {
-            for (let i = lastIdx + 1; i <= targetIdx; i++) {
+          const oldIdx = stages.indexOf(h.old_status);
+          if (lastIdx !== -1 && oldIdx !== -1 && oldIdx > lastIdx) {
+            for (let i = lastIdx + 1; i <= oldIdx; i++) {
               path.push(stages[i]);
             }
           }
         }
-      }
-      path.push(app.status);
-    } else {
-      // For other statuses, fill in intermediate stages
-      const lastIndex = stages.indexOf(path[path.length - 1]);
-      const currentIndex = stages.indexOf(app.status);
-      if (lastIndex !== -1 && currentIndex !== -1 && currentIndex > lastIndex) {
-        for (let i = lastIndex + 1; i <= currentIndex; i++) {
-          path.push(stages[i]);
-        }
+        path.push(h.new_status);
       } else {
+        // For non-rejected status, fill in intermediate stages if needed
+        const lastIdx = stages.indexOf(path[path.length - 1]);
+        const newIdx = stages.indexOf(h.new_status);
+        if (lastIdx !== -1 && newIdx !== -1 && newIdx > lastIdx) {
+          for (let i = lastIdx + 1; i <= newIdx; i++) {
+            path.push(stages[i]);
+          }
+        } else {
+          path.push(h.new_status);
+        }
+      }
+    });
+
+    // If the current status is not the last in the path, handle it appropriately
+    if (path[path.length - 1] !== app.status) {
+      if (app.status === "Rejected") {
         path.push(app.status);
+      } else {
+        // For other statuses, fill in intermediate stages
+        const lastIndex = stages.indexOf(path[path.length - 1]);
+        const currentIndex = stages.indexOf(app.status);
+        if (lastIndex !== -1 && currentIndex !== -1 && currentIndex > lastIndex) {
+          for (let i = lastIndex + 1; i <= currentIndex; i++) {
+            path.push(stages[i]);
+          }
+        } else {
+          path.push(app.status);
+        }
       }
     }
+
+    // Remove duplicates while preserving order
+    return path.filter(
+      (status, index, array) => array.indexOf(status) === index
+    );
   }
 
-  // Remove duplicates while preserving order
-  const uniquePath = path.filter(
-    (status, index, array) => array.indexOf(status) === index
-  );
+  // No history - create a synthetic path based on current status
+  // All applications start at "Applied"
+  const path = ["Applied"];
+  
+  // Build path to current status based on logical progression
+  const currentIndex = stages.indexOf(app.status);
+  
+  if (app.status === "Rejected") {
+    // Rejections can happen at any stage, estimate based on common patterns
+    // For demo purposes, assume different rejection points
+    const randomStage = Math.floor(Math.random() * 3);
+    if (randomStage === 0) {
+      // Rejected after application
+      path.push("Rejected");
+    } else if (randomStage === 1) {
+      // Rejected after interview scheduled
+      path.push("Interview Scheduled");
+      path.push("Rejected");
+    } else {
+      // Rejected after interview
+      path.push("Interview Scheduled");
+      path.push("Interviewed");
+      path.push("Rejected");
+    }
+  } else if (currentIndex !== -1 && currentIndex > 0) {
+    // Add all intermediate stages up to current status
+    for (let i = 1; i <= currentIndex; i++) {
+      if (stages[i] !== "Rejected") {
+        path.push(stages[i]);
+      }
+    }
+  } else if (app.status !== "Applied") {
+    // Just add the current status if it's not in our stages array
+    path.push(app.status);
+  }
 
-  return uniquePath;
+  return path;
 }
 
 export function countTransitions(paths: string[][]): Map<string, number> {

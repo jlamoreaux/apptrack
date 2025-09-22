@@ -1,5 +1,7 @@
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { CheckList } from "@/components/ui/check-list"
 import { NavigationStatic } from "@/components/navigation-static"
 import { HomePricingSection } from "@/components/home-pricing-section"
 import { HomeProblemSolution } from "@/components/home-problem-solution"
@@ -9,6 +11,7 @@ import { HomeFinalCta } from "@/components/home-final-cta"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
+import { SCREENSHOT_STYLES, FEATURE_SECTIONS } from "@/lib/constants/homepage-content"
 
 async function getPlans() {
   try {
@@ -39,39 +42,58 @@ export default async function HomePage() {
         {/* Hero Section */}
         <section className="py-16 px-4">
           <div className="container mx-auto">
-            <div className="text-center space-y-8 max-w-4xl mx-auto">
-              <div className="space-y-4">
-                <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground text-center mb-6">
-                  {COPY.hero.title}
-                </h1>
-                <p className="text-base sm:text-lg lg:text-xl text-foreground max-w-xl sm:max-w-3xl mx-auto px-4 sm:px-0">
-                  {COPY.hero.subtitle}
-                </p>
-                <p className="text-sm font-medium text-primary">
-                  {COPY.hero.stats}
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* Left side - Text content */}
+              <div className="text-center lg:text-left space-y-8 max-w-xl mx-auto lg:mx-0">
+                <div className="space-y-4">
+                  <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
+                    {COPY.hero.title}
+                  </h1>
+                  <p className="text-base sm:text-lg lg:text-xl text-foreground">
+                    {COPY.hero.subtitle}
+                  </p>
+                  <p className="text-sm font-medium text-primary">
+                    {COPY.hero.stats}
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                  <Link href="/signup">
+                    <Button size="lg" className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white">
+                      {COPY.hero.cta.primary}
+                    </Button>
+                  </Link>
+                  <Link href="/login">
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
+                    >
+                      {COPY.hero.cta.secondary}
+                    </Button>
+                  </Link>
+                </div>
+                
+                <p className="text-sm text-muted-foreground">
+                  {COPY.hero.supportingText}
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/signup">
-                  <Button size="lg" className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white">
-                    {COPY.hero.cta.primary}
-                  </Button>
-                </Link>
-                <Link href="/login">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
-                  >
-                    {COPY.hero.cta.secondary}
-                  </Button>
-                </Link>
+              {/* Right side - Screenshot with MacBook frame */}
+              <div className="relative">
+                <Image
+                  src="/screenshots/hero/dashboard-desktop.png"
+                  alt="AppTrack Dashboard on MacBook"
+                  width={1200}
+                  height={750}
+                  className="w-full h-auto"
+                  priority
+                  style={SCREENSHOT_STYLES}
+                />
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  See all your applications organized in one clean dashboard
+                </p>
               </div>
-              
-              <p className="text-sm text-muted-foreground">
-                {COPY.hero.supportingText}
-              </p>
             </div>
           </div>
         </section>
@@ -85,6 +107,34 @@ export default async function HomePage() {
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-12">
               {COPY.features.title}
             </h2>
+            
+            {/* Sankey Chart Feature Highlight */}
+            <div className="mb-16">
+              <div className="grid lg:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
+                <div className="relative order-2 lg:order-1">
+                  <Image
+                    src="/screenshots/features/sankey-chart.png"
+                    alt="Application Pipeline Sankey Chart"
+                    width={800}
+                    height={500}
+                    className="w-full h-auto"
+                    style={{ 
+                      background: 'transparent',
+                      isolation: 'isolate'
+                    }}
+                  />
+                </div>
+                <div className="space-y-4 order-1 lg:order-2">
+                  <h3 className="text-2xl font-bold text-foreground">{FEATURE_SECTIONS.sankey.title}</h3>
+                  <p className="text-lg text-muted-foreground">
+                    {FEATURE_SECTIONS.sankey.description}
+                  </p>
+                  <CheckList items={FEATURE_SECTIONS.sankey.features} />
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-items-center px-4 sm:px-0">
               {features.map((feature, index) => {
                 const isSecondary = index % 2 === 1
@@ -101,6 +151,65 @@ export default async function HomePage() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* Interview Prep Section */}
+        <section className="py-16 px-4">
+          <div className="container mx-auto max-w-6xl">
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div className="space-y-4">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {FEATURE_SECTIONS.interviewPrep.title}
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  {FEATURE_SECTIONS.interviewPrep.description}
+                </p>
+                <CheckList items={FEATURE_SECTIONS.interviewPrep.features} />
+              </div>
+              <div className="relative">
+                <Image
+                  src="/screenshots/features/interview-prep.png"
+                  alt="AI Interview Preparation"
+                  width={800}
+                  height={600}
+                  className="w-full h-auto"
+                  style={SCREENSHOT_STYLES}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Mobile Responsive Section */}
+        <section className="py-16 px-4 bg-muted/30">
+          <div className="container mx-auto max-w-6xl">
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div className="order-2 lg:order-1">
+                <div className="relative mx-auto max-w-sm">
+                  <Image
+                    src="/screenshots/devices/mobile-dashboard.png"
+                    alt="AppTrack Mobile Dashboard"
+                    width={400}
+                    height={800}
+                    className="w-full h-auto"
+                    style={{ 
+                      background: 'transparent',
+                      isolation: 'isolate'
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="order-1 lg:order-2 space-y-4 text-center lg:text-left">
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+                  {FEATURE_SECTIONS.mobile.title}
+                </h2>
+                <p className="text-lg text-muted-foreground">
+                  {FEATURE_SECTIONS.mobile.description}
+                </p>
+                <CheckList items={FEATURE_SECTIONS.mobile.features} className="text-left" />
+              </div>
             </div>
           </div>
         </section>

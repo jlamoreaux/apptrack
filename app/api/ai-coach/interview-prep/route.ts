@@ -195,7 +195,12 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     // Clean the AI response to extract JSON if wrapped in code blocks
     const preparation = cleanAIResponse(rawPreparation);
 
-    // 8. Save to database (save the cleaned content)
+    // 8. Save to database (save the cleaned content as string)
+    // If preparation is an object, stringify it for storage
+    const prepContentString = typeof preparation === 'string' 
+      ? preparation 
+      : JSON.stringify(preparation);
+      
     await aiCoachService.createInterviewPrep({
       user_id: user.id,
       user_resume_id: finalUserResumeId,
@@ -203,7 +208,7 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       job_description: effectiveJobDescription,
       job_url: effectiveJobUrl,
       interview_context: finalInterviewContext,
-      prep_content: preparation,
+      prep_content: prepContentString,
     });
 
     // 8a. Save job description for future use if we have an applicationId
