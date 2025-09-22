@@ -1,11 +1,34 @@
 import { z } from "zod";
 
+// Password validation regex patterns
+export const passwordRequirements = {
+  minLength: 8,
+  hasUppercase: /[A-Z]/,
+  hasLowercase: /[a-z]/,
+  hasNumber: /[0-9]/,
+  hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/,
+};
+
 // Validation schemas
 export const signUpSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email address"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: z
+      .string()
+      .min(passwordRequirements.minLength, `Password must be at least ${passwordRequirements.minLength} characters`)
+      .refine((password) => passwordRequirements.hasUppercase.test(password), {
+        message: "Password must contain at least one uppercase letter",
+      })
+      .refine((password) => passwordRequirements.hasLowercase.test(password), {
+        message: "Password must contain at least one lowercase letter",
+      })
+      .refine((password) => passwordRequirements.hasNumber.test(password), {
+        message: "Password must contain at least one number",
+      })
+      .refine((password) => passwordRequirements.hasSpecialChar.test(password), {
+        message: "Password must contain at least one special character",
+      }),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
