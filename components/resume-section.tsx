@@ -32,20 +32,20 @@ export function ResumeSection({ className }: ResumeSectionProps) {
     if (!user?.id || initialLoadComplete) return;
 
     const checkResume = async () => {
-      // First check cached data
-      if (data.resumeText !== null) {
-        setHasResumeState(!!data.resumeText);
-        setInitialLoadComplete(true);
-      } else if (!cacheLoading) {
-        // If no cached data and not loading, fetch once
+      // Always try to fetch the resume to get the current state
+      try {
         const text = await fetchResume();
         setHasResumeState(!!text);
+      } catch (error) {
+        // If fetch fails, assume no resume
+        setHasResumeState(false);
+      } finally {
         setInitialLoadComplete(true);
       }
     };
 
     checkResume();
-  }, [user?.id, initialLoadComplete, data.resumeText, cacheLoading, fetchResume]);
+  }, [user?.id, fetchResume, initialLoadComplete]);
 
   const handleUploadSuccess = async (resume: Resume) => {
     setHasResumeState(true);
@@ -60,12 +60,12 @@ export function ResumeSection({ className }: ResumeSectionProps) {
     invalidateCache('resume');
   };
 
-  // Show loading only on initial load, not when we have cached data
-  if (!initialLoadComplete && (clientLoading || cacheLoading)) {
+  // Show loading only on initial load
+  if (!initialLoadComplete) {
     return (
       <div className={className}>
         <div className="flex items-center justify-center p-8">
-          <div className="text-muted-foreground">Loading resume...</div>
+          <div className="text-muted-foreground">Checking resume status...</div>
         </div>
       </div>
     );

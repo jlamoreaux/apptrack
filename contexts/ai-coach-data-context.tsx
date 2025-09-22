@@ -114,10 +114,22 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
 
     try {
       const response = await fetch('/api/resumes/current');
+      
+      // Handle 404 as a normal case (no resume exists)
+      if (response.status === 404) {
+        setData(prev => ({
+          ...prev,
+          resumeText: null,
+          resumeInfo: null,
+          lastFetched: { ...prev.lastFetched, resume: Date.now() },
+        }));
+        return null;
+      }
+      
       if (response.ok) {
         const result = await response.json();
-        // Check for both parsed_text and extracted_text (different field names in the database)
-        const resumeText = result.resume?.parsed_text || result.resume?.extracted_text || null;
+        // Get extracted_text from the resume
+        const resumeText = result.resume?.extracted_text || null;
         
         // Extract filename from file_url if available
         let fileName = 'Resume';
@@ -130,7 +142,7 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         
         const resumeInfo = result.resume ? {
           fileName,
-          uploadedAt: result.resume.uploaded_at || result.resume.updated_at,
+          uploadedAt: result.resume.uploaded_at,
           fileUrl: result.resume.file_url,
         } : null;
         
@@ -143,7 +155,13 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         
         return resumeText;
       }
+      
+      // For other error status codes, still return null but don't cache
+      return null;
     } catch (error) {
+      // Network errors or other exceptions
+      console.error('Error fetching resume:', error);
+      return null;
     } finally {
       setLoading(prev => ({ ...prev, resume: false }));
       fetchingRef.current.resume = false;

@@ -77,7 +77,7 @@ async function handler(request: NextRequest) {
       }
       
       // Store analysis in database for history
-      await supabase.from("job_fit_analyses").insert({
+      await supabase.from("job_fit_analysis").insert({
         user_id: user.id,
         application_id: applicationId || null,
         job_description: finalJobDescription,
@@ -183,7 +183,7 @@ async function handler(request: NextRequest) {
       };
       
       // Save fallback analysis too
-      await supabase.from("job_fit_analyses").insert({
+      await supabase.from("job_fit_analysis").insert({
         user_id: user.id,
         application_id: applicationId || null,
         job_description: finalJobDescription,

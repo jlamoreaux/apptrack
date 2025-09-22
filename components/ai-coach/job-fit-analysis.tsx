@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Target, TrendingUp, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { Target, TrendingUp, AlertCircle, CheckCircle, XCircle, Briefcase, Upload } from "lucide-react";
 import { useRateLimit } from "@/hooks/use-rate-limit";
 import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { AIToolLayout } from "./shared/AIToolLayout";
 import { useToast } from "@/hooks/use-toast";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
+import { Button } from "@/components/ui/button";
 
 interface MatchDetail {
   category: string;
@@ -34,19 +36,46 @@ export function JobFitAnalysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<JobFitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { checkLimit } = useRateLimit();
+  const { canUseFeature, limitMessage, incrementUsage } = useRateLimit('job_fit_analysis');
   const { toast } = useToast();
+  const { data: cachedData, fetchResume } = useAICoachData();
+  const [checkingResume, setCheckingResume] = useState(true);
+  const [hasResume, setHasResume] = useState(false);
+
+  // Check for resume on mount and when cached data changes
+  useEffect(() => {
+    const checkForResume = async () => {
+      setCheckingResume(true);
+      const resumeText = await fetchResume();
+      setHasResume(!!resumeText);
+      setCheckingResume(false);
+    };
+    checkForResume();
+  }, []); // Initial check on mount
+
+  // Also check when cached resume data changes (e.g., after upload)
+  useEffect(() => {
+    if (cachedData.resumeText !== null) {
+      setHasResume(!!cachedData.resumeText);
+      setCheckingResume(false);
+    }
+  }, [cachedData.resumeText]);
 
   const handleAnalyze = async () => {
+    // First check if user has a resume
+    if (!hasResume) {
+      setError("Please upload your resume first to use Job Fit Analysis");
+      return;
+    }
+
     if (!jobDescription.trim()) {
       setError("Please enter a job description");
       return;
     }
 
     // Check rate limit
-    const canProceed = await checkLimit("job_fit_analysis");
-    if (!canProceed) {
-      setError("You've reached your Job Fit Analysis limit. Please try again later or upgrade your subscription.");
+    if (!canUseFeature) {
+      setError(limitMessage || "You've reached your Job Fit Analysis limit. Please try again later or upgrade your subscription.");
       return;
     }
 
@@ -71,6 +100,8 @@ export function JobFitAnalysis() {
       }
 
       setResult(data);
+      // Increment usage on successful analysis
+      await incrementUsage();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
@@ -85,10 +116,47 @@ export function JobFitAnalysis() {
   };
 
   const getScoreBadge = (score: number) => {
-    if (score >= 80) return { variant: "success" as const, text: "Excellent Match" };
-    if (score >= 60) return { variant: "warning" as const, text: "Good Match" };
+    if (score >= 80) return { variant: "default" as const, text: "Excellent Match" };
+    if (score >= 60) return { variant: "outline" as const, text: "Good Match" };
     return { variant: "destructive" as const, text: "Needs Work" };
   };
+
+  // Show resume upload prompt if no resume exists
+  if (!checkingResume && !hasResume) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-5 w-5" />
+            Job Fit Analysis
+          </CardTitle>
+          <CardDescription>
+            Analyze how well your profile matches job requirements
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Resume Required:</strong> You need to upload your resume before you can analyze job fit. 
+              The upload area is located at the top of this page.
+            </AlertDescription>
+          </Alert>
+          <Button 
+            onClick={() => {
+              // Scroll to the top of the page where the resume upload section is
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className="w-full"
+            variant="outline"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Take Me to Upload Section
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <AIToolLayout
@@ -97,7 +165,7 @@ export function JobFitAnalysis() {
       icon={<Target className="h-5 w-5" />}
       onSubmit={handleAnalyze}
       submitLabel="Analyze Job Fit"
-      isLoading={isAnalyzing}
+      isLoading={isAnalyzing || checkingResume}
       error={error}
       result={
         result ? (
@@ -107,7 +175,7 @@ export function JobFitAnalysis() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Overall Match Score</CardTitle>
-                <Badge {...getScoreBadge(result.overallScore)}>
+                <Badge variant={getScoreBadge(result.overallScore).variant}>
                   {getScoreBadge(result.overallScore).text}
                 </Badge>
               </div>
