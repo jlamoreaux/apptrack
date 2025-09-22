@@ -20,7 +20,7 @@ function AuthErrorContent() {
           </div>
           <CardTitle className="text-2xl">Authentication Error</CardTitle>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           <div className="text-center space-y-2">
             <p className="text-muted-foreground">
@@ -39,11 +39,9 @@ function AuthErrorContent() {
 
           <div className="space-y-3">
             <Link href="/login" className="block">
-              <Button className="w-full">
-                Back to Sign In
-              </Button>
+              <Button className="w-full">Back to Sign In</Button>
             </Link>
-            
+
             <Link href="/" className="block">
               <Button variant="outline" className="w-full">
                 <Home className="mr-2 h-4 w-4" />
@@ -55,8 +53,8 @@ function AuthErrorContent() {
           <div className="text-center pt-4 border-t">
             <p className="text-sm text-muted-foreground">
               Need help?{" "}
-              <a 
-                href="mailto:support@apptrack.com" 
+              <a
+                href="mailto:support@apptrack.ing"
                 className="text-primary hover:underline inline-flex items-center gap-1"
               >
                 <Mail className="h-3 w-3" />
