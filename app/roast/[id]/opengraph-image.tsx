@@ -1,22 +1,21 @@
 import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
+import { OG_COLORS, OG_SIZE } from "@/components/og";
 
 export const runtime = "edge";
 
 export const alt = "Resume Roast Results";
-export const size = {
-  width: 1200,
-  height: 630,
-};
+export const size = OG_SIZE;
 export const contentType = "image/png";
 
-export default async function Image({ params }: { params: { id: string } }) {
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
+  const { id } = await params;
   
   const { data: roast } = await supabase
     .from("roasts")
     .select("emoji_score, score_label, first_name, tagline")
-    .eq("shareable_id", params.id)
+    .eq("shareable_id", id)
     .single();
 
   const emojiScore = roast?.emoji_score || "💀/10";
@@ -34,24 +33,39 @@ export default async function Image({ params }: { params: { id: string } }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          background: `linear-gradient(135deg, ${OG_COLORS.fire.orange} 0%, ${OG_COLORS.fire.red} 50%, ${OG_COLORS.fire.purple} 100%)`,
           position: "relative",
         }}
       >
-        {/* Background pattern */}
+        {/* Flame decorations */}
         <div
           style={{
             position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.05) 35px, rgba(255,255,255,.05) 70px)",
-            opacity: 0.4,
+            top: 40,
+            left: 40,
+            width: 100,
+            height: 100,
+            background: `linear-gradient(135deg, ${OG_COLORS.fire.yellow} 0%, ${OG_COLORS.fire.orange} 100%)`,
+            borderRadius: "50% 0% 50% 0%",
+            transform: "rotate(45deg)",
+            opacity: 0.15,
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            bottom: 40,
+            right: 40,
+            width: 100,
+            height: 100,
+            background: `linear-gradient(135deg, ${OG_COLORS.fire.red} 0%, ${OG_COLORS.fire.purple} 100%)`,
+            borderRadius: "50% 0% 50% 0%",
+            transform: "rotate(45deg)",
+            opacity: 0.15,
           }}
         />
         
-        {/* Main content */}
+        {/* Main card */}
         <div
           style={{
             display: "flex",
@@ -65,31 +79,29 @@ export default async function Image({ params }: { params: { id: string } }) {
             position: "relative",
           }}
         >
-          {/* Top badge */}
-          <div
-            style={{
-              position: "absolute",
-              top: -30,
-              backgroundColor: "#10b981",
-              color: "white",
-              padding: "12px 24px",
-              borderRadius: 100,
-              fontSize: 24,
-              fontWeight: "bold",
-              textTransform: "uppercase",
-              letterSpacing: 2,
-            }}
-          >
-            Resume Roasted
-          </div>
+          {/* Person's name if available */}
+          {firstName && (
+            <div
+              style={{
+                position: "absolute",
+                top: 30,
+                fontSize: 26,
+                color: OG_COLORS.fire.orange,
+                fontWeight: "600",
+                display: "flex",
+              }}
+            >
+              {firstName} just got roasted 🔥
+            </div>
+          )}
           
           {/* Emoji Score */}
           <div
             style={{
-              fontSize: 140,
-              fontWeight: "bold",
-              marginTop: 20,
+              fontSize: 160,
+              fontWeight: "900",
               marginBottom: 20,
+              display: "flex",
             }}
           >
             {emojiScore}
@@ -98,10 +110,11 @@ export default async function Image({ params }: { params: { id: string } }) {
           {/* Score Label */}
           <div
             style={{
-              fontSize: 36,
-              fontWeight: "600",
-              color: "#6b7280",
+              fontSize: 40,
+              fontWeight: "700",
+              color: OG_COLORS.fire.red,
               marginBottom: 20,
+              display: "flex",
             }}
           >
             {label}
@@ -117,52 +130,26 @@ export default async function Image({ params }: { params: { id: string } }) {
               lineHeight: 1.4,
               fontStyle: "italic",
               marginBottom: 30,
+              display: "flex",
             }}
           >
             "{tagline}"
           </div>
           
-          {/* Person's name if available */}
-          {firstName && (
-            <div
-              style={{
-                fontSize: 28,
-                color: "#9333ea",
-                fontWeight: "600",
-              }}
-            >
-              {firstName} just got roasted 🔥
-            </div>
-          )}
-        </div>
-        
-        {/* Bottom branding */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 30,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
+          {/* Subtle domain */}
           <div
             style={{
-              backgroundColor: "white",
-              padding: "8px 16px",
-              borderRadius: 8,
-              fontSize: 20,
-              fontWeight: "600",
-              color: "#6b7280",
+              fontSize: 16,
+              color: OG_COLORS.mutedLight,
+              opacity: 0.7,
+              display: "flex",
             }}
           >
-            AppTrack.fyi
+            apptrack.ing
           </div>
         </div>
       </div>
     ),
-    {
-      ...size,
-    }
+    size
   );
 }

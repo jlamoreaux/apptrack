@@ -16,12 +16,12 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Resume Roast - Get Brutally Honest AI Feedback",
     description: "Upload your resume and get hilariously savage feedback. Find out what recruiters really think!",
-    url: "https://apptrack.fyi/roast-my-resume",
+    url: "https://apptrack.ing/roast-my-resume",
     siteName: "AppTrack",
     type: "website",
     images: [
       {
-        url: "/roast-my-resume/opengraph-image",
+        url: "https://apptrack.ing/roast-my-resume/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Resume Roast - Get Brutally Honest AI Feedback",
@@ -32,11 +32,11 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Resume Roast - Get Brutally Honest AI Feedback",
     description: "Upload your resume and get hilariously savage feedback. Find out what recruiters really think!",
-    images: ["/roast-my-resume/opengraph-image"],
-    creator: "@apptrackfyi",
+    images: ["https://apptrack.ing/roast-my-resume/opengraph-image"],
+    creator: "@apptrack",
   },
   alternates: {
-    canonical: "https://apptrack.fyi/roast-my-resume",
+    canonical: "https://apptrack.ing/roast-my-resume",
   },
 };
 
