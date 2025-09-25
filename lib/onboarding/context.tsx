@@ -185,7 +185,12 @@ export function OnboardingProvider({ children, trigger }: OnboardingProviderProp
         await nextStep()
         break
       case 'skip':
-        await skipStep()
+        // If we're on the first step and it says "Skip Tour", dismiss the entire flow
+        if (currentStepIndex === 0 && action.label?.toLowerCase().includes('skip tour')) {
+          await dismissFlow()
+        } else {
+          await skipStep()
+        }
         break
       case 'complete':
         await completeFlow()
@@ -198,7 +203,7 @@ export function OnboardingProvider({ children, trigger }: OnboardingProviderProp
           window.location.href = action.href
         }
     }
-  }, [nextStep, skipStep, completeFlow])
+  }, [nextStep, skipStep, completeFlow, dismissFlow, currentStepIndex])
 
   // Auto-start flows based on trigger
   useEffect(() => {

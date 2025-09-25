@@ -16,6 +16,7 @@ export async function POST(request: NextRequest) {
 
     const { promoCode } = await request.json();
     
+    // Get regular supabase client
     const supabase = await createClient();
 
     // Validate promo code against database
@@ -119,11 +120,9 @@ export async function POST(request: NextRequest) {
       plan_id: targetPlan.id,
     });
 
-    // Increment promo code usage count
+    // Increment promo code usage count using secure function
     await supabase
-      .from("promo_codes")
-      .update({ used_count: promoCodeData.used_count + 1 })
-      .eq("id", promoCodeData.id);
+      .rpc('increment_promo_code_usage', { promo_code_id: promoCodeData.id });
 
     // Schedule notifications
     await scheduleNotifications(user.id, user.email!, endDate, promoCodeData.code_type);
