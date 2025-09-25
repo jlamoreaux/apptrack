@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get regular supabase client for user-specific queries
+    const supabase = await createClient();
     const subscriptionService = new SubscriptionService();
 
     // Check if user already has or had a trial
