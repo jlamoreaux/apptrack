@@ -111,7 +111,7 @@ export default function UpgradePage() {
       }
 
       setPromoSuccess(true);
-      setAppliedPromo(data);
+      setAppliedPromo(data.promoCode);
       setShowPromoDialog(false);
       
       // Clear any previous error
@@ -134,7 +134,7 @@ export default function UpgradePage() {
     
     // Check if we have a premium_free code
     const activeCode = appliedPromo;
-    const isPremiumFree = activeCode?.code_type === "premium_free";
+    const isPremiumFree = activeCode?.code_type === "premium_free" || activeCode?.code_type === "free_forever";
     
     // If it's a premium free code, apply it directly without Stripe checkout
     if (isPremiumFree && activeCode?.code) {
@@ -192,8 +192,8 @@ export default function UpgradePage() {
     // Regular checkout flow for upgrades with optional promo code
     let checkoutUrl = `/dashboard/upgrade/checkout?planId=${planId}&billingCycle=${billingCycle}`;
     if (appliedPromo) {
-      if (appliedPromo.stripe_promotion_code_id) {
-        checkoutUrl += `&promoCode=${appliedPromo.stripe_promotion_code_id}`;
+      if (appliedPromo.stripe_promo_code_id || appliedPromo.stripe_promotion_code_id) {
+        checkoutUrl += `&promoCode=${appliedPromo.stripe_promo_code_id || appliedPromo.stripe_promotion_code_id}`;
       } else if (appliedPromo.stripe_coupon_id) {
         checkoutUrl += `&couponId=${appliedPromo.stripe_coupon_id}`;
       }
@@ -399,8 +399,15 @@ export default function UpgradePage() {
               let showDiscount = false;
               
               if (appliedPromo && appliedPromo.discount_percent && plan.name !== PLAN_NAMES.FREE) {
-                discountedPrice = Math.round(originalPrice * (1 - appliedPromo.discount_percent / 100));
-                showDiscount = true;
+                // Check if the plan is eligible for this promo code
+                const isEligible = !appliedPromo.applicable_plans || 
+                  appliedPromo.applicable_plans.includes(plan.name) ||
+                  appliedPromo.plan_names?.includes(plan.name);
+                  
+                if (isEligible) {
+                  discountedPrice = Math.round(originalPrice * (1 - appliedPromo.discount_percent / 100));
+                  showDiscount = true;
+                }
               }
               
               const yearlySavings = getYearlySavings(plan.name);
@@ -420,15 +427,14 @@ export default function UpgradePage() {
                 <div 
                   key={plan.id} 
                   onClick={(e) => {
-                    // Intercept clicks on downgrade buttons
-                    if (isDowngrade && !isCurrentPlan) {
+                    // Intercept all clicks on upgrade/downgrade buttons
+                    const target = e.target as HTMLElement;
+                    const isButtonClick = target.closest('a') || target.closest('button');
+                    
+                    if (isButtonClick && !isCurrentPlan) {
                       e.preventDefault();
                       e.stopPropagation();
-                      const target = e.target as HTMLElement;
-                      // Check if click was on the button or its parent link
-                      if (target.closest('a') || target.closest('button')) {
-                        handleUpgrade(plan.id, selectedBilling, true);
-                      }
+                      handleUpgrade(plan.id, selectedBilling, isDowngrade);
                     }
                   }}
                 >
@@ -457,10 +463,7 @@ export default function UpgradePage() {
                     features={features}
                     cta={{
                       text: buttonText,
-                      href:
-                        isCurrentPlan || isDowngrade
-                          ? "#"
-                          : `/dashboard/upgrade/checkout?planId=${plan.id}&billingCycle=${selectedBilling}`,
+                      href: "#",
                     }}
                     isCurrentPlan={isCurrentPlan}
                     variant="upgrade"
