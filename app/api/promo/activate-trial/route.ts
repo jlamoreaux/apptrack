@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin-client";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
@@ -17,11 +16,11 @@ export async function POST(request: NextRequest) {
 
     const { promoCode } = await request.json();
     
-    // Use admin client for promo code access
-    const adminSupabase = createAdminClient();
+    // Get regular supabase client
+    const supabase = await createClient();
 
     // Validate promo code against database
-    const { data: promoCodeData, error: promoError } = await adminSupabase
+    const { data: promoCodeData, error: promoError } = await supabase
       .from("promo_codes")
       .select("*")
       .eq("code", promoCode.toUpperCase())
@@ -51,8 +50,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get regular supabase client for user-specific queries
-    const supabase = await createClient();
     const subscriptionService = new SubscriptionService();
 
     // Check if user already has or had a trial
@@ -123,11 +120,9 @@ export async function POST(request: NextRequest) {
       plan_id: targetPlan.id,
     });
 
-    // Increment promo code usage count
-    await adminSupabase
-      .from("promo_codes")
-      .update({ used_count: promoCodeData.used_count + 1 })
-      .eq("id", promoCodeData.id);
+    // Increment promo code usage count using secure function
+    await supabase
+      .rpc('increment_promo_code_usage', { promo_code_id: promoCodeData.id });
 
     // Schedule notifications
     await scheduleNotifications(user.id, user.email!, endDate, promoCodeData.code_type);

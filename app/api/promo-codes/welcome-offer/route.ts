@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin-client";
+import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
   try {
-    const supabase = createAdminClient();
+    const supabase = await createClient();
 
     // Get the current welcome offer (if any)
     const { data: welcomeOffer, error } = await supabase

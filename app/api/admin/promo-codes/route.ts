@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Use admin client to bypass any RLS policies
+    // Use admin client for admin operations
+    // Admin endpoints need full access to create/update/delete promo codes
     const supabase = createAdminClient();
     
     const { data: promoCodes, error } = await supabase
@@ -113,7 +114,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use admin client to bypass any RLS policies
+    // Use admin client for admin operations
+    // Admin endpoints need full access to create/update/delete promo codes
     const supabase = createAdminClient();
 
     // Check if code already exists
@@ -229,7 +231,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Use admin client to bypass any RLS policies
+    // Use admin client for admin operations
+    // Admin endpoints need full access to create/update/delete promo codes
     const supabase = createAdminClient();
     
     // Get current promo code for audit log
