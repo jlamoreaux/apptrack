@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { AdminService } from "@/lib/services/admin.service";
 import { AuditService } from "@/lib/services/audit.service";
@@ -22,7 +23,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass any RLS policies
+    const supabase = createAdminClient();
+    
     const { data: promoCodes, error } = await supabase
       .from("promo_codes")
       .select("*")
@@ -32,11 +35,11 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json({ promoCodes });
+    return NextResponse.json({ promoCodes: promoCodes || [] });
   } catch (error) {
     console.error("Error fetching promo codes:", error);
     return NextResponse.json(
-      { error: "Failed to fetch promo codes" },
+      { error: "Failed to fetch promo codes", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
@@ -110,7 +113,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass any RLS policies
+    const supabase = createAdminClient();
 
     // Check if code already exists
     const { data: existing } = await supabase
@@ -225,7 +229,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass any RLS policies
+    const supabase = createAdminClient();
     
     // Get current promo code for audit log
     const { data: oldPromoCode } = await supabase
