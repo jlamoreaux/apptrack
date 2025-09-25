@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 
@@ -16,10 +17,11 @@ export async function POST(request: NextRequest) {
 
     const { promoCode } = await request.json();
     
-    const supabase = await createClient();
+    // Use admin client for promo code access
+    const adminSupabase = createAdminClient();
 
     // Validate promo code against database
-    const { data: promoCodeData, error: promoError } = await supabase
+    const { data: promoCodeData, error: promoError } = await adminSupabase
       .from("promo_codes")
       .select("*")
       .eq("code", promoCode.toUpperCase())
@@ -120,7 +122,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Increment promo code usage count
-    await supabase
+    await adminSupabase
       .from("promo_codes")
       .update({ used_count: promoCodeData.used_count + 1 })
       .eq("id", promoCodeData.id);

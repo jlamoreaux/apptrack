@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 
 export async function POST(request: Request) {
   try {
@@ -18,7 +19,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = await createClient();
+    // Use admin client to bypass RLS on promo_codes table
+    const supabase = createAdminClient();
 
     // Check if the promo code exists and is valid
     const { data: promoCode, error: promoError } = await supabase
