@@ -64,9 +64,9 @@ export default function PromoCodesAdminPage() {
         throw new Error(data.error || "Failed to load promo codes");
       }
 
-      setPromoCodes(data.promoCodes);
+      setPromoCodes(data.promoCodes || []);
     } catch (err) {
-      setError(String(err));
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
