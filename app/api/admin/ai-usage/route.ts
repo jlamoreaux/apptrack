@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { AdminService } from "@/lib/services/admin.service";
 import { type AIFeature } from "@/lib/services/rate-limit.service";
 import { redis } from "@/lib/redis/client";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 interface AggregatedUsage {
   feature: AIFeature;
@@ -15,6 +17,8 @@ interface AggregatedUsage {
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
     
@@ -22,6 +26,13 @@ export async function GET(request: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
+      loggerService.warn('Unauthorized admin AI usage access attempt', {
+        category: LogCategory.SECURITY,
+        action: 'admin_ai_usage_unauthorized',
+        metadata: {
+          error: authError?.message
+        }
+      });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -31,6 +42,17 @@ export async function GET(request: NextRequest) {
     // Check admin access
     const isAdmin = await AdminService.isAdmin(user.id);
     if (!isAdmin) {
+      loggerService.logSecurityEvent(
+        'admin_access_denied',
+        'high',
+        {
+          endpoint: '/api/admin/ai-usage',
+          attemptedBy: user.id
+        },
+        {
+          userId: user.id
+        }
+      );
       return NextResponse.json(
         { error: "Forbidden - Admin access required" },
         { status: 403 }
@@ -82,7 +104,16 @@ export async function GET(request: NextRequest) {
             successRate = Math.round((dailySuccess / dailyTotal) * 1000) / 10;
           }
         } catch (redisError) {
-          console.error(`Redis error for ${feature}:`, redisError);
+          loggerService.error(`Redis error for AI usage feature ${feature}`, redisError, {
+            category: LogCategory.CACHE,
+            userId: user.id,
+            action: 'admin_ai_usage_redis_error',
+            metadata: {
+              feature,
+              currentHour,
+              currentDate
+            }
+          });
         }
       }
       
@@ -167,6 +198,19 @@ export async function GET(request: NextRequest) {
     const dailyReset = new Date(now);
     dailyReset.setHours(24, 0, 0, 0);
     
+    loggerService.info('Admin AI usage data retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'admin_ai_usage_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        featureCount: features.length,
+        systemHourlyTotal,
+        systemDailyTotal,
+        uniqueUsersDaily: systemUniqueUsersDaily
+      }
+    });
+    
     return NextResponse.json({
       features: aggregatedData,
       systemTotals,
@@ -177,7 +221,13 @@ export async function GET(request: NextRequest) {
       currentTime: now.toISOString(),
     });
   } catch (error) {
-    console.error("Error fetching aggregated AI usage:", error);
+    loggerService.error('Error fetching aggregated AI usage', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'admin_ai_usage_error',
+      duration: Date.now() - startTime
+    });
+    
     return NextResponse.json(
       { error: "Failed to fetch AI usage statistics" },
       { status: 500 }

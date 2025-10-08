@@ -4,12 +4,20 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { AdminService } from "@/lib/services/admin.service";
 import { AuditService } from "@/lib/services/audit.service";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // GET /api/admin/promo-codes - List all promo codes
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized promo codes access attempt', {
+        category: LogCategory.SECURITY,
+        action: 'admin_promo_codes_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -17,6 +25,16 @@ export async function GET(request: NextRequest) {
     }
 
     if (!(await AdminService.isAdmin(user.id))) {
+      loggerService.logSecurityEvent(
+        'admin_access_denied',
+        'high',
+        {
+          endpoint: '/api/admin/promo-codes',
+          method: 'GET',
+          attemptedBy: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: "Forbidden - Admin access required" },
         { status: 403 }
@@ -36,9 +54,25 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
+    loggerService.info('Admin fetched promo codes', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'admin_promo_codes_fetched',
+      duration: Date.now() - startTime,
+      metadata: {
+        promoCodeCount: promoCodes?.length || 0
+      }
+    });
+    
     return NextResponse.json({ promoCodes: promoCodes || [] });
   } catch (error) {
-    console.error("Error fetching promo codes:", error);
+    loggerService.error('Error fetching promo codes', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'admin_promo_codes_fetch_error',
+      duration: Date.now() - startTime
+    });
+    
     return NextResponse.json(
       { error: "Failed to fetch promo codes", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
@@ -48,9 +82,15 @@ export async function GET(request: NextRequest) {
 
 // POST /api/admin/promo-codes - Create new promo code
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized promo code creation attempt', {
+        category: LogCategory.SECURITY,
+        action: 'admin_promo_code_create_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -58,6 +98,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!(await AdminService.isAdmin(user.id))) {
+      loggerService.logSecurityEvent(
+        'admin_access_denied',
+        'high',
+        {
+          endpoint: '/api/admin/promo-codes',
+          method: 'POST',
+          attemptedBy: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: "Forbidden - Admin access required" },
         { status: 403 }
@@ -161,6 +211,21 @@ export async function POST(request: NextRequest) {
 
     // Log the action with request for IP capture
     await AuditService.logPromoCodeCreated(user.id, promoCode, request);
+    
+    loggerService.info('Admin created promo code', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'admin_promo_code_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        promoCode: code,
+        codeType: finalCodeType,
+        trialDays: finalTrialDays,
+        planName: finalPlanName,
+        maxUses: finalMaxUses,
+        hasExpiration: !!finalExpiresAt
+      }
+    });
 
     return NextResponse.json({ 
       success: true, 
@@ -168,7 +233,16 @@ export async function POST(request: NextRequest) {
       message: `Promo code '${code}' created successfully` 
     });
   } catch (error) {
-    console.error("Error creating promo code:", error);
+    loggerService.error('Error creating promo code', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'admin_promo_code_create_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        code
+      }
+    });
+    
     return NextResponse.json(
       { error: "Failed to create promo code" },
       { status: 500 }
@@ -178,9 +252,15 @@ export async function POST(request: NextRequest) {
 
 // PUT /api/admin/promo-codes - Update promo code
 export async function PUT(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized promo code update attempt', {
+        category: LogCategory.SECURITY,
+        action: 'admin_promo_code_update_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -188,6 +268,16 @@ export async function PUT(request: NextRequest) {
     }
 
     if (!(await AdminService.isAdmin(user.id))) {
+      loggerService.logSecurityEvent(
+        'admin_access_denied',
+        'high',
+        {
+          endpoint: '/api/admin/promo-codes',
+          method: 'PUT',
+          attemptedBy: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: "Forbidden - Admin access required" },
         { status: 403 }
@@ -286,13 +376,36 @@ export async function PUT(request: NextRequest) {
       await AuditService.logPromoCodeUpdated(user.id, id, oldPromoCode, promoCode, request);
     }
 
+    loggerService.info('Admin updated promo code', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'admin_promo_code_updated',
+      duration: Date.now() - startTime,
+      metadata: {
+        promoCodeId: id,
+        promoCode: promoCode.code,
+        updatedFields: Object.keys(updateData),
+        wasToggled: typeof active === 'boolean',
+        isActive: promoCode.active
+      }
+    });
+    
     return NextResponse.json({ 
       success: true, 
       promoCode,
       message: "Promo code updated successfully" 
     });
   } catch (error) {
-    console.error("Error updating promo code:", error);
+    loggerService.error('Error updating promo code', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'admin_promo_code_update_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        promoCodeId: id
+      }
+    });
+    
     return NextResponse.json(
       { error: "Failed to update promo code" },
       { status: 500 }
