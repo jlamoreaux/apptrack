@@ -12,12 +12,17 @@ import {
 } from "@/dal/subscriptions";
 import type { Subscription } from "@/types";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export class SubscriptionService
   implements
     BaseService<Subscription, CreateSubscriptionInput, UpdateSubscriptionInput>
 {
-  private subscriptionDAL = new SubscriptionDAL();
+  private subscriptionDAL: SubscriptionDAL;
+
+  constructor(supabaseClient?: SupabaseClient) {
+    this.subscriptionDAL = new SubscriptionDAL(supabaseClient);
+  }
 
   async create(data: CreateSubscriptionInput): Promise<Subscription> {
     try {
