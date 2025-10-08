@@ -3,8 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -14,6 +18,10 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized job fit history access', {
+        category: LogCategory.SECURITY,
+        action: 'job_fit_history_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -27,6 +35,16 @@ export async function GET(request: NextRequest) {
     );
 
     if (!permissionResult.allowed) {
+      loggerService.logSecurityEvent(
+        'ai_feature_access_denied',
+        'medium',
+        {
+          feature: 'job_fit_history',
+          reason: permissionResult.reason || 'subscription_required',
+          userId: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         {
           error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
@@ -61,7 +79,15 @@ export async function GET(request: NextRequest) {
           job_description_preview: analysis.job_description?.substring(0, 200) + "..." || "No description available",
         };
       } catch (parseError) {
-        console.error("Failed to parse analysis result:", parseError instanceof Error ? parseError.message : String(parseError));
+        loggerService.warn('Failed to parse job fit analysis result', {
+          category: LogCategory.API,
+          userId: user.id,
+          action: 'job_fit_history_parse_error',
+          metadata: {
+            analysisId: analysis.id,
+            error: parseError instanceof Error ? parseError.message : String(parseError)
+          }
+        });
         // Return analysis with error placeholder
         return {
           id: analysis.id,
@@ -73,12 +99,29 @@ export async function GET(request: NextRequest) {
       }
     });
 
+    loggerService.info('Job fit history retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'job_fit_history_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        count: analyses.length,
+        limit,
+        applicationId
+      }
+    });
+
     return NextResponse.json({ 
       analyses: enrichedAnalyses,
       total: analyses.length 
     });
   } catch (error) {
-    console.error("Error fetching job fit analyses:", error instanceof Error ? error.message : String(error));
+    loggerService.error('Error fetching job fit analyses', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'job_fit_history_get_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { 
         error: ERROR_MESSAGES.JOB_FIT_ANALYSIS_FAILED || "Failed to fetch job fit analyses",

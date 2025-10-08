@@ -24,16 +24,16 @@
 - [x] cover-letters/history/route.ts ✓
 - [x] fetch-job-description/route.ts ✓
 - [x] generate-pdf/route.ts ✓
-- [ ] interview-prep/route.ts
-- [ ] interview-prep/history/route.ts
-- [ ] interview-prep/history/[id]/route.ts
-- [ ] job-fit/route.ts
-- [ ] job-fit-analysis/history/route.ts
-- [ ] job-fit-history/route.ts
-- [ ] recent-activity/route.ts
-- [ ] resume-analysis/history/route.ts
-- [ ] upload-resume/route.ts
-- [ ] usage/route.ts
+- [x] interview-prep/route.ts ✓
+- [x] interview-prep/history/route.ts ✓
+- [x] interview-prep/history/[id]/route.ts ✓
+- [x] job-fit/route.ts ✓
+- [x] job-fit-analysis/history/route.ts ✓
+- [x] job-fit-history/route.ts ✓
+- [x] recent-activity/route.ts ✓
+- [x] resume-analysis/history/route.ts ✓
+- [x] upload-resume/route.ts ✓
+- [x] usage/route.ts ✓
 
 ### /app/api/analytics/
 - [ ] identify/route.ts
