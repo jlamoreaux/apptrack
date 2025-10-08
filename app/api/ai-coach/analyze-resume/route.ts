@@ -6,8 +6,12 @@ import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { ResumeDAL } from "@/dal/resumes";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 async function analyzeResumeHandler(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -17,6 +21,11 @@ async function analyzeResumeHandler(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized resume analysis attempt', {
+        category: LogCategory.SECURITY,
+        action: 'resume_analysis_unauthorized'
+      });
+      
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -67,13 +76,41 @@ async function analyzeResumeHandler(request: NextRequest) {
       job_url: jobUrl,
     });
     if (existing) {
+      loggerService.info('Resume analysis cache hit', {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: 'resume_analysis_cache_hit',
+        duration: Date.now() - startTime,
+        metadata: {
+          userResumeId: finalUserResumeId,
+          hasJobDescription: !!jobDescription
+        }
+      });
+      
       return NextResponse.json({ analysis: existing.analysis_result });
     }
 
+    const aiCallStartTime = Date.now();
     const aiCoach = createAICoach(user.id);
     const analysis = await aiCoach.analyzeResume(
       finalResumeText,
       jobDescription
+    );
+    
+    const aiCallDuration = Date.now() - aiCallStartTime;
+    loggerService.logAiServiceCall(
+      'ai_coach',
+      'analyze_resume',
+      aiCallDuration,
+      undefined, // tokens would be calculated by the AI service if available
+      undefined,
+      {
+        userId: user.id,
+        metadata: {
+          hasJobDescription: !!jobDescription,
+          resumeLength: finalResumeText?.length || 0
+        }
+      }
     );
 
     // Create resume analysis record using service
@@ -85,9 +122,27 @@ async function analyzeResumeHandler(request: NextRequest) {
       analysis_result: analysis,
     });
 
+    loggerService.info('Resume analysis completed successfully', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'resume_analysis_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        userResumeId: finalUserResumeId,
+        hasJobDescription: !!jobDescription,
+        aiCallDuration
+      }
+    });
+
     return NextResponse.json({ analysis });
   } catch (error) {
-    console.error("Error in resume analysis:", error);
+    loggerService.error('Error in resume analysis', error, {
+      category: LogCategory.AI_SERVICE,
+      userId: user?.id,
+      action: 'resume_analysis_error',
+      duration: Date.now() - startTime
+    });
+    
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.ANALYSIS_FAILED },
       { status: 500 }

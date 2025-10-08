@@ -5,12 +5,21 @@ import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized checkout attempt', {
+        category: LogCategory.PAYMENT,
+        action: 'checkout_unauthorized'
+      });
+      
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -19,9 +28,18 @@ export async function POST(request: NextRequest) {
 
     const { planId, billingCycle, promoCode, couponId, discountCode } = await request.json();
 
-    console.log(
-      `Creating checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}`
-    );
+    loggerService.info('Creating checkout session', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'checkout_create_start',
+      metadata: {
+        planId,
+        billingCycle,
+        hasPromoCode: !!promoCode,
+        hasCouponId: !!couponId,
+        hasDiscountCode: !!discountCode
+      }
+    });
 
     if (!planId || !billingCycle) {
       return NextResponse.json(
@@ -58,14 +76,19 @@ export async function POST(request: NextRequest) {
         : plan.stripe_monthly_price_id;
 
     if (!priceId) {
-      console.error(
-        `No Stripe price ID found for plan ${plan.name} (${planId}) with billing cycle ${billingCycle}`,
-        {
+      loggerService.error('No Stripe price ID found', new Error('Missing price ID'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'checkout_missing_price_id',
+        metadata: {
           planName: plan.name,
+          planId,
+          billingCycle,
           monthlyPriceId: plan.stripe_monthly_price_id,
-          yearlyPriceId: plan.stripe_yearly_price_id,
+          yearlyPriceId: plan.stripe_yearly_price_id
         }
-      );
+      });
+      
       return NextResponse.json(
         { 
           error: `This plan is not yet configured for ${billingCycle} billing. Please contact support or try a different billing cycle.`,
@@ -75,7 +98,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Using price ID: ${priceId} for ${plan.name} (${billingCycle})`);
+    loggerService.debug('Using price ID for checkout', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'checkout_price_selected',
+      metadata: {
+        priceId,
+        planName: plan.name,
+        billingCycle
+      }
+    });
 
     // Create or get customer
     let customer;
@@ -157,14 +189,36 @@ export async function POST(request: NextRequest) {
               promotion_code: promoCodeData.id,
             },
           ];
-          console.log(`Applied promotion code: ${discountCode} (id: ${promoCodeData.id})`);
+          loggerService.debug('Applied promotion code', {
+            category: LogCategory.PAYMENT,
+            userId: user.id,
+            action: 'checkout_promo_applied',
+            metadata: {
+              discountCode,
+              promoCodeId: promoCodeData.id
+            }
+          });
         } else {
           // If no promotion code found, still allow promotion codes to be entered
           sessionParams.allow_promotion_codes = true;
-          console.log(`Promotion code not found: ${discountCode}, allowing manual entry`);
+          loggerService.debug('Promotion code not found', {
+            category: LogCategory.PAYMENT,
+            userId: user.id,
+            action: 'checkout_promo_not_found',
+            metadata: {
+              discountCode
+            }
+          });
         }
       } catch (error) {
-        console.error("Error applying promotion code:", error);
+        loggerService.error('Error applying promotion code', error, {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'checkout_promo_error',
+          metadata: {
+            discountCode
+          }
+        });
         // Fallback to allowing promotion codes
         sessionParams.allow_promotion_codes = true;
       }
@@ -172,14 +226,28 @@ export async function POST(request: NextRequest) {
 
     // If we have a promo code or coupon, add it as a discount
     if (promoCode) {
-      console.log(`Applying promotion code: ${promoCode}`);
+      loggerService.debug('Applying promotion code to checkout', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'checkout_promo_direct',
+        metadata: {
+          promoCode
+        }
+      });
       sessionParams.discounts = [
         {
           promotion_code: promoCode,
         },
       ];
     } else if (couponId) {
-      console.log(`Applying coupon: ${couponId}`);
+      loggerService.debug('Applying coupon to checkout', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'checkout_coupon_applied',
+        metadata: {
+          couponId
+        }
+      });
       sessionParams.discounts = [
         {
           coupon: couponId,
@@ -187,14 +255,35 @@ export async function POST(request: NextRequest) {
       ];
     }
 
-    console.log("Creating session with params:", JSON.stringify(sessionParams, null, 2));
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    console.log(`Created checkout session: ${session.id}`);
+    loggerService.info('Checkout session created successfully', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'checkout_session_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        sessionId: session.id,
+        planId,
+        billingCycle,
+        amount: session.amount_total,
+        currency: session.currency
+      }
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Error creating checkout session:", error);
+    loggerService.error('Error creating checkout session', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'checkout_session_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        planId,
+        billingCycle
+      }
+    });
+    
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }

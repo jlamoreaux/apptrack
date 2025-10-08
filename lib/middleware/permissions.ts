@@ -12,6 +12,8 @@ import {
   isOnFreePlan,
 } from "@/lib/utils/plan-helpers";
 import { getSubscription } from "@/lib/supabase/queries";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export interface PermissionCheckResult {
   allowed: boolean;
@@ -28,13 +30,14 @@ export class PermissionMiddleware {
     userId: string,
     endpoint: keyof typeof import("@/lib/constants/permissions").API_PERMISSIONS.AI_COACH
   ): Promise<PermissionCheckResult> {
+    const startTime = Date.now();
     try {
       const subscription = await getSubscription(userId);
       const userPlan =
         subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const allowed = hasApiPermission(userPlan, endpoint);
 
-      return {
+      const result = {
         allowed,
         userPlan,
         requiredPlan: allowed ? undefined : PLAN_NAMES.AI_COACH,
@@ -42,7 +45,46 @@ export class PermissionMiddleware {
           ? undefined
           : "AI Coach features require an AI Coach subscription",
       };
+
+      loggerService.debug(`API permission check: ${endpoint}`, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'api_permission_check',
+        duration: Date.now() - startTime,
+        metadata: {
+          endpoint,
+          userPlan,
+          allowed,
+          requiredPlan: result.requiredPlan
+        }
+      });
+
+      if (!allowed) {
+        loggerService.warn(`API permission denied: ${endpoint}`, {
+          category: LogCategory.SECURITY,
+          userId,
+          action: 'permission_denied',
+          metadata: {
+            endpoint,
+            userPlan,
+            requiredPlan: PLAN_NAMES.AI_COACH,
+            type: 'api'
+          }
+        });
+      }
+
+      return result;
     } catch (error) {
+      loggerService.error('Permission check failed', error, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'permission_check_error',
+        metadata: {
+          endpoint,
+          type: 'api'
+        }
+      });
+
       throw new PermissionServiceError(
         `Permission check failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -58,13 +100,14 @@ export class PermissionMiddleware {
     userId: string,
     section: keyof typeof import("@/lib/constants/permissions").UI_PERMISSIONS.DASHBOARD
   ): Promise<PermissionCheckResult> {
+    const startTime = Date.now();
     try {
       const subscription = await getSubscription(userId);
       const userPlan =
         subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const allowed = hasUIPermission(userPlan, section);
 
-      return {
+      const result = {
         allowed,
         userPlan,
         requiredPlan: allowed ? undefined : PLAN_NAMES.AI_COACH,
@@ -72,7 +115,46 @@ export class PermissionMiddleware {
           ? undefined
           : "This feature requires an AI Coach subscription",
       };
+
+      loggerService.debug(`UI permission check: ${section}`, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'ui_permission_check',
+        duration: Date.now() - startTime,
+        metadata: {
+          section,
+          userPlan,
+          allowed,
+          requiredPlan: result.requiredPlan
+        }
+      });
+
+      if (!allowed) {
+        loggerService.info(`UI permission denied: ${section}`, {
+          category: LogCategory.SECURITY,
+          userId,
+          action: 'permission_denied',
+          metadata: {
+            section,
+            userPlan,
+            requiredPlan: PLAN_NAMES.AI_COACH,
+            type: 'ui'
+          }
+        });
+      }
+
+      return result;
     } catch (error) {
+      loggerService.error('UI permission check failed', error, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'permission_check_error',
+        metadata: {
+          section,
+          type: 'ui'
+        }
+      });
+
       throw new PermissionServiceError(
         `Permission check failed: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -122,6 +204,7 @@ export class PermissionMiddleware {
     isPro: boolean;
     isFree: boolean;
   }> {
+    const startTime = Date.now();
     try {
       const subscription = await getSubscription(userId);
       const plan = subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
@@ -133,7 +216,7 @@ export class PermissionMiddleware {
       const isPro = isOnProOrHigher(plan);
       const isFree = isOnFreePlan(plan);
 
-      return {
+      const planInfo = {
         plan,
         status,
         isActive,
@@ -141,7 +224,23 @@ export class PermissionMiddleware {
         isPro,
         isFree,
       };
+
+      loggerService.debug('Retrieved user plan info', {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'get_plan_info',
+        duration: Date.now() - startTime,
+        metadata: planInfo
+      });
+
+      return planInfo;
     } catch (error) {
+      loggerService.error('Failed to get user plan info', error, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'get_plan_info_error'
+      });
+
       throw new PermissionServiceError(
         `Failed to get user plan info: ${
           error instanceof Error ? error.message : "Unknown error"
@@ -157,6 +256,17 @@ export class PermissionMiddleware {
     const result = await this.getUserPlanInfo(userId);
 
     if (!result.isAICoach) {
+      loggerService.warn('AI Coach subscription required', {
+        category: LogCategory.SECURITY,
+        userId,
+        action: 'subscription_required',
+        metadata: {
+          requiredPlan: PLAN_NAMES.AI_COACH,
+          currentPlan: result.plan,
+          type: 'ai_coach'
+        }
+      });
+
       throw new PermissionServiceError(
         "AI Coach features require an AI Coach subscription"
       );
