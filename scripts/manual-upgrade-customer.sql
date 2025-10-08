@@ -31,14 +31,14 @@ INSERT INTO user_subscriptions (
   created_at,
   updated_at
 ) VALUES (
-  'some-user-id'
+  'USER_ID_HERE',
   (SELECT id FROM subscription_plans WHERE name = 'Pro'), -- Pro plan ID (or 'AI Coach')
   'active', -- active status
   'monthly', -- Change to 'yearly' if they paid for yearly
   NOW(), -- current_period_start
   NOW() + INTERVAL '30 days', -- current_period_end (adjust to 1 year if yearly)
-  'cus_TCKRbGMMEP1OR0', -- stripe_customer_id
-  'sub_1SFvmbIybeT4i3WVWqgXG6ba', -- stripe_subscription_id
+  'STRIPE_CUSTOMER_ID_HERE', -- stripe_customer_id from Stripe dashboard
+  'STRIPE_SUBSCRIPTION_ID_HERE', -- stripe_subscription_id from Stripe dashboard
   false, -- cancel_at_period_end
   NOW(), -- created_at
   NOW() -- updated_at
@@ -58,4 +58,4 @@ SELECT
 FROM user_subscriptions us
 LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
 LEFT JOIN profiles p ON us.user_id = p.id
-WHERE us.user_id = 'some-user-id';
+WHERE us.user_id = 'USER_ID_HERE';

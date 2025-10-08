@@ -1,5 +1,5 @@
 -- Check subscription status for a specific customer
--- Customer email: ixoyedesignstudio@gmail.com
+-- Replace 'CUSTOMER_EMAIL' with the actual customer's email address
 
 -- 1. Find the user by email and show their profile
 SELECT 
@@ -7,7 +7,7 @@ SELECT
   p.email,
   p.created_at as user_created_at
 FROM profiles p
-WHERE p.email = 'ixoyedesignstudio@gmail.com';
+WHERE p.email = 'CUSTOMER_EMAIL';
 
 -- 2. Check all subscriptions for this user
 SELECT 
@@ -25,7 +25,7 @@ SELECT
   us.updated_at
 FROM user_subscriptions us
 LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
-WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'ixoyedesignstudio@gmail.com')
+WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'CUSTOMER_EMAIL')
 ORDER BY us.created_at DESC;
 
 -- 3. Check if there are any active subscriptions
@@ -33,7 +33,7 @@ SELECT
   'Active subscriptions' as check_type,
   COUNT(*) as count
 FROM user_subscriptions us
-WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'ixoyedesignstudio@gmail.com')
+WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'CUSTOMER_EMAIL')
   AND us.status IN ('active', 'trialing');
 
 -- 4. Check the most recent subscription details with plan info
@@ -46,7 +46,7 @@ SELECT
   sp.stripe_yearly_price_id
 FROM user_subscriptions us
 LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
-WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'ixoyedesignstudio@gmail.com')
+WHERE us.user_id = (SELECT id FROM profiles WHERE email = 'CUSTOMER_EMAIL')
 ORDER BY us.created_at DESC
 LIMIT 1;
 
@@ -63,6 +63,6 @@ SELECT
   stripe_customer_id,
   stripe_subscription_id
 FROM user_subscriptions
-WHERE user_id = (SELECT id FROM profiles WHERE email = 'ixoyedesignstudio@gmail.com')
+WHERE user_id = (SELECT id FROM profiles WHERE email = 'CUSTOMER_EMAIL')
 ORDER BY created_at DESC
 LIMIT 1;

@@ -1,5 +1,5 @@
--- Verify customer's Pro status
--- Customer: ixoyedesignstudio@gmail.com
+-- Verify customer's subscription status
+-- Replace 'CUSTOMER_EMAIL' with the actual customer's email address
 
 -- Check current subscription status
 SELECT 
@@ -17,7 +17,7 @@ SELECT
 FROM profiles p
 JOIN user_subscriptions us ON p.id = us.user_id
 JOIN subscription_plans sp ON us.plan_id = sp.id
-WHERE p.email = 'ixoyedesignstudio@gmail.com'
+WHERE p.email = 'CUSTOMER_EMAIL'
 ORDER BY us.created_at DESC
 LIMIT 1;
 
@@ -34,5 +34,5 @@ FROM profiles p
 LEFT JOIN applications a ON p.id = a.user_id
 LEFT JOIN user_subscriptions us ON p.id = us.user_id AND us.status = 'active'
 LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
-WHERE p.email = 'ixoyedesignstudio@gmail.com'
+WHERE p.email = 'CUSTOMER_EMAIL'
 GROUP BY p.email, sp.name;
