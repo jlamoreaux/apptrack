@@ -36,11 +36,11 @@
 - [x] usage/route.ts ✓
 
 ### /app/api/analytics/
-- [ ] identify/route.ts
-- [ ] track/route.ts
+- [x] identify/route.ts ✓
+- [x] track/route.ts ✓
 
 ### /app/api/announcements/
-- [ ] active/route.ts
+- [x] active/route.ts ✓
 
 ### /app/api/applications/
 - [x] route.ts ✓
@@ -49,15 +49,15 @@
 - [x] linkedin/route.ts ✓
 
 ### /app/api/auth/
-- [ ] check-new-user/route.ts
+- [x] check-new-user/route.ts ✓
 - [x] check-session/route.ts
 - [x] complete-onboarding/route.ts
 - [x] profile/route.ts
-- [ ] resend-confirmation/route.ts
+- [x] resend-confirmation/route.ts ✓
 
 ### /app/api/cron/
-- [ ] sync-ai-usage/route.ts
-- [ ] trial-notifications/route.ts
+- [x] sync-ai-usage/route.ts ✓
+- [x] trial-notifications/route.ts ✓
 
 ### /app/api/debug/
 - [ ] plans/route.ts
