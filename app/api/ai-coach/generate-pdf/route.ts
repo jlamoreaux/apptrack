@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { checkAICoachAccess } from '@/lib/middleware/ai-coach-auth';
 import type { JobFitAnalysisResult } from '@/types/ai-analysis';
+import { loggerService } from '@/lib/services/logger.service';
+import { LogCategory } from '@/lib/services/logger.types';
 
 interface PDFRequest {
   analysis: JobFitAnalysisResult;
@@ -12,10 +14,19 @@ interface PDFRequest {
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Check authentication and AI Coach access
     const authResult = await checkAICoachAccess('JOB_FIT_ANALYSIS');
     if (!authResult.authorized) {
+      loggerService.warn('Unauthorized PDF generation attempt', {
+        category: LogCategory.SECURITY,
+        action: 'generate_pdf_unauthorized',
+        metadata: {
+          reason: authResult.reason || 'unknown'
+        }
+      });
       return authResult.response!;
     }
 
@@ -23,6 +34,12 @@ export async function POST(req: NextRequest) {
     const { analysis, applicationInfo } = body;
 
     if (!analysis) {
+      loggerService.warn('PDF generation missing analysis data', {
+        category: LogCategory.API,
+        userId: authResult.user.id,
+        action: 'generate_pdf_missing_analysis',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: 'Analysis data is required' },
         { status: 400 }
@@ -37,13 +54,34 @@ export async function POST(req: NextRequest) {
     
     // Return the HTML and let the client convert it
     // This is a temporary solution until we add Puppeteer
+    const filename = generateFilename(applicationInfo);
+    
+    loggerService.info('PDF HTML generated successfully', {
+      category: LogCategory.BUSINESS,
+      userId: authResult.user.id,
+      action: 'generate_pdf_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        filename,
+        company: applicationInfo?.company,
+        role: applicationInfo?.role,
+        overallScore: analysis.overallScore,
+        htmlLength: htmlContent.length
+      }
+    });
+    
     return NextResponse.json({ 
       html: htmlContent,
-      filename: generateFilename(applicationInfo)
+      filename
     });
 
   } catch (error) {
-    console.error('PDF generation error:', error);
+    loggerService.error('PDF generation error', error, {
+      category: LogCategory.API,
+      userId: authResult?.user?.id,
+      action: 'generate_pdf_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: 'Failed to generate PDF' },
       { status: 500 }
