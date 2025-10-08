@@ -1,6 +1,4 @@
 -- Manual upgrade script for customer who paid but wasn't upgraded
--- Customer: ixoyedesignstudio@gmail.com
--- User ID: 4d0c4e96-bc09-49e1-b7bb-2986aad31224
 
 -- First, let's check what subscription plans are available
 SELECT 
@@ -13,8 +11,9 @@ SELECT
 FROM subscription_plans
 ORDER BY name;
 
--- Get the Pro plan ID
+-- Get the plan ID
 SELECT id, name FROM subscription_plans WHERE name = 'Pro';
+-- SELECT id, name FROM subscription_plans WHERE name = 'AI Coach';
 
 -- Create the subscription manually
 -- NOTE: You'll need the stripe_customer_id and stripe_subscription_id from Stripe dashboard
@@ -32,8 +31,8 @@ INSERT INTO user_subscriptions (
   created_at,
   updated_at
 ) VALUES (
-  '4d0c4e96-bc09-49e1-b7bb-2986aad31224', -- user_id for ixoyedesignstudio@gmail.com
-  (SELECT id FROM subscription_plans WHERE name = 'Pro'), -- Pro plan ID
+  'some-user-id'
+  (SELECT id FROM subscription_plans WHERE name = 'Pro'), -- Pro plan ID (or 'AI Coach')
   'active', -- active status
   'monthly', -- Change to 'yearly' if they paid for yearly
   NOW(), -- current_period_start
@@ -59,4 +58,4 @@ SELECT
 FROM user_subscriptions us
 LEFT JOIN subscription_plans sp ON us.plan_id = sp.id
 LEFT JOIN profiles p ON us.user_id = p.id
-WHERE us.user_id = '4d0c4e96-bc09-49e1-b7bb-2986aad31224';
+WHERE us.user_id = 'some-user-id';
