@@ -1,4 +1,4 @@
-# Webhook Diagnosis Steps for Customer: ixoyedesignstudio@gmail.com
+# Webhook Diagnosis Steps
 
 ## Issue Summary
 Customer paid for Pro plan but no subscription record was created in the database.
@@ -7,7 +7,7 @@ Customer paid for Pro plan but no subscription record was created in the databas
 
 ### 1. Check Stripe Dashboard
 1. Go to [Stripe Dashboard](https://dashboard.stripe.com)
-2. Navigate to **Payments** and search for: `ixoyedesignstudio@gmail.com`
+2. Navigate to **Payments** and search for the customer's email
 3. Find their payment and note:
    - Payment ID
    - Customer ID (starts with `cus_`)
