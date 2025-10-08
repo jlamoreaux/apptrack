@@ -18,6 +18,8 @@ import type {
   CoverLetter,
   JobFitAnalysis,
 } from "@/types";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export class AICoachService {
   private resumeAnalysisDAL = new ResumeAnalysisDAL();
@@ -37,9 +39,15 @@ export class AICoachService {
       analysis_result: any;
     }
   ): Promise<ResumeAnalysis> {
+    const startTime = Date.now();
+    
     try {
       // Validate inputs
       if (!userId?.trim()) {
+        loggerService.warn('Invalid user ID for resume analysis', {
+          category: LogCategory.BUSINESS,
+          action: 'resume_analysis_invalid_user'
+        });
         throw new ValidationServiceError("User ID is required");
       }
       if (!options.analysis_result) {
@@ -51,7 +59,8 @@ export class AICoachService {
           "Either user_resume_id or resume_text is required"
         );
       }
-      return await this.resumeAnalysisDAL.create({
+      
+      const result = await this.resumeAnalysisDAL.create({
         user_id: userId,
         user_resume_id: options.user_resume_id,
         resume_text: options.resume_text,
@@ -59,15 +68,58 @@ export class AICoachService {
         job_url: options.job_url,
         analysis_result: options.analysis_result,
       });
+      
+      loggerService.info('Resume analysis created', {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'resume_analysis_created',
+        duration: Date.now() - startTime,
+        metadata: {
+          analysisId: result.id,
+          hasJobDescription: !!options.job_description,
+          hasJobUrl: !!options.job_url,
+          resumeMethod: options.user_resume_id ? 'existing' : 'text'
+        }
+      });
+      
+      return result;
     } catch (error) {
+      loggerService.error('Failed to create resume analysis', error, {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'resume_analysis_create_error',
+        duration: Date.now() - startTime
+      });
+      
       throw wrapDALError(error, "Failed to create resume analysis");
     }
   }
 
   async getResumeAnalyses(userId: string): Promise<ResumeAnalysis[]> {
+    const startTime = Date.now();
+    
     try {
-      return await this.resumeAnalysisDAL.findByUserId(userId);
+      const analyses = await this.resumeAnalysisDAL.findByUserId(userId);
+      
+      loggerService.debug('Retrieved resume analyses', {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'resume_analyses_retrieved',
+        duration: Date.now() - startTime,
+        metadata: {
+          count: analyses.length
+        }
+      });
+      
+      return analyses;
     } catch (error) {
+      loggerService.error('Failed to get resume analyses', error, {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'resume_analyses_get_error',
+        duration: Date.now() - startTime
+      });
+      
       throw wrapDALError(error, "Failed to get resume analyses");
     }
   }

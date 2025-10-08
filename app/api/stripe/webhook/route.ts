@@ -6,10 +6,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const body = await request.text();
     const signature = request.headers.get("stripe-signature")!;
@@ -19,11 +23,24 @@ export async function POST(request: NextRequest) {
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } catch (err) {
-      console.error("Webhook signature verification failed:", err);
+      loggerService.error('Webhook signature verification failed', err as Error, {
+        category: LogCategory.SECURITY,
+        action: 'stripe_webhook_invalid_signature',
+        metadata: {
+          hasSignature: !!signature
+        }
+      });
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    console.log(`Received Stripe webhook: ${event.type} with ID ${event.id}`);
+    loggerService.info('Received Stripe webhook', {
+      category: LogCategory.PAYMENT,
+      action: 'stripe_webhook_received',
+      metadata: {
+        eventType: event.type,
+        eventId: event.id
+      }
+    });
 
     // Create service role client for webhook operations
     // This will throw if SUPABASE_SERVICE_ROLE_KEY is not set
@@ -76,12 +93,32 @@ export async function POST(request: NextRequest) {
         break;
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        loggerService.debug('Unhandled webhook event type', {
+          category: LogCategory.PAYMENT,
+          action: 'stripe_webhook_unhandled',
+          metadata: {
+            eventType: event.type
+          }
+        });
     }
+
+    loggerService.info('Stripe webhook processed successfully', {
+      category: LogCategory.PAYMENT,
+      action: 'stripe_webhook_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        eventType: event.type,
+        eventId: event.id
+      }
+    });
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error("Webhook error:", error);
+    loggerService.error('Webhook processing error', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'stripe_webhook_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }
@@ -115,22 +152,48 @@ async function handleCheckoutCompleted(
   subscriptionService: SubscriptionService,
   serviceClient: SupabaseClient
 ) {
+  const startTime = Date.now();
+  
   try {
     const userId = String(session.metadata?.userId || "");
     const planId = session.metadata?.planId;
     const billingCycle = session.metadata?.billingCycle;
 
-    console.log(
-      `Processing checkout completion for user ${userId}, plan ${planId}, billing ${billingCycle}`
-    );
+    loggerService.info('Processing checkout completion', {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: 'checkout_completed_processing',
+      metadata: {
+        sessionId: session.id,
+        planId,
+        billingCycle,
+        amount: session.amount_total,
+        currency: session.currency
+      }
+    });
 
     if (!userId || !planId) {
-      console.error("Missing metadata in checkout session:", session.id);
+      loggerService.error('Missing metadata in checkout session', new Error('Missing metadata'), {
+        category: LogCategory.PAYMENT,
+        action: 'checkout_completed_invalid_metadata',
+        metadata: {
+          sessionId: session.id,
+          hasUserId: !!userId,
+          hasPlanId: !!planId
+        }
+      });
       return;
     }
 
     if (!session.subscription) {
-      console.error("No subscription ID in checkout session:", session.id);
+      loggerService.error('No subscription ID in checkout session', new Error('No subscription'), {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'checkout_completed_no_subscription',
+        metadata: {
+          sessionId: session.id
+        }
+      });
       return;
     }
 
@@ -220,7 +283,16 @@ async function handleCheckoutCompleted(
     console.log(`Period start: ${currentPeriodStart}`);
     console.log(`Period end: ${currentPeriodEnd}`);
   } catch (error) {
-    console.error("Error in handleCheckoutCompleted:", error);
+    loggerService.error('Error in handleCheckoutCompleted', error as Error, {
+      category: LogCategory.PAYMENT,
+      userId: session.metadata?.userId,
+      action: 'checkout_completed_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        sessionId: session.id,
+        planId: session.metadata?.planId
+      }
+    });
   }
 }
 
@@ -260,7 +332,16 @@ async function handleSubscriptionUpdated(
       
       if (plan) {
         newPlanId = plan.id;
-        console.log(`Detected plan change to: ${newPlanId} (price: ${currentPriceId})`);
+        loggerService.info('Detected plan change', {
+          category: LogCategory.PAYMENT,
+          userId,
+          action: 'subscription_plan_changed',
+          metadata: {
+            subscriptionId: subscription.id,
+            newPlanId,
+            priceId: currentPriceId
+          }
+        });
       }
     }
     
@@ -318,9 +399,27 @@ async function handleSubscriptionUpdated(
     }
     
     await subscriptionService.updateFromStripeWebhook(subscription.id, updateData);
-    console.log(`Successfully updated subscription for user ${userId}${newPlanId ? ' with new plan' : ''}`);
+    
+    loggerService.info('Successfully updated subscription from webhook', {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: 'subscription_updated_success',
+      metadata: {
+        subscriptionId: subscription.id,
+        status: subscription.status,
+        planChanged: !!newPlanId,
+        newPlanId
+      }
+    });
   } catch (error) {
-    console.error("Error in handleSubscriptionUpdated:", error);
+    loggerService.error('Error in handleSubscriptionUpdated', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_updated_error',
+      metadata: {
+        subscriptionId: subscription.id,
+        customerId: subscription.customer
+      }
+    });
   }
 }
 
@@ -350,7 +449,13 @@ async function handleSubscriptionDeleted(
       `Successfully marked subscription as canceled for user ${userId}`
     );
   } catch (error) {
-    console.error("Error in handleSubscriptionDeleted:", error);
+    loggerService.error('Error in handleSubscriptionDeleted', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_deleted_error',
+      metadata: {
+        subscriptionId: subscription.id
+      }
+    });
   }
 }
 
@@ -359,10 +464,27 @@ async function handlePaymentSucceeded(
   subscriptionService: SubscriptionService
 ) {
   try {
-    // You can add logic here if you want to track successful payments
-    console.log(`Payment succeeded for invoice ${invoice.id}`);
+    // Track successful payment
+    loggerService.logPaymentEvent(
+      'payment_succeeded',
+      invoice.amount_paid / 100, // Convert from cents
+      invoice.currency,
+      undefined,
+      {
+        metadata: {
+          invoiceId: invoice.id,
+          subscriptionId: invoice.subscription as string
+        }
+      }
+    );
   } catch (error) {
-    console.error("Error in handlePaymentSucceeded:", error);
+    loggerService.error('Error in handlePaymentSucceeded', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'payment_succeeded_error',
+      metadata: {
+        invoiceId: invoice.id
+      }
+    });
   }
 }
 
@@ -371,10 +493,28 @@ async function handlePaymentFailed(
   subscriptionService: SubscriptionService
 ) {
   try {
-    // You can add logic here if you want to track failed payments
-    console.log(`Payment failed for invoice ${invoice.id}`);
+    // Track failed payment
+    loggerService.logPaymentEvent(
+      'payment_failed',
+      invoice.amount_due / 100, // Convert from cents
+      invoice.currency,
+      new Error(invoice.last_finalization_error?.message || 'Payment failed'),
+      {
+        metadata: {
+          invoiceId: invoice.id,
+          subscriptionId: invoice.subscription as string,
+          attemptCount: invoice.attempt_count
+        }
+      }
+    );
   } catch (error) {
-    console.error("Error in handlePaymentFailed:", error);
+    loggerService.error('Error in handlePaymentFailed', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'payment_failed_error',
+      metadata: {
+        invoiceId: invoice.id
+      }
+    });
   }
 }
 
@@ -445,8 +585,25 @@ async function handleSubscriptionCreated(
       current_period_end: currentPeriodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end ?? false,
     });
-    console.log(`Successfully created subscription for user ${userId}`);
+    
+    loggerService.info('Successfully created subscription from webhook', {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: 'subscription_created_success',
+      metadata: {
+        subscriptionId: subscription.id,
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status,
+        planId
+      }
+    });
   } catch (error) {
-    console.error("Error in handleSubscriptionCreated:", error);
+    loggerService.error('Error in handleSubscriptionCreated', error as Error, {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_created_error',
+      metadata: {
+        subscriptionId: subscription.id
+      }
+    });
   }
 }

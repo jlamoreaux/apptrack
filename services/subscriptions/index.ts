@@ -13,6 +13,8 @@ import {
 import type { Subscription } from "@/types";
 import { PLAN_NAMES } from "@/lib/constants/plans";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export class SubscriptionService
   implements
@@ -25,13 +27,24 @@ export class SubscriptionService
   }
 
   async create(data: CreateSubscriptionInput): Promise<Subscription> {
+    const startTime = Date.now();
+    
     try {
       // Validate required fields
       if (!data.user_id?.trim()) {
+        loggerService.warn('Invalid user ID for subscription creation', {
+          category: LogCategory.PAYMENT,
+          action: 'subscription_create_invalid_user'
+        });
         throw new ValidationServiceError("User ID is required");
       }
 
       if (!data.plan_id?.trim()) {
+        loggerService.warn('Invalid plan ID for subscription creation', {
+          category: LogCategory.PAYMENT,
+          userId: data.user_id,
+          action: 'subscription_create_invalid_plan'
+        });
         throw new ValidationServiceError("Plan ID is required");
       }
 
@@ -41,6 +54,15 @@ export class SubscriptionService
         const endDate = new Date(data.current_period_end);
 
         if (startDate >= endDate) {
+          loggerService.warn('Invalid subscription period dates', {
+            category: LogCategory.PAYMENT,
+            userId: data.user_id,
+            action: 'subscription_create_invalid_dates',
+            metadata: {
+              start: data.current_period_start,
+              end: data.current_period_end
+            }
+          });
           throw new ValidationServiceError(
             "Current period start must be before current period end"
           );
@@ -48,8 +70,48 @@ export class SubscriptionService
       }
 
       const subscription = await this.subscriptionDAL.create(data);
+      
+      loggerService.logPaymentEvent(
+        'subscription_created',
+        undefined,
+        undefined,
+        undefined,
+        {
+          userId: data.user_id,
+          metadata: {
+            subscriptionId: subscription.id,
+            planId: data.plan_id,
+            stripeSubscriptionId: data.stripe_subscription_id,
+            status: data.status
+          }
+        }
+      );
+      
+      loggerService.logBusinessMetric(
+        'subscription_created',
+        1,
+        'count',
+        {
+          userId: data.user_id,
+          metadata: {
+            planId: data.plan_id,
+            status: data.status
+          }
+        }
+      );
+      
       return subscription;
     } catch (error) {
+      loggerService.error('Failed to create subscription', error, {
+        category: LogCategory.PAYMENT,
+        userId: data.user_id,
+        action: 'subscription_create_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId: data.plan_id
+        }
+      });
+      
       throw wrapDALError(error, "Failed to create subscription");
     }
   }
@@ -74,6 +136,8 @@ export class SubscriptionService
     id: string,
     data: UpdateSubscriptionInput
   ): Promise<Subscription | null> {
+    const startTime = Date.now();
+    
     try {
       // Validate dates if provided
       if (data.current_period_start && data.current_period_end) {
@@ -89,11 +153,60 @@ export class SubscriptionService
 
       const subscription = await this.subscriptionDAL.update(id, data);
       if (!subscription) {
+        loggerService.warn('Subscription not found for update', {
+          category: LogCategory.PAYMENT,
+          action: 'subscription_update_not_found',
+          metadata: { subscriptionId: id }
+        });
         throw new NotFoundServiceError("Subscription", id);
+      }
+
+      // Log status changes
+      if (data.status) {
+        loggerService.logPaymentEvent(
+          'subscription_updated',
+          undefined,
+          undefined,
+          undefined,
+          {
+            userId: subscription.user_id,
+            metadata: {
+              subscriptionId: id,
+              newStatus: data.status,
+              updatedFields: Object.keys(data)
+            }
+          }
+        );
+        
+        // Log specific business events for important status changes
+        if (data.status === 'cancelled' || data.status === 'canceled') {
+          loggerService.logBusinessMetric(
+            'subscription_cancelled',
+            1,
+            'count',
+            {
+              userId: subscription.user_id,
+              metadata: {
+                subscriptionId: id,
+                planId: subscription.plan_id
+              }
+            }
+          );
+        }
       }
 
       return subscription;
     } catch (error) {
+      loggerService.error('Failed to update subscription', error, {
+        category: LogCategory.PAYMENT,
+        action: 'subscription_update_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          subscriptionId: id,
+          updatedFields: Object.keys(data)
+        }
+      });
+      
       throw wrapDALError(error, "Failed to update subscription");
     }
   }
@@ -128,9 +241,33 @@ export class SubscriptionService
 
   // Subscription-specific methods
   async getActiveSubscription(userId: string): Promise<Subscription | null> {
+    const startTime = Date.now();
+    
     try {
-      return await this.subscriptionDAL.getActiveSubscription(userId);
+      const subscription = await this.subscriptionDAL.getActiveSubscription(userId);
+      
+      loggerService.debug('Retrieved active subscription', {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'get_active_subscription',
+        duration: Date.now() - startTime,
+        metadata: {
+          hasActiveSubscription: !!subscription,
+          subscriptionId: subscription?.id,
+          planId: subscription?.plan_id,
+          status: subscription?.status
+        }
+      });
+      
+      return subscription;
     } catch (error) {
+      loggerService.error('Failed to get active subscription', error, {
+        category: LogCategory.BUSINESS,
+        userId,
+        action: 'get_active_subscription_error',
+        duration: Date.now() - startTime
+      });
+      
       throw wrapDALError(error, "Failed to get active subscription");
     }
   }

@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { BaseDAL, DALError, NotFoundError, ValidationError } from "../base";
 import type { Application, ApplicationHistory } from "@/types";
 import { APPLICATION_STATUS, APPLICATION_STATUS_VALUES, type ApplicationStatus, isValidStatus } from "@/lib/constants/application-status";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export interface CreateApplicationInput {
   user_id: string;
@@ -73,6 +75,8 @@ export class ApplicationDAL
     BaseDAL<Application, CreateApplicationInput, UpdateApplicationInput>
 {
   async create(data: CreateApplicationInput): Promise<Application> {
+    const startTime = Date.now();
+    
     try {
       const supabase = await createClient();
       const { data: application, error } = await supabase
@@ -82,19 +86,56 @@ export class ApplicationDAL
         .single();
 
       if (error) {
+        loggerService.error('Failed to create application', error, {
+          category: LogCategory.DATABASE,
+          userId: data.user_id,
+          action: 'application_create_error',
+          duration: Date.now() - startTime,
+          metadata: {
+            company: data.company,
+            role: data.role
+          }
+        });
+        
         throw new ValidationError(
           `Failed to create application: ${error.message}`
         );
       }
 
+      loggerService.logDatabaseQuery(
+        'INSERT',
+        'applications',
+        Date.now() - startTime,
+        undefined,
+        {
+          userId: data.user_id,
+          metadata: {
+            applicationId: application.id,
+            company: data.company,
+            role: data.role,
+            status: data.status || APPLICATION_STATUS.APPLIED
+          }
+        }
+      );
+
       return application;
     } catch (error) {
       if (error instanceof DALError) throw error;
+      
+      loggerService.error('Unexpected error creating application', error, {
+        category: LogCategory.DATABASE,
+        userId: data.user_id,
+        action: 'application_create_fatal',
+        duration: Date.now() - startTime
+      });
+      
       throw new DALError("Failed to create application", "CREATE_ERROR", error);
     }
   }
 
   async findById(id: string): Promise<Application | null> {
+    const startTime = Date.now();
+    
     try {
       const supabase = await createClient();
       const { data, error } = await supabase
@@ -105,8 +146,22 @@ export class ApplicationDAL
 
       if (error) {
         if (error.code === "PGRST116") {
+          loggerService.debug('Application not found', {
+            category: LogCategory.DATABASE,
+            action: 'application_find_not_found',
+            duration: Date.now() - startTime,
+            metadata: { applicationId: id }
+          });
           return null; // Not found
         }
+        
+        loggerService.error('Error finding application by ID', error, {
+          category: LogCategory.DATABASE,
+          action: 'application_find_error',
+          duration: Date.now() - startTime,
+          metadata: { applicationId: id }
+        });
+        
         throw new DALError(
           `Failed to find application: ${error.message}`,
           "QUERY_ERROR"
@@ -153,6 +208,8 @@ export class ApplicationDAL
     id: string,
     data: UpdateApplicationInput
   ): Promise<Application | null> {
+    const startTime = Date.now();
+    
     try {
       const supabase = await createClient();
       const { data: updatedApplication, error } = await supabase
@@ -164,22 +221,59 @@ export class ApplicationDAL
 
       if (error) {
         if (error.code === "PGRST116") {
+          loggerService.debug('Application not found for update', {
+            category: LogCategory.DATABASE,
+            action: 'application_update_not_found',
+            duration: Date.now() - startTime,
+            metadata: { applicationId: id }
+          });
           return null; // Not found
         }
+        
+        loggerService.error('Failed to update application', error, {
+          category: LogCategory.DATABASE,
+          action: 'application_update_error',
+          duration: Date.now() - startTime,
+          metadata: { applicationId: id }
+        });
+        
         throw new DALError(
           `Failed to update application: ${error.message}`,
           "UPDATE_ERROR"
         );
       }
 
+      loggerService.logDatabaseQuery(
+        'UPDATE',
+        'applications',
+        Date.now() - startTime,
+        undefined,
+        {
+          metadata: {
+            applicationId: id,
+            updatedFields: Object.keys(data)
+          }
+        }
+      );
+
       return updatedApplication;
     } catch (error) {
       if (error instanceof DALError) throw error;
+      
+      loggerService.error('Unexpected error updating application', error, {
+        category: LogCategory.DATABASE,
+        action: 'application_update_fatal',
+        duration: Date.now() - startTime,
+        metadata: { applicationId: id }
+      });
+      
       throw new DALError("Failed to update application", "UPDATE_ERROR", error);
     }
   }
 
   async delete(id: string): Promise<boolean> {
+    const startTime = Date.now();
+    
     try {
       const supabase = await createClient();
       const { error } = await supabase
@@ -188,15 +282,40 @@ export class ApplicationDAL
         .eq("id", id);
 
       if (error) {
+        loggerService.error('Failed to delete application', error, {
+          category: LogCategory.DATABASE,
+          action: 'application_delete_error',
+          duration: Date.now() - startTime,
+          metadata: { applicationId: id }
+        });
+        
         throw new DALError(
           `Failed to delete application: ${error.message}`,
           "DELETE_ERROR"
         );
       }
 
+      loggerService.logDatabaseQuery(
+        'DELETE',
+        'applications',
+        Date.now() - startTime,
+        undefined,
+        {
+          metadata: { applicationId: id }
+        }
+      );
+
       return true;
     } catch (error) {
       if (error instanceof DALError) throw error;
+      
+      loggerService.error('Unexpected error deleting application', error, {
+        category: LogCategory.DATABASE,
+        action: 'application_delete_fatal',
+        duration: Date.now() - startTime,
+        metadata: { applicationId: id }
+      });
+      
       throw new DALError("Failed to delete application", "DELETE_ERROR", error);
     }
   }
@@ -433,6 +552,8 @@ export class ApplicationDAL
     userId: string,
     options: ApplicationQueryOptions = {}
   ): Promise<ApplicationQueryResult> {
+    const startTime = Date.now();
+    
     try {
       const {
         page = 1,
@@ -501,6 +622,21 @@ export class ApplicationDAL
       const { data, count, error } = await query;
 
       if (error) {
+        loggerService.error('Failed to query applications', error, {
+          category: LogCategory.DATABASE,
+          userId,
+          action: 'application_query_error',
+          duration: Date.now() - startTime,
+          metadata: {
+            page,
+            pageSize,
+            sortField,
+            sortDirection,
+            statusFilterCount: statusFilter.length,
+            includeArchived
+          }
+        });
+        
         throw new DALError(
           `Failed to query applications: ${error.message}`,
           "QUERY_ERROR"
@@ -509,6 +645,26 @@ export class ApplicationDAL
 
       const totalCount = count || 0;
       const totalPages = Math.ceil(totalCount / pageSize);
+
+      loggerService.logDatabaseQuery(
+        'SELECT',
+        'applications',
+        Date.now() - startTime,
+        undefined,
+        {
+          userId,
+          resultCount: data?.length || 0,
+          metadata: {
+            page,
+            pageSize,
+            totalCount,
+            sortField,
+            sortDirection,
+            statusFilterCount: statusFilter.length,
+            includeArchived
+          }
+        }
+      );
 
       return {
         applications: data || [],
@@ -519,6 +675,14 @@ export class ApplicationDAL
       };
     } catch (error) {
       if (error instanceof DALError) throw error;
+      
+      loggerService.error('Unexpected error querying applications', error, {
+        category: LogCategory.DATABASE,
+        userId,
+        action: 'application_query_fatal',
+        duration: Date.now() - startTime
+      });
+      
       throw new DALError("Failed to query applications", "QUERY_ERROR", error);
     }
   }
