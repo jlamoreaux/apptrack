@@ -43,10 +43,10 @@
 - [ ] active/route.ts
 
 ### /app/api/applications/
-- [ ] route.ts
-- [ ] [id]/route.ts
-- [ ] [id]/linkedin/route.ts
-- [ ] linkedin/route.ts
+- [x] route.ts ✓
+- [x] [id]/route.ts ✓
+- [x] [id]/linkedin/route.ts ✓
+- [x] linkedin/route.ts ✓
 
 ### /app/api/auth/
 - [ ] check-new-user/route.ts
