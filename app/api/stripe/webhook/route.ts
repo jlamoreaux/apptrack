@@ -3,7 +3,9 @@ import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import type Stripe from "stripe";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -23,20 +25,25 @@ export async function POST(request: NextRequest) {
 
     console.log(`Received Stripe webhook: ${event.type} with ID ${event.id}`);
 
-    const subscriptionService = new SubscriptionService();
+    // Create service role client for webhook operations
+    // This will throw if SUPABASE_SERVICE_ROLE_KEY is not set
+    const serviceClient = createServiceRoleClient();
+    const subscriptionService = new SubscriptionService(serviceClient);
 
     switch (event.type) {
       case "checkout.session.completed":
         await handleCheckoutCompleted(
           event.data.object as Stripe.Checkout.Session,
-          subscriptionService
+          subscriptionService,
+          serviceClient
         );
         break;
 
       case "customer.subscription.updated":
         await handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription,
-          subscriptionService
+          subscriptionService,
+          serviceClient
         );
         break;
 
@@ -105,7 +112,8 @@ function mapStripeStatus(
 
 async function handleCheckoutCompleted(
   session: Stripe.Checkout.Session,
-  subscriptionService: SubscriptionService
+  subscriptionService: SubscriptionService,
+  serviceClient: SupabaseClient
 ) {
   try {
     const userId = String(session.metadata?.userId || "");
@@ -127,8 +135,7 @@ async function handleCheckoutCompleted(
     }
 
     // Get the plan name from the database using planId
-    const supabase = await createClient();
-    const { data: plan, error: planError } = await supabase
+    const { data: plan, error: planError } = await serviceClient
       .from("subscription_plans")
       .select("name")
       .eq("id", planId)
@@ -219,7 +226,8 @@ async function handleCheckoutCompleted(
 
 async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
-  subscriptionService: SubscriptionService
+  subscriptionService: SubscriptionService,
+  serviceClient: SupabaseClient
 ) {
   try {
     let userId = subscription.metadata?.userId;
@@ -244,8 +252,7 @@ async function handleSubscriptionUpdated(
     
     if (currentPriceId) {
       // Look up the plan based on the Stripe price ID
-      const supabase = await createClient();
-      const { data: plan } = await supabase
+      const { data: plan } = await serviceClient
         .from("subscription_plans")
         .select("id")
         .or(`stripe_monthly_price_id.eq.${currentPriceId},stripe_yearly_price_id.eq.${currentPriceId}`)

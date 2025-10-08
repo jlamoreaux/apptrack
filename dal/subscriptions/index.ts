@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { BaseDAL, DALError, NotFoundError, ValidationError } from "../base";
 import type { Subscription } from "@/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface CreateSubscriptionInput {
   user_id: string;
@@ -29,9 +30,14 @@ export class SubscriptionDAL
   implements
     BaseDAL<Subscription, CreateSubscriptionInput, UpdateSubscriptionInput>
 {
+  private supabaseClient?: SupabaseClient;
+
+  constructor(supabaseClient?: SupabaseClient) {
+    this.supabaseClient = supabaseClient;
+  }
   async create(data: CreateSubscriptionInput): Promise<Subscription> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data: subscription, error } = await supabase
         .from("user_subscriptions")
         .insert(data)
@@ -57,7 +63,7 @@ export class SubscriptionDAL
 
   async findById(id: string): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -83,7 +89,7 @@ export class SubscriptionDAL
 
   async findByUserId(userId: string): Promise<Subscription[]> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -109,7 +115,7 @@ export class SubscriptionDAL
     data: UpdateSubscriptionInput
   ): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data: updatedSubscription, error } = await supabase
         .from("user_subscriptions")
         .update(data)
@@ -140,7 +146,7 @@ export class SubscriptionDAL
 
   async delete(id: string): Promise<boolean> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { error } = await supabase
         .from("user_subscriptions")
         .delete()
@@ -166,7 +172,7 @@ export class SubscriptionDAL
 
   async exists(id: string): Promise<boolean> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("id")
@@ -193,7 +199,7 @@ export class SubscriptionDAL
 
   async count(userId?: string): Promise<number> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       let query = supabase
         .from("user_subscriptions")
         .select("id", { count: "exact", head: true });
@@ -221,7 +227,7 @@ export class SubscriptionDAL
   // Subscription-specific methods
   async getActiveSubscription(userId: string): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -252,7 +258,7 @@ export class SubscriptionDAL
 
   async getCurrentSubscription(userId: string): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -287,7 +293,7 @@ export class SubscriptionDAL
     stripeSubscriptionId: string
   ): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -319,7 +325,7 @@ export class SubscriptionDAL
     stripeCustomerId: string
   ): Promise<Subscription[]> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select("*")
@@ -362,7 +368,7 @@ export class SubscriptionDAL
     data: Partial<UpdateSubscriptionInput>
   ): Promise<Subscription | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data: updatedSubscription, error } = await supabase
         .from("user_subscriptions")
         .update(data)
@@ -393,7 +399,7 @@ export class SubscriptionDAL
 
   async getPlanName(planId: string): Promise<string | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("subscription_plans")
         .select("name")
@@ -421,7 +427,7 @@ export class SubscriptionDAL
     userId: string
   ): Promise<(Subscription & { plan_name: string }) | null> {
     try {
-      const supabase = await createClient();
+      const supabase = this.supabaseClient ?? await createClient();
       const { data, error } = await supabase
         .from("user_subscriptions")
         .select(
