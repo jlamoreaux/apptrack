@@ -116,19 +116,20 @@ async function handler(request: NextRequest) {
       const analysis = await aiCoach.analyzeJobFit(finalJobDescription, finalResumeText);
       const aiDuration = Date.now() - aiStartTime;
 
-      loggerService.logAIServiceCall(
-        'job_fit_analysis',
-        user.id,
-        {
-          prompt: `Analyze job fit`,
-          model: 'gpt-4', // Update based on actual model
-          promptTokens: (finalJobDescription.length + finalResumeText.length) / 4,
-          completionTokens: JSON.stringify(analysis).length / 4,
-          totalTokens: (finalJobDescription.length + finalResumeText.length + JSON.stringify(analysis).length) / 4,
-          responseTime: aiDuration,
-          statusCode: 200
+      loggerService.info('Job fit analysis generated successfully', {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: 'job_fit_analysis_ai_response',
+        duration: aiDuration,
+        metadata: {
+          jobDescriptionLength: finalJobDescription.length,
+          resumeLength: finalResumeText.length,
+          responseLength: JSON.stringify(analysis).length,
+          model: 'gpt-4o-mini',
+          estimatedTokens: Math.round((finalJobDescription.length + finalResumeText.length + JSON.stringify(analysis).length) / 4),
+          hasApplicationId: !!applicationId
         }
-      );
+      });
       
       // Save job description for future use if we have an applicationId
       if (applicationId && finalJobDescription) {

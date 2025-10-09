@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized usage tracking access', {
+        category: LogCategory.SECURITY,
+        action: 'subscription_usage_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -20,7 +29,12 @@ export async function GET() {
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error("Error fetching usage tracking:", error);
+      loggerService.error('Error fetching usage tracking', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'subscription_usage_fetch_error',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json({ error: "Failed to fetch usage data" }, { status: 500 });
     }
 
@@ -33,10 +47,27 @@ export async function GET() {
       updated_at: new Date().toISOString(),
     };
 
+    loggerService.info('Usage data retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'subscription_usage_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        hasUsageRecord: !!usage,
+        applicationsCount: usageData.applications_count,
+        aiFeaturesUsed: usageData.ai_features_used
+      }
+    });
+    
     return NextResponse.json({ usage: usageData });
 
   } catch (error) {
-    console.error("Usage tracking GET error:", error);
+    loggerService.error('Usage tracking GET error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'subscription_usage_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

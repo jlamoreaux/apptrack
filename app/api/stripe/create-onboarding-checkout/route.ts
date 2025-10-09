@@ -4,12 +4,21 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized onboarding checkout attempt', {
+        category: LogCategory.SECURITY,
+        action: 'stripe_onboarding_checkout_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -18,11 +27,27 @@ export async function POST(request: NextRequest) {
 
     const { planId, billingCycle } = await request.json();
 
-    console.log(
-      `Creating onboarding checkout for user ${user.id}, plan ${planId}, billing ${billingCycle}`
-    );
+    loggerService.info('Creating onboarding checkout session', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'stripe_onboarding_checkout_start',
+      metadata: {
+        planId,
+        billingCycle
+      }
+    });
 
     if (!planId || !billingCycle) {
+      loggerService.warn('Missing required fields for onboarding checkout', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'stripe_onboarding_checkout_missing_fields',
+        duration: Date.now() - startTime,
+        metadata: {
+          hasPlanId: !!planId,
+          hasBillingCycle: !!billingCycle
+        }
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
         { status: 400 }
@@ -31,6 +56,15 @@ export async function POST(request: NextRequest) {
 
     // Validate billing cycle
     if (!Object.values(BILLING_CYCLES).includes(billingCycle)) {
+      loggerService.warn('Invalid billing cycle for onboarding checkout', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'stripe_onboarding_checkout_invalid_cycle',
+        duration: Date.now() - startTime,
+        metadata: {
+          providedCycle: billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Invalid billing cycle" },
         { status: 400 }
@@ -47,6 +81,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planError || !plan) {
+      loggerService.warn('Plan not found for onboarding checkout', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_onboarding_checkout_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId,
+          error: planError?.message
+        }
+      });
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
@@ -65,9 +109,17 @@ export async function POST(request: NextRequest) {
         : plan.stripe_monthly_price_id;
 
     if (!priceId) {
-      console.error(
-        `No Stripe price ID found for plan ${plan.name} (${planId}) with billing cycle ${billingCycle}`
-      );
+      loggerService.error('No Stripe price ID configured', new Error('Missing price ID'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_onboarding_checkout_no_price',
+        duration: Date.now() - startTime,
+        metadata: {
+          planName: plan.name,
+          planId,
+          billingCycle
+        }
+      });
       return NextResponse.json(
         { 
           error: `This plan is not yet configured for ${billingCycle} billing.`,
@@ -76,7 +128,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Using price ID: ${priceId} for ${plan.name} (${billingCycle})`);
+    loggerService.info('Selected price ID for onboarding checkout', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'stripe_onboarding_checkout_price_selected',
+      metadata: {
+        priceId,
+        planName: plan.name,
+        billingCycle
+      }
+    });
 
     // Create or get customer
     let customer;
@@ -89,7 +150,14 @@ export async function POST(request: NextRequest) {
 
       if (customers.data.length > 0) {
         customer = customers.data[0];
-        console.log(`Found existing customer: ${customer.id}`);
+        loggerService.info('Found existing Stripe customer', {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'stripe_onboarding_customer_found',
+          metadata: {
+            stripeCustomerId: customer.id
+          }
+        });
       } else {
         customer = await stripe.customers.create({
           email: user.email!,
@@ -97,10 +165,21 @@ export async function POST(request: NextRequest) {
             userId: user.id,
           },
         });
-        console.log(`Created new customer: ${customer.id}`);
+        loggerService.info('Created new Stripe customer', {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'stripe_onboarding_customer_created',
+          metadata: {
+            stripeCustomerId: customer.id
+          }
+        });
       }
     } catch (error) {
-      console.error("Error creating/finding customer:", error);
+      loggerService.error('Error creating/finding Stripe customer', error, {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_onboarding_customer_error'
+      });
       return NextResponse.json(
         { error: "Error creating customer" },
         { status: 500 }
@@ -156,7 +235,15 @@ export async function POST(request: NextRequest) {
               promotion_code: promotionCodes.data[0].id,
             },
           ];
-          console.log(`Applied onboarding discount: ${promoCode.code}`);
+          loggerService.info('Applied onboarding discount', {
+            category: LogCategory.PAYMENT,
+            userId: user.id,
+            action: 'stripe_onboarding_discount_applied',
+            metadata: {
+              promoCode: promoCode.code,
+              promotionCodeId: promotionCodes.data[0].id
+            }
+          });
         } else {
           // Fallback: apply the coupon directly
           sessionConfig.discounts = [
@@ -164,24 +251,57 @@ export async function POST(request: NextRequest) {
               coupon: promoCode.stripe_coupon_id,
             },
           ];
-          console.log(`Applied onboarding coupon directly: ${promoCode.stripe_coupon_id}`);
+          loggerService.info('Applied onboarding coupon directly', {
+            category: LogCategory.PAYMENT,
+            userId: user.id,
+            action: 'stripe_onboarding_coupon_applied',
+            metadata: {
+              promoCode: promoCode.code,
+              stripeCouponId: promoCode.stripe_coupon_id
+            }
+          });
         }
       } catch (error) {
-        console.error("Error applying onboarding discount:", error);
+        loggerService.error('Error applying onboarding discount', error, {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'stripe_onboarding_discount_error'
+        });
         // Continue without discount if there's an error
       }
     } else {
-      console.log("No onboarding discount found or configured");
+      loggerService.info('No onboarding discount available', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_onboarding_no_discount'
+      });
     }
 
     // Create checkout session
     const session = await stripe.checkout.sessions.create(sessionConfig);
 
-    console.log(`Created onboarding checkout session: ${session.id}`);
+    loggerService.info('Onboarding checkout session created', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'stripe_onboarding_checkout_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        sessionId: session.id,
+        planId,
+        planName: plan.name,
+        billingCycle,
+        hasDiscount: !!sessionConfig.discounts
+      }
+    });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Error creating onboarding checkout session:", error);
+    loggerService.error('Error creating onboarding checkout session', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'stripe_onboarding_checkout_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }

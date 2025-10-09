@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -15,7 +19,11 @@ export async function GET() {
 
     if (error && error.code !== "PGRST116") {
       // PGRST116 means no rows found, which is okay
-      console.error("Error fetching welcome offer:", error);
+      loggerService.error('Error fetching welcome offer', error, {
+        category: LogCategory.DATABASE,
+        action: 'welcome_offer_fetch_error',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "Failed to fetch welcome offer" },
         { status: 500 }
@@ -42,6 +50,18 @@ export async function GET() {
       }
     }
 
+    loggerService.info('Welcome offer retrieved', {
+      category: LogCategory.BUSINESS,
+      action: 'welcome_offer_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        hasWelcomeOffer: !!welcomeOffer,
+        offerType: welcomeOffer?.code_type,
+        discountPercent: welcomeOffer?.discount_percent,
+        trialDays: welcomeOffer?.trial_days
+      }
+    });
+    
     return NextResponse.json({
       welcomeOffer: welcomeOffer ? {
         ...welcomeOffer,
@@ -49,7 +69,11 @@ export async function GET() {
       } : null,
     });
   } catch (error) {
-    console.error("Error in welcome offer route:", error);
+    loggerService.error('Error in welcome offer route', error, {
+      category: LogCategory.API,
+      action: 'welcome_offer_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Failed to fetch welcome offer" },
       { status: 500 }

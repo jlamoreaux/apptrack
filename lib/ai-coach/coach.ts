@@ -250,6 +250,10 @@ Format as a structured JSON-like response.`;
 
       return advice;
     } catch (error) {
+      // Preserve the original error message for better debugging
+      if (error instanceof Error) {
+        throw error;
+      }
       throw new Error("Failed to get career advice. Please try again.");
     }
   }

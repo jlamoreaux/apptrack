@@ -139,19 +139,21 @@ async function coverLetterHandler(request: NextRequest) {
     );
     const aiGenerationDuration = Date.now() - aiGenerationStartTime;
 
-    loggerService.logAIServiceCall(
-      'cover_letter',
-      user.id,
-      {
-        prompt: `Generate cover letter for ${finalCompanyName}`,
-        model: 'gpt-4', // Update based on actual model used
-        promptTokens: (finalJobDescription.length + finalUserBackground.length) / 4, // Approximate
-        completionTokens: coverLetter.length / 4, // Approximate
-        totalTokens: (finalJobDescription.length + finalUserBackground.length + coverLetter.length) / 4,
-        responseTime: aiGenerationDuration,
-        statusCode: 200
+    loggerService.info('Cover letter generated successfully', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'cover_letter_ai_response',
+      duration: aiGenerationDuration,
+      metadata: {
+        companyName: finalCompanyName,
+        jobDescriptionLength: finalJobDescription.length,
+        userBackgroundLength: finalUserBackground.length,
+        coverLetterLength: coverLetter.length,
+        model: 'gpt-4o-mini',
+        estimatedTokens: Math.round((finalJobDescription.length + finalUserBackground.length + coverLetter.length) / 4),
+        hasApplicationId: !!applicationId
       }
-    );
+    });
 
     // Store the cover letter in database with additional metadata
     try {

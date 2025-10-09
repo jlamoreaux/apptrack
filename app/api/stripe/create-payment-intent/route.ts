@@ -4,12 +4,21 @@ import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // CRITICAL: Authenticate user first
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized payment intent creation', {
+        category: LogCategory.SECURITY,
+        action: 'stripe_payment_intent_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -30,6 +39,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError || !profile) {
+      loggerService.warn('Profile not found for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_profile_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          error: profileError?.message
+        }
+      });
       return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
@@ -41,11 +59,30 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planError || !plan) {
+      loggerService.warn('Plan not found for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId,
+          error: planError?.message
+        }
+      });
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
     // Validate billing cycle
     if (!Object.values(BILLING_CYCLES).includes(billingCycle)) {
+      loggerService.warn('Invalid billing cycle for payment intent', {
+        category: LogCategory.API,
+        userId,
+        action: 'stripe_payment_intent_invalid_cycle',
+        duration: Date.now() - startTime,
+        metadata: {
+          providedCycle: billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Invalid billing cycle" },
         { status: 400 }
@@ -65,6 +102,17 @@ export async function POST(request: NextRequest) {
         : plan.stripe_monthly_price_id;
 
     if (!priceId) {
+      loggerService.error('No Stripe price ID for billing cycle', new Error('Missing price ID'), {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_no_price',
+        duration: Date.now() - startTime,
+        metadata: {
+          planName: plan.name,
+          planId,
+          billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Price ID not found for billing cycle" },
         { status: 400 }
@@ -90,6 +138,15 @@ export async function POST(request: NextRequest) {
         },
       });
       customerId = customer.id;
+      
+      loggerService.info('Created new Stripe customer for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_customer_created',
+        metadata: {
+          stripeCustomerId: customerId
+        }
+      });
     }
 
     // Create subscription setup intent for recurring payments
@@ -104,11 +161,31 @@ export async function POST(request: NextRequest) {
       usage: "off_session", // For future subscription payments
     });
 
+    loggerService.info('Payment setup intent created', {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: 'stripe_payment_intent_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        setupIntentId: setupIntent.id,
+        customerId,
+        planId,
+        planName: plan.name,
+        billingCycle,
+        priceAmount
+      }
+    });
+    
     return NextResponse.json({
       clientSecret: setupIntent.client_secret,
     });
   } catch (error) {
-    console.error("Error creating payment intent:", error);
+    loggerService.error('Error creating payment intent', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'stripe_payment_intent_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }

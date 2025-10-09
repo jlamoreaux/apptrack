@@ -259,19 +259,20 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     // Clean the AI response to extract JSON if wrapped in code blocks
     const preparation = cleanAIResponse(rawPreparation);
 
-    loggerService.logAIServiceCall(
-      'interview_prep',
-      user.id,
-      {
-        prompt: `Interview prep for ${finalInterviewContext || 'position'}`,
-        model: 'gpt-4', // Update based on actual model used
-        promptTokens: ((prepJobDesc?.length || 0) + finalResumeText.length) / 4, // Approximate
-        completionTokens: (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length) / 4, // Approximate
-        totalTokens: ((prepJobDesc?.length || 0) + finalResumeText.length + (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length)) / 4,
-        responseTime: aiGenerationDuration,
-        statusCode: 200
+    loggerService.info('Interview prep generated successfully', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'interview_prep_ai_response',
+      duration: aiGenerationDuration,
+      metadata: {
+        contextType: finalInterviewContext || 'position',
+        jobDescriptionLength: prepJobDesc?.length || 0,
+        resumeLength: finalResumeText.length,
+        responseLength: typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length,
+        model: 'gpt-4o-mini',
+        estimatedTokens: Math.round(((prepJobDesc?.length || 0) + finalResumeText.length + (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length)) / 4)
       }
-    );
+    });
 
     // 8. Save to database (save the cleaned content as string)
     // If preparation is an object, stringify it for storage

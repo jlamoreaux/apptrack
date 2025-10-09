@@ -4,12 +4,21 @@ import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized downgrade attempt', {
+        category: LogCategory.SECURITY,
+        action: 'stripe_downgrade_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -18,11 +27,27 @@ export async function POST(request: NextRequest) {
 
     const { planId, billingCycle } = await request.json();
 
-    console.log(
-      `Processing downgrade for user ${user.id} to plan ${planId}, billing ${billingCycle}`
-    );
+    loggerService.info('Processing subscription downgrade', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'stripe_downgrade_start',
+      metadata: {
+        planId,
+        billingCycle
+      }
+    });
 
     if (!planId || !billingCycle) {
+      loggerService.warn('Missing fields for downgrade', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'stripe_downgrade_missing_fields',
+        duration: Date.now() - startTime,
+        metadata: {
+          hasPlanId: !!planId,
+          hasBillingCycle: !!billingCycle
+        }
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
         { status: 400 }
@@ -31,6 +56,15 @@ export async function POST(request: NextRequest) {
 
     // Validate billing cycle
     if (!Object.values(BILLING_CYCLES).includes(billingCycle)) {
+      loggerService.warn('Invalid billing cycle for downgrade', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'stripe_downgrade_invalid_cycle',
+        duration: Date.now() - startTime,
+        metadata: {
+          providedCycle: billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Invalid billing cycle" },
         { status: 400 }
@@ -44,6 +78,16 @@ export async function POST(request: NextRequest) {
     const currentSubscription = await subscriptionService.findByUserId(user.id);
     
     if (!currentSubscription || !currentSubscription.stripe_subscription_id) {
+      loggerService.warn('No active subscription for downgrade', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_downgrade_no_subscription',
+        duration: Date.now() - startTime,
+        metadata: {
+          hasSubscription: !!currentSubscription,
+          hasStripeId: !!currentSubscription?.stripe_subscription_id
+        }
+      });
       return NextResponse.json(
         { error: "No active subscription found" },
         { status: 400 }
@@ -58,7 +102,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (planError || !newPlan) {
-      console.error("Plan not found:", planError);
+      loggerService.error('Plan not found for downgrade', planError || new Error('Plan not found'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_downgrade_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId
+        }
+      });
       return NextResponse.json(
         { error: "Plan not found" },
         { status: 404 }
@@ -72,7 +124,17 @@ export async function POST(request: NextRequest) {
         : newPlan.stripe_monthly_price_id;
 
     if (!priceId) {
-      console.error("No Stripe price ID found for plan:", newPlan);
+      loggerService.error('No Stripe price ID for downgrade plan', new Error('Missing price ID'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_downgrade_no_price',
+        duration: Date.now() - startTime,
+        metadata: {
+          planName: newPlan.name,
+          planId,
+          billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Invalid plan configuration" },
         { status: 500 }
@@ -107,7 +169,20 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      console.log(`Successfully scheduled downgrade for subscription ${updatedSubscription.id}`);
+      loggerService.info('Subscription downgrade scheduled', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_downgrade_scheduled',
+        duration: Date.now() - startTime,
+        metadata: {
+          stripeSubscriptionId: updatedSubscription.id,
+          oldPlanId: currentSubscription.plan_id,
+          newPlanId: planId,
+          newPlanName: newPlan.name,
+          billingCycle,
+          effectiveDate: new Date(stripeSubscription.current_period_end * 1000).toISOString()
+        }
+      });
       
       // The webhook will handle updating our database when Stripe processes the change
 
@@ -117,14 +192,29 @@ export async function POST(request: NextRequest) {
         effective_date: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
       });
     } catch (stripeError) {
-      console.error("Stripe error during downgrade:", stripeError);
+      loggerService.error('Stripe error during downgrade', stripeError, {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_downgrade_stripe_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          stripeSubscriptionId: currentSubscription.stripe_subscription_id,
+          planId,
+          billingCycle
+        }
+      });
       return NextResponse.json(
         { error: "Failed to process downgrade" },
         { status: 500 }
       );
     }
   } catch (error) {
-    console.error("Error processing downgrade:", error);
+    loggerService.error('Error processing downgrade', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'stripe_downgrade_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }

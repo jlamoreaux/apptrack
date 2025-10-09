@@ -2,12 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized promo activation attempt', {
+        category: LogCategory.SECURITY,
+        action: 'promo_activate_trial_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -15,6 +24,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { promoCode } = await request.json();
+    
+    loggerService.info('Promo code activation attempt', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'promo_activate_trial_attempt',
+      metadata: {
+        promoCode: promoCode?.slice(0, 4) + '***' // Log only first 4 chars for security
+      }
+    });
     
     // Get regular supabase client
     const supabase = await createClient();
@@ -28,6 +46,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (promoError || !promoCodeData) {
+      loggerService.warn('Invalid promo code attempted', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_invalid_code',
+        duration: Date.now() - startTime,
+        metadata: {
+          promoCode: promoCode?.slice(0, 4) + '***',
+          error: promoError?.message
+        }
+      });
       return NextResponse.json(
         { error: "Invalid or expired promo code" },
         { status: 400 }
@@ -36,6 +64,16 @@ export async function POST(request: NextRequest) {
 
     // Check if promo code has expired
     if (promoCodeData.expires_at && new Date(promoCodeData.expires_at) < new Date()) {
+      loggerService.warn('Expired promo code attempted', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_expired_code',
+        duration: Date.now() - startTime,
+        metadata: {
+          promoCode: promoCode?.slice(0, 4) + '***',
+          expiresAt: promoCodeData.expires_at
+        }
+      });
       return NextResponse.json(
         { error: "This promo code has expired" },
         { status: 400 }
@@ -44,6 +82,17 @@ export async function POST(request: NextRequest) {
 
     // Check usage limits
     if (promoCodeData.max_uses && promoCodeData.used_count >= promoCodeData.max_uses) {
+      loggerService.warn('Promo code usage limit reached', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_usage_limit',
+        duration: Date.now() - startTime,
+        metadata: {
+          promoCode: promoCode?.slice(0, 4) + '***',
+          maxUses: promoCodeData.max_uses,
+          usedCount: promoCodeData.used_count
+        }
+      });
       return NextResponse.json(
         { error: "This promo code has reached its usage limit" },
         { status: 400 }
@@ -55,6 +104,16 @@ export async function POST(request: NextRequest) {
     // Check if user already has or had a trial
     const existingSubscription = await subscriptionService.getCurrentSubscription(user.id);
     if (existingSubscription) {
+      loggerService.warn('User already has subscription', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_already_subscribed',
+        duration: Date.now() - startTime,
+        metadata: {
+          existingPlan: existingSubscription.plan?.name,
+          existingStatus: existingSubscription.status
+        }
+      });
       return NextResponse.json(
         { error: "You already have an active subscription" },
         { status: 400 }
@@ -69,6 +128,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (trialHistory) {
+      loggerService.warn('User already used trial', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_already_used',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "You have already used a trial promotion" },
         { status: 400 }
@@ -83,6 +148,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!targetPlan) {
+      loggerService.error('Target plan not found for promo code', new Error('Plan not found'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'promo_activate_trial_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          planName: promoCodeData.plan_name
+        }
+      });
       return NextResponse.json(
         { error: "Target plan not found" },
         { status: 500 }
@@ -129,6 +203,20 @@ export async function POST(request: NextRequest) {
 
     // Send welcome email
     await sendWelcomeEmail(user.email!, endDate, promoCodeData.trial_days, promoCodeData.code_type, promoCodeData.plan_name);
+    
+    loggerService.info('Promo trial activated successfully', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'promo_activate_trial_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        promoCode: promoCode?.slice(0, 4) + '***',
+        planName: promoCodeData.plan_name,
+        trialDays: promoCodeData.trial_days,
+        codeType: promoCodeData.code_type,
+        endDate: endDate.toISOString()
+      }
+    });
 
     const messageType = isTrialCode ? "trial" : "premium access";
     return NextResponse.json({
@@ -139,7 +227,12 @@ export async function POST(request: NextRequest) {
       trialDays: promoCodeData.trial_days,
     });
   } catch (error) {
-    console.error("Error activating trial:", error);
+    loggerService.error('Error activating trial', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'promo_activate_trial_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Failed to activate trial" },
       { status: 500 }
@@ -153,6 +246,7 @@ async function scheduleNotifications(
   endDate: Date,
   codeType: string
 ) {
+  const startTime = Date.now();
   const supabase = await createClient();
   
   // Schedule 7-day warning
@@ -189,9 +283,25 @@ async function scheduleNotifications(
       status: "pending",
     },
   ]);
+  
+  loggerService.info('Trial notifications scheduled', {
+    category: LogCategory.BUSINESS,
+    userId,
+    action: 'trial_notifications_scheduled',
+    duration: Date.now() - startTime,
+    metadata: {
+      codeType,
+      notificationDates: {
+        warning7Days: warningDate.toISOString(),
+        warning1Day: finalWarningDate.toISOString(),
+        ended: endDate.toISOString()
+      }
+    }
+  });
 }
 
 async function sendWelcomeEmail(email: string, endDate: Date, days: number, codeType: string, planName: string) {
+  const startTime = Date.now();
   const { sendEmail } = await import('@/lib/email/client');
   
   const isTrial = codeType === 'trial';
@@ -239,5 +349,17 @@ async function sendWelcomeEmail(email: string, endDate: Date, days: number, code
     to: email,
     subject: `🎉 Welcome to Your ${days}-Day ${planName} ${accessType}!`,
     html,
+  });
+  
+  loggerService.info('Trial welcome email sent', {
+    category: LogCategory.BUSINESS,
+    action: 'trial_welcome_email_sent',
+    duration: Date.now() - startTime,
+    metadata: {
+      email,
+      codeType,
+      planName,
+      trialDays: days
+    }
   });
 }

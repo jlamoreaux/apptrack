@@ -50,9 +50,9 @@
 
 ### /app/api/auth/
 - [x] check-new-user/route.ts ✓
-- [x] check-session/route.ts
-- [x] complete-onboarding/route.ts
-- [x] profile/route.ts
+- [x] check-session/route.ts ✓
+- [x] complete-onboarding/route.ts ✓
+- [x] profile/route.ts ✓
 - [x] resend-confirmation/route.ts ✓
 
 ### /app/api/cron/
@@ -60,53 +60,53 @@
 - [x] trial-notifications/route.ts ✓
 
 ### /app/api/debug/
-- [ ] plans/route.ts
+- [x] plans/route.ts ✓
 
 ### /app/api/health/
-- [ ] interview-prep/route.ts
+- [x] interview-prep/route.ts ✓
 
 ### /app/api/onboarding/
-- [ ] announcements/route.ts
-- [ ] progress/route.ts
-- [ ] status/route.ts
+- [x] announcements/route.ts ✓
+- [x] progress/route.ts ✓
+- [x] status/route.ts ✓
 
 ### /app/api/promo/
-- [ ] activate-trial/route.ts
+- [x] activate-trial/route.ts ✓
 
 ### /app/api/promo-codes/
-- [ ] check/route.ts
-- [ ] welcome-offer/route.ts
+- [x] check/route.ts ✓
+- [x] welcome-offer/route.ts ✓
 
 ### /app/api/rate-limit/
-- [ ] check/route.ts
-- [ ] usage/route.ts
+- [x] check/route.ts ✓
+- [x] usage/route.ts ✓
 
 ### /app/api/resume/
-- [ ] route.ts
-- [ ] upload/route.ts
+- [x] route.ts ✓
+- [x] upload/route.ts ✓
 
 ### /app/api/resumes/
-- [ ] current/route.ts
+- [x] current/route.ts ✓
 
 ### /app/api/roast/
-- [ ] route.ts
-- [ ] [id]/route.ts
+- [x] route.ts ✓
+- [x] [id]/route.ts ✓
 
 ### /app/api/stripe/
-- [ ] apply-free-code/route.ts
-- [ ] cancel-subscription/route.ts
-- [x] create-checkout/route.ts
-- [ ] create-onboarding-checkout/route.ts
-- [ ] create-payment-intent/route.ts
-- [ ] customer-portal/route.ts
-- [ ] downgrade/route.ts
-- [ ] validate-promo/route.ts
-- [x] webhook/route.ts
+- [x] apply-free-code/route.ts ✓
+- [x] cancel-subscription/route.ts ✓
+- [x] create-checkout/route.ts ✓
+- [x] create-onboarding-checkout/route.ts ✓
+- [x] create-payment-intent/route.ts ✓
+- [x] customer-portal/route.ts ✓
+- [x] downgrade/route.ts ✓
+- [x] validate-promo/route.ts ✓
+- [x] webhook/route.ts ✓
 
 ### /app/api/subscription/
-- [ ] check/route.ts
-- [ ] plans/route.ts
-- [ ] usage/route.ts
+- [x] check/route.ts ✓
+- [x] plans/route.ts ✓
+- [x] usage/route.ts ✓
 
 ## DAL Layer Status
 
