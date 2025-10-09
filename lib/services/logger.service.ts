@@ -89,6 +89,9 @@ export class LoggerService {
       try {
         const lokiTransport = new LokiTransport({
           host: process.env.GRAFANA_LOKI_URL,
+          basicAuth: process.env.GRAFANA_LOKI_USER && process.env.GRAFANA_LOKI_PASSWORD
+            ? `${process.env.GRAFANA_LOKI_USER}:${process.env.GRAFANA_LOKI_PASSWORD}`
+            : undefined,
           labels: {
             app: 'apptrack',
             environment: process.env.NODE_ENV || 'development',
