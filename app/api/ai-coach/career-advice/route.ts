@@ -9,14 +9,17 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 async function careerAdviceHandler(request: NextRequest) {
   const startTime = Date.now();
+  let user: any = null;
   
   try {
     const supabase = await createClient();
 
     const {
-      data: { user },
+      data: { user: authUser },
       error,
     } = await supabase.auth.getUser();
+    
+    user = authUser;
 
     if (!user) {
       loggerService.warn('Unauthorized career advice request', {
