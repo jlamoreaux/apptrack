@@ -2,13 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Check authentication and AI Coach access
     // Using JOB_FIT_ANALYSIS as a general AI Coach permission
     const authResult = await checkAICoachAccess('JOB_FIT_ANALYSIS');
     if (!authResult.authorized) {
+      loggerService.logSecurityEvent(
+        'ai_feature_access_denied',
+        'medium',
+        {
+          feature: 'recent_activity',
+          reason: 'unauthorized_access'
+        },
+        { userId: authResult.user?.id }
+      );
       return authResult.response!;
     }
 
@@ -118,15 +131,43 @@ export async function GET(request: NextRequest) {
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, Math.min(limit, 50));
 
+      loggerService.info('AI coach recent activity retrieved', {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: 'ai_coach_recent_activity_retrieved',
+        duration: Date.now() - startTime,
+        metadata: {
+          limit,
+          activitiesCount: sortedActivities.length,
+          breakdown: {
+            resume_analysis: activities.filter(a => a.feature_name === 'resume_analysis').length,
+            interview_prep: activities.filter(a => a.feature_name === 'interview_prep').length,
+            career_advice: activities.filter(a => a.feature_name === 'career_advice').length,
+            cover_letter: activities.filter(a => a.feature_name === 'cover_letter').length,
+            job_fit_analysis: activities.filter(a => a.feature_name === 'job_fit_analysis').length
+          }
+        }
+      });
+
       return NextResponse.json({ activities: sortedActivities });
 
     } catch (error) {
-      console.error("Error fetching recent activity:", error);
+      loggerService.error('Error fetching recent activity', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'ai_coach_recent_activity_db_error',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json({ error: "Failed to fetch recent activity" }, { status: 500 });
     }
 
   } catch (error) {
-    console.error("Recent activity GET error:", error);
+    loggerService.error('Recent activity GET error', error, {
+      category: LogCategory.API,
+      userId: authResult?.user?.id,
+      action: 'ai_coach_recent_activity_get_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json({ error: ERROR_MESSAGES.UNEXPECTED }, { status: 500 });
   }
 }

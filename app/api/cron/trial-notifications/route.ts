@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // This should be called by a cron job (e.g., Vercel Cron or external service)
 // Run daily to process trial notifications and expirations
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Optional: Add security token check
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      loggerService.logSecurityEvent(
+        'cron_unauthorized_access',
+        'high',
+        {
+          endpoint: '/api/cron/trial-notifications',
+          providedAuth: authHeader ? 'present' : 'missing'
+        },
+        {}
+      );
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -47,9 +60,28 @@ export async function GET(request: NextRequest) {
 
         // Log the expiration
         const subType = subscription.status === 'trialing' ? 'Trial' : 'Premium free access';
-        console.log(`${subType} expired for user ${subscription.user_id}`);
+        loggerService.info(`${subType} expired`, {
+          category: LogCategory.BUSINESS,
+          userId: subscription.user_id,
+          action: 'subscription_expired',
+          metadata: {
+            subscriptionId: subscription.id,
+            subscriptionType: subType,
+            previousStatus: subscription.status
+          }
+        });
       }
     }
+
+    loggerService.info('Trial notifications cron completed', {
+      category: LogCategory.BUSINESS,
+      action: 'trial_notifications_completed',
+      duration: Date.now() - startTime,
+      metadata: {
+        notificationsProcessed: pendingNotifications?.length || 0,
+        subscriptionsExpired: expiredSubscriptions?.length || 0
+      }
+    });
 
     return NextResponse.json({
       success: true,
@@ -57,7 +89,11 @@ export async function GET(request: NextRequest) {
       subscriptionsExpired: expiredSubscriptions?.length || 0,
     });
   } catch (error) {
-    console.error("Error processing trial notifications:", error);
+    loggerService.error('Error processing trial notifications', error, {
+      category: LogCategory.API,
+      action: 'trial_notifications_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Failed to process notifications" },
       { status: 500 }
@@ -85,7 +121,15 @@ async function processNotification(notification: any) {
       })
       .eq("id", notification.id);
   } catch (error) {
-    console.error(`Failed to send notification ${notification.id}:`, error);
+    loggerService.error(`Failed to send notification ${notification.id}`, error, {
+      category: LogCategory.PAYMENT,
+      action: 'notification_send_error',
+      metadata: {
+        notificationId: notification.id,
+        notificationType: notification.type,
+        userId: notification.user_id
+      }
+    });
     
     // Mark as failed
     await supabase

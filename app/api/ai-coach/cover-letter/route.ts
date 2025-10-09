@@ -5,8 +5,12 @@ import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 async function coverLetterHandler(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -15,6 +19,10 @@ async function coverLetterHandler(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized cover letter request', {
+        category: LogCategory.SECURITY,
+        action: 'cover_letter_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -28,6 +36,16 @@ async function coverLetterHandler(request: NextRequest) {
     );
 
     if (!permissionResult.allowed) {
+      loggerService.logSecurityEvent(
+        'ai_feature_access_denied',
+        'medium',
+        {
+          feature: 'cover_letter',
+          reason: permissionResult.reason || 'subscription_required',
+          userId: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
         { status: 403 }
@@ -81,17 +99,58 @@ async function coverLetterHandler(request: NextRequest) {
     }
 
     if (!finalJobDescription || !finalUserBackground || !finalCompanyName) {
+      loggerService.warn('Cover letter request missing required info', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'cover_letter_missing_info',
+        duration: Date.now() - startTime,
+        metadata: {
+          hasJobDescription: !!finalJobDescription,
+          hasUserBackground: !!finalUserBackground,
+          hasCompanyName: !!finalCompanyName,
+          applicationId
+        }
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.AI_COACH.COVER_LETTER.MISSING_INFO },
         { status: 400 }
       );
     }
 
+    loggerService.debug('Generating cover letter', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'cover_letter_generation_start',
+      metadata: {
+        companyName: finalCompanyName,
+        roleName: finalRoleName,
+        hasApplicationId: !!applicationId,
+        jobDescriptionLength: finalJobDescription.length,
+        resumeLength: finalUserBackground.length
+      }
+    });
+
+    const aiGenerationStartTime = Date.now();
     const aiCoach = createAICoach(user.id);
     const coverLetter = await aiCoach.generateCoverLetter(
       finalJobDescription,
       finalUserBackground,
       finalCompanyName
+    );
+    const aiGenerationDuration = Date.now() - aiGenerationStartTime;
+
+    loggerService.logAIServiceCall(
+      'cover_letter',
+      user.id,
+      {
+        prompt: `Generate cover letter for ${finalCompanyName}`,
+        model: 'gpt-4', // Update based on actual model used
+        promptTokens: (finalJobDescription.length + finalUserBackground.length) / 4, // Approximate
+        completionTokens: coverLetter.length / 4, // Approximate
+        totalTokens: (finalJobDescription.length + finalUserBackground.length + coverLetter.length) / 4,
+        responseTime: aiGenerationDuration,
+        statusCode: 200
+      }
     );
 
     // Store the cover letter in database with additional metadata
@@ -113,7 +172,15 @@ async function coverLetterHandler(request: NextRequest) {
         .single();
 
       if (error) {
-        console.error("Error saving cover letter to database:", error);
+        loggerService.error('Error saving cover letter to database', error, {
+          category: LogCategory.DATABASE,
+          userId: user.id,
+          action: 'cover_letter_save_error',
+          metadata: {
+            applicationId,
+            companyName: finalCompanyName
+          }
+        });
         // Don't fail the request if saving fails, still return the generated letter
       }
       
@@ -122,13 +189,44 @@ async function coverLetterHandler(request: NextRequest) {
         await AIDataFetcherService.saveJobDescription(user.id, applicationId, finalJobDescription);
       }
     } catch (saveError) {
-      console.error("Failed to save cover letter:", saveError);
+      loggerService.error('Failed to save cover letter', saveError, {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'cover_letter_save_exception',
+        metadata: {
+          applicationId,
+          companyName: finalCompanyName
+        }
+      });
       // Continue anyway - the letter was generated successfully
     }
 
+    loggerService.info('Cover letter generated successfully', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'cover_letter_generated',
+      duration: Date.now() - startTime,
+      metadata: {
+        companyName: finalCompanyName,
+        roleName: finalRoleName,
+        applicationId,
+        coverLetterLength: coverLetter.length,
+        tone: tone || 'professional'
+      }
+    });
+
     return NextResponse.json({ coverLetter });
   } catch (error) {
-    console.error("Error generating cover letter:", error);
+    loggerService.error('Error generating cover letter', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'cover_letter_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        companyName,
+        applicationId
+      }
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.COVER_LETTER.GENERATION_FAILED },
       { status: 500 }

@@ -9,6 +9,8 @@ import { InterviewPrepTransformerService } from "@/lib/services/interview-prep-t
 import type { InterviewPreparationResult } from "@/types/ai-analysis";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -56,7 +58,11 @@ function cleanAIResponse(content: string): string | InterviewPreparationResult {
       }
     } catch (e) {
       // If parsing fails, return the original content
-      console.warn('Failed to parse JSON from code block in AI response:', e);
+      loggerService.warn('Failed to parse JSON from code block in AI response', {
+        category: LogCategory.AI_SERVICE,
+        action: 'interview_prep_json_parse_warning',
+        metadata: { error: e }
+      });
     }
   }
   
@@ -74,6 +80,7 @@ function cleanAIResponse(content: string): string | InterviewPreparationResult {
 }
 
 async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<InterviewPrepResponse | InterviewPrepErrorResponse>> {
+  const startTime = Date.now();
   const transformer = new InterviewPrepTransformerService();
   
   try {
@@ -82,6 +89,10 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     const { data: { user }, error } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized interview prep request', {
+        category: LogCategory.SECURITY,
+        action: 'interview_prep_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -95,6 +106,16 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     );
 
     if (!permissionResult.allowed) {
+      loggerService.logSecurityEvent(
+        'ai_feature_access_denied',
+        'medium',
+        {
+          feature: 'interview_prep',
+          reason: permissionResult.reason || 'subscription_required',
+          userId: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
         { status: 403 }
@@ -140,6 +161,13 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     );
 
     if (!finalResumeText) {
+      loggerService.warn('Interview prep missing resume', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'interview_prep_missing_resume',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json(
         { error: "No resume found. Please upload your resume first." },
         { status: 400 }
@@ -151,6 +179,13 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     const effectiveJobUrl = jobUrl || undefined;
     
     if (!effectiveJobDescription && !effectiveJobUrl) {
+      loggerService.warn('Interview prep missing job info', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'interview_prep_missing_job_info',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.AI_COACH.INTERVIEW_PREP.MISSING_JOB_DESCRIPTION },
         { status: 400 }
@@ -177,6 +212,20 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         isExistingContent: true
       });
 
+      loggerService.info('Interview prep returned from cache', {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: 'interview_prep_cached',
+        duration: Date.now() - startTime,
+        metadata: {
+          structured,
+          hasJobDescription: !!effectiveJobDescription,
+          hasJobUrl: !!effectiveJobUrl,
+          applicationId,
+          transformationTime: transformResult.transformationTime
+        }
+      });
+
       return NextResponse.json({ 
         preparation: transformResult.content,
         cached: transformResult.fromCache 
@@ -184,6 +233,20 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     }
 
     // 7. Generate new content
+    loggerService.debug('Generating interview prep content', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'interview_prep_generation_start',
+      metadata: {
+        hasJobDescription: !!effectiveJobDescription,
+        hasJobUrl: !!effectiveJobUrl,
+        hasInterviewContext: !!finalInterviewContext,
+        applicationId,
+        structured
+      }
+    });
+
+    const aiGenerationStartTime = Date.now();
     const aiCoach = createAICoach(user.id);
     const prepJobDesc = effectiveJobDescription || effectiveJobUrl;
     const rawPreparation = await aiCoach.prepareForInterview({
@@ -191,9 +254,24 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       interviewContext: finalInterviewContext,
       resumeText: finalResumeText,
     });
+    const aiGenerationDuration = Date.now() - aiGenerationStartTime;
     
     // Clean the AI response to extract JSON if wrapped in code blocks
     const preparation = cleanAIResponse(rawPreparation);
+
+    loggerService.logAIServiceCall(
+      'interview_prep',
+      user.id,
+      {
+        prompt: `Interview prep for ${finalInterviewContext || 'position'}`,
+        model: 'gpt-4', // Update based on actual model used
+        promptTokens: ((prepJobDesc?.length || 0) + finalResumeText.length) / 4, // Approximate
+        completionTokens: (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length) / 4, // Approximate
+        totalTokens: ((prepJobDesc?.length || 0) + finalResumeText.length + (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length)) / 4,
+        responseTime: aiGenerationDuration,
+        statusCode: 200
+      }
+    );
 
     // 8. Save to database (save the cleaned content as string)
     // If preparation is an object, stringify it for storage
@@ -224,6 +302,23 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       isExistingContent: false
     });
 
+    loggerService.info('Interview prep generated successfully', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'interview_prep_generated',
+      duration: Date.now() - startTime,
+      metadata: {
+        structured,
+        hasJobDescription: !!effectiveJobDescription,
+        hasJobUrl: !!effectiveJobUrl,
+        hasInterviewContext: !!finalInterviewContext,
+        applicationId,
+        prepLength: prepContentString.length,
+        transformationTime: transformResult.transformationTime,
+        aiGenerationTime: aiGenerationDuration
+      }
+    });
+
     return NextResponse.json({ 
       preparation: transformResult.content,
       cached: transformResult.fromCache,
@@ -231,7 +326,16 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     });
 
   } catch (error) {
-    console.error("Error in interview preparation:", error);
+    loggerService.error('Error in interview preparation', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'interview_prep_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        applicationId,
+        structured
+      }
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.INTERVIEW_PREP.GENERATION_FAILED },
       { status: 500 }

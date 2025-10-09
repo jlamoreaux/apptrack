@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 const LinkedInProfileSchema = z.object({
   profile_url: z.string().url("Must be a valid LinkedIn URL"),
@@ -18,11 +20,18 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+  
   try {
     const { id: applicationId } = await params;
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized LinkedIn profiles access attempt', {
+        category: LogCategory.SECURITY,
+        action: 'linkedin_profiles_get_unauthorized',
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -37,6 +46,13 @@ export async function GET(
       .single();
 
     if (appError || !application) {
+      loggerService.warn('Application not found for LinkedIn profiles', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profiles_application_not_found',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
@@ -48,14 +64,37 @@ export async function GET(
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching LinkedIn profiles:", error);
+      loggerService.error('Error fetching LinkedIn profiles', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'linkedin_profiles_fetch_error',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Failed to fetch LinkedIn profiles" }, { status: 500 });
     }
+
+    loggerService.info('LinkedIn profiles retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'linkedin_profiles_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        applicationId,
+        profileCount: profiles?.length || 0
+      }
+    });
 
     return NextResponse.json({ profiles: profiles || [] });
 
   } catch (error) {
-    console.error("LinkedIn profiles GET error:", error);
+    loggerService.error('LinkedIn profiles GET error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'linkedin_profiles_get_exception',
+      duration: Date.now() - startTime,
+      metadata: { applicationId }
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -65,11 +104,18 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+  
   try {
     const { id: applicationId } = await params;
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized LinkedIn profile creation attempt', {
+        category: LogCategory.SECURITY,
+        action: 'linkedin_profile_create_unauthorized',
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -84,6 +130,13 @@ export async function POST(
       .single();
 
     if (appError || !application) {
+      loggerService.warn('Application not found for LinkedIn profile creation', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profile_application_not_found',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
@@ -115,21 +168,62 @@ export async function POST(
       .single();
 
     if (error) {
-      console.error("Error creating LinkedIn profile:", error);
+      loggerService.error('Error creating LinkedIn profile', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'linkedin_profile_create_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          applicationId,
+          profileUrl: validatedData.profile_url
+        }
+      });
       return NextResponse.json({ error: "Failed to create LinkedIn profile" }, { status: 500 });
     }
+
+    loggerService.info('LinkedIn profile created', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'linkedin_profile_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        applicationId,
+        profileId: profile?.id,
+        username,
+        profileUrl: validatedData.profile_url,
+        hasName: !!validatedData.name,
+        hasTitle: !!validatedData.title,
+        hasCompany: !!validatedData.company
+      }
+    });
 
     return NextResponse.json({ profile }, { status: 201 });
 
   } catch (error) {
     if (error instanceof z.ZodError) {
+      loggerService.warn('LinkedIn profile validation error', {
+        category: LogCategory.API,
+        userId: user?.id,
+        action: 'linkedin_profile_create_validation_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          applicationId,
+          validationErrors: error.errors
+        }
+      });
       return NextResponse.json(
         { error: "Validation error", details: error.errors },
         { status: 400 }
       );
     }
 
-    console.error("LinkedIn profiles POST error:", error);
+    loggerService.error('LinkedIn profiles POST error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'linkedin_profile_create_exception',
+      duration: Date.now() - startTime,
+      metadata: { applicationId }
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -139,11 +233,18 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+  
   try {
     const { id: applicationId } = await params;
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized LinkedIn profile update attempt', {
+        category: LogCategory.SECURITY,
+        action: 'linkedin_profile_update_unauthorized',
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -151,6 +252,13 @@ export async function PATCH(
     const profileId = searchParams.get("profileId");
 
     if (!profileId) {
+      loggerService.warn('LinkedIn profile update missing profile ID', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profile_update_missing_id',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Profile ID is required" }, { status: 400 });
     }
 
@@ -165,6 +273,13 @@ export async function PATCH(
       .single();
 
     if (appError || !application) {
+      loggerService.warn('Application not found for LinkedIn profile update', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profile_update_app_not_found',
+        duration: Date.now() - startTime,
+        metadata: { applicationId, profileId }
+      });
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
@@ -190,14 +305,38 @@ export async function PATCH(
       .single();
 
     if (error) {
-      console.error("Error updating LinkedIn profile:", error);
+      loggerService.error('Error updating LinkedIn profile', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'linkedin_profile_update_error',
+        duration: Date.now() - startTime,
+        metadata: { applicationId, profileId }
+      });
       return NextResponse.json({ error: "Failed to update LinkedIn profile" }, { status: 500 });
     }
+
+    loggerService.info('LinkedIn profile updated', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'linkedin_profile_updated',
+      duration: Date.now() - startTime,
+      metadata: {
+        applicationId,
+        profileId,
+        updatedFields: Object.keys(updates)
+      }
+    });
 
     return NextResponse.json({ profile });
 
   } catch (error) {
-    console.error("LinkedIn profiles PATCH error:", error);
+    loggerService.error('LinkedIn profiles PATCH error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'linkedin_profile_update_exception',
+      duration: Date.now() - startTime,
+      metadata: { applicationId, profileId }
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
@@ -207,11 +346,18 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
+  
   try {
     const { id: applicationId } = await params;
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized LinkedIn profile deletion attempt', {
+        category: LogCategory.SECURITY,
+        action: 'linkedin_profile_delete_unauthorized',
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -219,6 +365,13 @@ export async function DELETE(
     const profileId = searchParams.get("profileId");
 
     if (!profileId) {
+      loggerService.warn('LinkedIn profile deletion missing profile ID', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profile_delete_missing_id',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json({ error: "Profile ID is required" }, { status: 400 });
     }
 
@@ -233,6 +386,13 @@ export async function DELETE(
       .single();
 
     if (appError || !application) {
+      loggerService.warn('Application not found for LinkedIn profile deletion', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'linkedin_profile_delete_app_not_found',
+        duration: Date.now() - startTime,
+        metadata: { applicationId, profileId }
+      });
       return NextResponse.json({ error: "Application not found" }, { status: 404 });
     }
 
@@ -245,14 +405,34 @@ export async function DELETE(
       .eq("user_id", user.id);
 
     if (error) {
-      console.error("Error deleting LinkedIn profile:", error);
+      loggerService.error('Error deleting LinkedIn profile', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'linkedin_profile_delete_error',
+        duration: Date.now() - startTime,
+        metadata: { applicationId, profileId }
+      });
       return NextResponse.json({ error: "Failed to delete LinkedIn profile" }, { status: 500 });
     }
+
+    loggerService.info('LinkedIn profile deleted', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'linkedin_profile_deleted',
+      duration: Date.now() - startTime,
+      metadata: { applicationId, profileId }
+    });
 
     return NextResponse.json({ success: true });
 
   } catch (error) {
-    console.error("LinkedIn profiles DELETE error:", error);
+    loggerService.error('LinkedIn profiles DELETE error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'linkedin_profile_delete_exception',
+      duration: Date.now() - startTime,
+      metadata: { applicationId, profileId }
+    });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

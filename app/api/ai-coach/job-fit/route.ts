@@ -5,13 +5,21 @@ import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 async function handler(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized job fit analysis attempt', {
+        category: LogCategory.SECURITY,
+        action: 'job_fit_analysis_unauthorized'
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,6 +30,16 @@ async function handler(request: NextRequest) {
     );
 
     if (!permissionResult.allowed) {
+      loggerService.logSecurityEvent(
+        'ai_feature_access_denied',
+        'medium',
+        {
+          feature: 'job_fit_analysis',
+          reason: permissionResult.reason || 'subscription_required',
+          userId: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
         { status: 403 }
@@ -51,6 +69,13 @@ async function handler(request: NextRequest) {
     }
 
     if (!finalJobDescription || typeof finalJobDescription !== "string") {
+      loggerService.warn('Job fit analysis missing job description', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'job_fit_missing_job_description',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json(
         { error: "Job description is required" },
         { status: 400 }
@@ -58,6 +83,13 @@ async function handler(request: NextRequest) {
     }
 
     if (!finalResumeText) {
+      loggerService.warn('Job fit analysis missing resume', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'job_fit_missing_resume',
+        duration: Date.now() - startTime,
+        metadata: { applicationId }
+      });
       return NextResponse.json(
         { error: "Please upload your resume first to use Job Fit Analysis" },
         { status: 400 }
@@ -68,8 +100,35 @@ async function handler(request: NextRequest) {
     const aiCoach = createAICoach(user.id);
     
     try {
+      loggerService.debug('Starting job fit analysis', {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: 'job_fit_analysis_start',
+        metadata: {
+          jobDescriptionLength: finalJobDescription.length,
+          resumeLength: finalResumeText.length,
+          applicationId
+        }
+      });
+
+      const aiStartTime = Date.now();
       // Generate real analysis using AI
       const analysis = await aiCoach.analyzeJobFit(finalJobDescription, finalResumeText);
+      const aiDuration = Date.now() - aiStartTime;
+
+      loggerService.logAIServiceCall(
+        'job_fit_analysis',
+        user.id,
+        {
+          prompt: `Analyze job fit`,
+          model: 'gpt-4', // Update based on actual model
+          promptTokens: (finalJobDescription.length + finalResumeText.length) / 4,
+          completionTokens: JSON.stringify(analysis).length / 4,
+          totalTokens: (finalJobDescription.length + finalResumeText.length + JSON.stringify(analysis).length) / 4,
+          responseTime: aiDuration,
+          statusCode: 200
+        }
+      );
       
       // Save job description for future use if we have an applicationId
       if (applicationId && finalJobDescription) {
@@ -86,10 +145,29 @@ async function handler(request: NextRequest) {
         created_at: new Date().toISOString()
       });
       
+      loggerService.info('Job fit analysis completed', {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: 'job_fit_analysis_completed',
+        duration: Date.now() - startTime,
+        metadata: {
+          applicationId,
+          overallScore: analysis.overallScore,
+          aiGenerationTime: aiDuration
+        }
+      });
+
       return NextResponse.json(analysis);
       
     } catch (aiError) {
-      console.error("AI analysis failed, using fallback:", aiError);
+      loggerService.error('AI analysis failed, using fallback', aiError, {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: 'job_fit_ai_failure',
+        metadata: {
+          applicationId
+        }
+      });
       
       // Fallback to mock analysis if AI fails
       const mockAnalysis = {
@@ -192,10 +270,29 @@ async function handler(request: NextRequest) {
         created_at: new Date().toISOString()
       });
       
+      loggerService.info('Job fit analysis completed with fallback', {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: 'job_fit_analysis_fallback',
+        duration: Date.now() - startTime,
+        metadata: {
+          applicationId,
+          overallScore: mockAnalysis.overallScore
+        }
+      });
+
       return NextResponse.json(mockAnalysis);
     }
   } catch (error) {
-    console.error("Job fit analysis error:", error);
+    loggerService.error('Job fit analysis error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'job_fit_analysis_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        applicationId
+      }
+    });
     return NextResponse.json(
       { error: "Failed to analyze job fit" },
       { status: 500 }

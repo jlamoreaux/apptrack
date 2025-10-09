@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
     
@@ -25,7 +29,12 @@ export async function GET() {
     const { data, error } = await query;
 
     if (error) {
-      console.error('Error fetching active announcements:', error);
+      loggerService.error('Error fetching active announcements', error, {
+        category: LogCategory.DATABASE,
+        userId: user?.id,
+        action: 'active_announcements_fetch_error',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "Failed to fetch announcements" },
         { status: 500 }
@@ -55,9 +64,27 @@ export async function GET() {
       filteredAnnouncements = data?.filter(a => a.target_audience === 'all') || [];
     }
 
+    loggerService.info('Active announcements retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user?.id,
+      action: 'active_announcements_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        totalAnnouncements: data?.length || 0,
+        filteredCount: filteredAnnouncements.length,
+        isAuthenticated: !!user,
+        targetAudiences: [...new Set(data?.map(a => a.target_audience) || [])]
+      }
+    });
+
     return NextResponse.json(filteredAnnouncements);
   } catch (error) {
-    console.error('Error in active announcements:', error);
+    loggerService.error('Error in active announcements', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'active_announcements_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

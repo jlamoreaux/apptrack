@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { redis } from "@/lib/redis/client";
 import { type AIFeature } from "@/lib/services/rate-limit.service";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,17 +14,32 @@ export const revalidate = 0;
  * Runs daily at 2 AM to process Redis counters into database aggregates
  */
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Verify cron secret to prevent unauthorized calls
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
     
     if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      loggerService.logSecurityEvent(
+        'cron_unauthorized_access',
+        'high',
+        {
+          endpoint: '/api/cron/sync-ai-usage',
+          providedAuth: authHeader ? 'present' : 'missing'
+        },
+        {}
+      );
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
     if (!redis) {
-      console.log("Redis not available, skipping stats aggregation");
+      loggerService.warn('Redis not available for AI usage stats sync', {
+        category: LogCategory.API,
+        action: 'sync_ai_usage_redis_unavailable',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json({ 
         success: true, 
         message: "Redis not available, skipping stats aggregation" 
@@ -74,7 +91,11 @@ export async function GET(request: NextRequest) {
             });
           }
         } catch (error) {
-          console.error(`Failed to process stats for ${feature} on ${date}:`, error);
+          loggerService.error(`Failed to process stats for ${feature} on ${date}`, error, {
+            category: LogCategory.API,
+            action: 'sync_ai_usage_feature_error',
+            metadata: { feature, date }
+          });
         }
       }
     }
@@ -88,7 +109,14 @@ export async function GET(request: NextRequest) {
         });
       
       if (error) {
-        console.error("Failed to insert aggregated stats:", error);
+        loggerService.error('Failed to insert aggregated stats', error, {
+          category: LogCategory.DATABASE,
+          action: 'sync_ai_usage_insert_error',
+          duration: Date.now() - startTime,
+          metadata: {
+            recordCount: statsToInsert.length
+          }
+        });
         return NextResponse.json(
           { error: "Failed to insert stats", details: error },
           { status: 500 }
@@ -96,7 +124,16 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    console.log(`AI usage stats aggregation completed: ${statsToInsert.length} records processed`);
+    loggerService.info('AI usage stats aggregation completed', {
+      category: LogCategory.BUSINESS,
+      action: 'ai_usage_stats_aggregated',
+      duration: Date.now() - startTime,
+      metadata: {
+        recordsProcessed: statsToInsert.length,
+        datesToProcess,
+        features
+      }
+    });
     
     return NextResponse.json({
       success: true,
@@ -104,7 +141,11 @@ export async function GET(request: NextRequest) {
       timestamp: now.toISOString()
     });
   } catch (error) {
-    console.error("AI usage stats aggregation failed:", error);
+    loggerService.error('AI usage stats aggregation failed', error, {
+      category: LogCategory.API,
+      action: 'sync_ai_usage_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { 
         error: "Failed to aggregate AI usage stats",

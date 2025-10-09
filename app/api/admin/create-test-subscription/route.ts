@@ -3,13 +3,21 @@ import { createClient, getUser } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
 import { AdminService } from "@/lib/services/admin.service";
 import { stripe } from "@/lib/stripe";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // Admin endpoint to create test subscriptions
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     // Check authentication
     const user = await getUser();
     if (!user) {
+      loggerService.warn('Unauthorized test subscription creation attempt', {
+        category: LogCategory.SECURITY,
+        action: 'admin_test_subscription_unauthorized'
+      });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -19,6 +27,16 @@ export async function POST(request: NextRequest) {
     // Check admin access
     const isAdmin = await AdminService.isAdmin(user.id);
     if (!isAdmin) {
+      loggerService.logSecurityEvent(
+        'admin_access_denied',
+        'high',
+        {
+          endpoint: '/api/admin/create-test-subscription',
+          method: 'POST',
+          attemptedBy: user.id
+        },
+        { userId: user.id }
+      );
       return NextResponse.json(
         { error: "Forbidden - Admin access required" },
         { status: 403 }
@@ -65,12 +83,36 @@ export async function POST(request: NextRequest) {
       "monthly"
     );
     
+    loggerService.info('Admin created test subscription', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'admin_test_subscription_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        targetUserId: userId,
+        planId: plan.id,
+        planName: plan.name,
+        stripeSubscriptionId: subscription.id,
+        stripeCustomerId: subscription.customer as string
+      }
+    });
+    
     return NextResponse.json({ 
       success: true, 
       subscriptionId: subscription.id 
     });
   } catch (error) {
-    console.error("Error creating test subscription:", error);
+    loggerService.error('Error creating test subscription', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'admin_test_subscription_error',
+      duration: Date.now() - startTime,
+      metadata: {
+        targetUserId: userId,
+        planId
+      }
+    });
+    
     return NextResponse.json(
       { error: "Failed to create test subscription" },
       { status: 500 }

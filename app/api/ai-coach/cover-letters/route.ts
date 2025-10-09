@@ -1,9 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // GET /api/ai-coach/cover-letters - Get all saved cover letters for the user
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -12,6 +16,10 @@ export async function GET(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized cover letters fetch attempt', {
+        category: LogCategory.SECURITY,
+        action: 'cover_letters_list_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -25,16 +33,36 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching cover letters:", error);
+      loggerService.error('Error fetching cover letters', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'cover_letters_fetch_error',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "Failed to fetch cover letters" },
         { status: 500 }
       );
     }
 
+    loggerService.info('Cover letters retrieved', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'cover_letters_retrieved',
+      duration: Date.now() - startTime,
+      metadata: {
+        count: coverLetters?.length || 0
+      }
+    });
+
     return NextResponse.json({ coverLetters: coverLetters || [] });
   } catch (error) {
-    console.error("Error in GET /api/ai-coach/cover-letters:", error);
+    loggerService.error('Error in GET /api/ai-coach/cover-letters', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'cover_letters_get_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -44,6 +72,8 @@ export async function GET(request: NextRequest) {
 
 // DELETE /api/ai-coach/cover-letters/:id - Delete a saved cover letter
 export async function DELETE(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -52,6 +82,10 @@ export async function DELETE(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized cover letter delete attempt', {
+        category: LogCategory.SECURITY,
+        action: 'cover_letter_delete_unauthorized'
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -63,6 +97,12 @@ export async function DELETE(request: NextRequest) {
     const id = url.searchParams.get("id");
 
     if (!id) {
+      loggerService.warn('Cover letter delete missing ID', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'cover_letter_delete_missing_id',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "Cover letter ID is required" },
         { status: 400 }
@@ -76,16 +116,36 @@ export async function DELETE(request: NextRequest) {
       .eq("user_id", user.id); // Ensure user owns this cover letter
 
     if (error) {
-      console.error("Error deleting cover letter:", error);
+      loggerService.error('Error deleting cover letter', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'cover_letter_delete_error',
+        duration: Date.now() - startTime,
+        metadata: { id }
+      });
       return NextResponse.json(
         { error: "Failed to delete cover letter" },
         { status: 500 }
       );
     }
 
+    loggerService.info('Cover letter deleted', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'cover_letter_deleted',
+      duration: Date.now() - startTime,
+      metadata: { id }
+    });
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error in DELETE /api/ai-coach/cover-letters:", error);
+    loggerService.error('Error in DELETE /api/ai-coach/cover-letters', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'cover_letter_delete_exception',
+      duration: Date.now() - startTime,
+      metadata: { id }
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
