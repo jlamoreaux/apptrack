@@ -6,10 +6,14 @@ import {
   extractTextFromBuffer,
   isSupportedFileType,
 } from "@/lib/utils/text-extraction-server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const supabase = await createClient();
 
@@ -19,6 +23,11 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      loggerService.warn('Unauthorized resume upload attempt', {
+        category: LogCategory.SECURITY,
+        action: 'resume_upload_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: ERROR_MESSAGES.UNAUTHORIZED },
         { status: 401 }
@@ -29,11 +38,28 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
+      loggerService.warn('Resume upload missing file', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'resume_upload_no_file',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
+      loggerService.warn('Resume upload file too large', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'resume_upload_file_too_large',
+        duration: Date.now() - startTime,
+        metadata: {
+          fileSize: file.size,
+          maxSize: MAX_FILE_SIZE,
+          fileName: file.name
+        }
+      });
       return NextResponse.json(
         { error: "File size must be less than 5MB" },
         { status: 400 }
@@ -42,6 +68,16 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     if (!isSupportedFileType(file.type)) {
+      loggerService.warn('Resume upload unsupported file type', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'resume_upload_unsupported_type',
+        duration: Date.now() - startTime,
+        metadata: {
+          fileType: file.type,
+          fileName: file.name
+        }
+      });
       return NextResponse.json(
         {
           error:
@@ -62,6 +98,16 @@ export async function POST(request: NextRequest) {
     );
 
     if (!extractionResult.success) {
+      loggerService.error('Resume text extraction failed', new Error(extractionResult.error || 'Unknown extraction error'), {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'resume_upload_extraction_failed',
+        duration: Date.now() - startTime,
+        metadata: {
+          fileName: file.name,
+          fileType: file.type
+        }
+      });
       return NextResponse.json(
         { error: extractionResult.error || "Failed to extract text from file" },
         { status: 400 }
@@ -69,6 +115,16 @@ export async function POST(request: NextRequest) {
     }
 
     if (!extractionResult.text.trim()) {
+      loggerService.warn('Resume upload empty text extraction', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'resume_upload_empty_text',
+        duration: Date.now() - startTime,
+        metadata: {
+          fileName: file.name,
+          fileType: file.type
+        }
+      });
       return NextResponse.json(
         { error: "Could not extract text from the file" },
         { status: 400 }
@@ -86,11 +142,20 @@ export async function POST(request: NextRequest) {
       });
 
     if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      console.error("Error details:", {
-        message: uploadError.message,
-        name: uploadError.name,
-        stack: uploadError.stack,
+      loggerService.error('Resume storage upload error', uploadError, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'resume_upload_storage_error',
+        duration: Date.now() - startTime,
+        metadata: {
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          errorDetails: {
+            message: uploadError.message,
+            name: uploadError.name
+          }
+        }
       });
       return NextResponse.json(
         { error: `Failed to upload file: ${uploadError.message}` },
@@ -112,6 +177,20 @@ export async function POST(request: NextRequest) {
       extracted_text: extractionResult.text,
     });
 
+    loggerService.info('Resume uploaded successfully', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'resume_upload_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        resumeId: resume.id,
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        extractedTextLength: extractionResult.text.length
+      }
+    });
+    
     return NextResponse.json({
       success: true,
       resume: {
@@ -123,7 +202,12 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error("Resume upload error:", error);
+    loggerService.error('Resume upload error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'resume_upload_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }

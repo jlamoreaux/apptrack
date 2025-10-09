@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const user = await getUser();
     
     if (!user) {
+      loggerService.warn('Unauthorized free code application', {
+        category: LogCategory.SECURITY,
+        action: 'stripe_free_code_unauthorized',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -17,6 +26,12 @@ export async function POST(request: NextRequest) {
     const upperCode = code?.toUpperCase().trim();
 
     if (!upperCode) {
+      loggerService.warn('Free code application missing code', {
+        category: LogCategory.API,
+        userId: user.id,
+        action: 'stripe_free_code_missing',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
         { error: "No code provided" },
         { status: 400 }
@@ -35,6 +50,16 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (promoError || !promoCode) {
+      loggerService.warn('Invalid free promo code', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_code_invalid',
+        duration: Date.now() - startTime,
+        metadata: {
+          code: upperCode.slice(0, 4) + '***',
+          error: promoError?.message
+        }
+      });
       return NextResponse.json(
         { error: "Invalid or inactive promo code" },
         { status: 400 }
@@ -43,6 +68,16 @@ export async function POST(request: NextRequest) {
 
     // Check if code has expired
     if (promoCode.expires_at && new Date(promoCode.expires_at) < new Date()) {
+      loggerService.warn('Expired free promo code', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_code_expired',
+        duration: Date.now() - startTime,
+        metadata: {
+          code: upperCode.slice(0, 4) + '***',
+          expiresAt: promoCode.expires_at
+        }
+      });
       return NextResponse.json(
         { error: "This promo code has expired" },
         { status: 400 }
@@ -51,6 +86,17 @@ export async function POST(request: NextRequest) {
 
     // Check if code has reached max uses
     if (promoCode.max_uses && promoCode.used_count >= promoCode.max_uses) {
+      loggerService.warn('Free promo code usage limit reached', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_code_usage_limit',
+        duration: Date.now() - startTime,
+        metadata: {
+          code: upperCode.slice(0, 4) + '***',
+          maxUses: promoCode.max_uses,
+          usedCount: promoCode.used_count
+        }
+      });
       return NextResponse.json(
         { error: "This promo code has reached its usage limit" },
         { status: 400 }
@@ -66,6 +112,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingUsage) {
+      loggerService.warn('User already used free promo code', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_code_already_used',
+        duration: Date.now() - startTime,
+        metadata: {
+          code: upperCode.slice(0, 4) + '***'
+        }
+      });
       return NextResponse.json(
         { error: "You have already used this promo code" },
         { status: 400 }
@@ -84,9 +139,23 @@ export async function POST(request: NextRequest) {
     if (subscription?.stripe_subscription_id) {
       try {
         await stripe.subscriptions.cancel(subscription.stripe_subscription_id);
-        console.log(`Cancelled Stripe subscription: ${subscription.stripe_subscription_id}`);
+        loggerService.info('Cancelled Stripe subscription for free code', {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'stripe_subscription_cancelled_for_free',
+          metadata: {
+            stripeSubscriptionId: subscription.stripe_subscription_id
+          }
+        });
       } catch (error) {
-        console.error("Error cancelling Stripe subscription:", error);
+        loggerService.error('Error cancelling Stripe subscription', error, {
+          category: LogCategory.PAYMENT,
+          userId: user.id,
+          action: 'stripe_cancel_for_free_error',
+          metadata: {
+            stripeSubscriptionId: subscription.stripe_subscription_id
+          }
+        });
       }
     }
 
@@ -110,7 +179,15 @@ export async function POST(request: NextRequest) {
           : promoCode.applicable_plans[0];
       }
       
-      console.log(`Applying free_forever access for ${targetPlanName} plan`);
+      loggerService.info('Applying free forever access', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_forever_applied',
+        metadata: {
+          targetPlanName,
+          periodEnd
+        }
+      });
     } else if (promoCode.code_type === "trial") {
       // For regular trial codes
       if (promoCode.trial_days > 0) {
@@ -126,7 +203,16 @@ export async function POST(request: NextRequest) {
         trialEnd = periodEnd;
       }
       
-      console.log(`Applying ${promoCode.trial_days || promoCode.discount_duration_months * 30} day trial for ${targetPlanName} plan until ${periodEnd}`);
+      loggerService.info('Applying trial access', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_trial_applied',
+        metadata: {
+          targetPlanName,
+          trialDays: promoCode.trial_days || promoCode.discount_duration_months * 30,
+          periodEnd
+        }
+      });
     }
 
     // Get the target plan
@@ -137,6 +223,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!targetPlan) {
+      loggerService.error('Target plan not found for free code', new Error('Plan not found'), {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_free_code_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          targetPlanName
+        }
+      });
       return NextResponse.json(
         { error: `Plan ${targetPlanName} not found` },
         { status: 500 }
@@ -209,6 +304,21 @@ export async function POST(request: NextRequest) {
       message = "You now have free access forever!";
     }
 
+    loggerService.info('Free code applied successfully', {
+      category: LogCategory.PAYMENT,
+      userId: user.id,
+      action: 'stripe_free_code_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        code: upperCode.slice(0, 4) + '***',
+        codeType: promoCode.code_type,
+        targetPlan: targetPlanName,
+        previousPlan: subscription?.subscription_plans?.name || 'Free',
+        trialMonths: promoCode.discount_duration_months,
+        trialEnd: trialEndDate?.toISOString()
+      }
+    });
+    
     return NextResponse.json({
       success: true,
       message,
@@ -217,7 +327,12 @@ export async function POST(request: NextRequest) {
       trial_end: trialEndDate?.toISOString() || null
     });
   } catch (error) {
-    console.error("Error applying free code:", error);
+    loggerService.error('Error applying free code', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'stripe_free_code_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
       { error: "Failed to apply code" },
       { status: 500 }
