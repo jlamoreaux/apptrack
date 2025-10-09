@@ -18,12 +18,14 @@ interface AggregatedUsage {
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  let user: any = null;
   
   try {
     const supabase = await createClient();
     
     // Check authentication
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    user = authUser;
     
     if (authError || !user) {
       loggerService.warn('Unauthorized admin AI usage access attempt', {

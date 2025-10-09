@@ -1,5 +1,5 @@
 import winston from 'winston';
-import LokiTransport from 'winston-loki';
+import { WinstonTransport } from '@axiomhq/winston';
 import { 
   LogLevel, 
   LogCategory, 
@@ -84,32 +84,19 @@ export class LoggerService {
       );
     }
     
-    // Loki transport for production
-    if (this.isProduction && process.env.GRAFANA_LOKI_URL) {
+    // External logging service for production
+    if (this.isProduction && process.env.AXIOM_TOKEN && process.env.AXIOM_DATASET) {
       try {
-        const lokiTransport = new LokiTransport({
-          host: process.env.GRAFANA_LOKI_URL,
-          basicAuth: process.env.GRAFANA_LOKI_USER && process.env.GRAFANA_LOKI_PASSWORD
-            ? `${process.env.GRAFANA_LOKI_USER}:${process.env.GRAFANA_LOKI_PASSWORD}`
-            : undefined,
-          labels: {
-            app: 'apptrack',
-            environment: process.env.NODE_ENV || 'development',
-            version: process.env.APP_VERSION || '1.0.0',
-            region: process.env.VERCEL_REGION || 'unknown',
-            deployment: process.env.VERCEL_DEPLOYMENT_ID || 'local'
-          },
-          json: true,
-          format: winston.format.json(),
-          replaceTimestamp: true,
-          onConnectionError: (err) => {
-            // Silent fail - no console output in production
-          }
+        const externalTransport = new WinstonTransport({
+          token: process.env.AXIOM_TOKEN,
+          dataset: process.env.AXIOM_DATASET,
+          // Axiom automatically includes timestamp and handles formatting
         });
         
-        transports.push(lokiTransport);
+        transports.push(externalTransport);
+        
       } catch {
-        // Silent fail if Loki configuration fails
+        // Silent fail if external logging configuration fails
       }
     }
     

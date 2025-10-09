@@ -10,6 +10,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 async function careerAdviceHandler(request: NextRequest) {
   const startTime = Date.now();
   let user: any = null;
+  let message: string | undefined;
   
   try {
     const supabase = await createClient();
@@ -55,7 +56,9 @@ async function careerAdviceHandler(request: NextRequest) {
       );
     }
 
-    const { message, conversationHistory } = await request.json();
+    const requestBody = await request.json();
+    message = requestBody.message;
+    const conversationHistory = requestBody.conversationHistory;
 
     if (!message) {
       loggerService.warn('Career advice request missing message', {
@@ -114,19 +117,18 @@ async function careerAdviceHandler(request: NextRequest) {
     const response = await aiCoach.askCareerQuestion(message, context);
     const aiGenerationDuration = Date.now() - aiGenerationStartTime;
 
-    loggerService.logAIServiceCall(
-      'career_advice',
-      user.id,
-      {
-        prompt: message,
-        model: 'gpt-4', // Update based on actual model used
-        promptTokens: message.length / 4, // Approximate
-        completionTokens: response.length / 4, // Approximate
-        totalTokens: (message.length + response.length) / 4,
-        responseTime: aiGenerationDuration,
-        statusCode: 200
+    loggerService.info('Career advice generated successfully', {
+      category: LogCategory.AI_SERVICE,
+      userId: user.id,
+      action: 'career_advice_ai_response',
+      duration: aiGenerationDuration,
+      metadata: {
+        promptLength: message.length,
+        responseLength: response.length,
+        model: 'gpt-4o-mini', // Based on the logs showing this model
+        estimatedTokens: Math.round((message.length + response.length) / 4)
       }
-    );
+    });
 
     // Save AI response to database
     const aiMessage = {
@@ -171,9 +173,34 @@ async function careerAdviceHandler(request: NextRequest) {
       action: 'career_advice_error',
       duration: Date.now() - startTime,
       metadata: {
-        message: message?.substring(0, 100) // First 100 chars for context
+        message: message?.substring(0, 100), // First 100 chars for context
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorType: error instanceof Error ? error.constructor.name : typeof error
       }
     });
+    
+    // Return specific error messages for better debugging
+    if (error instanceof Error) {
+      if (error.message.includes('OPENAI_API_KEY') || error.message.includes('API key')) {
+        return NextResponse.json(
+          { error: 'AI service not configured. Please contact support.' },
+          { status: 503 }
+        );
+      }
+      if (error.message.includes('Rate limit')) {
+        return NextResponse.json(
+          { error: 'AI service rate limit exceeded. Please try again in a few moments.' },
+          { status: 429 }
+        );
+      }
+      if (error.message.includes('quota')) {
+        return NextResponse.json(
+          { error: 'AI service quota exceeded. Please contact support.' },
+          { status: 503 }
+        );
+      }
+    }
+    
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.GENERATION_FAILED },
       { status: 500 }
