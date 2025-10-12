@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button-link";
 import { Menu, X } from "lucide-react";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
@@ -29,17 +30,19 @@ export function NavigationStatic() {
         <div className="ml-auto flex items-center">
           {/* Desktop Navigation */}
           <div className="hidden sm:flex items-center space-x-4">
-            <Link href="/roast-my-resume">
-              <Button variant="ghost" className="text-primary hover:text-primary/80">
-                🔥 Roast My Resume
-              </Button>
-            </Link>
-            <Link href="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
-            </Link>
+            <ButtonLink 
+              href="/roast-my-resume" 
+              variant="ghost" 
+              className="text-primary hover:text-primary/80"
+            >
+              🔥 Roast My Resume
+            </ButtonLink>
+            <ButtonLink href="/login" variant="ghost">
+              Login
+            </ButtonLink>
+            <ButtonLink href="/signup" className="bg-primary hover:bg-primary/90">
+              Sign Up
+            </ButtonLink>
           </div>
 
           {/* Mobile Menu Button */}
@@ -62,21 +65,29 @@ export function NavigationStatic() {
       {isOpen && (
         <div className="sm:hidden border-t bg-background">
           <div className="container px-4 py-4 space-y-3">
-            <Link href="/roast-my-resume" className="block" onClick={() => setIsOpen(false)}>
-              <Button variant="ghost" className="w-full justify-start h-11 text-primary hover:text-primary/80">
-                🔥 Roast My Resume
-              </Button>
-            </Link>
-            <Link href="/login" className="block" onClick={() => setIsOpen(false)}>
-              <Button variant="ghost" className="w-full justify-start h-11">
-                Login
-              </Button>
-            </Link>
-            <Link href="/signup" className="block" onClick={() => setIsOpen(false)}>
-              <Button className="w-full bg-primary hover:bg-primary/90 h-11">
-                Sign Up
-              </Button>
-            </Link>
+            <ButtonLink 
+              href="/roast-my-resume" 
+              variant="ghost" 
+              className="w-full justify-start h-11 text-primary hover:text-primary/80"
+              onClick={() => setIsOpen(false)}
+            >
+              🔥 Roast My Resume
+            </ButtonLink>
+            <ButtonLink 
+              href="/login" 
+              variant="ghost" 
+              className="w-full justify-start h-11"
+              onClick={() => setIsOpen(false)}
+            >
+              Login
+            </ButtonLink>
+            <ButtonLink 
+              href="/signup" 
+              className="w-full bg-primary hover:bg-primary/90 h-11"
+              onClick={() => setIsOpen(false)}
+            >
+              Sign Up
+            </ButtonLink>
           </div>
         </div>
       )}

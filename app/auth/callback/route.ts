@@ -17,15 +17,35 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Check if user has completed onboarding
+        // Check if user has completed onboarding and has Stripe customer ID
         const { data: profile } = await supabase
           .from("profiles")
-          .select("onboarding_completed")
+          .select("onboarding_completed, stripe_customer_id")
           .eq("id", user.id)
           .single();
         
+        // Create Stripe customer if not exists (for users confirming email)
+        if (!profile?.stripe_customer_id) {
+          try {
+            await fetch(new URL("/api/stripe/create-customer", requestUrl.origin).toString(), {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                // Pass the auth cookie for the internal request
+                "Cookie": request.headers.get("cookie") || ""
+              },
+            });
+          } catch (err) {
+            console.error("Failed to create Stripe customer during email confirmation:", err);
+          }
+        }
+        
         // If email confirmation (signup flow) and onboarding not completed
         if (type === "signup" || !profile?.onboarding_completed) {
+          // Check if user has a traffic source trial in their metadata
+          if (user.user_metadata?.traffic_source_trial?.type === "ai_coach_trial") {
+            return NextResponse.redirect(new URL("/onboarding/welcome?auto_select=ai_coach", requestUrl.origin));
+          }
           return NextResponse.redirect(new URL("/onboarding/welcome", requestUrl.origin));
         }
         

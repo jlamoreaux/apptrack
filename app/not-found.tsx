@@ -11,12 +11,12 @@ export default function NotFound() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="flex gap-4 justify-center">
-          <Link href="/">
-            <Button>Go Home</Button>
-          </Link>
-          <Link href="/dashboard">
-            <Button variant="outline">Go to Dashboard</Button>
-          </Link>
+          <Button asChild>
+            <Link href="/">Go Home</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard">Go to Dashboard</Link>
+          </Button>
         </div>
       </div>
     </div>

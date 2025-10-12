@@ -84,14 +84,12 @@ export function NavigationClient() {
             <span className="font-bold text-xl text-primary">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
-            <Link href="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">
-                Sign Up
-              </Button>
-            </Link>
+            <Button variant="ghost" asChild>
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button asChild className="bg-primary hover:bg-primary/90">
+              <Link href="/signup">Sign Up</Link>
+            </Button>
           </div>
         </div>
       </nav>

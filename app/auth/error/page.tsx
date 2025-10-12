@@ -38,16 +38,16 @@ function AuthErrorContent() {
           </div>
 
           <div className="space-y-3">
-            <Link href="/login" className="block">
-              <Button className="w-full">Back to Sign In</Button>
-            </Link>
+            <Button asChild className="w-full">
+              <Link href="/login">Back to Sign In</Link>
+            </Button>
 
-            <Link href="/" className="block">
-              <Button variant="outline" className="w-full">
+            <Button variant="outline" asChild className="w-full">
+              <Link href="/">
                 <Home className="mr-2 h-4 w-4" />
                 Go to Homepage
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
 
           <div className="text-center pt-4 border-t">

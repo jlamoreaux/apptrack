@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/components/ui/button"
+import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Circle, Sparkles, Upload, Brain, MessageSquare, FileText, Target, BarChart3, ArrowRight } from "lucide-react";
 
@@ -141,8 +142,8 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               <p className="text-sm text-muted-foreground mb-4">
                 Your resume helps us provide personalized AI recommendations
               </p>
-              <Button variant="outline" onClick={() => window.location.href = "/dashboard/ai-coach"}>
-                Upload Later
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/ai-coach">Upload Later</Link>
               </Button>
             </div>
             <div className="flex justify-between">

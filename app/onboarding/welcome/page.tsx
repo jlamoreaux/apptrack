@@ -31,6 +31,8 @@ import {
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import { clientLogger } from "@/lib/utils/client-logger";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export default function OnboardingWelcomePage() {
   const { user, loading } = useSupabaseAuth();
@@ -45,16 +47,39 @@ export default function OnboardingWelcomePage() {
   const [promoSuccess, setPromoSuccess] = useState(false);
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [selectedBilling, setSelectedBilling] = useState<"monthly" | "yearly">(
-    "monthly"
+    "yearly"
   );
   const [showPromoDialog, setShowPromoDialog] = useState(false);
+  const [trafficTrial, setTrafficTrial] = useState<{ days: number; type: string } | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
+    
+    // Log the subscription state for debugging
+    if (!loading && !plansLoading) {
+      const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
+      
+      clientLogger.debug("Onboarding page subscription check", {
+        category: LogCategory.AUTH,
+        action: 'onboarding_subscription_check',
+        subscription,
+        currentPlanName,
+        hasPaidSubscription: currentPlanName && currentPlanName !== PLAN_NAMES.FREE
+      });
+    }
+    
     // If user already has a paid subscription, redirect to dashboard
-    if (!loading && !plansLoading && subscription?.subscription_plans?.name !== PLAN_NAMES.FREE) {
+    // Handle both subscription structures (subscription.plan and subscription.subscription_plans.name)
+    const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
+    
+    if (!loading && !plansLoading && currentPlanName && currentPlanName !== PLAN_NAMES.FREE) {
+      clientLogger.info("User has paid subscription, redirecting to dashboard", {
+        category: LogCategory.AUTH,
+        action: 'onboarding_redirect_paid_user',
+        planName: currentPlanName
+      });
       router.push("/dashboard");
     }
   }, [user, loading, plansLoading, subscription, router]);
@@ -71,7 +96,33 @@ export default function OnboardingWelcomePage() {
     };
 
     fetchWelcomeOffer();
-  }, []);
+    
+    // Check if user has a traffic source trial
+    if (user?.user_metadata?.traffic_source_trial) {
+      const trial = user.user_metadata.traffic_source_trial;
+      
+      clientLogger.info("Traffic source trial detected in onboarding", {
+        category: LogCategory.BUSINESS,
+        action: 'onboarding_traffic_source_trial',
+        metadata: {
+          source: user.user_metadata.traffic_source,
+          trial: trial
+        }
+      });
+      
+      // Store trial info for checkout
+      sessionStorage.setItem("traffic_trial", JSON.stringify(trial));
+      setTrafficTrial(trial);
+      
+      // If user came from traffic source with trial intent, auto-select AI Coach
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('auto_select') === 'ai_coach') {
+        setTimeout(() => {
+          handlePlanSelection(PLAN_NAMES.AI_COACH);
+        }, 1000); // Small delay to let the page load
+      }
+    }
+  }, [user]);
 
   if (loading || plansLoading) {
     return (
@@ -169,8 +220,10 @@ export default function OnboardingWelcomePage() {
   ];
   
 
-  const handleApplyPromo = async () => {
-    if (!promoCode.trim()) {
+  const handleApplyPromo = async (codeToApply?: string) => {
+    const code = codeToApply || promoCode.trim();
+    
+    if (!code) {
       setPromoError("Please enter a promo code");
       return;
     }
@@ -183,7 +236,7 @@ export default function OnboardingWelcomePage() {
       const checkResponse = await fetch("/api/promo-codes/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoCode }),
+        body: JSON.stringify({ code: code.toUpperCase() }),
       });
 
       const checkData = await checkResponse.json();
@@ -197,13 +250,18 @@ export default function OnboardingWelcomePage() {
       setAppliedPromo(checkData.promoCode);
       setPromoSuccess(true);
       setShowPromoDialog(false);
+      
+      // If we auto-applied, update the input
+      if (codeToApply) {
+        setPromoCode(codeToApply);
+      }
 
       // If it's a premium free code, apply it immediately without payment
       if (checkData.promoCode.code_type === "premium_free") {
         const response = await fetch("/api/promo/activate-trial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ promoCode: promoCode }),
+          body: JSON.stringify({ promoCode: code }),
         });
 
         const data = await response.json();
@@ -296,6 +354,12 @@ export default function OnboardingWelcomePage() {
         }
 
 
+        // Get trial info if available
+        let trialDays = 0;
+        if (trafficTrial && planName === PLAN_NAMES.AI_COACH && trafficTrial.type === "ai_coach_trial") {
+          trialDays = trafficTrial.days;
+        }
+
         // Create Stripe checkout session directly
         const response = await fetch("/api/stripe/create-checkout", {
           method: "POST",
@@ -307,6 +371,7 @@ export default function OnboardingWelcomePage() {
             billingCycle: selectedBilling,
             promoCode,
             couponId,
+            trialDays,
           }),
         });
 
@@ -366,7 +431,11 @@ export default function OnboardingWelcomePage() {
                   <Gift className="h-6 w-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                   <div className="flex-1">
                     <p className="font-semibold text-foreground">
-                      {promoSuccess && appliedPromo ? (
+                      {trafficTrial ? (
+                        <>
+                          🎁 Special {user?.user_metadata?.traffic_source === "reddit" ? "Reddit" : "LinkedIn"} Offer: {trafficTrial.days}-Day Free Trial!
+                        </>
+                      ) : promoSuccess && appliedPromo ? (
                         <>
                           ✅ Promo Code Applied: {appliedPromo.code}
                         </>
@@ -379,7 +448,9 @@ export default function OnboardingWelcomePage() {
                       )}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {promoSuccess ? (
+                      {trafficTrial ? (
+                        "Try AI Coach FREE for 7 days • Cancel anytime"
+                      ) : promoSuccess ? (
                         "Your discount will be applied at checkout"
                       ) : welcomeOffer ? (
                         "Discount automatically applied • No code needed"
@@ -393,7 +464,7 @@ export default function OnboardingWelcomePage() {
                   <DialogTrigger asChild>
                     <Button variant="outline" size="sm" className="w-full sm:w-auto">
                       <Tag className="h-4 w-4 mr-2" />
-                      {promoSuccess ? "Change Code" : "Have a promo code?"}
+                      {promoSuccess ? "Change Code" : trafficTrial ? "Have a different promo code?" : "Have a promo code?"}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md">

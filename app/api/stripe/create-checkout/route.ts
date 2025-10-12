@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { planId, billingCycle, promoCode, couponId, discountCode } = await request.json();
+    const { planId, billingCycle, promoCode, couponId, discountCode, trialDays } = await request.json();
 
     loggerService.info('Creating checkout session', {
       category: LogCategory.PAYMENT,
@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
         billingCycle,
         hasPromoCode: !!promoCode,
         hasCouponId: !!couponId,
-        hasDiscountCode: !!discountCode
+        hasDiscountCode: !!discountCode,
+        trialDays
       }
     });
 
@@ -165,6 +166,21 @@ export async function POST(request: NextRequest) {
         },
       },
     };
+    
+    // Add trial period if specified
+    if (trialDays && trialDays > 0) {
+      sessionParams.subscription_data.trial_period_days = trialDays;
+      
+      loggerService.info('Adding trial period to checkout', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'checkout_trial_added',
+        metadata: {
+          trialDays,
+          planName: plan.name
+        }
+      });
+    }
     
     // Only add allow_promotion_codes if we don't have any discount
     if (!promoCode && !couponId && !discountCode) {

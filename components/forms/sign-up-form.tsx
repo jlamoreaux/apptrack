@@ -82,6 +82,9 @@ export function SignUpForm() {
     hasSpecialChar: false,
   });
   const [showPasswordCriteria, setShowPasswordCriteria] = useState(false);
+  const [trafficSource, setTrafficSource] = useState<string | null>(null);
+  const [trafficSourceTrial, setTrafficSourceTrial] = useState<{ days: number; type: string } | null>(null);
+  const [hasTrialIntent, setHasTrialIntent] = useState(false);
   const router = useRouter();
 
   const {
@@ -104,6 +107,29 @@ export function SignUpForm() {
       setShowPasswordCriteria(false);
     }
   }, [watchedPassword]);
+  
+  // Check for traffic source on mount
+  useEffect(() => {
+    const source = sessionStorage.getItem("traffic_source");
+    const trialData = sessionStorage.getItem("traffic_source_trial");
+    
+    if (source) {
+      setTrafficSource(source);
+      if (trialData) {
+        try {
+          setTrafficSourceTrial(JSON.parse(trialData));
+        } catch (e) {
+          console.error("Failed to parse trial data:", e);
+        }
+      }
+    }
+    
+    // Check if user came with trial intent
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("intent") === "ai-coach-trial") {
+      setHasTrialIntent(true);
+    }
+  }, []);
 
   const onSubmit = async (data: SignUpFormData) => {
     setLoading(true);
@@ -113,7 +139,9 @@ export function SignUpForm() {
       const result = await signUpWithPassword(
         data.email,
         data.password,
-        data.name
+        data.name,
+        trafficSource || undefined,
+        trafficSourceTrial || undefined
       );
 
       if (result.error) {
@@ -126,13 +154,29 @@ export function SignUpForm() {
           console.warn("Could not save to localStorage:", e);
         }
         
+        // Create Stripe customer in the background (don't wait for it)
+        if (!result.requiresEmailConfirmation) {
+          // Only create customer if email is already verified
+          fetch("/api/stripe/create-customer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          }).catch(err => {
+            console.error("Failed to create Stripe customer:", err);
+          });
+        }
+        
         // Check if email confirmation is required
         if (result.requiresEmailConfirmation) {
           // Redirect to email confirmation page
           router.push("/auth/confirm-email");
         } else {
           // If already confirmed (e.g., in dev mode), go to onboarding
-          router.push("/onboarding/welcome");
+          // If user has trial intent, add parameter to auto-select AI Coach
+          if (hasTrialIntent && trafficSourceTrial) {
+            router.push("/onboarding/welcome?auto_select=ai_coach");
+          } else {
+            router.push("/onboarding/welcome");
+          }
           router.refresh();
         }
       }

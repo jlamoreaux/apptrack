@@ -117,7 +117,9 @@ export async function signInWithPassword(email: string, password: string) {
 export async function signUpWithPassword(
   email: string,
   password: string,
-  fullName: string
+  fullName: string,
+  trafficSource?: string,
+  trafficSourceTrial?: { days: number; type: string }
 ) {
   try {
     const supabase = await createClient();
@@ -128,6 +130,8 @@ export async function signUpWithPassword(
       options: {
         data: {
           full_name: fullName,
+          traffic_source: trafficSource,
+          traffic_source_trial: trafficSourceTrial,
         },
       },
     });

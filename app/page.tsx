@@ -1,6 +1,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
+import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
 import { NavigationStatic } from "@/components/navigation-static"
 import { HomePricingSection } from "@/components/home-pricing-section"
@@ -8,6 +9,7 @@ import { HomeProblemSolution } from "@/components/home-problem-solution"
 import { HomeSocialProof } from "@/components/home-social-proof"
 import { HomeFaq } from "@/components/home-faq"
 import { HomeFinalCta } from "@/components/home-final-cta"
+import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -36,9 +38,10 @@ export default async function HomePage() {
   const features = getFeatures()
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
-      <NavigationStatic />
-      <main className="flex-1">
+    <HomepageClientWrapper>
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
+        <NavigationStatic />
+        <main className="flex-1">
         {/* Hero Section */}
         <section className="py-16 px-4">
           <div className="container mx-auto">
@@ -58,20 +61,21 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Link href="/signup">
-                    <Button size="lg" className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white">
-                      {COPY.hero.cta.primary}
-                    </Button>
-                  </Link>
-                  <Link href="/login">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
-                    >
-                      {COPY.hero.cta.secondary}
-                    </Button>
-                  </Link>
+                  <ButtonLink 
+                    href="/signup" 
+                    size="lg" 
+                    className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white"
+                  >
+                    {COPY.hero.cta.primary}
+                  </ButtonLink>
+                  <ButtonLink
+                    href="/login"
+                    variant="outline"
+                    size="lg"
+                    className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
+                  >
+                    {COPY.hero.cta.secondary}
+                  </ButtonLink>
                 </div>
                 
                 <p className="text-sm text-muted-foreground">
@@ -229,5 +233,6 @@ export default async function HomePage() {
         <HomeFinalCta />
       </main>
     </div>
+    </HomepageClientWrapper>
   )
 }

@@ -9,8 +9,37 @@ export async function GET() {
   try {
     const supabase = await createClient();
     
-    // Get the current session
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // First, try to refresh the session to ensure we have the latest state
+    loggerService.debug('Attempting to refresh session', {
+      category: LogCategory.AUTH,
+      action: 'check_session_refresh_start'
+    });
+    
+    const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      loggerService.warn('Session refresh failed, falling back to getSession', {
+        category: LogCategory.AUTH,
+        action: 'check_session_refresh_failed',
+        metadata: {
+          error: refreshError.message
+        }
+      });
+    } else {
+      loggerService.debug('Session refresh successful', {
+        category: LogCategory.AUTH,
+        action: 'check_session_refresh_success',
+        metadata: {
+          hasSession: !!refreshedSession,
+          userId: refreshedSession?.user?.id
+        }
+      });
+    }
+    
+    // If refresh fails, fall back to getSession
+    const { data: { session }, error } = refreshError 
+      ? await supabase.auth.getSession()
+      : { data: { session: refreshedSession }, error: null };
     
     if (error) {
       loggerService.error('Error checking session', error, {
