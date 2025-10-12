@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Mail, CheckCircle, AlertCircle, Loader2, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { clientLogger } from "@/lib/utils/client-logger";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export default function ConfirmEmailPage() {
   const router = useRouter();
@@ -25,8 +27,22 @@ export default function ConfirmEmailPage() {
       setEmail(storedEmail);
     }
     
+    clientLogger.debug("Auth state in confirm-email page", {
+      category: LogCategory.AUTH,
+      action: 'confirm_email_page_auth_state',
+      authLoading,
+      userExists: !!user,
+      userId: user?.id,
+      userEmail: user?.email
+    });
+    
     // If user is already authenticated (email confirmed), redirect
     if (!authLoading && user) {
+      clientLogger.info("User is already authenticated, redirecting", {
+        category: LogCategory.AUTH,
+        action: 'confirm_email_already_authenticated',
+        userId: user.id
+      });
       // Clear the pending email confirmation
       localStorage.removeItem("pendingEmailConfirmation");
       // Check if they need onboarding
@@ -71,6 +87,12 @@ export default function ConfirmEmailPage() {
     setResendError(null); // Clear any previous errors
     
     try {
+      clientLogger.info("Checking email confirmation status", {
+        category: LogCategory.AUTH,
+        action: 'confirm_email_check_start',
+        email
+      });
+      
       // Check if the user is authenticated
       const response = await fetch("/api/auth/check-session", {
         method: "GET",
@@ -79,16 +101,41 @@ export default function ConfirmEmailPage() {
       
       const data = await response.json();
       
+      clientLogger.debug("Check session response", {
+        category: LogCategory.AUTH,
+        action: 'confirm_email_check_response',
+        authenticated: data.authenticated,
+        hasUser: !!data.user,
+        error: data.error
+      });
+      
       if (data.authenticated && data.user) {
+        clientLogger.info("User is authenticated after email confirmation", {
+          category: LogCategory.AUTH,
+          action: 'confirm_email_success',
+          userId: data.user.id,
+          email: data.user.email,
+          emailConfirmed: data.user.emailConfirmed
+        });
+        
         // User is now authenticated, clear storage and redirect
         localStorage.removeItem("pendingEmailConfirmation");
         await checkUserOnboardingStatus(data.user.id);
       } else {
         // Not confirmed yet, show a message
-        setResendError("Email not yet confirmed. Please check your inbox and click the confirmation link.");
+        clientLogger.warn("User not authenticated yet after checking", {
+          category: LogCategory.AUTH,
+          action: 'confirm_email_not_authenticated',
+          data
+        });
+        setResendError("Email not yet confirmed. If you already clicked the link, please use the 'Log In Now' button below.");
         setCheckingAuth(false);
       }
     } catch (error) {
+      clientLogger.error("Error checking confirmation", error, {
+        category: LogCategory.AUTH,
+        action: 'confirm_email_check_error'
+      });
       setResendError("Unable to verify confirmation status. Please try again.");
       setCheckingAuth(false);
     }
@@ -145,6 +192,9 @@ export default function ConfirmEmailPage() {
             )}
             <p className="text-sm text-muted-foreground">
               Please click the link in the email to activate your account.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Note: You'll need to log in after confirming your email if you clicked the link in a different browser or device.
             </p>
           </div>
 
@@ -226,6 +276,32 @@ export default function ConfirmEmailPage() {
               ) : (
                 "I've Confirmed My Email"
               )}
+            </Button>
+            
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or
+                </span>
+              </div>
+            </div>
+            
+            <Button
+              onClick={() => {
+                clientLogger.info("User going to login after email confirmation", {
+                  category: LogCategory.AUTH,
+                  action: 'confirm_email_go_to_login',
+                  email
+                });
+                router.push("/login");
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              Log In Now
             </Button>
           </div>
 

@@ -116,6 +116,33 @@ export default function UpgradePage() {
       
       // Clear any previous error
       setPromoError(null);
+      
+      // Auto-redirect to checkout for non-premium_free codes
+      const isPremiumFree = data.promoCode?.code_type === "premium_free" || data.promoCode?.code_type === "free_forever";
+      if (!isPremiumFree && data.promoCode) {
+        // Determine which plan to apply the promo to
+        // If promo has specific applicable plans, use the first one; otherwise default to Pro
+        let targetPlanId = proPlan?.id;
+        if (data.promoCode.applicable_plans && data.promoCode.applicable_plans.length > 0) {
+          const applicablePlan = plans.find(p => data.promoCode.applicable_plans.includes(p.name));
+          if (applicablePlan) {
+            targetPlanId = applicablePlan.id;
+          }
+        }
+        
+        if (targetPlanId) {
+          // Build checkout URL with promo code
+          let checkoutUrl = `/dashboard/upgrade/checkout?planId=${targetPlanId}&billingCycle=${selectedBilling}`;
+          if (data.promoCode.stripe_promo_code_id || data.promoCode.stripe_promotion_code_id) {
+            checkoutUrl += `&promoCode=${data.promoCode.stripe_promo_code_id || data.promoCode.stripe_promotion_code_id}`;
+          } else if (data.promoCode.stripe_coupon_id) {
+            checkoutUrl += `&couponId=${data.promoCode.stripe_coupon_id}`;
+          }
+          
+          // Redirect to checkout
+          router.push(checkoutUrl);
+        }
+      }
     } catch (error) {
       setPromoError("Failed to apply promo code");
       setPromoSuccess(false);

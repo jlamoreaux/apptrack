@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUpWithPassword } from "@/lib/actions";
 import { signUpSchema, passwordRequirements } from "@/lib/actions/schemas";
+import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
+import { getStoredTrafficSource } from "@/lib/utils/traffic-source";
+import { toast } from "@/hooks/use-toast";
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
@@ -82,6 +85,9 @@ export function SignUpForm() {
     hasSpecialChar: false,
   });
   const [showPasswordCriteria, setShowPasswordCriteria] = useState(false);
+  const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(null);
+  const [trafficSourceTrial, setTrafficSourceTrial] = useState<TrafficSourceTrial | null>(null);
+  const [hasTrialIntent, setHasTrialIntent] = useState(false);
   const router = useRouter();
 
   const {
@@ -104,6 +110,24 @@ export function SignUpForm() {
       setShowPasswordCriteria(false);
     }
   }, [watchedPassword]);
+  
+  // Check for traffic source on mount
+  useEffect(() => {
+    const { source, trial } = getStoredTrafficSource();
+    
+    if (source) {
+      setTrafficSource(source);
+      if (trial) {
+        setTrafficSourceTrial(trial);
+      }
+    }
+    
+    // Check if user came with trial intent
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("intent") === "ai-coach-trial") {
+      setHasTrialIntent(true);
+    }
+  }, []);
 
   const onSubmit = async (data: SignUpFormData) => {
     setLoading(true);
@@ -113,7 +137,9 @@ export function SignUpForm() {
       const result = await signUpWithPassword(
         data.email,
         data.password,
-        data.name
+        data.name,
+        trafficSource || undefined,
+        trafficSourceTrial || undefined
       );
 
       if (result.error) {
@@ -126,13 +152,53 @@ export function SignUpForm() {
           console.warn("Could not save to localStorage:", e);
         }
         
+        // Create Stripe customer if email is already verified
+        if (!result.requiresEmailConfirmation) {
+          try {
+            // Wait for customer creation to complete before proceeding
+            const customerResponse = await fetch("/api/stripe/create-customer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            });
+            
+            if (!customerResponse.ok) {
+              // Log error details but don't block user flow
+              const errorData = await customerResponse.json().catch(() => ({}));
+              console.error("Stripe customer creation failed:", {
+                status: customerResponse.status,
+                error: errorData.error || "Unknown error"
+              });
+              
+              // Show warning toast but allow user to continue
+              toast({
+                title: "Payment setup incomplete",
+                description: "You can complete payment setup later from your account settings.",
+                variant: "default", // Use default, not destructive, since it's not blocking
+              });
+            }
+          } catch (err) {
+            // Network error - log but don't block user flow
+            console.error("Failed to create Stripe customer:", err);
+            toast({
+              title: "Connection issue",
+              description: "Payment setup will be completed when you first upgrade.",
+              variant: "default",
+            });
+          }
+        }
+        
         // Check if email confirmation is required
         if (result.requiresEmailConfirmation) {
           // Redirect to email confirmation page
           router.push("/auth/confirm-email");
         } else {
           // If already confirmed (e.g., in dev mode), go to onboarding
-          router.push("/onboarding/welcome");
+          // If user has trial intent, add parameter to auto-select AI Coach
+          if (hasTrialIntent && trafficSourceTrial) {
+            router.push("/onboarding/welcome?auto_select=ai_coach");
+          } else {
+            router.push("/onboarding/welcome");
+          }
           router.refresh();
         }
       }

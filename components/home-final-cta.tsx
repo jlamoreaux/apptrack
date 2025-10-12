@@ -1,5 +1,4 @@
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { ButtonLink } from "@/components/ui/button-link"
 import { COPY } from "@/lib/content/copy"
 
 export function HomeFinalCta() {
@@ -13,11 +12,13 @@ export function HomeFinalCta() {
           {COPY.finalCta.subtitle}
         </p>
         
-        <Link href={COPY.finalCta.cta.href}>
-          <Button size="lg" className="bg-secondary hover:bg-secondary/90 text-white mb-4">
-            {COPY.finalCta.cta.text}
-          </Button>
-        </Link>
+        <ButtonLink 
+          href={COPY.finalCta.cta.href} 
+          size="lg" 
+          className="bg-secondary hover:bg-secondary/90 text-white mb-4"
+        >
+          {COPY.finalCta.cta.text}
+        </ButtonLink>
         
         <p className="text-sm text-muted-foreground">
           {COPY.finalCta.supportingText}
