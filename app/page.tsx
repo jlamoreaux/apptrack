@@ -3,6 +3,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
+import { Sparkles, CheckCircle } from "lucide-react"
 import { NavigationStatic } from "@/components/navigation-static"
 import { HomePricingSection } from "@/components/home-pricing-section"
 import { HomeProblemSolution } from "@/components/home-problem-solution"
@@ -10,6 +11,8 @@ import { HomeSocialProof } from "@/components/home-social-proof"
 import { HomeFaq } from "@/components/home-faq"
 import { HomeFinalCta } from "@/components/home-final-cta"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
+import { HomeAICoachSection } from "@/components/home-ai-coach-section"
+import { HomeAIExamples } from "@/components/home-ai-examples"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -49,24 +52,35 @@ export default async function HomePage() {
               {/* Left side - Text content */}
               <div className="text-center lg:text-left space-y-8 max-w-xl mx-auto lg:mx-0">
                 <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 bg-secondary/10 text-secondary px-4 py-2 rounded-full text-sm font-medium mb-4">
+                    <Sparkles className="h-4 w-4" />
+                    AI-Powered Job Search Assistant
+                  </div>
                   <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
                     {COPY.hero.title}
                   </h1>
                   <p className="text-base sm:text-lg lg:text-xl text-foreground">
                     {COPY.hero.subtitle}
                   </p>
-                  <p className="text-sm font-medium text-primary">
-                    {COPY.hero.stats}
-                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 items-center justify-center lg:justify-start text-sm">
+                    <p className="font-medium text-primary">
+                      {COPY.hero.stats}
+                    </p>
+                    <span className="hidden sm:block text-muted-foreground">•</span>
+                    <p className="text-muted-foreground">
+                      AI Coach analyzes 50+ data points per application
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                   <ButtonLink 
                     href="/signup" 
                     size="lg" 
-                    className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white"
+                    className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white gap-2"
                   >
-                    {COPY.hero.cta.primary}
+                    Start with AI Coach Free
+                    <Sparkles className="h-4 w-4" />
                   </ButtonLink>
                   <ButtonLink
                     href="/login"
@@ -81,10 +95,35 @@ export default async function HomePage() {
                 <p className="text-sm text-muted-foreground">
                   {COPY.hero.supportingText}
                 </p>
+                
+                {/* AI Feature Pills */}
+                <div className="flex flex-wrap gap-2 justify-center lg:justify-start">
+                  <div className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-xs">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <span>Resume Analysis</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-xs">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <span>Cover Letter AI</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-xs">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <span>Interview Prep</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1 bg-muted px-3 py-1 rounded-full text-xs">
+                    <CheckCircle className="h-3 w-3 text-green-600" />
+                    <span>Job Fit Analysis</span>
+                  </div>
+                </div>
               </div>
 
               {/* Right side - Screenshot with MacBook frame */}
               <div className="relative">
+                {/* AI Badge overlay */}
+                <div className="absolute top-4 right-4 z-10 bg-secondary text-white px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce">
+                  <Sparkles className="h-4 w-4" />
+                  <span className="text-sm font-medium">AI-Powered</span>
+                </div>
                 <Image
                   src="/screenshots/hero/dashboard-desktop.png"
                   alt="AppTrack Dashboard on MacBook"
@@ -185,6 +224,12 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
+
+        {/* AI Coach Feature Showcase */}
+        <HomeAICoachSection />
+
+        {/* AI Examples */}
+        <HomeAIExamples />
 
         {/* Mobile Responsive Section */}
         <section className="py-16 px-4 bg-muted/30">
