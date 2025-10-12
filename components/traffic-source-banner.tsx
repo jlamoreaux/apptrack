@@ -7,9 +7,11 @@ import { ButtonLink } from "@/components/ui/button-link";
 import Link from "next/link";
 import { clientLogger } from "@/lib/utils/client-logger";
 import { LogCategory } from "@/lib/services/logger.types";
+import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
+import { storeTrafficSource } from "@/lib/utils/traffic-source";
 
 interface TrafficSourceBannerProps {
-  source: "reddit" | "linkedin" | null;
+  source: TrafficSource | null;
 }
 
 const SOURCE_CONFIG = {
@@ -87,11 +89,12 @@ export function TrafficSourceBanner({ source }: TrafficSourceBannerProps) {
       });
       
       // Store the traffic source and trial info in session storage for signup flow
-      sessionStorage.setItem("traffic_source", source);
-      sessionStorage.setItem("traffic_source_trial", JSON.stringify({
+      const trial: TrafficSourceTrial = {
         days: SOURCE_CONFIG[source].trialDays,
-        type: SOURCE_CONFIG[source].trialType
-      }));
+        type: SOURCE_CONFIG[source].trialType,
+        source
+      };
+      storeTrafficSource(source, trial);
     }
   };
 

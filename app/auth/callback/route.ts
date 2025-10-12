@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         // Create Stripe customer if not exists (for users confirming email)
         if (!profile?.stripe_customer_id) {
           try {
-            await fetch(new URL("/api/stripe/create-customer", requestUrl.origin).toString(), {
+            const customerResponse = await fetch(new URL("/api/stripe/create-customer", requestUrl.origin).toString(), {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
@@ -35,8 +35,13 @@ export async function GET(request: NextRequest) {
                 "Cookie": request.headers.get("cookie") || ""
               },
             });
+            
+            if (!customerResponse.ok) {
+              console.error("Stripe customer creation returned non-OK status:", customerResponse.status);
+            }
           } catch (err) {
             console.error("Failed to create Stripe customer during email confirmation:", err);
+            // Don't block the user flow, continue with redirect
           }
         }
         

@@ -11,6 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signUpWithPassword } from "@/lib/actions";
 import { signUpSchema, passwordRequirements } from "@/lib/actions/schemas";
+import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
+import { getStoredTrafficSource } from "@/lib/utils/traffic-source";
+import { toast } from "@/hooks/use-toast";
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
@@ -82,8 +85,8 @@ export function SignUpForm() {
     hasSpecialChar: false,
   });
   const [showPasswordCriteria, setShowPasswordCriteria] = useState(false);
-  const [trafficSource, setTrafficSource] = useState<string | null>(null);
-  const [trafficSourceTrial, setTrafficSourceTrial] = useState<{ days: number; type: string } | null>(null);
+  const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(null);
+  const [trafficSourceTrial, setTrafficSourceTrial] = useState<TrafficSourceTrial | null>(null);
   const [hasTrialIntent, setHasTrialIntent] = useState(false);
   const router = useRouter();
 
@@ -110,17 +113,12 @@ export function SignUpForm() {
   
   // Check for traffic source on mount
   useEffect(() => {
-    const source = sessionStorage.getItem("traffic_source");
-    const trialData = sessionStorage.getItem("traffic_source_trial");
+    const { source, trial } = getStoredTrafficSource();
     
     if (source) {
       setTrafficSource(source);
-      if (trialData) {
-        try {
-          setTrafficSourceTrial(JSON.parse(trialData));
-        } catch (e) {
-          console.error("Failed to parse trial data:", e);
-        }
+      if (trial) {
+        setTrafficSourceTrial(trial);
       }
     }
     
@@ -154,15 +152,39 @@ export function SignUpForm() {
           console.warn("Could not save to localStorage:", e);
         }
         
-        // Create Stripe customer in the background (don't wait for it)
+        // Create Stripe customer if email is already verified
         if (!result.requiresEmailConfirmation) {
-          // Only create customer if email is already verified
-          fetch("/api/stripe/create-customer", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          }).catch(err => {
+          try {
+            // Wait for customer creation to complete before proceeding
+            const customerResponse = await fetch("/api/stripe/create-customer", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            });
+            
+            if (!customerResponse.ok) {
+              // Log error details but don't block user flow
+              const errorData = await customerResponse.json().catch(() => ({}));
+              console.error("Stripe customer creation failed:", {
+                status: customerResponse.status,
+                error: errorData.error || "Unknown error"
+              });
+              
+              // Show warning toast but allow user to continue
+              toast({
+                title: "Payment setup incomplete",
+                description: "You can complete payment setup later from your account settings.",
+                variant: "default", // Use default, not destructive, since it's not blocking
+              });
+            }
+          } catch (err) {
+            // Network error - log but don't block user flow
             console.error("Failed to create Stripe customer:", err);
-          });
+            toast({
+              title: "Connection issue",
+              description: "Payment setup will be completed when you first upgrade.",
+              variant: "default",
+            });
+          }
         }
         
         // Check if email confirmation is required

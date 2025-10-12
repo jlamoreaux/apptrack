@@ -4,6 +4,7 @@ import { createClient } from "../supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { signUpSchema, signInSchema, profileUpdateSchema } from "./schemas";
+import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 
 // Form-based auth actions
 export async function signUpAction(formData: FormData) {
@@ -118,8 +119,8 @@ export async function signUpWithPassword(
   email: string,
   password: string,
   fullName: string,
-  trafficSource?: string,
-  trafficSourceTrial?: { days: number; type: string }
+  trafficSource?: TrafficSource,
+  trafficSourceTrial?: TrafficSourceTrial
 ) {
   try {
     const supabase = await createClient();
