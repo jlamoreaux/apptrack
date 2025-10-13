@@ -17,6 +17,7 @@ export function HomepageClientWrapper({ children }: { children: React.ReactNode 
     const utm_source = searchParams.get("utm_source");
     const ref = searchParams.get("ref");
     const source = searchParams.get("source");
+    const li_fat_id = searchParams.get("li_fat_id");
     
     // Try to detect source from various parameters
     let sourceToValidate: string | null = null;
@@ -25,6 +26,9 @@ export function HomepageClientWrapper({ children }: { children: React.ReactNode 
       sourceToValidate = source;
     } else if (ref) {
       sourceToValidate = ref;
+    } else if (li_fat_id) {
+      // LinkedIn Ads specific parameter
+      sourceToValidate = "linkedin";
     } else if (utm_source) {
       // Extract source from utm_source (e.g., "reddit_ads" -> "reddit")
       sourceToValidate = utm_source.toLowerCase().split('_')[0];
@@ -49,6 +53,7 @@ export function HomepageClientWrapper({ children }: { children: React.ReactNode 
           utm_source,
           ref,
           source_param: source,
+          li_fat_id,
           original_value: sourceToValidate,
           url: window.location.href
         }

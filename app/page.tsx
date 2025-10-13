@@ -1,15 +1,13 @@
-import Link from "next/link"
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
 import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
 import { NavigationStatic } from "@/components/navigation-static"
 import { HomePricingSection } from "@/components/home-pricing-section"
 import { HomeProblemSolution } from "@/components/home-problem-solution"
-import { HomeSocialProof } from "@/components/home-social-proof"
 import { HomeFaq } from "@/components/home-faq"
 import { HomeFinalCta } from "@/components/home-final-cta"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
+import { HomeAICoachSection } from "@/components/home-ai-coach-section"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -24,11 +22,13 @@ async function getPlans() {
       .order("price_monthly", { ascending: true })
 
     if (error) {
+      console.error("Failed to fetch subscription plans:", error)
       return []
     }
 
     return plans || []
   } catch (error) {
+    console.error("Failed to fetch subscription plans:", error)
     return []
   }
 }
@@ -87,7 +87,7 @@ export default async function HomePage() {
               <div className="relative">
                 <Image
                   src="/screenshots/hero/dashboard-desktop.png"
-                  alt="AppTrack Dashboard on MacBook"
+                  alt="AppTrack Dashboard showing job applications organized in columns with status tracking"
                   width={1200}
                   height={750}
                   className="w-full h-auto"
@@ -122,10 +122,6 @@ export default async function HomePage() {
                     width={800}
                     height={500}
                     className="w-full h-auto"
-                    style={{ 
-                      background: 'transparent',
-                      isolation: 'isolate'
-                    }}
                   />
                 </div>
                 <div className="space-y-4 order-1 lg:order-2">
@@ -186,6 +182,9 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* AI Coach Feature Showcase */}
+        <HomeAICoachSection />
+
         {/* Mobile Responsive Section */}
         <section className="py-16 px-4 bg-muted/30">
           <div className="container mx-auto max-w-6xl">
@@ -198,10 +197,6 @@ export default async function HomePage() {
                     width={400}
                     height={800}
                     className="w-full h-auto"
-                    style={{ 
-                      background: 'transparent',
-                      isolation: 'isolate'
-                    }}
                   />
                 </div>
               </div>
@@ -222,9 +217,7 @@ export default async function HomePage() {
         {/* <HomeSocialProof /> */}
 
         {/* Pricing Section */}
-        <div className="py-16 px-4">
-          <HomePricingSection plans={plans} />
-        </div>
+        <HomePricingSection plans={plans} />
 
         {/* FAQ Section */}
         <HomeFaq />

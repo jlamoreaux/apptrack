@@ -2,7 +2,7 @@
   "hero": {
     "title": "Never lose track of your dream job again",
     "subtitle": "The smart job application tracker with AI-powered career coaching. Organize applications, visualize your pipeline, and get expert help with resumes, cover letters, and interview prep.",
-    "stats": "Start organizing your job search today",
+    "stats": "Track every application • Perfect your resume & cover letters • Land more interviews",
     "supportingText": "No credit card required • Start free today",
     "cta": {
       "primary": "Start Tracking Free",
@@ -57,7 +57,7 @@
         ],
         "cta": {
           "text": "Upgrade to Pro",
-          "href": "/dashboard/upgrade"
+          "href": "/signup"
         }
       },
       "ai_coach": {
@@ -74,7 +74,7 @@
         ],
         "cta": {
           "text": "Get AI Coaching",
-          "href": "/dashboard/upgrade"
+          "href": "/signup"
         }
       }
     },
