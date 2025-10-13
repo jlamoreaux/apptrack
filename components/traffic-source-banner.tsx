@@ -113,13 +113,15 @@ export function TrafficSourceBanner({ source }: TrafficSourceBannerProps) {
         <div className="container mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
-              <Gift className="h-5 w-5 text-secondary-foreground flex-shrink-0" />
+              <Gift className="h-5 w-5 text-secondary-foreground flex-shrink-0 hidden sm:block" />
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-secondary-foreground">
+                <p className="text-sm font-semibold text-secondary-foreground sm:block hidden">
                   {config.title}
                 </p>
-                <p className="text-xs text-secondary-foreground/90">
-                  {config.subtitle} • {config.description}
+                <p className="text-xs sm:text-xs text-secondary-foreground/90">
+                  <span className="sm:hidden font-semibold">{config.title}! </span>
+                  <span className="inline-block">{config.subtitle}</span>
+                  <span className="hidden sm:inline"> • {config.description}</span>
                 </p>
               </div>
             </div>
@@ -128,10 +130,10 @@ export function TrafficSourceBanner({ source }: TrafficSourceBannerProps) {
               <ButtonLink 
                 href="/signup?intent=ai-coach-trial" 
                 size="sm" 
-                className="whitespace-nowrap"
+                className="whitespace-nowrap text-xs sm:text-sm px-3 sm:px-4 py-1.5 sm:py-2"
                 onClick={handleCTAClick}
               >
-                <Timer className="h-4 w-4 mr-2" />
+                <Timer className="h-3 w-3 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
                 Claim Your Trial
               </ButtonLink>
               
