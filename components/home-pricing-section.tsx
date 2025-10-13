@@ -43,7 +43,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   }, [plans])
 
   return (
-    <section className="mt-16" aria-labelledby="pricing-heading">
+    <section id="pricing" className="py-16 px-4" aria-labelledby="pricing-heading">
       <div className="text-center mb-8">
         <h2 id="pricing-heading" className="text-2xl font-bold mb-2 text-foreground">
           {COPY.pricing.title}
@@ -82,7 +82,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       <div className="text-center mt-4">
         <p className="text-sm text-muted-foreground">
           {COPY.pricing.footer}{" "}
-          <Link href="/dashboard/upgrade" className="text-blue-600 hover:text-blue-700 underline font-medium">
+          <Link href="/signup" className="text-blue-600 hover:text-blue-700 underline font-medium">
             Compare all features
           </Link>{" "}
           to find the perfect fit.
