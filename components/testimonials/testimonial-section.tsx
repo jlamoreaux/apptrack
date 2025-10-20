@@ -10,6 +10,7 @@ export function TestimonialSection() {
   const showTestimonials = useFeatureFlag(FEATURE_FLAGS.SHOW_TESTIMONIALS);
   
   // Don't render if feature flag is off
+  // Enable in PostHog when real testimonials are available
   if (!showTestimonials) {
     return null;
   }
