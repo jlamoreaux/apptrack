@@ -118,7 +118,7 @@ export function HomeAICoachSection() {
               Ready to accelerate your job search?
             </h3>
             <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-              Join thousands of job seekers who are landing interviews faster with AI-powered assistance.
+              Land interviews faster with AI-powered assistance.
               Upgrade to AI Coach for advanced career coaching features.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

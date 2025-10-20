@@ -49,3 +49,6 @@ node_modules/
 # tasks.json
 # tasks/ job-fit-analysis-*.pdf
 .env*.local
+
+# Working documentation
+.working_docs/
