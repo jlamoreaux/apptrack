@@ -141,7 +141,7 @@ export function MobileNavigation({
                 )}
                 {!hasAccess && <Lock className="h-3 w-3" />}
                 {item.highlight && hasAccess && (
-                  <Sparkles className="h-3 w-3 text-purple-600" />
+                  <Sparkles className="h-3 w-3 text-amber-600" />
                 )}
               </Link>
             );
@@ -157,22 +157,6 @@ export function MobileNavigation({
           >
             <Settings className="h-4 w-4" />
             <span>Settings</span>
-          </Link>
-
-          <Link
-            href="/roast-my-resume"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors"
-          >
-            <Flame className="h-4 w-4" />
-            <span className="flex items-center gap-1">
-              Resume Roast
-              <NavItemTag 
-                label="new" 
-                variant="new" 
-                expiresAt={resumeRoastNewTagExpiry}
-              />
-            </span>
           </Link>
 
           {isOnFreePlan && (

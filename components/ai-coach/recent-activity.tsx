@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Clock, Brain, MessageSquare, FileText, Target, BarChart3 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 
 interface ActivityItem {
   id: string;
@@ -36,11 +37,11 @@ const featureNames: Record<string, string> = {
 };
 
 const featureColors: Record<string, string> = {
-  resume_analysis: "bg-purple-100 text-purple-700",
-  interview_prep: "bg-blue-100 text-blue-700",
-  cover_letter: "bg-green-100 text-green-700",
-  career_advice: "bg-orange-100 text-orange-700",
-  job_fit_analysis: "bg-indigo-100 text-indigo-700",
+  resume_analysis: `${AI_THEME.classes.badge.subtle}`,
+  interview_prep: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  cover_letter: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+  career_advice: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  job_fit_analysis: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
 };
 
 export function RecentActivity({ userId }: RecentActivityProps) {

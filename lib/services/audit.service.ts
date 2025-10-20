@@ -14,6 +14,9 @@ export enum AuditAction {
   PROMO_CODE_DELETED = "promo.code.deleted",
   PROMO_CODE_TOGGLED = "promo.code.toggled",
   
+  // Pricing plan management
+  PRICING_PLAN_UPDATED = "pricing.plan.updated",
+  
   // Future actions can be added here
   USER_UPDATED = "user.updated",
   USER_DELETED = "user.deleted",
@@ -26,6 +29,7 @@ export enum AuditAction {
 export enum EntityType {
   ADMIN_USER = "admin_user",
   PROMO_CODE = "promo_code",
+  PRICING_PLAN = "pricing_plan",
   USER = "user",
   SETTINGS = "settings",
 }
@@ -294,6 +298,27 @@ export class AuditService {
       oldValues: { active: wasActive },
       newValues: { active: isNowActive },
       metadata: { code },
+    }, request);
+  }
+  
+  /**
+   * Helper to log pricing plan update
+   */
+  static async logPricingPlanUpdated(
+    performedBy: string,
+    planId: string,
+    planName: string,
+    oldValues: any,
+    newValues: any,
+    request?: Request
+  ): Promise<boolean> {
+    return this.log(performedBy, {
+      action: AuditAction.PRICING_PLAN_UPDATED,
+      entityType: EntityType.PRICING_PLAN,
+      entityId: planId,
+      oldValues,
+      newValues,
+      metadata: { plan_name: planName },
     }, request);
   }
 }

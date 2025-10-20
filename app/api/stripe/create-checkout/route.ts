@@ -70,6 +70,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
+    // Prevent new Pro subscriptions (only grandfathered users can keep Pro)
+    if (plan.name === "Pro") {
+      loggerService.warn('Attempted to create new Pro subscription', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'checkout_pro_plan_blocked',
+        metadata: {
+          planId,
+          planName: plan.name
+        }
+      });
+      
+      return NextResponse.json(
+        { 
+          error: "The Pro plan is no longer available for new subscriptions. Please choose the AI Coach plan instead.",
+          suggestedPlan: "AI Coach"
+        },
+        { status: 400 }
+      );
+    }
+
     // Determine the price ID based on billing cycle
     const priceId =
       billingCycle === BILLING_CYCLES.YEARLY

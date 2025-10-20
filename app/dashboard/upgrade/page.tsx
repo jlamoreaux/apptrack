@@ -121,8 +121,8 @@ export default function UpgradePage() {
       const isPremiumFree = data.promoCode?.code_type === "premium_free" || data.promoCode?.code_type === "free_forever";
       if (!isPremiumFree && data.promoCode) {
         // Determine which plan to apply the promo to
-        // If promo has specific applicable plans, use the first one; otherwise default to Pro
-        let targetPlanId = proPlan?.id;
+        // If promo has specific applicable plans, use the first one; otherwise default to AI Coach
+        let targetPlanId = aiCoachPlan?.id;
         if (data.promoCode.applicable_plans && data.promoCode.applicable_plans.length > 0) {
           const applicablePlan = plans.find(p => data.promoCode.applicable_plans.includes(p.name));
           if (applicablePlan) {
@@ -284,7 +284,7 @@ export default function UpgradePage() {
               {" out of "}
               <span className="font-semibold">
                 {currentPlanName === PLAN_NAMES.PRO ? "Unlimited" : 
-                 currentPlanName === PLAN_NAMES.AI_COACH ? "Unlimited" : "5"}
+                 currentPlanName === PLAN_NAMES.AI_COACH ? "Unlimited" : "100"}
               </span>
               {" applications on the "}
               <span className="font-semibold">
@@ -296,11 +296,13 @@ export default function UpgradePage() {
 
           {/* Show promo banner after title if user is on free tier */}
           {(!currentPlanName || currentPlanName === PLAN_NAMES.FREE) && (
-            <PromoTrialBanner onActivate={() => window.location.reload()} />
+            <div className="max-w-4xl mx-auto">
+              <PromoTrialBanner onActivate={() => window.location.reload()} />
+            </div>
           )}
 
           {/* Billing Toggle and Promo Code */}
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-4 max-w-4xl mx-auto">
             <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
               <div className="bg-muted p-1 rounded-lg flex items-center">
                 <Button
@@ -409,14 +411,13 @@ export default function UpgradePage() {
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
-              💰 Save with yearly billing: Pro saves $8/year, AI Coach saves
-              $28/year
+              💰 Save with yearly billing: AI Coach saves $18/year (2 months free)
             </p>
           </div>
 
-          {/* Pricing Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {[freePlan, proPlan, aiCoachPlan].map((plan) => {
+          {/* Pricing Cards - 2-tier structure */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {[freePlan, aiCoachPlan].filter(plan => plan && plan.name !== PLAN_NAMES.PRO).map((plan) => {
               if (!plan) return null;
 
               const originalPrice = getPlanPrice(plan, selectedBilling);
@@ -471,8 +472,6 @@ export default function UpgradePage() {
                     subtitle={
                       plan.name === PLAN_NAMES.FREE
                         ? "Perfect for getting started"
-                        : plan.name === PLAN_NAMES.PRO
-                        ? "For serious job seekers"
                         : "AI-powered career coaching"
                     }
                     price={
@@ -529,7 +528,7 @@ export default function UpgradePage() {
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Your data is always yours. Even if you downgrade to the free
-                    plan, {"you'll"} keep access to your first 5 applications
+                    plan, {"you'll"} keep access to your first 100 applications
                     and all your notes.
                   </p>
                 </CardContent>

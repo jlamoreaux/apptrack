@@ -92,10 +92,7 @@ function NavItemComponent({
     <>
       <div className="flex items-center gap-2">
         <Icon
-          className={cn(
-            UI_CONSTANTS.SIZES.ICON.SM,
-            item.highlight && AI_COACH_COLORS.primary
-          )}
+          className={UI_CONSTANTS.SIZES.ICON.SM}
         />
         <span className={cn(item.highlight && "font-semibold")}>
           {item.label}
@@ -105,7 +102,7 @@ function NavItemComponent({
             variant={hasAccess ? "default" : "secondary"}
             className={cn(
               "h-5 text-xs",
-              item.highlight && "bg-purple-600 text-white",
+              item.highlight && "bg-amber-600 text-white",
               item.badge === "NEW" && "bg-green-500 text-white hover:bg-green-600",
               !hasAccess && "opacity-60"
             )}
@@ -122,7 +119,7 @@ function NavItemComponent({
           <Sparkles
             className={cn(
               UI_CONSTANTS.SIZES.ICON.XS,
-              "text-purple-600 animate-pulse"
+              "text-amber-600 animate-pulse"
             )}
           />
         )}
@@ -133,48 +130,7 @@ function NavItemComponent({
     </>
   );
 
-  if (!hasAccess) {
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            className={cn(
-              "h-auto justify-start",
-              item.highlight && AI_COACH_COLORS.lightHover,
-              isMobile && "w-full flex-col items-start p-4"
-            )}
-          >
-            {content}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-80">
-          <div className="p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Icon
-                className={cn(
-                  UI_CONSTANTS.SIZES.ICON.MD,
-                  AI_COACH_COLORS.primary
-                )}
-              />
-              <h3 className="font-semibold">{item.label}</h3>
-              <Badge className="bg-purple-600 text-white">PRO</Badge>
-            </div>
-            <p
-              className={`${UI_CONSTANTS.SIZES.TEXT.SM} text-muted-foreground`}
-            >
-              {item.description}
-            </p>
-            <div className="flex gap-2">
-              <Button size="sm" className="flex-1" asChild>
-                <Link href={NAVIGATION_URLS.UPGRADE}>Upgrade to Access</Link>
-              </Button>
-            </div>
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
+  const linkHref = hasAccess ? item.href : NAVIGATION_URLS.UPGRADE;
 
   return (
     <Button
@@ -182,15 +138,14 @@ function NavItemComponent({
       className={cn(
         "h-auto justify-start",
         UI_CONSTANTS.TRANSITIONS.DEFAULT,
-        isActive && "bg-accent text-accent-foreground",
-        item.highlight && !isActive && AI_COACH_COLORS.lightHover,
-        item.highlight && isActive && "bg-purple-100 text-purple-900",
+        isActive && "bg-primary/20 text-primary font-medium",
+        "hover:bg-primary/10 hover:text-primary",
         isMobile && "w-full flex-col items-start p-4"
       )}
       asChild
       onClick={onItemClick}
     >
-      <Link href={item.href}>{content}</Link>
+      <Link href={linkHref}>{content}</Link>
     </Button>
   );
 }

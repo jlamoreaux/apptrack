@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Brain, FileText } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useToast } from "@/hooks/use-toast";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
@@ -142,7 +143,7 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
     <AIToolLayout
       title={copy.title}
       description={copy.description}
-      icon={<Brain className="h-5 w-5 text-purple-600" />}
+      icon={<Brain className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />}
       onSubmit={handleAnalyze}
       submitLabel={copy.analyzeButton}
       isLoading={loading}
@@ -151,7 +152,7 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         analysis ? (
           <MarkdownOutputCard
             title={copy.analysisTitle}
-            icon={<FileText className="h-5 w-5 text-purple-600" />}
+            icon={<FileText className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />}
             content={analysis}
           />
         ) : null

@@ -10,6 +10,7 @@ import {
   MessageSquare,
   ArrowRight 
 } from "lucide-react";
+import { AI_THEME, AI_FEATURE_COLORS } from "@/lib/constants/ai-theme";
 
 const AI_FEATURES = [
   {
@@ -22,7 +23,7 @@ const AI_FEATURES = [
       "Format recommendations",
       "Achievement quantification"
     ],
-    color: "purple" as const
+    color: "amber" as const
   },
   {
     icon: Target,
@@ -81,7 +82,7 @@ export function HomeAICoachSection() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-24">
           {AI_FEATURES.map((feature) => {
             const colorClasses = {
-              purple: "text-purple-600 bg-purple-50 border-purple-200",
+              amber: `${AI_THEME.classes.iconContainer.default} ${AI_THEME.classes.iconContainer.bordered}`,
               blue: "text-blue-600 bg-blue-50 border-blue-200",
               green: "text-green-600 bg-green-50 border-green-200",
               orange: "text-orange-600 bg-orange-50 border-orange-200"

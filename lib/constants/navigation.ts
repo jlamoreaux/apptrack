@@ -11,6 +11,7 @@ import { PLAN_NAMES } from "./plans";
 import { PLAN_THEMES } from "./plan-themes";
 import { APP_ROUTES } from "./routes";
 import { UI_CONSTANTS } from "./ui";
+import { AI_THEME } from "./ai-theme";
 import type { PermissionLevel } from "@/types";
 
 // Navigation items configuration
@@ -56,17 +57,17 @@ export const NAV_ITEMS = [
   },
 ] as const;
 
-// AI Coach color scheme using existing plan themes
+// AI Coach color scheme (legacy export for backward compatibility)
 export const AI_COACH_COLORS = {
-  primary: PLAN_THEMES[PLAN_NAMES.AI_COACH].colors.icon,
-  primaryBg: "bg-purple-600", // Extracted from theme
-  primaryHover: "hover:bg-purple-700",
-  light: "bg-purple-50",
-  lightHover: "hover:bg-purple-50",
-  border: PLAN_THEMES[PLAN_NAMES.AI_COACH].colors.border,
-  ring: "ring-purple-200",
-  gradient: PLAN_THEMES[PLAN_NAMES.AI_COACH].colors.accent,
-  gradientLight: PLAN_THEMES[PLAN_NAMES.AI_COACH].colors.background,
+  primary: AI_THEME.classes.text.primary,
+  primaryBg: AI_THEME.classes.background.solid,
+  primaryHover: AI_THEME.classes.hover.background,
+  light: AI_THEME.classes.background.light,
+  lightHover: AI_THEME.classes.hover.subtle,
+  border: AI_THEME.classes.border.default,
+  ring: AI_THEME.classes.focus.ring,
+  gradient: AI_THEME.classes.background.gradient,
+  gradientLight: AI_THEME.classes.background.gradientLight,
 } as const;
 
 // Action colors for different AI Coach features

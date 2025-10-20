@@ -94,6 +94,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 });
     }
 
+    // Prevent new Pro subscriptions (only grandfathered users can keep Pro)
+    if (plan.name === "Pro") {
+      loggerService.warn('Attempted to create new Pro subscription via onboarding', {
+        category: LogCategory.PAYMENT,
+        userId: user.id,
+        action: 'stripe_onboarding_pro_blocked',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId,
+          planName: plan.name
+        }
+      });
+      
+      return NextResponse.json(
+        { 
+          error: "The Pro plan is no longer available. Please choose the AI Coach plan for unlimited applications and AI features.",
+          suggestedPlan: "AI Coach"
+        },
+        { status: 400 }
+      );
+    }
+
     // Get the onboarding discount code from database
     const { data: promoCode } = await supabase
       .from("promo_codes")

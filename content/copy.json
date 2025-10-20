@@ -1,7 +1,7 @@
 {
   "hero": {
-    "title": "Never lose track of your dream job again",
-    "subtitle": "The smart job application tracker with AI-powered career coaching. Organize applications, visualize your pipeline, and get expert help with resumes, cover letters, and interview prep.",
+    "title": "Land interviews faster with AI-powered career coaching",
+    "subtitle": "Get expert resume feedback, custom cover letters, and interview prep for $9/month - 99% less than hiring a real career coach.",
     "stats": "Track every application • Perfect your resume & cover letters • Land more interviews",
     "supportingText": "No credit card required • Start free today",
     "cta": {
@@ -30,51 +30,52 @@
     "ethicalPromise": "We'll remind you to cancel when you get hired. We don't want you paying for something you no longer need.",
     "plans": {
       "free": {
-        "title": "Free Plan",
-        "subtitle": "Perfect to Start",
+        "title": "Free Forever",
+        "subtitle": "Everything you need to track your job search",
         "price": "$0/month",
         "features": [
-          "Track your job applications",
-          "Status tracking & updates",
-          "Save LinkedIn profile URLs",
-          "Basic pipeline visualization"
+          "Track up to 100 applications",
+          "All tracking features",
+          "Sankey charts & analytics",
+          "Interview notes & contacts",
+          "Export capabilities"
         ],
         "cta": {
           "text": "Start Free - No Credit Card",
           "href": "/signup"
         }
       },
-      "pro": {
-        "title": "Pro Plan",
-        "subtitle": "For Serious Job Seekers",
+      "ai_coach": {
+        "title": "AI Career Coach",
+        "subtitle": "Land interviews faster with AI assistance",
         "price": "$9/month",
         "features": [
+          "Everything in Free",
           "Unlimited applications",
-          "Advanced Sankey charts",
-          "Application archiving",
-          "Application history tracking",
-          "Priority support"
-        ],
-        "cta": {
-          "text": "Upgrade to Pro",
-          "href": "/signup"
-        }
-      },
-      "ai_coach": {
-        "title": "AI Coach",
-        "subtitle": "Your personal career assistant",
-        "price": "$29/month",
-        "features": [
-          "Everything in Pro",
           "AI resume analysis & feedback",
-          "AI cover letter generation",
           "AI interview preparation",
-          "Job fit analysis",
-          "Personalized career advice chat"
+          "AI job fit analysis",
+          "Custom cover letter generation",
+          "Cancel reminder when hired"
         ],
         "cta": {
           "text": "Get AI Coaching",
           "href": "/signup"
+        }
+      },
+      "pro": {
+        "title": "Pro (Grandfathered)",
+        "subtitle": "Legacy plan for existing users",
+        "price": "$2/month",
+        "features": [
+          "Everything in Free",
+          "Unlimited applications",
+          "Cancel reminder when hired",
+          "Priority support"
+        ],
+        "cta": {
+          "text": "Not Available",
+          "href": "#"
         }
       }
     },
@@ -115,7 +116,7 @@
       },
       {
         "value": "Unlimited",
-        "label": "applications tracked (Pro)"
+        "label": "applications tracked (AI Coach)"
       },
       {
         "value": "24/7",
@@ -128,7 +129,7 @@
     "items": [
       {
         "question": "Do I need a credit card to start?",
-        "answer": "No! Start tracking your applications immediately, no credit card required. Upgrade to Pro when you need unlimited tracking."
+        "answer": "No! Start tracking your applications immediately, no credit card required. Upgrade to AI Coach when you need unlimited tracking and AI assistance."
       },
       {
         "question": "What AI features are included?",

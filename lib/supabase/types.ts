@@ -49,11 +49,15 @@ export interface LinkedinProfile {
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  description?: string | null;
   price_monthly: number;
   price_yearly: number;
   max_applications: number;
   features: string[];
   created_at: string;
+  stripe_monthly_price_id?: string | null;
+  stripe_yearly_price_id?: string | null;
+  is_active?: boolean;
 }
 
 export interface UserSubscription {

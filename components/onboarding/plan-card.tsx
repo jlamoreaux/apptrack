@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Check, Crown, Brain, Star, ArrowRight } from "lucide-react";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 import type { PromoCode, WelcomeOffer } from "@/types/promo-codes";
 
 interface PlanCardProps {
@@ -51,7 +52,7 @@ export function PlanCard({
     >
       {plan.popular && (
         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-          <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white px-3 py-1">
+          <Badge className={`${AI_THEME.getBadgeClasses()} px-3 py-1`}>
             <Star className="h-3 w-3 mr-1" />
             MOST POPULAR
           </Badge>
@@ -67,7 +68,7 @@ export function PlanCard({
             <Crown className="h-5 w-5 text-yellow-500" />
           )}
           {plan.name === PLAN_NAMES.AI_COACH && (
-            <Brain className="h-5 w-5 text-purple-500" />
+            <Brain className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />
           )}
         </div>
         <p className="text-sm text-muted-foreground">
@@ -117,7 +118,7 @@ export function PlanCard({
           variant={plan.buttonVariant}
           className={`w-full font-semibold ${
             plan.gradient
-              ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white"
+              ? AI_THEME.getButtonClasses("primary")
               : ""
           }`}
           size="lg"

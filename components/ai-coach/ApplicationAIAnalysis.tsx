@@ -4,6 +4,7 @@ import { useMemo, useCallback, useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 import {
   Brain,
   Target,
@@ -323,13 +324,13 @@ export function ApplicationAIAnalysis({
   if (!hasAICoachAccess) {
     return (
       <Card
-        className={`border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-indigo-50 ${
+        className={`${AI_THEME.getCardClasses(true)} ${
           className || ""
         }`}
       >
         <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2 text-purple-900">
-            <Crown className="h-6 w-6 text-purple-600" />
+          <CardTitle className="flex items-center justify-center gap-2 text-amber-900 dark:text-amber-100">
+            <Crown className={`h-6 w-6 ${AI_THEME.classes.text.primary}`} />
             {UPGRADE_PROMPT_CONFIG.title}
           </CardTitle>
         </CardHeader>
@@ -356,8 +357,8 @@ export function ApplicationAIAnalysis({
               ))}
             </div>
 
-            <div className="bg-white rounded-lg p-4 border border-purple-200">
-              <h4 className="font-semibold text-purple-900 mb-2">
+            <div className={`bg-white dark:bg-gray-800 rounded-lg p-4 ${AI_THEME.classes.border.default}`}>
+              <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
                 What's Included:
               </h4>
               <ul className="text-sm text-gray-700 space-y-1">
@@ -368,7 +369,7 @@ export function ApplicationAIAnalysis({
             </div>
 
             <Button
-              className="bg-purple-600 hover:bg-purple-700 text-white"
+              className={AI_THEME.getButtonClasses("primary")}
               onClick={handleUpgradeClick}
               aria-label={`${UPGRADE_PROMPT_CONFIG.buttonText} - opens upgrade page`}
             >
@@ -638,7 +639,8 @@ export function ApplicationAIAnalysis({
                     }}
                     onDownload={() => {
                       // TODO: Implement PDF download functionality
-                      announceSuccess("Download feature coming soon");
+                      // Download feature not yet implemented
+                      announceError("PDF download not available");
                     }}
                   />
                 )}
@@ -661,11 +663,13 @@ export function ApplicationAIAnalysis({
                     }}
                     onDownload={() => {
                       // TODO: Implement PDF download functionality
-                      announceSuccess("Download feature coming soon");
+                      // Download feature not yet implemented
+                      announceError("PDF download not available");
                     }}
                     onEmail={() => {
                       // TODO: Implement email functionality
-                      announceSuccess("Email feature coming soon");
+                      // Email feature not yet implemented
+                      announceError("Email feature not available");
                     }}
                   />
                 )}

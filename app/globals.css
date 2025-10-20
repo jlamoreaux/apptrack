@@ -22,6 +22,9 @@
     --accent: 0 0% 26%; /* #424242 - WCAG AA compliant gray */
     --accent-foreground: 0 0% 100%;
 
+    --tertiary: 35 91% 42%; /* #D97706 - WCAG AA compliant amber/orange */
+    --tertiary-foreground: 0 0% 100%;
+
     --muted: 210 20% 92%;
     --muted-foreground: 210 25% 35%; /* Darker for better contrast */
 
@@ -53,6 +56,9 @@
 
     --accent: 0 0% 70%; /* Lighter gray for dark mode */
     --accent-foreground: 0 0% 100%;
+
+    --tertiary: 35 91% 55%; /* Lighter amber for dark mode */
+    --tertiary-foreground: 0 0% 100%;
 
     --muted: 210 50% 20%;
     --muted-foreground: 210 20% 70%;

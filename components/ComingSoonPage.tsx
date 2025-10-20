@@ -142,19 +142,7 @@ export function ComingSoonPage({
   );
 }
 
-/**
- * Pre-configured coming soon component for Applications page
- */
-export function ApplicationsComingSoon() {
-  return (
-    <ComingSoonPage
-      title="Applications Management"
-      description="A dedicated space to manage all your job applications with advanced filtering and bulk operations"
-      expectedDate={COMING_SOON_FEATURES.APPLICATIONS.EXPECTED_DATE}
-      features={COMING_SOON_FEATURES.APPLICATIONS.FEATURES}
-    />
-  );
-}
+// Applications page is now implemented - this component is no longer needed
 
 /**
  * Pre-configured coming soon component for Analytics page  

@@ -59,7 +59,12 @@ export default function AddApplicationPage() {
     if (result.success) {
       router.push("/dashboard");
     } else {
-      setError(result.error || "Failed to add application");
+      // Check if it's a limit error
+      if (result.error?.toLowerCase().includes("application limit reached")) {
+        setError("You've reached the free plan limit of 100 applications. Please upgrade to AI Coach for unlimited tracking.");
+      } else {
+        setError(result.error || "Failed to add application");
+      }
     }
 
     setLoading(false);
@@ -104,8 +109,17 @@ export default function AddApplicationPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {error}
+                  <div className="space-y-3">
+                    <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                      {error}
+                    </div>
+                    {error.includes("100 applications") && (
+                      <Link href="/dashboard/upgrade" className="block">
+                        <Button variant="default" className="w-full">
+                          Upgrade to AI Coach for Unlimited Applications
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 )}
 

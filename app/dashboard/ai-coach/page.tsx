@@ -28,7 +28,7 @@ export default async function AICoachPage() {
           {/* Header */}
           <div className="space-y-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2 sm:gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-lg sm:text-xl">🤖</span>
               </div>
               AI Career Coach
