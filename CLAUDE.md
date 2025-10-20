@@ -626,29 +626,6 @@ This script:
 - Provides clear success/failure feedback
 - Works with all schema files in the `/schemas` directory
 
-### Stripe Configuration for 2-Tier Pricing
-
-**To configure Stripe products for the 2-tier pricing structure:**
-
-1. Create products in Stripe Dashboard:
-   - AI Coach: $9/month or $90/year
-   - Note the price IDs (e.g., `price_1ABC...`)
-
-2. Update the database with Stripe price IDs:
-   ```bash
-   # Edit the SQL file to replace placeholder IDs with actual Stripe price IDs
-   vi schemas/configure-stripe-2tier.sql
-   
-   # Run the configuration
-   ./scripts/run-schema.sh schemas/configure-stripe-2tier.sql
-   ```
-
-3. The system automatically:
-   - Blocks new Pro subscriptions (returns error suggesting AI Coach)
-   - Handles plan detection via Stripe price ID lookup
-   - Enforces 100 application limit for free users
-   - Allows unlimited applications for AI Coach subscribers
-
 ### Analytics Setup
 
 **The project uses PostHog as the primary analytics platform and Vercel Analytics as secondary.**
