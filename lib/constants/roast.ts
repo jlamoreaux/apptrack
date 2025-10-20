@@ -9,9 +9,10 @@ export const ROAST_CONSTANTS = {
   SUPPORTED_EXTENSIONS: ["pdf", "doc", "docx"],
   EXPIRY_DAYS: 30,
   RATE_LIMIT: {
-    FREE_USERS: 1,
-    AUTHENTICATED_PER_DAY: 10,
-    AUTHENTICATED_PER_HOUR: 3
+    GUEST_PER_DAY: 3,         // Per version (so 6 total if using both v1 and v2)
+    FREE_USER_PER_DAY: 10,    // Per version
+    PRO_USER_PER_DAY: 100,    // Per version
+    PER_HOUR: 10              // Hourly limit for all users
   }
 } as const;
 
@@ -19,6 +20,6 @@ export const ROAST_ERRORS = {
   FILE_TOO_LARGE: "File size must be less than 5MB",
   INVALID_FILE_TYPE: "Please upload a PDF, DOC, or DOCX file",
   ALREADY_USED: "You've already used your free roast! Sign up for unlimited roasts.",
-  RATE_LIMITED: "You've reached your roast limit. Please try again later.",
+  RATE_LIMITED: "Whoa there, roast enthusiast! Sign up for a free account to keep roasting.",
   GENERIC: "Something went wrong. Please try again."
 } as const;

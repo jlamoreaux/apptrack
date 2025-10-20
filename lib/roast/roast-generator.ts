@@ -1,40 +1,9 @@
-import OpenAI from "openai";
-import { Models } from "@/lib/openai/models";
-
-// Reuse singleton pattern from lib/openai/client.ts
-let openaiClient: OpenAI | null = null;
-
-function getOpenAIClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set");
-  }
-
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  }
-
-  return openaiClient;
-}
-
-export interface RoastCategories {
-  buzzwordBingo: boolean;
-  lengthCrimes: boolean;
-  formattingDisasters: boolean;
-  skillsInflation: boolean;
-  genericDisease: boolean;
-  industryMisalignment: boolean;
-}
-
-export interface RoastResult {
-  content: string;
-  emojiScore: string;
-  scoreLabel: string;
-  tagline: string;
-  categories: RoastCategories;
-  firstName: string | null;
-}
+import { 
+  RoastResult, 
+  RoastConfig, 
+  generateRoastBase,
+  generateShareablePreview 
+} from "./roast-generator-base";
 
 const ROAST_PROMPT = `You are the Gordon Ramsay of resume reviews. Be SAVAGE, BRUTAL, and HILARIOUS. 
 NO helpful advice. NO constructive feedback. Just pure roasting.
@@ -72,97 +41,31 @@ Format your response as JSON:
 Resume to roast:
 `;
 
+const roastConfig: RoastConfig = {
+  prompt: ROAST_PROMPT,
+  systemMessage: "You are a savage resume roaster. Be BRUTAL and FUNNY. No helpful advice, just pure comedy roasting. Keep it brief.",
+  signOffs: [
+    "\n\nScore: ${response.emojiScore}. I need a drink after reading this.",
+    "\n\n${response.emojiScore} - And I'm being generous.",
+    "\n\nVerdict: ${response.emojiScore}. My eyes may never recover.",
+    "\n\n${response.emojiScore} - I've seen kindergarten finger paintings with more structure.",
+    "\n\nFinal score: ${response.emojiScore}. The recruiters send their regards... from the trash folder.",
+  ],
+  fallbackContent: (firstName: string | null) => firstName 
+    ? `${firstName}, even our AI couldn't handle how bad this is. It crashed. That's your score - you broke the roaster. 💀`
+    : "You actually broke our roast generator. That's impressive... impressively bad. 💀",
+  fallbackScore: "💀/10",
+  fallbackLabel: "System Crasher",
+  fallbackTagline: "This resume was so bad it crashed our AI.",
+};
+
 export async function generateRoast(
   resumeText: string,
   firstName: string | null
 ): Promise<RoastResult> {
-  try {
-    const client = getOpenAIClient();
-    const completion = await client.chat.completions.create({
-      model: Models.default, // Using the default model from shared config
-      messages: [
-        {
-          role: "system",
-          content: "You are a savage resume roaster. Be BRUTAL and FUNNY. No helpful advice, just pure comedy roasting. Keep it brief.",
-        },
-        {
-          role: "user",
-          content: ROAST_PROMPT + resumeText,
-        },
-      ],
-      temperature: 0.9,
-      max_tokens: 500,
-      response_format: { type: "json_object" },
-    });
-
-    const response = JSON.parse(completion.choices[0].message.content || "{}");
-    
-    // Personalize with first name if available
-    let roastContent = response.roast;
-    if (firstName) {
-      roastContent = `${firstName}, oh ${firstName}... what have you done?\n\n${roastContent}`;
-    } else {
-      roastContent = `Oh no... oh no no no...\n\n${roastContent}`;
-    }
-    
-    // Add savage sign-offs (no advice!)
-    const signOffs = [
-      "\n\nScore: ${response.emojiScore}. I need a drink after reading this.",
-      "\n\n${response.emojiScore} - And I'm being generous.",
-      "\n\nVerdict: ${response.emojiScore}. My eyes may never recover.",
-      "\n\n${response.emojiScore} - I've seen kindergarten finger paintings with more structure.",
-      "\n\nFinal score: ${response.emojiScore}. The recruiters send their regards... from the trash folder.",
-    ];
-    
-    roastContent += signOffs[Math.floor(Math.random() * signOffs.length)].replace('${response.emojiScore}', response.emojiScore);
-
-    return {
-      content: roastContent,
-      emojiScore: response.emojiScore || "💀/10",
-      scoreLabel: response.scoreLabel || "Resume Crime Scene",
-      tagline: response.tagline || "This resume is a masterclass in what not to do.",
-      categories: response.categories || {
-        buzzwordBingo: false,
-        lengthCrimes: false,
-        formattingDisasters: false,
-        skillsInflation: false,
-        genericDisease: false,
-        industryMisalignment: false,
-      },
-      firstName,
-    };
-  } catch (error) {
-    console.error("Error generating roast:", error);
-    
-    // Fallback roast if API fails
-    return {
-      content: firstName 
-        ? `${firstName}, even our AI couldn't handle how bad this is. It crashed. That's your score - you broke the roaster. 💀`
-        : "You actually broke our roast generator. That's impressive... impressively bad. 💀",
-      emojiScore: "💀/10",
-      scoreLabel: "System Crasher",
-      tagline: "This resume was so bad it crashed our AI.",
-      categories: {
-        buzzwordBingo: true,
-        lengthCrimes: false,
-        formattingDisasters: false,
-        skillsInflation: false,
-        genericDisease: true,
-        industryMisalignment: false,
-      },
-      firstName,
-    };
-  }
+  return generateRoastBase(resumeText, firstName, roastConfig);
 }
 
-// Generate shareable preview text (no PII)
-export function generateShareablePreview(roast: RoastResult): string {
-  const previews = [
-    `This resume scored ${roast.emojiScore} - "${roast.scoreLabel}"`,
-    `Just got absolutely destroyed. Score: ${roast.emojiScore}`,
-    `Resume verdict: ${roast.emojiScore} - "${roast.scoreLabel}"`,
-    `AI rated this resume: ${roast.emojiScore}. It was brutal.`,
-  ];
-  
-  return previews[Math.floor(Math.random() * previews.length)];
-}
+// Re-export for compatibility
+export { generateShareablePreview };
+export type { RoastResult, RoastCategories } from "./roast-generator-base";
