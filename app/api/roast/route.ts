@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractTextFromResume, filterPII } from "@/lib/roast/resume-parser";
 import { generateRoast } from "@/lib/roast/roast-generator";
+import { generateRoast as generateRoastV2 } from "@/lib/roast/roast-generator-v2";
 import { cookies, headers } from "next/headers";
 import * as crypto from "crypto";
-import { checkRoastRateLimit } from "@/lib/roast/rate-limiter";
+import { checkRoastRateLimit, checkGuestRoastRateLimit } from "@/lib/roast/rate-limiter";
 import { 
   RoastError, 
   RateLimitError, 
@@ -40,6 +41,9 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
   try {
+    // Check for version parameter
+    const url = new URL(req.url);
+    const version = url.searchParams.get("version");
     // Check if maintenance mode or feature flag
     if (process.env.ROAST_DISABLED === "true") {
       loggerService.warn('Roast service disabled', {
@@ -58,34 +62,14 @@ export async function POST(req: NextRequest) {
     const ipHash = hashIP(ip);
     const browserFingerprint = await generateBrowserFingerprint(req);
     
-    // Check for existing roast from this browser/IP in last 30 days (usage limiting)
-    const { data: existingRoast } = await supabase
-      .from("roasts")
-      .select("id")
-      .or(`ip_hash.eq.${ipHash},browser_fingerprint.eq.${browserFingerprint}`)
-      .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
-      .limit(1);
-    
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
+    const currentVersion = version || "v1";
     
-    // If not authenticated and already used free roast, return error
-    if (!user && existingRoast && existingRoast.length > 0) {
-      loggerService.warn('Unauthenticated user already used free roast', {
-        category: LogCategory.SECURITY,
-        action: 'roast_free_limit_exceeded',
-        duration: Date.now() - startTime,
-        metadata: {
-          ipHash,
-          browserFingerprint
-        }
-      });
-      throw new AuthorizationError(ROAST_ERRORS.ALREADY_USED, true);
-    }
-    
-    // Check rate limiting for authenticated users
+    // Check rate limiting
     if (user) {
-      const rateLimit = await checkRoastRateLimit(user.id);
+      // Authenticated user rate limiting
+      const rateLimit = await checkRoastRateLimit(user.id, currentVersion);
       if (!rateLimit.allowed) {
         loggerService.warn('Roast rate limit exceeded', {
           category: LogCategory.SECURITY,
@@ -98,11 +82,26 @@ export async function POST(req: NextRequest) {
             resetAt: rateLimit.resetAt
           }
         });
-        throw new RateLimitError(
-          `Rate limit exceeded. You can roast ${rateLimit.limit} resumes per ${rateLimit.limit === 3 ? "hour" : "day"}. Try again later.`,
-          rateLimit.resetAt,
-          rateLimit.remaining
-        );
+        throw new AuthorizationError(ROAST_ERRORS.RATE_LIMITED, true);
+      }
+    } else {
+      // Guest user rate limiting
+      const guestRateLimit = await checkGuestRoastRateLimit(ipHash, browserFingerprint, currentVersion);
+      if (!guestRateLimit.allowed) {
+        loggerService.warn('Guest roast rate limit exceeded', {
+          category: LogCategory.SECURITY,
+          action: 'guest_roast_rate_limit_exceeded',
+          duration: Date.now() - startTime,
+          metadata: {
+            ipHash,
+            browserFingerprint,
+            version: currentVersion,
+            userTier: user?.id ? 'authenticated' : 'guest',
+            limit: guestRateLimit.limit,
+            resetAt: guestRateLimit.resetAt
+          }
+        });
+        throw new AuthorizationError(ROAST_ERRORS.RATE_LIMITED, true);
       }
     }
     
@@ -121,10 +120,10 @@ export async function POST(req: NextRequest) {
     }
     
     // Validate file type
-    if (!ROAST_CONSTANTS.SUPPORTED_FILE_TYPES.includes(file.type)) {
+    if (!ROAST_CONSTANTS.SUPPORTED_FILE_TYPES.includes(file.type as any)) {
       // Check file extension as fallback
       const extension = file.name.split('.').pop()?.toLowerCase();
-      if (!extension || !ROAST_CONSTANTS.SUPPORTED_EXTENSIONS.includes(extension)) {
+      if (!extension || !ROAST_CONSTANTS.SUPPORTED_EXTENSIONS.includes(extension as any)) {
         loggerService.warn('Roast invalid file type', {
           category: LogCategory.API,
           userId: user?.id,
@@ -211,7 +210,12 @@ export async function POST(req: NextRequest) {
     // Generate the roast with error handling
     let roast;
     try {
-      roast = await generateRoast(filteredText, firstName);
+      // Use v2 generator if version parameter is set
+      if (version === "v2") {
+        roast = await generateRoastV2(filteredText, firstName);
+      } else {
+        roast = await generateRoast(filteredText, firstName);
+      }
     } catch (error) {
       loggerService.error('Failed to generate roast', error, {
         category: LogCategory.AI_SERVICE,
@@ -245,6 +249,7 @@ export async function POST(req: NextRequest) {
           fileType: file.type,
           fileSize: file.size,
           textLength: rawText.length,
+          version: version || "v1",
         },
       })
       .select("shareable_id")
