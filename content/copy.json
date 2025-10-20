@@ -124,6 +124,58 @@
       }
     ]
   },
+  "testimonials": {
+    "badge": "Coming Soon",
+    "title": "Be Part of Our Success Stories",
+    "subtitle": "We're collecting testimonials from our early users. Your success story could be featured here!",
+    "placeholders": [
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "company": "Company Name",
+        "content": "Share how AppTrack helped you in your job search journey. Did the AI features save you time? Help you land more interviews? We'd love to hear your story!",
+        "highlight": "Your success metric here",
+        "rating": 5
+      },
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "content": "Tell us about your experience with AI-powered features. How did the resume analysis, cover letter generation, or interview prep help you?",
+        "highlight": "Your key achievement",
+        "rating": 5
+      },
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "company": "Company Name",
+        "content": "What specific feature made the biggest difference in your job search? Share your results and help others succeed too!",
+        "highlight": "Your breakthrough moment",
+        "rating": 5
+      },
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "content": "How did tracking your applications with AppTrack change your job search? What insights did you gain from the analytics?",
+        "highlight": "Your improvement metric",
+        "rating": 5
+      },
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "company": "Company Name",
+        "content": "Would you recommend AppTrack to other job seekers? What would you tell them about your experience?",
+        "highlight": "Your recommendation",
+        "rating": 5
+      },
+      {
+        "name": "User Name",
+        "role": "Job Title",
+        "content": "Share your before and after story. How was your job search different after using AppTrack's AI Career Coach?",
+        "highlight": "Your transformation",
+        "rating": 5
+      }
+    ]
+  },
   "faq": {
     "title": "Frequently Asked Questions",
     "items": [

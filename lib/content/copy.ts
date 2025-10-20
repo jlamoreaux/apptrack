@@ -5,6 +5,7 @@ import { Brain, FileText, MessageSquare, Target, BarChart3 } from "lucide-react"
 // Type-safe access to copy with validation
 export const COPY = {
   ...copyData,
+  testimonials: copyData.testimonials,
   // Dynamic content that uses constants
   pricing: {
     ...copyData.pricing,

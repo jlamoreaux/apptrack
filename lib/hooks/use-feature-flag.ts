@@ -17,6 +17,7 @@ export const FEATURE_FLAGS = {
   EXIT_INTENT_POPUP: "exit-intent-popup",
   ONBOARDING_V2: "onboarding-v2",
   ENHANCED_ANALYTICS: "enhanced-analytics",
+  SHOW_TESTIMONIALS: "show-testimonials",
 } as const;
 
 export type FeatureFlag = typeof FEATURE_FLAGS[keyof typeof FEATURE_FLAGS];
