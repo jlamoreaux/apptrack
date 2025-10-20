@@ -7,12 +7,23 @@ import { parseTrafficSource, getTrafficSourceTrial, storeTrafficSource } from "@
 import type { TrafficSource } from "@/types/promo-codes";
 import { clientLogger } from "@/lib/utils/client-logger";
 import { LogCategory } from "@/lib/services/logger.types";
+import { trackConversionEvent, CONVERSION_EVENTS } from "@/lib/analytics/conversion-events";
 
 export function HomepageClientWrapper({ children }: { children: React.ReactNode }) {
   const searchParams = useSearchParams();
   const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(null);
 
   useEffect(() => {
+    // Track landing page view
+    trackConversionEvent(CONVERSION_EVENTS.LANDING_PAGE_VIEW, {
+      page_name: "homepage",
+      page_url: window.location.href,
+      referrer: document.referrer,
+      utm_source: searchParams.get("utm_source") || undefined,
+      utm_medium: searchParams.get("utm_medium") || undefined,
+      utm_campaign: searchParams.get("utm_campaign") || undefined,
+    });
+
     // Check URL parameters for traffic source
     const utm_source = searchParams.get("utm_source");
     const ref = searchParams.get("ref");

@@ -8,6 +8,8 @@ import { HomeFaq } from "@/components/home-faq"
 import { HomeFinalCta } from "@/components/home-final-cta"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { HomeAICoachSection } from "@/components/home-ai-coach-section"
+import { TestimonialSection } from "@/components/testimonials"
+import { HeroContent } from "@/components/home-hero-variants"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -49,15 +51,7 @@ export default async function HomePage() {
               {/* Left side - Text content */}
               <div className="text-center lg:text-left space-y-8 max-w-xl mx-auto lg:mx-0">
                 <div className="space-y-4">
-                  <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
-                    {COPY.hero.title}
-                  </h1>
-                  <p className="text-base sm:text-lg lg:text-xl text-foreground">
-                    {COPY.hero.subtitle}
-                  </p>
-                  <p className="text-sm font-medium text-primary">
-                    {COPY.hero.stats}
-                  </p>
+                  <HeroContent />
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -213,8 +207,8 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Social Proof Section - Hidden for now */}
-        {/* <HomeSocialProof /> */}
+        {/* Testimonials Section */}
+        <TestimonialSection />
 
         {/* Pricing Section */}
         <HomePricingSection plans={plans} />
