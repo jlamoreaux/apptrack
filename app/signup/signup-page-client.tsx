@@ -12,7 +12,9 @@ import { Gift, Sparkles } from "lucide-react";
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
   const intent = searchParams.get("intent");
+  const sessionId = searchParams.get("session");
   const isAICoachTrial = intent === "ai-coach-trial";
+  const hasPreviewSession = !!sessionId;
   
   useEffect(() => {
     // Check if we have traffic source trial info in session storage
@@ -30,7 +32,16 @@ export default function SignUpPageClient() {
       <NavigationStatic />
       <div className="container mx-auto px-4 flex items-center justify-center min-h-[calc(100vh-3.5rem)] py-8">
         <div className="w-full max-w-md space-y-4">
-          {isAICoachTrial && (
+          {hasPreviewSession && (
+            <Alert className="border-indigo-500 bg-indigo-50">
+              <Sparkles className="h-4 w-4 text-indigo-600" />
+              <AlertDescription className="text-sm">
+                <strong>Your analysis is ready!</strong> Sign up to unlock the full results
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isAICoachTrial && !hasPreviewSession && (
             <Alert className="border-secondary bg-secondary/10">
               <Gift className="h-4 w-4 text-secondary" />
               <AlertDescription className="text-sm">
@@ -42,19 +53,26 @@ export default function SignUpPageClient() {
           <Card>
             <CardHeader className="text-center">
               <div className="flex justify-center mb-2">
-                {isAICoachTrial && (
+                {(isAICoachTrial || hasPreviewSession) && (
                   <div className="p-2 bg-secondary/10 rounded-full">
                     <Sparkles className="h-6 w-6 text-secondary" />
                   </div>
                 )}
               </div>
               <CardTitle>
-                {isAICoachTrial ? "Start Your Free Trial" : "Join AppTrack"}
+                {hasPreviewSession
+                  ? "Unlock Your Full Analysis"
+                  : isAICoachTrial
+                    ? "Start Your Free Trial"
+                    : "Join AppTrack"
+                }
               </CardTitle>
               <CardDescription>
-                {isAICoachTrial 
-                  ? "Create your account to begin your 7-day AI Coach trial"
-                  : "Create your account to start tracking job applications"
+                {hasPreviewSession
+                  ? "Create your account to see the complete results + get 1 free try of each AI feature"
+                  : isAICoachTrial
+                    ? "Create your account to begin your 7-day AI Coach trial"
+                    : "Create your account to start tracking job applications"
                 }
               </CardDescription>
             </CardHeader>

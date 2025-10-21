@@ -88,6 +88,7 @@ export function SignUpForm() {
   const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(null);
   const [trafficSourceTrial, setTrafficSourceTrial] = useState<TrafficSourceTrial | null>(null);
   const [hasTrialIntent, setHasTrialIntent] = useState(false);
+  const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
   const router = useRouter();
 
   const {
@@ -111,21 +112,27 @@ export function SignUpForm() {
     }
   }, [watchedPassword]);
   
-  // Check for traffic source on mount
+  // Check for traffic source and session on mount
   useEffect(() => {
     const { source, trial } = getStoredTrafficSource();
-    
+
     if (source) {
       setTrafficSource(source);
       if (trial) {
         setTrafficSourceTrial(trial);
       }
     }
-    
-    // Check if user came with trial intent
+
+    // Check if user came with trial intent or preview session
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("intent") === "ai-coach-trial") {
       setHasTrialIntent(true);
+    }
+
+    // Check for preview session ID (from try-before-signup flow)
+    const sessionId = urlParams.get("session");
+    if (sessionId) {
+      setPreviewSessionId(sessionId);
     }
   }, []);
 
@@ -192,11 +199,16 @@ export function SignUpForm() {
           // Redirect to email confirmation page
           router.push("/auth/confirm-email");
         } else {
-          // If already confirmed (e.g., in dev mode), go to onboarding
+          // If user came from preview session, redirect to unlock page
+          if (previewSessionId) {
+            router.push(`/try/unlock?session=${previewSessionId}`);
+          }
           // If user has trial intent, add parameter to auto-select AI Coach
-          if (hasTrialIntent && trafficSourceTrial) {
+          else if (hasTrialIntent && trafficSourceTrial) {
             router.push("/onboarding/welcome?auto_select=ai_coach");
-          } else {
+          }
+          // Default: go to onboarding
+          else {
             router.push("/onboarding/welcome");
           }
           router.refresh();
