@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 
-export interface RateLimitStatus {
+export interface PreRegistrationRateLimitStatus {
   canUse: boolean;
   usedCount: number;
   resetAt: Date | null;
@@ -11,18 +11,21 @@ export interface RateLimitStatus {
 }
 
 /**
- * Hook to check if user can use a pre-registration AI feature
+ * Hook to check if an anonymous user can use a pre-registration AI feature
  * Checks rate limits based on browser fingerprint and IP
+ *
+ * This is separate from the authenticated user rate limiting system.
+ * Use this for /try/* pages where users aren't logged in yet.
  *
  * @param featureType - Type of AI feature (job_fit, cover_letter, etc.)
  * @param enabled - Whether to perform the check (default: true)
- * @returns Rate limit status
+ * @returns Pre-registration rate limit status
  */
-export function useRateLimit(
+export function usePreRegistrationRateLimit(
   featureType: string,
   enabled: boolean = true
-): RateLimitStatus {
-  const [status, setStatus] = useState<RateLimitStatus>({
+): PreRegistrationRateLimitStatus {
+  const [status, setStatus] = useState<PreRegistrationRateLimitStatus>({
     canUse: true,
     usedCount: 0,
     resetAt: null,
