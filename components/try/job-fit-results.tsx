@@ -2,7 +2,15 @@
 
 import { cn } from "@/lib/utils";
 import { CheckCircle2, AlertTriangle, XCircle, TrendingUp, ArrowRight } from "lucide-react";
-import { type JobFitAnalysis } from "@/lib/ai/job-fit-generator";
+
+interface JobFitAnalysis {
+  fitScore: number;
+  strengths: string[];
+  gaps: string[];
+  redFlags?: string[];
+  recommendation: string;
+  nextSteps: string[];
+}
 
 interface JobFitResultsProps {
   analysis: Partial<JobFitAnalysis>;

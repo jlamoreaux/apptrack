@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import {
-  generateJobFitAnalysis,
-  createPreviewAnalysis,
-  type JobFitInput,
-} from "@/lib/ai/job-fit-generator";
+import { generateJobFitAnalysis } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
 
@@ -77,16 +73,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate AI analysis
-    const input: JobFitInput = {
-      jobDescription,
-      userBackground,
-      targetRole: targetRole || undefined,
-    };
-
-    let fullAnalysis;
+    // Generate AI analysis using existing infrastructure
+    let analysisString: string;
     try {
-      fullAnalysis = await generateJobFitAnalysis(input);
+      analysisString = await generateJobFitAnalysis(
+        jobDescription,
+        userBackground,
+        "the company", // Company name - could be extracted from job description in future
+        targetRole || "the role" // Use provided target role or generic placeholder
+      );
     } catch (aiError) {
       console.error("AI generation error:", aiError);
       return NextResponse.json(
@@ -95,8 +90,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create preview version (partial content for anonymous users)
-    const previewContent = createPreviewAnalysis(fullAnalysis);
+    // Parse the JSON response from AI
+    let parsedAnalysis: any;
+    try {
+      parsedAnalysis = JSON.parse(analysisString);
+    } catch (parseError) {
+      console.error("Failed to parse AI response as JSON:", parseError);
+      // Fallback: treat as plain text
+      parsedAnalysis = {
+        overallScore: 0,
+        strengths: [],
+        weaknesses: [],
+        recommendations: [],
+      };
+    }
+
+    // Map to component's expected structure
+    const fullAnalysis = {
+      fitScore: parsedAnalysis.overallScore || 0,
+      strengths: parsedAnalysis.strengths || [],
+      gaps: parsedAnalysis.weaknesses || [],
+      redFlags: [], // Not in AI response, leave empty
+      recommendation: parsedAnalysis.recommendations?.join("\n\n") || "",
+      nextSteps: parsedAnalysis.recommendations || [],
+    };
+
+    // Create preview version (show only first 2 strengths)
+    const previewContent = {
+      fitScore: fullAnalysis.fitScore,
+      strengths: fullAnalysis.strengths.slice(0, 2),
+      gaps: [],
+      redFlags: [],
+      recommendation: "",
+      nextSteps: [],
+    };
 
     // Encrypt full content
     const encryptedContent = encryptContent(JSON.stringify(fullAnalysis));
@@ -107,7 +134,11 @@ export async function POST(request: NextRequest) {
       .insert({
         session_fingerprint: fingerprint,
         feature_type: "job_fit",
-        input_data: input,
+        input_data: {
+          jobDescription,
+          userBackground,
+          targetRole: targetRole || null,
+        },
         preview_content: previewContent,
         full_content_encrypted: encryptedContent,
         ip_address: ipAddress,
