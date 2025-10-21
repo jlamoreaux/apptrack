@@ -88,11 +88,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Return full content
+    // Return full content and input data
     return NextResponse.json({
       success: true,
       analysis: fullContent,
       featureType: session.feature_type,
+      inputData: session.input_data,
     });
   } catch (error) {
     console.error("Convert session error:", error);

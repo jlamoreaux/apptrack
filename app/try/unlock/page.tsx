@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobFitResults } from "@/components/try/job-fit-results";
+import { CoverLetterResults } from "@/components/try/cover-letter-results";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +23,7 @@ export default function UnlockPage() {
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<any>(null);
   const [featureType, setFeatureType] = useState<string>("");
+  const [inputData, setInputData] = useState<any>(null);
 
   useEffect(() => {
     const convertSession = async () => {
@@ -61,6 +63,7 @@ export default function UnlockPage() {
         // Set the analysis data
         setAnalysis(data.analysis);
         setFeatureType(data.featureType);
+        setInputData(data.inputData);
         setIsLoading(false);
 
         // Track in PostHog
@@ -122,17 +125,30 @@ export default function UnlockPage() {
           <CheckCircle2 className="h-8 w-8 text-green-600" />
         </div>
         <h1 className="text-4xl font-bold mb-4">
-          🎉 Full Analysis Unlocked!
+          🎉 {featureType === "cover_letter" ? "Full Cover Letter Unlocked!" : "Full Analysis Unlocked!"}
         </h1>
         <p className="text-lg text-muted-foreground">
-          Here's your complete {featureType === "job_fit" ? "job fit" : ""} analysis
+          {featureType === "job_fit" && "Here's your complete job fit analysis"}
+          {featureType === "cover_letter" && "Here's your complete professional cover letter"}
         </p>
       </div>
 
-      {/* Full Results */}
+      {/* Full Results - Job Fit */}
       {analysis && featureType === "job_fit" && (
         <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
           <JobFitResults analysis={analysis} isPreview={false} />
+        </div>
+      )}
+
+      {/* Full Results - Cover Letter */}
+      {analysis && featureType === "cover_letter" && (
+        <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
+          <CoverLetterResults
+            coverLetter={analysis}
+            isPreview={false}
+            companyName={inputData?.companyName}
+            roleName={inputData?.roleName}
+          />
         </div>
       )}
 
