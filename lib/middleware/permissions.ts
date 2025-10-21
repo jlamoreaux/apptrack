@@ -14,12 +14,16 @@ import {
 import { getSubscription } from "@/lib/supabase/queries";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { AIFeatureUsageService, type AIFeatureType } from "@/lib/services/ai-feature-usage.service";
 
 export interface PermissionCheckResult {
   allowed: boolean;
   userPlan: string;
   requiredPlan?: string;
   message?: string;
+  reason?: string;
+  usedFreeTier?: boolean;
+  remainingFreeTries?: number;
 }
 
 export class PermissionMiddleware {
@@ -295,6 +299,111 @@ export class PermissionMiddleware {
     if (!result.isActive) {
       throw new PermissionServiceError(
         "This feature requires an active subscription"
+      );
+    }
+  }
+
+  /**
+   * Check API permission with free tier support
+   * Allows free users to use AI features if they have free tries remaining
+   *
+   * @param userId - User ID
+   * @param endpoint - API endpoint to check
+   * @param featureType - AI feature type for usage tracking
+   * @returns Permission check result with free tier info
+   */
+  static async checkApiPermissionWithFreeTier(
+    userId: string,
+    endpoint: keyof typeof import("@/lib/constants/permissions").API_PERMISSIONS.AI_COACH,
+    featureType: AIFeatureType
+  ): Promise<PermissionCheckResult> {
+    const startTime = Date.now();
+
+    try {
+      // First check subscription-based permission
+      const subscription = await getSubscription(userId);
+      const userPlan = subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
+      const hasSubscription = hasApiPermission(userPlan, endpoint);
+
+      // If user has subscription, allow immediately
+      if (hasSubscription) {
+        loggerService.debug(`API permission granted via subscription: ${endpoint}`, {
+          category: LogCategory.AUTH,
+          userId,
+          action: 'api_permission_subscription',
+          duration: Date.now() - startTime,
+          metadata: { endpoint, userPlan, featureType }
+        });
+
+        return {
+          allowed: true,
+          userPlan,
+          reason: 'subscription',
+        };
+      }
+
+      // Check free tier allowance for free users
+      const allowance = await AIFeatureUsageService.checkAllowance(userId, featureType);
+
+      if (allowance.canUse) {
+        loggerService.debug(`API permission granted via free tier: ${endpoint}`, {
+          category: LogCategory.AUTH,
+          userId,
+          action: 'api_permission_free_tier',
+          duration: Date.now() - startTime,
+          metadata: {
+            endpoint,
+            userPlan,
+            featureType,
+            usedCount: allowance.usedCount,
+            allowedCount: allowance.allowedCount
+          }
+        });
+
+        return {
+          allowed: true,
+          userPlan,
+          reason: 'free_tier',
+          usedFreeTier: true,
+          remainingFreeTries: allowance.allowedCount - allowance.usedCount,
+        };
+      }
+
+      // User has no subscription and no free tries
+      loggerService.warn(`API permission denied: ${endpoint}`, {
+        category: LogCategory.SECURITY,
+        userId,
+        action: 'permission_denied',
+        metadata: {
+          endpoint,
+          userPlan,
+          featureType,
+          reason: 'no_subscription_and_no_free_tries',
+          usedCount: allowance.usedCount,
+          allowedCount: allowance.allowedCount
+        }
+      });
+
+      return {
+        allowed: false,
+        userPlan,
+        requiredPlan: PLAN_NAMES.AI_COACH,
+        reason: 'free_tier_exhausted',
+        message: `You've used your free try of this feature. Upgrade to AI Coach for unlimited access.`,
+        usedFreeTier: false,
+        remainingFreeTries: 0,
+      };
+
+    } catch (error) {
+      loggerService.error('Permission check with free tier failed', error, {
+        category: LogCategory.AUTH,
+        userId,
+        action: 'permission_check_error',
+        metadata: { endpoint, featureType }
+      });
+
+      throw new PermissionServiceError(
+        `Permission check failed: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
