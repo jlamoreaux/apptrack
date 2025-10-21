@@ -16,10 +16,9 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   const [planData, setPlanData] = useState<any[]>([])
 
   useEffect(() => {
-    // Get plan configuration from centralized copy
+    // Get plan configuration from centralized copy - only show 2-tier pricing
     const planConfigs = [
       { name: PLAN_NAMES.FREE, ...getPlanCopy(PLAN_NAMES.FREE) },
-      { name: PLAN_NAMES.PRO, ...getPlanCopy(PLAN_NAMES.PRO) },
       { name: PLAN_NAMES.AI_COACH, ...getPlanCopy(PLAN_NAMES.AI_COACH) },
     ].filter(Boolean)
 
@@ -52,8 +51,8 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6">
-        {/* Simplified responsive grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 auto-rows-fr">
+        {/* Simplified responsive grid - 2 plans */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 auto-rows-fr max-w-4xl mx-auto">
           {planData.map((plan) => (
             <div key={plan.name} className="flex w-full">
               <PlanCard

@@ -245,7 +245,8 @@ export function AnalysisContent({
                     .catch(() => announceError("Failed to copy questions"));
                 }}
                 onDownload={() => {
-                  announceSuccess("Download feature coming soon");
+                  // Download feature not yet implemented
+                  announceError("PDF download not available");
                 }}
               />
             )}
@@ -267,10 +268,12 @@ export function AnalysisContent({
                     );
                 }}
                 onDownload={() => {
-                  announceSuccess("Download feature coming soon");
+                  // Download feature not yet implemented
+                  announceError("PDF download not available");
                 }}
                 onEmail={() => {
-                  announceSuccess("Email feature coming soon");
+                  // Email feature not yet implemented
+                  announceError("Email feature not available");
                 }}
               />
             )}

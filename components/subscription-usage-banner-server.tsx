@@ -2,11 +2,11 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { getSubscription, getUsage } from "@/lib/supabase/server";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
 
-const USAGE_WARNING_THRESHOLD = 80; // percent
+const USAGE_WARNING_THRESHOLD = 70; // Show earlier to give users time to upgrade
 
 export async function SubscriptionUsageBannerServer({
   userId,
@@ -30,7 +30,7 @@ export async function SubscriptionUsageBannerServer({
 
   // Default values if data is not available
   const maxApplications =
-    subscription?.subscription_plans?.max_applications || 5;
+    subscription?.subscription_plans?.max_applications || 100;
   const applicationsCount = usage?.applications_count || 0;
   const isProOrHigher = isOnProOrHigher(
     subscription?.subscription_plans?.name || "Free"
@@ -62,8 +62,8 @@ export async function SubscriptionUsageBannerServer({
           <div className="space-y-2 flex-1">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-destructive" />
-              <span className="font-medium text-destructive">
-                Approaching application limit
+              <span className="font-medium">
+                {applicationsCount >= maxApplications ? "You've reached your free limit" : "You're approaching your free limit"}
               </span>
               {applicationsCount >= maxApplications && (
                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-destructive/10 text-destructive">
@@ -84,7 +84,8 @@ export async function SubscriptionUsageBannerServer({
           </div>
           <Link href="/dashboard/upgrade">
             <Button className="bg-secondary hover:bg-secondary/90 whitespace-nowrap">
-              Upgrade for more
+              <Sparkles className="h-4 w-4 mr-2" />
+              Upgrade to AI Coach
             </Button>
           </Link>
         </div>

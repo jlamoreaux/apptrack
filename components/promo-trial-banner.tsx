@@ -80,12 +80,12 @@ export function PromoTrialBanner({ onActivate }: PromoTrialBannerProps) {
 
   return (
     <div className="relative px-4 sm:px-0">
-      <Card className="border-2 border-purple-500/20 dark:border-purple-400/30 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 dark:from-purple-500/5 dark:via-blue-500/5 dark:to-purple-500/5 shadow-lg">
+      <Card className="border-2 border-amber-600/20 dark:border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 dark:from-amber-500/5 dark:via-orange-500/5 dark:to-amber-500/5 shadow-lg">
         <CardContent className="p-4 relative">
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <div className="p-1.5 bg-purple-500/10 dark:bg-purple-400/10 rounded-full flex-shrink-0 mt-0.5">
-                <Sparkles className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <div className="p-1.5 bg-amber-500/10 dark:bg-amber-400/10 rounded-full flex-shrink-0 mt-0.5">
+                <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-base sm:text-lg text-foreground">
@@ -104,12 +104,12 @@ export function PromoTrialBanner({ onActivate }: PromoTrialBannerProps) {
                 onChange={(e) => setPromoCode(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleActivate()}
                 disabled={loading}
-                className="bg-background border-input focus:border-purple-500 dark:focus:border-purple-400 focus:ring-purple-500 dark:focus:ring-purple-400 flex-1"
+                className="bg-background border-input focus:border-amber-500 dark:focus:border-amber-400 focus:ring-amber-500 dark:focus:ring-amber-400 flex-1"
               />
               <Button
                 onClick={handleActivate}
                 disabled={loading || !promoCode.trim()}
-                className="bg-gradient-to-r from-purple-700 to-blue-700 hover:from-purple-800 hover:to-blue-800 dark:from-purple-600 dark:to-blue-600 dark:hover:from-purple-700 dark:hover:to-blue-700 text-white font-semibold px-4 sm:px-6 shadow-md disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                className="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 dark:from-amber-500 dark:to-orange-500 dark:hover:from-amber-600 dark:hover:to-orange-600 text-white font-semibold px-4 sm:px-6 shadow-md disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
               >
                 {loading ? (
                   <>

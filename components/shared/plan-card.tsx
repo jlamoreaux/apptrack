@@ -228,7 +228,7 @@ export function PlanCard({
           isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg" : "hover:shadow-md"
         }
         ${isPro ? "ring-blue-500" : ""}
-        ${isAI ? "ring-purple-500" : ""}
+        ${isAI ? "ring-amber-500" : ""}
         ${className}
       `}
     >

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link";
 import { Progress } from "@/components/ui/progress";
 import { CheckCircle, Circle, Sparkles, Upload, Brain, MessageSquare, FileText, Target, BarChart3, ArrowRight } from "lucide-react";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -99,7 +100,7 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       <CardHeader>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center">
+            <div className={`w-10 h-10 rounded-lg ${AI_THEME.classes.background.gradient} flex items-center justify-center`}>
               <Sparkles className="h-6 w-6 text-white" />
             </div>
             <div>

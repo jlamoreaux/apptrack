@@ -26,6 +26,7 @@ import {
 import { UI_CONSTANTS } from "@/lib/constants/ui";
 import { APP_ROUTES } from "@/lib/constants/routes";
 import { aiCoachAnalytics } from "@/lib/analytics";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 import type { Application, PermissionLevel } from "@/types";
 
 interface AICoachTeaserProps {
@@ -79,19 +80,19 @@ export function AICoachTeaser({
 
   return (
     <Card
-      className={`border-2 border-purple-500/20 dark:border-purple-400/30 bg-gradient-to-r from-purple-500/10 via-blue-500/10 to-purple-500/10 dark:from-purple-500/5 dark:via-blue-500/5 dark:to-purple-500/5 ${className}`}
+      className={`${AI_THEME.getCardClasses()} ${className}`}
       data-onboarding="ai-coach-nav"
     >
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-3 rounded-lg bg-gradient-to-br from-purple-600 to-blue-600 dark:from-purple-500 dark:to-blue-500 flex items-center justify-center">
+            <div className={`p-3 rounded-lg ${AI_THEME.classes.background.gradient} flex items-center justify-center`}>
               <Brain className="h-6 w-6 text-white" />
             </div>
             <div>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 Unlock AI Career Coach
-                <Badge className="bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-500 dark:to-purple-600 text-white border-0">
+                <Badge className={`${AI_THEME.getBadgeClasses()} border-0`}>
                   PRO
                 </Badge>
               </CardTitle>
@@ -100,13 +101,13 @@ export function AICoachTeaser({
               </CardDescription>
             </div>
           </div>
-          <Sparkles className="h-8 w-8 text-purple-600 dark:text-purple-400 animate-pulse" />
+          <Sparkles className={`h-8 w-8 ${AI_THEME.classes.text.primary} animate-pulse`} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-3 p-3 bg-background/60 dark:bg-background/40 border border-border rounded-lg">
-            <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <Brain className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />
             <div>
               <p className="font-medium text-sm text-foreground">
                 Resume Analysis
@@ -146,7 +147,7 @@ export function AICoachTeaser({
 
         <div className="flex gap-3">
           <Button
-            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 dark:from-purple-500 dark:to-blue-500 dark:hover:from-purple-600 dark:hover:to-blue-600 text-white font-semibold shadow-md"
+            className={`flex-1 ${AI_THEME.getButtonClasses("primary")} font-semibold shadow-md`}
             onClick={handleUpgradeClick}
             asChild
           >

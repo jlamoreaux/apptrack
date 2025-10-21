@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Brain, Sparkles, AlertCircle, TrendingUp, TrendingDown, Target } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AI_THEME } from "@/lib/constants/ai-theme"
 
 interface JobAnalysisCardProps {
   jobUrl: string
@@ -192,14 +193,14 @@ export function JobAnalysisCard({ jobUrl, userId, companyName, roleName }: JobAn
 
             {/* Recommendations */}
             <div className="space-y-2">
-              <h4 className="font-semibold flex items-center gap-2 text-purple-700">
+              <h4 className={`font-semibold flex items-center gap-2 ${AI_THEME.classes.text.primary}`}>
                 <Sparkles className="h-4 w-4" />
                 Recommendations
               </h4>
               <div className="space-y-1">
                 {analysis.recommendations.map((recommendation, index) => (
                   <div key={index} className="flex items-start gap-2">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
+                    <div className={`w-2 h-2 ${AI_THEME.classes.background.solid} rounded-full mt-2 flex-shrink-0`} />
                     <p className="text-sm">{recommendation}</p>
                   </div>
                 ))}

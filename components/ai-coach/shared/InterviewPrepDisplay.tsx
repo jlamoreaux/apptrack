@@ -4,6 +4,7 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Clock, Target, Lightbulb, Building, User } from "lucide-react";
+import { AI_THEME } from "@/lib/constants/ai-theme";
 import type { InterviewPreparationResult, InterviewQuestion } from "@/types/ai-analysis";
 
 interface InterviewPrepDisplayProps {
@@ -86,7 +87,7 @@ const QuestionCard: React.FC<{ question: InterviewQuestion; index: number }> = (
                 <p className="text-xs text-muted-foreground mt-1">{question.starFramework.action}</p>
               </div>
               <div>
-                <strong className="text-xs text-purple-600 dark:text-purple-400">Result:</strong>
+                <strong className={`text-xs ${AI_THEME.classes.text.primary}`}>Result:</strong>
                 <p className="text-xs text-muted-foreground mt-1">{question.starFramework.result}</p>
               </div>
             </div>

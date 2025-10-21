@@ -121,7 +121,7 @@ export function SubscriptionManagement({
               </h3>
               <p className="text-sm text-muted-foreground">
                 {isOnFreePlan
-                  ? "Up to 5 applications"
+                  ? "Up to 100 applications"
                   : "Unlimited applications"}
               </p>
             </div>
@@ -164,7 +164,7 @@ export function SubscriptionManagement({
             )}
             <li className="flex items-center gap-2 text-sm">
               <div className="w-1.5 h-1.5 bg-secondary rounded-full" />
-              {isOnFreePlan ? "Up to 5 applications" : "Unlimited applications"}
+              {isOnFreePlan ? "Up to 100 applications" : "Unlimited applications"}
             </li>
           </ul>
         </CardContent>
@@ -176,7 +176,7 @@ export function SubscriptionManagement({
           <Link href="/dashboard/upgrade" className="flex-1">
             <Button className="w-full bg-secondary hover:bg-secondary/90">
               <Crown className="h-4 w-4 mr-2" />
-              Upgrade to Pro
+              Upgrade Plan
             </Button>
           </Link>
         ) : (
