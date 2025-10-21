@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { JobFitForm, type JobFitFormData } from "@/components/try/job-fit-form";
 import { JobFitResults } from "@/components/try/job-fit-results";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
@@ -9,20 +9,34 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { trackPreviewStarted, trackPreviewCompleted, trackSignupClicked, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
 
   // Check rate limit
   const { canUse, isLoading: checkingLimit, resetAt } =
     usePreRegistrationRateLimit("job_fit");
 
+  // Track page view / preview started
+  useEffect(() => {
+    if (!checkingLimit && canUse) {
+      trackPreviewStarted({
+        feature_type: "job_fit",
+        entry_point: document.referrer ? "referral" : "direct",
+      });
+    }
+  }, [checkingLimit, canUse]);
+
   const handleSubmit = async (formData: JobFitFormData) => {
     setIsLoading(true);
     setError(null);
+    const submitStartTime = Date.now();
+    setStartTime(submitStartTime);
 
     try {
       // Get browser fingerprint
@@ -43,6 +57,10 @@ export default function TryJobFitPage() {
       if (!response.ok) {
         if (response.status === 429) {
           setError(data.message || "You've already used your free analysis.");
+          trackRateLimitReached({
+            feature_type: "job_fit",
+            had_previous_session: true,
+          });
         } else {
           setError(data.error || "Failed to generate analysis. Please try again.");
         }
@@ -53,12 +71,14 @@ export default function TryJobFitPage() {
       setResults(data.preview);
       setSessionId(data.sessionId);
 
-      // Track event in PostHog
-      if (window.posthog) {
-        window.posthog.capture("try_job_fit_completed", {
-          fit_score: data.preview.fitScore,
-        });
-      }
+      // Track completion with detailed metrics
+      const generationTime = Date.now() - submitStartTime;
+      trackPreviewCompleted({
+        feature_type: "job_fit",
+        session_id: data.sessionId,
+        generation_time_ms: generationTime,
+        input_length: formData.jobDescription.length + formData.userBackground.length,
+      });
     } catch (err) {
       console.error("Error:", err);
       setError("An unexpected error occurred. Please try again.");
@@ -185,7 +205,16 @@ export default function TryJobFitPage() {
             </ul>
 
             <div className="flex flex-col gap-3 max-w-sm mx-auto">
-              <Button size="lg" className="w-full" asChild>
+              <Button
+                size="lg"
+                className="w-full"
+                asChild
+                onClick={() => trackSignupClicked({
+                  feature_type: "job_fit",
+                  session_id: sessionId || undefined,
+                  cta_location: "preview_card"
+                })}
+              >
                 <Link href={`/signup?session=${sessionId}`}>
                   Sign Up Free to Unlock
                 </Link>
