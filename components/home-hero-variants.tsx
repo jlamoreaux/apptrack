@@ -19,11 +19,6 @@ export const HERO_VARIANTS = {
     subtitle: "Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching for just $9/month.",
     stats: "Optimize every application • Stand out to recruiters • Interview with confidence",
   },
-  price_anchored: {
-    title: "Replace your $500/hour career coach with AI for $9",
-    subtitle: "Get the same personalized resume reviews, custom cover letters, and interview prep - powered by AI, not expensive consultants.",
-    stats: "Save hundreds per month • Get instant feedback • Professional guidance 24/7",
-  },
   problem_focused: {
     title: "Stop losing dream jobs to bad resumes",
     subtitle: "Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies for just $9/month.",
