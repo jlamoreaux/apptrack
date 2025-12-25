@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
+import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
@@ -18,6 +19,9 @@ export default function TryJobFitPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
+
+  // Redirect logged-in users to dashboard
+  const isRedirecting = useAuthRedirect("job-fit");
 
   // Check rate limit
   const { canUse, isLoading: checkingLimit, resetAt } =
@@ -88,13 +92,13 @@ export default function TryJobFitPage() {
     }
   };
 
-  // Loading state while checking rate limit
-  if (checkingLimit) {
+  // Loading state while checking auth or rate limit
+  if (isRedirecting || checkingLimit) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking availability...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
