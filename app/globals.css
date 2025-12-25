@@ -19,8 +19,8 @@
     --secondary: 122 39% 33%; /* #2E7D32 - WCAG AA compliant green */
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 0 0% 26%; /* #424242 - WCAG AA compliant gray */
-    --accent-foreground: 0 0% 100%;
+    --accent: 207 90% 94%; /* #E3F2FD - Light blue for hover states */
+    --accent-foreground: 210 100% 22%; /* #0D47A1 - Dark blue text */
 
     --tertiary: 35 91% 42%; /* #D97706 - WCAG AA compliant amber/orange */
     --tertiary-foreground: 0 0% 100%;
@@ -54,8 +54,8 @@
     --secondary: 122 39% 55%; /* Lighter green for dark mode */
     --secondary-foreground: 0 0% 100%;
 
-    --accent: 0 0% 70%; /* Lighter gray for dark mode */
-    --accent-foreground: 0 0% 100%;
+    --accent: 210 70% 30%; /* Blue for hover states on dark backgrounds */
+    --accent-foreground: 210 20% 98%; /* Light text on dark accent bg */
 
     --tertiary: 35 91% 55%; /* Lighter amber for dark mode */
     --tertiary-foreground: 0 0% 100%;

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { trackSignupClicked, type PreRegFeatureType } from "@/lib/analytics/pre-registration-events";
+import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 
 interface SignupGateBenefit {
   text: string;
@@ -54,8 +55,25 @@ export function SignupGate({
         </ul>
 
         <div className="flex flex-col gap-4">
+          <GoogleSignInButton
+            context="unlock_results"
+            redirectTo={sessionId ? `/try/unlock?session=${sessionId}` : "/dashboard"}
+            size="lg"
+            className="h-12 min-h-[48px] text-base"
+          />
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-muted px-2 text-muted-foreground">or</span>
+            </div>
+          </div>
+
           <Button
             size="lg"
+            variant="secondary"
             className="w-full h-12 min-h-[48px] text-base"
             asChild
             onClick={handleSignupClick}
