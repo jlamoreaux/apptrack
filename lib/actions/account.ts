@@ -64,17 +64,9 @@ export async function deleteAccountAction(formData: FormData) {
       }
     }
 
-    // Delete the user account using admin client (requires service role key)
+    // Create audit log entry BEFORE deleting the user
+    // (FK constraint removed in migration 009 to allow logs to persist)
     const adminClient = createAdminClient();
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
-      user.id
-    );
-
-    if (deleteError) {
-      return { error: deleteError.message };
-    }
-
-    // Create audit log entry using admin client (user data is already deleted)
     await adminClient.from("audit_logs").insert({
       user_id: user.id,
       user_email: userEmail,
@@ -92,6 +84,15 @@ export async function deleteAccountAction(formData: FormData) {
         self_service: true,
       },
     });
+
+    // Delete the user account using admin client (requires service role key)
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
+      user.id
+    );
+
+    if (deleteError) {
+      return { error: deleteError.message };
+    }
 
     revalidatePath("/");
     return { success: true };
