@@ -9,7 +9,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { trackPreviewStarted, trackPreviewCompleted, trackSignupClicked, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
+import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
+import { SignupGate } from "@/components/try/signup-gate";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
@@ -173,61 +174,19 @@ export default function TryJobFitPage() {
             <JobFitResults analysis={results} isPreview={true} />
           </div>
 
-          {/* Signup Gate Placeholder */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
-            <h3 className="text-2xl font-semibold mb-4">
-              🎉 Your Analysis is Ready!
-            </h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Sign up free to unlock:
-            </p>
-            <ul className="text-left max-w-md mx-auto space-y-2 mb-8">
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Full analysis with detailed breakdown</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Specific gaps and how to address them</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Actionable next steps</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Save and track this application</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Try all AI features free once</span>
-              </li>
-            </ul>
-
-            <div className="flex flex-col gap-3 max-w-sm mx-auto">
-              <Button
-                size="lg"
-                className="w-full"
-                asChild
-                onClick={() => trackSignupClicked({
-                  feature_type: "job_fit",
-                  session_id: sessionId || undefined,
-                  cta_location: "preview_card"
-                })}
-              >
-                <Link href={`/signup?session=${sessionId}`}>
-                  Sign Up Free to Unlock
-                </Link>
-              </Button>
-
-              <p className="text-xs text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/signin" className="underline hover:text-primary">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </div>
+          {/* Signup Gate */}
+          <SignupGate
+            featureType="job_fit"
+            sessionId={sessionId}
+            title="🎉 Your Analysis is Ready!"
+            benefits={[
+              { text: "Full analysis with detailed breakdown" },
+              { text: "Specific gaps and how to address them" },
+              { text: "Actionable next steps" },
+              { text: "Save and track this application" },
+              { text: "Try all AI features free once" },
+            ]}
+          />
 
           {/* Try Another Application */}
           <div className="text-center">

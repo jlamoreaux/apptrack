@@ -1,6 +1,7 @@
 # Pre-Registration AI Features - Task Breakdown
 
 ## Overview
+
 This document provides a detailed task breakdown for implementing pre-registration AI feature access with Google SSO and free tier usage limits.
 
 **Source PRD:** `.taskmaster/docs/pre-registration-ai-features-prd.md`
@@ -17,9 +18,11 @@ This document provides a detailed task breakdown for implementing pre-registrati
 **Dependencies:** None
 
 ### Description
+
 Create the database foundation for pre-registration AI sessions, free tier usage tracking, and rate limiting. This includes three new tables and PostgreSQL functions for allowance checking and cleanup.
 
 ### Details
+
 Implement the following database components:
 
 1. **ai_preview_sessions table** - Store pre-registration AI sessions with encrypted results
@@ -34,8 +37,10 @@ Run schema file: `schemas/pre-registration-ai-features.sql`
 ### Subtasks
 
 #### 1.1 Create ai_preview_sessions table
+
 **Status:** pending
 **Details:**
+
 ```sql
 CREATE TABLE ai_preview_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -59,8 +64,10 @@ CREATE INDEX idx_ai_preview_shareable ON ai_preview_sessions(shareable_id) WHERE
 ```
 
 #### 1.2 Create ai_feature_usage table
+
 **Status:** pending
 **Details:**
+
 ```sql
 CREATE TABLE ai_feature_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -79,8 +86,10 @@ CREATE INDEX idx_ai_feature_usage_tier ON ai_feature_usage(subscription_tier, us
 ```
 
 #### 1.3 Create ai_preview_usage table (rate limiting)
+
 **Status:** pending
 **Details:**
+
 ```sql
 CREATE TABLE ai_preview_usage (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -95,8 +104,10 @@ CREATE INDEX idx_ai_preview_usage_rate_limit
 ```
 
 #### 1.4 Implement check_ai_feature_allowance function
+
 **Status:** pending
 **Details:**
+
 ```sql
 CREATE OR REPLACE FUNCTION check_ai_feature_allowance(
   p_user_id UUID,
@@ -129,8 +140,10 @@ $$ LANGUAGE plpgsql;
 ```
 
 #### 1.5 Implement cleanup functions
+
 **Status:** pending
 **Details:**
+
 ```sql
 CREATE OR REPLACE FUNCTION cleanup_old_ai_preview_sessions()
 RETURNS void AS $$
@@ -146,9 +159,11 @@ $$ LANGUAGE plpgsql;
 ```
 
 #### 1.6 Set up cron job for cleanup
+
 **Status:** pending
 **Details:**
 Configure Supabase cron extension to run cleanup daily:
+
 ```sql
 SELECT cron.schedule(
   'cleanup-ai-preview-sessions',
@@ -158,16 +173,19 @@ SELECT cron.schedule(
 ```
 
 #### 1.7 Create schema migration file
+
 **Status:** pending
 **Files:** `schemas/pre-registration-ai-features.sql`
 **Details:** Combine all SQL from subtasks 1.1-1.6 into single migration file
 
 #### 1.8 Run schema migration
+
 **Status:** pending
 **Dependencies:** 1.7
 **Details:** Execute `./scripts/run-schema.sh schemas/pre-registration-ai-features.sql`
 
 ### Test Strategy
+
 1. Verify all tables created successfully
 2. Test `check_ai_feature_allowance()` with different scenarios:
    - Free user, no usage: should return TRUE
@@ -187,26 +205,32 @@ SELECT cron.schedule(
 **Dependencies:** Task 1
 
 ### Description
+
 Implement browser fingerprinting and rate limiting for anonymous users to prevent abuse of pre-registration AI features.
 
 ### Details
+
 Use FingerprintJS Pro to track anonymous users and enforce 1 try per feature per session. Implement rate limiting checks before AI generation.
 
 ### Subtasks
 
 #### 2.1 Install FingerprintJS Pro
+
 **Status:** pending
 **Details:**
+
 ```bash
 npm install @fingerprintjs/fingerprintjs-pro
 ```
 
 #### 2.2 Create fingerprint utility
+
 **Status:** pending
 **Files:** `lib/utils/fingerprint.ts`
 **Details:**
+
 ```typescript
-import FingerprintJS from '@fingerprintjs/fingerprintjs-pro';
+import FingerprintJS from "@fingerprintjs/fingerprintjs-pro";
 
 let fpPromise: Promise<any> | null = null;
 
@@ -224,9 +248,11 @@ export async function getFingerprint(): Promise<string> {
 ```
 
 #### 2.3 Create rate limiting API endpoint
+
 **Status:** pending
 **Files:** `app/api/try/check-limit/route.ts`
 **Details:**
+
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -262,9 +288,11 @@ export async function POST(request: NextRequest) {
 ```
 
 #### 2.4 Create rate limit hook
+
 **Status:** pending
 **Files:** `lib/hooks/use-rate-limit.ts`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -295,11 +323,13 @@ export function useRateLimit(featureType: string) {
 ```
 
 #### 2.5 Implement rate limit enforcement
+
 **Status:** pending
 **Dependencies:** 2.2, 2.3, 2.4
 **Details:** Add rate limit checks to all pre-registration API endpoints before processing AI requests
 
 ### Test Strategy
+
 1. Test fingerprint generation works correctly
 2. Verify rate limit allows first use
 3. Test rate limit blocks second use within 24 hours
@@ -315,17 +345,21 @@ export function useRateLimit(featureType: string) {
 **Dependencies:** Task 1, Task 2
 
 ### Description
+
 Build the public job fit analysis feature that allows users to analyze job fit without creating an account. Show preview of results, then prompt for signup to unlock full analysis.
 
 ### Details
+
 Create `/try/job-fit` page with form for job description and user background. Generate AI analysis, show partial results with blur effect, and implement inline signup gate.
 
 ### Subtasks
 
 #### 3.1 Create job fit form component
+
 **Status:** pending
 **Files:** `components/try/job-fit-form.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -366,7 +400,9 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
         <Textarea
           placeholder="Paste the job posting you're considering..."
           value={formData.jobDescription}
-          onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, jobDescription: e.target.value })
+          }
           rows={8}
           required
         />
@@ -379,7 +415,9 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
         <Textarea
           placeholder="Upload your resume or paste a brief summary..."
           value={formData.userBackground}
-          onChange={(e) => setFormData({ ...formData, userBackground: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, userBackground: e.target.value })
+          }
           rows={6}
           required
         />
@@ -392,7 +430,9 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
         <Input
           placeholder="Software Engineer, Marketing Manager, etc."
           value={formData.targetRole}
-          onChange={(e) => setFormData({ ...formData, targetRole: e.target.value })}
+          onChange={(e) =>
+            setFormData({ ...formData, targetRole: e.target.value })
+          }
         />
       </div>
 
@@ -405,9 +445,11 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
 ```
 
 #### 3.2 Create job fit API endpoint
+
 **Status:** pending
 **Files:** `app/api/try/job-fit/route.ts`
 **Details:**
+
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -434,7 +476,10 @@ export async function POST(request: NextRequest) {
 
   if (existingUsage && existingUsage.length > 0) {
     return NextResponse.json(
-      { error: "You've already used your free job fit analysis. Sign up for more!" },
+      {
+        error:
+          "You've already used your free job fit analysis. Sign up for more!",
+      },
       { status: 429 }
     );
   }
@@ -451,7 +496,7 @@ export async function POST(request: NextRequest) {
     fitScore: fullAnalysis.fitScore,
     strengths: fullAnalysis.strengths.slice(0, 2),
     gaps: [], // Hidden in preview
-    recommendation: fullAnalysis.recommendation.split('.')[0] + '...', // Truncated
+    recommendation: fullAnalysis.recommendation.split(".")[0] + "...", // Truncated
   };
 
   // Encrypt full content
@@ -491,9 +536,11 @@ export async function POST(request: NextRequest) {
 ```
 
 #### 3.3 Create AI job fit generator
+
 **Status:** pending
 **Files:** `lib/ai/job-fit-generator.ts`
 **Details:**
+
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -523,7 +570,7 @@ ${input.jobDescription}
 CANDIDATE BACKGROUND:
 ${input.userBackground}
 
-${input.targetRole ? `TARGET ROLE: ${input.targetRole}` : ''}
+${input.targetRole ? `TARGET ROLE: ${input.targetRole}` : ""}
 
 Provide a detailed fit analysis in JSON format:
 {
@@ -551,9 +598,11 @@ Provide a detailed fit analysis in JSON format:
 ```
 
 #### 3.4 Create job fit results preview component
+
 **Status:** pending
 **Files:** `components/try/job-fit-results.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -645,9 +694,11 @@ export function JobFitResults({ analysis, isPreview }: JobFitResultsProps) {
 ```
 
 #### 3.5 Create /try/job-fit page
+
 **Status:** pending
 **Files:** `app/try/job-fit/page.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -699,7 +750,9 @@ export default function TryJobFitPage() {
         <h1 className="text-2xl font-bold mb-4">
           You've used your free job fit analysis
         </h1>
-        <p className="mb-4">Sign up to get 1 more free analysis + track your applications!</p>
+        <p className="mb-4">
+          Sign up to get 1 more free analysis + track your applications!
+        </p>
         <SignupGate context="job_fit_limit" />
       </div>
     );
@@ -711,7 +764,8 @@ export default function TryJobFitPage() {
         Find Out If You're a Good Fit - In 30 Seconds
       </h1>
       <p className="text-muted-foreground mb-8">
-        AI analyzes the job description against your background • No signup required
+        AI analyzes the job description against your background • No signup
+        required
       </p>
 
       {!results ? (
@@ -735,9 +789,11 @@ export default function TryJobFitPage() {
 ```
 
 #### 3.6 Add PostHog tracking events
+
 **Status:** pending
 **Dependencies:** 3.5
 **Details:** Add tracking for:
+
 - `try_job_fit_started`
 - `try_job_fit_form_completed`
 - `try_job_fit_results_shown`
@@ -745,6 +801,7 @@ export default function TryJobFitPage() {
 - `try_job_fit_signup_completed`
 
 ### Test Strategy
+
 1. Test form validation and submission
 2. Verify AI generates reasonable job fit analysis
 3. Test preview shows partial content correctly
@@ -762,17 +819,21 @@ export default function TryJobFitPage() {
 **Dependencies:** Task 3
 
 ### Description
+
 Build the inline signup gate component that prompts users to sign up after seeing preview results. Implement session transfer to move AI-generated content to user account upon signup.
 
 ### Details
+
 Create reusable SignupGate component with Google SSO and email/password options. Implement backend logic to transfer session data to user account.
 
 ### Subtasks
 
 #### 4.1 Create signup gate component
+
 **Status:** pending
 **Files:** `components/try/signup-gate.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -788,7 +849,11 @@ interface SignupGateProps {
   onSignupComplete?: () => void;
 }
 
-export function SignupGate({ context, sessionId, onSignupComplete }: SignupGateProps) {
+export function SignupGate({
+  context,
+  sessionId,
+  onSignupComplete,
+}: SignupGateProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -878,7 +943,10 @@ export function SignupGate({ context, sessionId, onSignupComplete }: SignupGateP
       </div>
 
       <p className="text-xs text-center text-muted-foreground mt-4">
-        Already have an account? <a href="/signin" className="underline">Sign in</a>
+        Already have an account?{" "}
+        <a href="/signin" className="underline">
+          Sign in
+        </a>
       </p>
     </div>
   );
@@ -886,9 +954,11 @@ export function SignupGate({ context, sessionId, onSignupComplete }: SignupGateP
 ```
 
 #### 4.2 Create session unlock API endpoint
+
 **Status:** pending
 **Files:** `app/api/try/unlock/route.ts`
 **Details:**
+
 ```typescript
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
@@ -900,7 +970,10 @@ export async function POST(request: NextRequest) {
   const supabase = await createClient();
 
   // Get current user
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
 
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -918,7 +991,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Decrypt full content
-  const fullContent = JSON.parse(decryptContent(session.full_content_encrypted));
+  const fullContent = JSON.parse(
+    decryptContent(session.full_content_encrypted)
+  );
 
   // Update session with user_id
   await supabase
@@ -948,14 +1023,17 @@ export async function POST(request: NextRequest) {
 ```
 
 #### 4.3 Update auth callback to handle session transfer
+
 **Status:** pending
 **Files:** `app/auth/callback/route.ts`
 **Details:** Modify existing callback handler to check for `session_id` in user metadata and automatically transfer session on signup
 
 #### 4.4 Create encryption utilities
+
 **Status:** pending
 **Files:** `lib/utils/encryption.ts`
 **Details:**
+
 ```typescript
 import crypto from "crypto";
 
@@ -964,7 +1042,11 @@ const ALGORITHM = "aes-256-gcm";
 
 export function encryptContent(text: string): string {
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY, "hex"), iv);
+  const cipher = crypto.createCipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY, "hex"),
+    iv
+  );
 
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
@@ -980,7 +1062,11 @@ export function decryptContent(encrypted: string): string {
   const authTag = Buffer.from(parts[1], "hex");
   const encryptedText = parts[2];
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, Buffer.from(ENCRYPTION_KEY, "hex"), iv);
+  const decipher = crypto.createDecipheriv(
+    ALGORITHM,
+    Buffer.from(ENCRYPTION_KEY, "hex"),
+    iv
+  );
   decipher.setAuthTag(authTag);
 
   let decrypted = decipher.update(encryptedText, "hex", "utf8");
@@ -991,10 +1077,12 @@ export function decryptContent(encrypted: string): string {
 ```
 
 #### 4.5 Add encryption key to environment variables
+
 **Status:** pending
 **Details:** Generate and add `ENCRYPTION_KEY` to `.env` and Vercel environment variables
 
 ### Test Strategy
+
 1. Test signup gate displays correctly
 2. Verify Google SSO flow works end-to-end
 3. Test email signup flow
@@ -1012,27 +1100,33 @@ export function decryptContent(encrypted: string): string {
 **Dependencies:** Task 1, Task 2, Task 4
 
 ### Description
+
 Build the public cover letter generator that allows users to create custom cover letters without an account. Show first 3 paragraphs, blur the rest, and prompt for signup.
 
 ### Details
+
 Similar to job fit analysis, but with different preview strategy (show beginning, hide end) and additional features like tone selection.
 
 ### Subtasks
 
 #### 5.1 Create cover letter form component
+
 **Status:** pending
 **Files:** `components/try/cover-letter-form.tsx`
 **Details:** Similar to JobFitForm but with tone selection (Professional/Friendly/Enthusiastic)
 
 #### 5.2 Create cover letter API endpoint
+
 **Status:** pending
 **Files:** `app/api/try/cover-letter/route.ts`
 **Details:** Similar to job-fit endpoint but calls cover letter generator
 
 #### 5.3 Create AI cover letter generator
+
 **Status:** pending
 **Files:** `lib/ai/cover-letter-generator.ts`
 **Details:**
+
 ```typescript
 export async function generateCoverLetter(input: {
   jobDescription: string;
@@ -1054,7 +1148,7 @@ ${input.jobDescription}
 CANDIDATE BACKGROUND:
 ${input.userBackground}
 
-${input.companyName ? `COMPANY: ${input.companyName}` : ''}
+${input.companyName ? `COMPANY: ${input.companyName}` : ""}
 
 TONE: ${toneInstructions[input.tone]}
 
@@ -1069,215 +1163,30 @@ Write a 300-400 word cover letter that:
 ```
 
 #### 5.4 Create cover letter results component
+
 **Status:** pending
 **Files:** `components/try/cover-letter-results.tsx`
 **Details:** Show first 3 paragraphs, blur final paragraph + closing
 
 #### 5.5 Create /try/cover-letter page
+
 **Status:** pending
 **Files:** `app/try/cover-letter/page.tsx`
 **Details:** Similar structure to job-fit page
 
 #### 5.6 Add copy to clipboard functionality
+
 **Status:** pending
 **Details:** Add button to copy visible paragraphs (encourage signup for full version)
 
 ### Test Strategy
+
 1. Test all three tone variations produce appropriate content
 2. Verify preview shows exactly 3 paragraphs
 3. Test blur effect on remaining content
 4. Test company name auto-detection from job description
 5. Test rate limiting
 6. Performance test (<30s generation time)
-
----
-
-## Task 6: Google SSO Integration
-
-**Priority:** High (Key Conversion Driver)
-**Estimated Time:** 2-3 days
-**Dependencies:** None (can be parallel with other tasks)
-
-### Description
-Implement Google OAuth via Supabase Auth to provide one-click signup for users. Make it the primary signup method to reduce friction.
-
-### Details
-Configure Google OAuth in Supabase, create GoogleSignInButton component, and update all signup flows to prominently feature Google SSO.
-
-### Subtasks
-
-#### 6.1 Configure Google OAuth in Google Cloud Console
-**Status:** pending
-**Details:**
-1. Go to Google Cloud Console
-2. Create OAuth 2.0 credentials
-3. Add authorized redirect URIs:
-   - `https://[project-ref].supabase.co/auth/v1/callback`
-   - `http://localhost:3000/auth/callback` (dev)
-4. Copy Client ID and Client Secret
-
-#### 6.2 Enable Google provider in Supabase
-**Status:** pending
-**Details:**
-1. Go to Supabase Dashboard → Authentication → Providers
-2. Enable Google
-3. Add Client ID and Client Secret from step 6.1
-4. Configure redirect URLs
-
-#### 6.3 Create GoogleSignInButton component
-**Status:** pending
-**Files:** `components/auth/google-signin-button.tsx`
-**Details:**
-```typescript
-"use client";
-
-import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-
-interface GoogleSignInButtonProps {
-  context: "unlock_results" | "general_signup";
-  onSuccess?: () => void;
-  redirectTo?: string;
-}
-
-export function GoogleSignInButton({
-  context,
-  onSuccess,
-  redirectTo
-}: GoogleSignInButtonProps) {
-  const supabase = createClient();
-
-  const handleGoogleSignIn = async () => {
-    if (window.posthog) {
-      window.posthog.capture("google_signin_clicked", { context });
-    }
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-        },
-      },
-    });
-
-    if (error) {
-      console.error("Google sign-in error:", error);
-    }
-  };
-
-  return (
-    <Button
-      onClick={handleGoogleSignIn}
-      variant="outline"
-      size="lg"
-      className="w-full border-2 hover:bg-gray-50"
-    >
-      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-        <path
-          fill="#4285F4"
-          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-        />
-        <path
-          fill="#34A853"
-          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-        />
-        <path
-          fill="#FBBC05"
-          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-        />
-        <path
-          fill="#EA4335"
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-        />
-      </svg>
-      Continue with Google
-    </Button>
-  );
-}
-```
-
-#### 6.4 Update existing signup forms
-**Status:** pending
-**Files:**
-- `components/forms/sign-up-form.tsx`
-- `app/signup/page.tsx`
-**Details:** Add GoogleSignInButton at top of all signup forms, styled prominently
-
-#### 6.5 Update auth callback handler
-**Status:** pending
-**Files:** `app/auth/callback/route.ts`
-**Details:**
-```typescript
-import { createClient } from "@/lib/supabase/server";
-import { NextResponse } from "next/server";
-
-export async function GET(request: Request) {
-  const requestUrl = new URL(request.url);
-  const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") || "/dashboard";
-
-  if (code) {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-    if (!error) {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Transfer any pre-registration sessions
-        const fingerprint = request.headers.get("x-fingerprint");
-        if (fingerprint) {
-          await transferPreRegistrationSessions(user.id, fingerprint);
-        }
-
-        // Track signup
-        if (user.email) {
-          // Track in analytics
-        }
-      }
-
-      return NextResponse.redirect(new URL(next, requestUrl.origin));
-    }
-  }
-
-  return NextResponse.redirect(new URL("/auth/error", requestUrl.origin));
-}
-
-async function transferPreRegistrationSessions(userId: string, fingerprint: string) {
-  const supabase = await createClient();
-
-  await supabase
-    .from("ai_preview_sessions")
-    .update({ user_id: userId, converted_at: new Date().toISOString() })
-    .eq("session_fingerprint", fingerprint)
-    .is("user_id", null);
-}
-```
-
-#### 6.6 Add Google sign-in to SignupGate component
-**Status:** pending
-**Dependencies:** 6.3, 4.1
-**Details:** Already implemented in Task 4.1, verify integration works
-
-#### 6.7 Test Google OAuth flow end-to-end
-**Status:** pending
-**Details:**
-1. Test signup with Google on desktop
-2. Test signup with Google on mobile
-3. Verify session transfer works
-4. Test account linking if user already exists
-5. Verify redirect URLs work correctly
-
-### Test Strategy
-1. Test OAuth flow on localhost
-2. Test OAuth flow on production domain
-3. Verify user profile is created correctly
-4. Test session transfer from pre-registration
-5. Test error handling (denied permission, canceled)
-6. Verify analytics tracking
 
 ---
 
@@ -1288,24 +1197,32 @@ async function transferPreRegistrationSessions(userId: string, fingerprint: stri
 **Dependencies:** Task 1, Task 6
 
 ### Description
+
 Implement usage tracking system for free tier users. Each registered free user gets 1 free try of each AI feature (resume analysis, job fit, cover letter, interview prep). Track usage and show upgrade prompts when limits are reached.
 
 ### Details
+
 Create hooks and UI components to check allowances before feature use, track usage in database, and display remaining tries.
 
 ### Subtasks
 
 #### 7.1 Create useAIFeatureAllowance hook
+
 **Status:** pending
 **Files:** `lib/hooks/use-ai-feature-allowance.ts`
 **Details:**
+
 ```typescript
 "use client";
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-type AIFeatureType = "resume_analysis" | "job_fit" | "cover_letter" | "interview_prep";
+type AIFeatureType =
+  | "resume_analysis"
+  | "job_fit"
+  | "cover_letter"
+  | "interview_prep";
 
 interface AIFeatureAllowance {
   canUse: boolean;
@@ -1372,9 +1289,11 @@ export function useAIFeatureAllowance(
 ```
 
 #### 7.2 Create AI feature usage tracking function
+
 **Status:** pending
 **Files:** `lib/ai/track-usage.ts`
 **Details:**
+
 ```typescript
 import { createClient } from "@/lib/supabase/server";
 
@@ -1402,9 +1321,11 @@ export async function trackAIFeatureUsage(
 ```
 
 #### 7.3 Create AIFeatureUsageBadge component
+
 **Status:** pending
 **Files:** `components/ai/ai-feature-usage-badge.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -1439,7 +1360,10 @@ export function AIFeatureUsageBadge({
   if (remaining === 0) {
     return (
       <Badge variant="destructive">
-        No free tries left • <a href="/upgrade" className="underline">Upgrade</a>
+        No free tries left •{" "}
+        <a href="/upgrade" className="underline">
+          Upgrade
+        </a>
       </Badge>
     );
   }
@@ -1453,9 +1377,11 @@ export function AIFeatureUsageBadge({
 ```
 
 #### 7.4 Create upgrade prompt component
+
 **Status:** pending
 **Files:** `components/ai/ai-upgrade-prompt.tsx`
 **Details:**
+
 ```typescript
 "use client";
 
@@ -1502,24 +1428,29 @@ export function AIUpgradePrompt({ featureName }: AIUpgradePromptProps) {
 ```
 
 #### 7.5 Integrate usage tracking into existing AI features
+
 **Status:** pending
 **Files:**
+
 - `app/dashboard/ai-coach/resume/page.tsx`
 - `app/dashboard/ai-coach/job-fit/page.tsx`
 - `app/dashboard/ai-coach/cover-letter/page.tsx`
 - `app/dashboard/ai-coach/interview-prep/page.tsx`
-**Details:** Add allowance checks before feature use, track usage after generation, show upgrade prompts when limit reached
+  **Details:** Add allowance checks before feature use, track usage after generation, show upgrade prompts when limit reached
 
 #### 7.6 Update AI feature API endpoints to track usage
+
 **Status:** pending
 **Files:**
+
 - `app/api/ai/resume-analysis/route.ts`
 - `app/api/ai/job-fit/route.ts`
 - `app/api/ai/cover-letter/route.ts`
 - `app/api/ai/interview-prep/route.ts`
-**Details:** Call `trackAIFeatureUsage()` after successful generation
+  **Details:** Call `trackAIFeatureUsage()` after successful generation
 
 ### Test Strategy
+
 1. Test free user can use each feature once
 2. Verify usage is tracked correctly
 3. Test upgrade prompt shows after limit reached
@@ -1536,35 +1467,43 @@ export function AIUpgradePrompt({ featureName }: AIUpgradePromptProps) {
 **Dependencies:** Task 1, Task 2, Task 4
 
 ### Description
+
 Build pre-registration interview prep feature. Similar to job fit and cover letter, show 3 questions visible, blur remaining 7-12 questions.
 
 ### Details
+
 Generate 10-15 interview questions based on job description and user background. Show first 3 questions, blur rest with signup gate.
 
 ### Subtasks
 
 #### 8.1 Create interview prep form component
+
 **Status:** pending
 **Files:** `components/try/interview-prep-form.tsx`
 
 #### 8.2 Create interview prep API endpoint
+
 **Status:** pending
 **Files:** `app/api/try/interview-prep/route.ts`
 
 #### 8.3 Create AI interview question generator
+
 **Status:** pending
 **Files:** `lib/ai/interview-prep-generator.ts`
 
 #### 8.4 Create interview prep results component
+
 **Status:** pending
 **Files:** `components/try/interview-prep-results.tsx`
 **Details:** Show 3 questions, blur remaining questions
 
 #### 8.5 Create /try/interview-prep page
+
 **Status:** pending
 **Files:** `app/try/interview-prep/page.tsx`
 
 ### Test Strategy
+
 1. Test generates 10-15 relevant questions
 2. Verify preview shows exactly 3 questions
 3. Test blur effect on remaining questions
@@ -1580,53 +1519,59 @@ Generate 10-15 interview questions based on job description and user background.
 **Dependencies:** Task 3, Task 5
 
 ### Description
+
 Add prominent CTAs on homepage and landing pages to drive traffic to pre-registration AI features.
 
 ### Details
+
 Update homepage with "Try Job Fit Analysis Free" and "Generate Cover Letter" CTAs. Add hero section variants for A/B testing.
 
 ### Subtasks
 
 #### 9.1 Add hero section CTA buttons
+
 **Status:** pending
 **Files:** `app/page.tsx`
 **Details:**
+
 ```typescript
 <div className="flex flex-col sm:flex-row gap-4 justify-center">
   <Button size="lg" asChild>
-    <a href="/try/job-fit">
-      Try Job Fit Analysis Free
-    </a>
+    <a href="/try/job-fit">Try Job Fit Analysis Free</a>
   </Button>
   <Button size="lg" variant="outline" asChild>
-    <a href="/try/cover-letter">
-      Generate Cover Letter
-    </a>
+    <a href="/try/cover-letter">Generate Cover Letter</a>
   </Button>
 </div>
 ```
 
 #### 9.2 Create dedicated landing sections
+
 **Status:** pending
 **Files:** `components/home-try-ai-section.tsx`
 **Details:** Create section showcasing pre-registration AI features with screenshots/previews
 
 #### 9.3 Add feature cards to features section
+
 **Status:** pending
 **Details:** Update features section to highlight "Try Before You Sign Up"
 
 #### 9.4 Implement A/B test variants
+
 **Status:** pending
 **Details:** Use PostHog feature flags to test different hero copy:
+
 - Variant A: "Try AI Features Free"
 - Variant B: "See Your Job Fit in 30 Seconds"
 - Variant C: "Generate Cover Letters Instantly"
 
 #### 9.5 Add mobile-optimized CTAs
+
 **Status:** pending
 **Details:** Ensure CTAs are prominent on mobile with proper touch targets
 
 ### Test Strategy
+
 1. Test CTAs are visible above the fold
 2. Verify links go to correct pages
 3. Test mobile responsive design
@@ -1641,17 +1586,21 @@ Update homepage with "Try Job Fit Analysis Free" and "Generate Cover Letter" CTA
 **Dependencies:** Task 3, Task 4, Task 5
 
 ### Description
+
 Implement comprehensive PostHog event tracking for the entire pre-registration funnel. Track every step from landing to signup.
 
 ### Details
+
 Add events for form starts, completions, preview views, signup gate views, and conversions. Create conversion funnels in PostHog.
 
 ### Subtasks
 
 #### 10.1 Define conversion events
+
 **Status:** pending
 **Files:** `lib/analytics/pre-registration-events.ts`
 **Details:**
+
 ```typescript
 export const PRE_REGISTRATION_EVENTS = {
   // Job Fit
@@ -1685,20 +1634,25 @@ export const PRE_REGISTRATION_EVENTS = {
 ```
 
 #### 10.2 Add tracking to all pre-registration pages
+
 **Status:** pending
 **Dependencies:** 10.1
 **Details:** Add event tracking at key moments in user journey
 
 #### 10.3 Create PostHog funnels
+
 **Status:** pending
 **Details:** Create funnels in PostHog dashboard:
+
 1. **Job Fit Funnel:** Started → Form Completed → Results Shown → Signup Shown → Signup Completed
 2. **Cover Letter Funnel:** Same structure
 3. **Overall Pre-Registration Funnel:** Any feature started → Signup completed
 
 #### 10.4 Set up conversion dashboards
+
 **Status:** pending
 **Details:** Create PostHog insights for:
+
 - Overall pre-registration conversion rate
 - Conversion by feature type
 - Conversion by signup method (Google vs Email)
@@ -1706,10 +1660,12 @@ export const PRE_REGISTRATION_EVENTS = {
 - Drop-off analysis
 
 #### 10.5 Add UTM tracking
+
 **Status:** pending
 **Details:** Ensure UTM parameters are captured and passed through entire funnel
 
 ### Test Strategy
+
 1. Verify all events fire correctly
 2. Test events include proper properties
 3. Verify funnels are tracking correctly in PostHog
@@ -1724,49 +1680,61 @@ export const PRE_REGISTRATION_EVENTS = {
 **Dependencies:** Task 3, Task 4, Task 5
 
 ### Description
+
 Ensure all pre-registration features work perfectly on mobile devices. Optimize forms, loading states, and signup gates for small screens.
 
 ### Details
+
 Test and optimize for iOS Safari, Android Chrome. Ensure touch targets are 44px minimum, forms are easy to fill on mobile.
 
 ### Subtasks
 
 #### 11.1 Optimize forms for mobile
+
 **Status:** pending
 **Details:**
+
 - Large touch targets (44px minimum)
 - Proper input types (email, tel, etc.)
 - Prevent zoom on focus
 - Auto-capitalize off for emails
 
 #### 11.2 Optimize loading states for mobile
+
 **Status:** pending
 **Details:** Create engaging loading animations that work well on slow connections
 
 #### 11.3 Optimize signup gate for mobile
+
 **Status:** pending
 **Details:**
+
 - Stack buttons vertically on mobile
 - Larger tap targets
 - Optimize Google sign-in button for mobile
 
 #### 11.4 Test on actual devices
+
 **Status:** pending
 **Details:**
+
 - Test on iPhone (Safari)
 - Test on Android (Chrome)
 - Test on tablet
 - Test landscape orientation
 
 #### 11.5 Performance optimization
+
 **Status:** pending
 **Details:**
+
 - Lazy load components
 - Optimize images
 - Minimize JavaScript bundle
 - Test on slow 3G
 
 ### Test Strategy
+
 1. Test all features on iPhone Safari
 2. Test all features on Android Chrome
 3. Verify forms are easy to complete on mobile
@@ -1782,46 +1750,58 @@ Test and optimize for iOS Safari, Android Chrome. Ensure touch targets are 44px 
 **Dependencies:** Task 3, Task 4, Task 5, Task 10
 
 ### Description
+
 Set up A/B tests for key conversion points: preview amount, CTA copy, signup form style.
 
 ### Details
+
 Use PostHog feature flags to test variations and measure impact on conversion rates.
 
 ### Subtasks
 
 #### 12.1 Set up PostHog feature flags
+
 **Status:** pending
 **Details:** Create flags in PostHog dashboard:
+
 - `preview-amount` (30% / 50% / 80%)
 - `cta-copy` (variant A/B/C)
 - `signup-form-style` (inline / modal / redirect)
 
 #### 12.2 Implement preview amount variations
+
 **Status:** pending
 **Details:**
+
 - Variant A: Show 30% of content
 - Variant B: Show 50% of content
 - Variant C: Show 80% of content
 
 #### 12.3 Implement CTA copy variations
+
 **Status:** pending
 **Details:**
+
 - Variant A: "Sign up to see full results"
 - Variant B: "Create free account to unlock"
 - Variant C: "Get your full analysis free"
 
 #### 12.4 Implement signup form style variations
+
 **Status:** pending
 **Details:**
+
 - Variant A: Inline form (current)
 - Variant B: Modal overlay
 - Variant C: Redirect to /signup
 
 #### 12.5 Set up experiment tracking
+
 **Status:** pending
 **Details:** Track which variant users see and their conversion outcome
 
 ### Test Strategy
+
 1. Verify variants are evenly distributed
 2. Test each variant renders correctly
 3. Verify conversion tracking includes variant
@@ -1837,50 +1817,63 @@ Use PostHog feature flags to test variations and measure impact on conversion ra
 **Dependencies:** Task 3, Task 4, Task 5
 
 ### Description
+
 Implement comprehensive error handling for AI generation failures, rate limit errors, session expiry, and other edge cases.
 
 ### Details
+
 Add user-friendly error messages, retry logic, and graceful degradation.
 
 ### Subtasks
 
 #### 13.1 Handle AI generation failures
+
 **Status:** pending
 **Details:**
+
 - Show user-friendly error message
 - Offer retry button
 - Track errors in analytics
 - Alert team if error rate > 5%
 
 #### 13.2 Handle rate limit errors
+
 **Status:** pending
 **Details:**
+
 - Show clear message: "You've already used your free try"
 - Offer signup CTA
 - Show when limit resets
 
 #### 13.3 Handle session expiry
+
 **Status:** pending
 **Details:**
+
 - Store sessions for 30 days
 - Show error if session expired
 - Offer to regenerate
 
 #### 13.4 Handle network errors
+
 **Status:** pending
 **Details:**
+
 - Retry failed requests (max 3 times)
 - Show offline indicator
 - Save form data to localStorage
 
 #### 13.5 Handle invalid input
+
 **Status:** pending
 **Details:**
+
 - Validate job description length (min 100 chars)
 - Validate background length (min 50 chars)
 - Show helpful validation messages
 
 ### Test Strategy
+
 1. Test AI API errors
 2. Test rate limiting
 3. Test expired sessions
@@ -1896,49 +1889,62 @@ Add user-friendly error messages, retry logic, and graceful degradation.
 **Dependencies:** All previous tasks
 
 ### Description
+
 Optimize performance of AI generation, page load times, and overall user experience.
 
 ### Details
+
 Implement caching, code splitting, image optimization, and AI prompt optimization.
 
 ### Subtasks
 
 #### 14.1 Optimize AI prompts
+
 **Status:** pending
 **Details:**
+
 - Use faster models (Claude Haiku for simple tasks)
 - Reduce token count where possible
 - Cache common job descriptions
 
 #### 14.2 Implement code splitting
+
 **Status:** pending
 **Details:**
+
 - Lazy load preview components
 - Lazy load signup gate
 - Split AI generator code
 
 #### 14.3 Optimize bundle size
+
 **Status:** pending
 **Details:**
+
 - Tree shake unused libraries
 - Use dynamic imports
 - Analyze bundle with webpack-bundle-analyzer
 
 #### 14.4 Add caching
+
 **Status:** pending
 **Details:**
+
 - Cache AI responses for identical inputs (24 hours)
 - Cache user allowance checks (5 minutes)
 - Implement SWR for data fetching
 
 #### 14.5 Performance monitoring
+
 **Status:** pending
 **Details:**
+
 - Set up Vercel Analytics
 - Monitor Core Web Vitals
 - Track AI generation times
 
 ### Test Strategy
+
 1. Measure page load times
 2. Measure AI generation times
 3. Test on slow connections
@@ -1947,33 +1953,249 @@ Implement caching, code splitting, image optimization, and AI prompt optimizatio
 
 ---
 
-## Task 15: Documentation & Deployment
+## Task 15: Google SSO Integration
+
+**Priority:** High (Key Conversion Driver)
+**Estimated Time:** 2-3 days
+**Dependencies:** None (can be parallel with other tasks)
+
+### Description
+
+Implement Google OAuth via Supabase Auth to provide one-click signup for users. Make it the primary signup method to reduce friction.
+
+### Details
+
+Configure Google OAuth in Supabase, create GoogleSignInButton component, and update all signup flows to prominently feature Google SSO.
+
+### Subtasks
+
+#### 15.1 Configure Google OAuth in Google Cloud Console
+
+**Status:** pending
+**Details:**
+
+1. Go to Google Cloud Console
+2. Create OAuth 2.0 credentials
+3. Add authorized redirect URIs:
+   - `https://[project-ref].supabase.co/auth/v1/callback`
+   - `http://localhost:3000/auth/callback` (dev)
+4. Copy Client ID and Client Secret
+
+#### 15.2 Enable Google provider in Supabase
+
+**Status:** pending
+**Details:**
+
+1. Go to Supabase Dashboard → Authentication → Providers
+2. Enable Google
+3. Add Client ID and Client Secret from step 6.1
+4. Configure redirect URLs
+
+#### 15.3 Create GoogleSignInButton component
+
+**Status:** pending
+**Files:** `components/auth/google-signin-button.tsx`
+**Details:**
+
+```typescript
+"use client";
+
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+
+interface GoogleSignInButtonProps {
+  context: "unlock_results" | "general_signup";
+  onSuccess?: () => void;
+  redirectTo?: string;
+}
+
+export function GoogleSignInButton({
+  context,
+  onSuccess,
+  redirectTo,
+}: GoogleSignInButtonProps) {
+  const supabase = createClient();
+
+  const handleGoogleSignIn = async () => {
+    if (window.posthog) {
+      window.posthog.capture("google_signin_clicked", { context });
+    }
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: "offline",
+          prompt: "consent",
+        },
+      },
+    });
+
+    if (error) {
+      console.error("Google sign-in error:", error);
+    }
+  };
+
+  return (
+    <Button
+      onClick={handleGoogleSignIn}
+      variant="outline"
+      size="lg"
+      className="w-full border-2 hover:bg-gray-50"
+    >
+      <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+        <path
+          fill="#4285F4"
+          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        />
+        <path
+          fill="#34A853"
+          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        />
+        <path
+          fill="#FBBC05"
+          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        />
+        <path
+          fill="#EA4335"
+          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        />
+      </svg>
+      Continue with Google
+    </Button>
+  );
+}
+```
+
+#### 15.4 Update existing signup forms
+
+**Status:** pending
+**Files:**
+
+- `components/forms/sign-up-form.tsx`
+- `app/signup/page.tsx`
+  **Details:** Add GoogleSignInButton at top of all signup forms, styled prominently
+
+#### 15.5 Update auth callback handler
+
+**Status:** pending
+**Files:** `app/auth/callback/route.ts`
+**Details:**
+
+```typescript
+import { createClient } from "@/lib/supabase/server";
+import { NextResponse } from "next/server";
+
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
+  const next = requestUrl.searchParams.get("next") || "/dashboard";
+
+  if (code) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+    if (!error) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        // Transfer any pre-registration sessions
+        const fingerprint = request.headers.get("x-fingerprint");
+        if (fingerprint) {
+          await transferPreRegistrationSessions(user.id, fingerprint);
+        }
+
+        // Track signup
+        if (user.email) {
+          // Track in analytics
+        }
+      }
+
+      return NextResponse.redirect(new URL(next, requestUrl.origin));
+    }
+  }
+
+  return NextResponse.redirect(new URL("/auth/error", requestUrl.origin));
+}
+
+async function transferPreRegistrationSessions(
+  userId: string,
+  fingerprint: string
+) {
+  const supabase = await createClient();
+
+  await supabase
+    .from("ai_preview_sessions")
+    .update({ user_id: userId, converted_at: new Date().toISOString() })
+    .eq("session_fingerprint", fingerprint)
+    .is("user_id", null);
+}
+```
+
+#### 15.6 Add Google sign-in to SignupGate component
+
+**Status:** pending
+**Dependencies:** 6.3, 4.1
+**Details:** Already implemented in Task 4.1, verify integration works
+
+#### 15.7 Test Google OAuth flow end-to-end
+
+**Status:** pending
+**Details:**
+
+1. Test signup with Google on desktop
+2. Test signup with Google on mobile
+3. Verify session transfer works
+4. Test account linking if user already exists
+5. Verify redirect URLs work correctly
+
+### Test Strategy
+
+1. Test OAuth flow on localhost
+2. Test OAuth flow on production domain
+3. Verify user profile is created correctly
+4. Test session transfer from pre-registration
+5. Test error handling (denied permission, canceled)
+6. Verify analytics tracking
+
+---
+
+## Task 16: Documentation & Deployment
 
 **Priority:** High
 **Estimated Time:** 1 day
 **Dependencies:** All previous tasks
 
 ### Description
+
 Document the implementation, create runbook for production deployment, and prepare for launch.
 
 ### Details
+
 Write technical documentation, create deployment checklist, prepare rollback plan.
 
 ### Subtasks
 
-#### 15.1 Write technical documentation
+#### 16.1 Write technical documentation
+
 **Status:** pending
 **Files:** `docs/pre-registration-ai-features.md`
 **Details:**
+
 - Architecture overview
 - API endpoints documentation
 - Database schema documentation
 - Rate limiting explanation
 - Encryption key management
 
-#### 15.2 Create deployment checklist
+#### 16.2 Create deployment checklist
+
 **Status:** pending
 **Details:**
+
 - [ ] Run database migrations
 - [ ] Set environment variables
 - [ ] Configure Google OAuth
@@ -1982,29 +2204,36 @@ Write technical documentation, create deployment checklist, prepare rollback pla
 - [ ] Test in production
 - [ ] Monitor error rates
 
-#### 15.3 Create rollback plan
+#### 16.3 Create rollback plan
+
 **Status:** pending
 **Details:**
+
 - How to disable features via feature flags
 - How to rollback database migrations
 - Emergency contacts
 
-#### 15.4 Update team documentation
+#### 16.4 Update team documentation
+
 **Status:** pending
 **Details:**
+
 - Update README
 - Update CLAUDE.md with new patterns
 - Document new analytics events
 
-#### 15.5 Production deployment
+#### 16.5 Production deployment
+
 **Status:** pending
 **Details:**
+
 - Deploy to production
 - Verify all features work
 - Monitor error rates for 24 hours
 - Announce launch
 
 ### Test Strategy
+
 1. Test production deployment on staging
 2. Verify all environment variables set
 3. Test Google OAuth in production
@@ -2018,32 +2247,38 @@ Write technical documentation, create deployment checklist, prepare rollback pla
 ### Total Estimated Timeline: 3 weeks
 
 **Week 1:**
+
 - Task 1: Database Schema & Backend Foundation (2-3 days)
 - Task 2: Rate Limiting & Fingerprinting (1-2 days)
 - Task 3: Job Fit Analysis Feature (3-4 days)
 
 **Week 2:**
+
 - Task 4: Signup Gate & Session Transfer (2-3 days)
 - Task 5: Cover Letter Generator (3-4 days)
 - Task 9: Homepage Integration (1-2 days)
 
 **Week 3:**
-- Task 6: Google SSO Integration (2-3 days)
+
 - Task 7: Free Tier AI Usage System (2-3 days)
 - Task 10: Analytics & Tracking (1-2 days)
-- Task 15: Documentation & Deployment (1 day)
+- Task 16: Documentation & Deployment (1 day)
 
 **Optional/Phase 2:**
+
 - Task 8: Interview Prep Feature
 - Task 11: Mobile Optimization
 - Task 12: A/B Testing
 - Task 13: Error Handling
 - Task 14: Performance Optimization
+- Task 15: Google SSO Integration
 
 ### Critical Path:
-1 → 2 → 3 → 4 → 5 → 6 → 7 → 15
+
+1 → 2 → 3 → 4 → 5 → 6 → 7 → 16
 
 ### Success Metrics:
+
 - [ ] 35%+ conversion rate from AI preview to signup
 - [ ] 500+ pre-registration AI sessions per week
 - [ ] <45 seconds AI generation time
@@ -2055,6 +2290,7 @@ Write technical documentation, create deployment checklist, prepare rollback pla
 ## Notes for Implementation
 
 ### Environment Variables Required:
+
 ```bash
 # Encryption
 ENCRYPTION_KEY=
@@ -2075,6 +2311,7 @@ NEXT_PUBLIC_POSTHOG_KEY=
 ```
 
 ### Key Files Created:
+
 - 3 new database tables
 - 15+ new React components
 - 10+ new API routes
@@ -2082,5 +2319,6 @@ NEXT_PUBLIC_POSTHOG_KEY=
 - 1 new schema migration file
 
 ### Dependencies Added:
+
 - `@fingerprintjs/fingerprintjs-pro` - Browser fingerprinting
 - No other new dependencies (use existing stack)

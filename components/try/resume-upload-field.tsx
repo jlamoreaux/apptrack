@@ -62,7 +62,7 @@ Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS`,
         👤 {label} <span className="text-destructive">*</span>
       </Label>
 
-      <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-muted/30">
         <input
           ref={fileInputRef}
           type="file"
@@ -72,38 +72,39 @@ Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS`,
           disabled={isDisabled}
         />
         {uploadedFile ? (
-          <div className="flex items-center gap-2 flex-1">
-            <FileText className="h-5 w-5 text-primary" />
-            <span className="text-sm font-medium truncate">{uploadedFile.name}</span>
+          <div className="flex items-center gap-2 flex-1 w-full">
+            <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+            <span className="text-sm font-medium truncate flex-1">{uploadedFile.name}</span>
             <Button
               type="button"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleClearFile}
               disabled={isDisabled}
-              className="ml-auto h-8 w-8 p-0"
+              className="h-11 w-11 min-h-[44px] min-w-[44px] flex-shrink-0"
+              aria-label="Remove uploaded file"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full">
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={triggerFileSelect}
               disabled={isDisabled}
+              className="h-11 min-h-[44px] px-4"
             >
               {isUploading ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
               ) : (
-                <Upload className="h-4 w-4 mr-2" />
+                <Upload className="h-5 w-5 mr-2" />
               )}
               {isUploading ? "Processing..." : "Upload Resume"}
             </Button>
             <span className="text-sm text-muted-foreground">PDF, Word, or text file</span>
-          </>
+          </div>
         )}
       </div>
       {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}

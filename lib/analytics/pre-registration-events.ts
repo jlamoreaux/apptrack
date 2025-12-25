@@ -3,11 +3,23 @@
  * PostHog event tracking for try-before-signup conversion funnel
  */
 
+import { getStoredUTMParams } from "@/lib/hooks/use-utm-tracking";
+
 export type PreRegFeatureType = "job_fit" | "cover_letter" | "interview_prep" | "resume_analysis";
 
 interface BaseEventProps {
   feature_type: PreRegFeatureType;
   session_id?: string;
+}
+
+/**
+ * Helper to include UTM params in all events
+ */
+function withUTMParams(props: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...props,
+    ...getStoredUTMParams(),
+  };
 }
 
 interface PreviewStartedProps extends BaseEventProps {
@@ -38,10 +50,10 @@ interface RateLimitReachedProps {
  */
 export function trackPreviewStarted(props: PreviewStartedProps) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("prereg_preview_started", {
+    window.posthog.capture("prereg_preview_started", withUTMParams({
       ...props,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -50,10 +62,10 @@ export function trackPreviewStarted(props: PreviewStartedProps) {
  */
 export function trackPreviewCompleted(props: PreviewCompletedProps) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("prereg_preview_completed", {
+    window.posthog.capture("prereg_preview_completed", withUTMParams({
       ...props,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -62,10 +74,10 @@ export function trackPreviewCompleted(props: PreviewCompletedProps) {
  */
 export function trackSignupClicked(props: SignupClickedProps) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("prereg_signup_clicked", {
+    window.posthog.capture("prereg_signup_clicked", withUTMParams({
       ...props,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -74,17 +86,17 @@ export function trackSignupClicked(props: SignupClickedProps) {
  */
 export function trackPreviewUnlocked(props: PreviewUnlockedProps) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("prereg_preview_unlocked", {
+    window.posthog.capture("prereg_preview_unlocked", withUTMParams({
       ...props,
       timestamp: new Date().toISOString(),
-    });
+    }));
 
     // Also track as conversion event
-    window.posthog.capture("prereg_conversion", {
+    window.posthog.capture("prereg_conversion", withUTMParams({
       feature_type: props.feature_type,
       user_id: props.user_id,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -93,10 +105,10 @@ export function trackPreviewUnlocked(props: PreviewUnlockedProps) {
  */
 export function trackRateLimitReached(props: RateLimitReachedProps) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("prereg_rate_limit_reached", {
+    window.posthog.capture("prereg_rate_limit_reached", withUTMParams({
       ...props,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -105,11 +117,11 @@ export function trackRateLimitReached(props: RateLimitReachedProps) {
  */
 export function trackFreeTierUsed(featureType: PreRegFeatureType, remainingTries: number) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("free_tier_used", {
+    window.posthog.capture("free_tier_used", withUTMParams({
       feature_type: featureType,
       remaining_tries: remainingTries,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }
 
@@ -118,16 +130,16 @@ export function trackFreeTierUsed(featureType: PreRegFeatureType, remainingTries
  */
 export function trackFreeTierExhausted(featureType: PreRegFeatureType) {
   if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("free_tier_exhausted", {
+    window.posthog.capture("free_tier_exhausted", withUTMParams({
       feature_type: featureType,
       timestamp: new Date().toISOString(),
-    });
+    }));
 
     // Track as potential upgrade opportunity
-    window.posthog.capture("upgrade_opportunity", {
+    window.posthog.capture("upgrade_opportunity", withUTMParams({
       trigger: "free_tier_exhausted",
       feature_type: featureType,
       timestamp: new Date().toISOString(),
-    });
+    }));
   }
 }

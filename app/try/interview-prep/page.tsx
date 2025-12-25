@@ -12,9 +12,9 @@ import Link from "next/link";
 import {
   trackPreviewStarted,
   trackPreviewCompleted,
-  trackSignupClicked,
   trackRateLimitReached,
 } from "@/lib/analytics/pre-registration-events";
+import { SignupGate } from "@/components/try/signup-gate";
 
 export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
@@ -147,51 +147,17 @@ export default function TryInterviewPrepPage() {
             <InterviewPrepResults analysis={results} isPreview={true} />
           </div>
 
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
-            <h3 className="text-2xl font-semibold mb-4">Your Questions Are Ready!</h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">Sign up free to unlock:</p>
-            <ul className="text-left max-w-md mx-auto space-y-2 mb-8">
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">All {results.totalQuestions || results.questions?.length || 0} interview questions</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Suggested approaches for each question</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Practice tips and strategies</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Try all AI features free once</span>
-              </li>
-            </ul>
-
-            <div className="flex flex-col gap-3 max-w-sm mx-auto">
-              <Button
-                size="lg"
-                className="w-full"
-                asChild
-                onClick={() =>
-                  trackSignupClicked({
-                    feature_type: "interview_prep",
-                    session_id: sessionId || undefined,
-                    cta_location: "preview_card",
-                  })
-                }
-              >
-                <Link href={`/signup?session=${sessionId}`}>Sign Up Free to Unlock</Link>
-              </Button>
-              <p className="text-xs text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/login" className="underline hover:text-primary">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </div>
+          <SignupGate
+            featureType="interview_prep"
+            sessionId={sessionId}
+            title="🎯 Your Questions Are Ready!"
+            benefits={[
+              { text: `All ${results.totalQuestions || results.questions?.length || 0} interview questions` },
+              { text: "Suggested approaches for each question" },
+              { text: "Practice tips and strategies" },
+              { text: "Try all AI features free once" },
+            ]}
+          />
 
           <div className="text-center">
             <Button

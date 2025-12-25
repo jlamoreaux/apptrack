@@ -12,9 +12,9 @@ import Link from "next/link";
 import {
   trackPreviewStarted,
   trackPreviewCompleted,
-  trackSignupClicked,
   trackRateLimitReached,
 } from "@/lib/analytics/pre-registration-events";
+import { SignupGate } from "@/components/try/signup-gate";
 
 export default function TryCoverLetterPage() {
   const [results, setResults] = useState<any>(null);
@@ -171,58 +171,17 @@ export default function TryCoverLetterPage() {
           </div>
 
           {/* Signup Gate */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
-            <h3 className="text-2xl font-semibold mb-4">
-              🎉 Your Cover Letter is Ready!
-            </h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Sign up free to unlock:
-            </p>
-            <ul className="text-left max-w-md mx-auto space-y-2 mb-8">
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Full professionally-written cover letter</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Save and edit your cover letter</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Track this application</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-600">✓</span>
-                <span className="text-sm">Try all AI features free once</span>
-              </li>
-            </ul>
-
-            <div className="flex flex-col gap-3 max-w-sm mx-auto">
-              <Button
-                size="lg"
-                className="w-full"
-                asChild
-                onClick={() =>
-                  trackSignupClicked({
-                    feature_type: "cover_letter",
-                    session_id: sessionId || undefined,
-                    cta_location: "preview_card",
-                  })
-                }
-              >
-                <Link href={`/signup?session=${sessionId}`}>
-                  Sign Up Free to Unlock
-                </Link>
-              </Button>
-
-              <p className="text-xs text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/signin" className="underline hover:text-primary">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </div>
+          <SignupGate
+            featureType="cover_letter"
+            sessionId={sessionId}
+            title="🎉 Your Cover Letter is Ready!"
+            benefits={[
+              { text: "Full professionally-written cover letter" },
+              { text: "Save and edit your cover letter" },
+              { text: "Track this application" },
+              { text: "Try all AI features free once" },
+            ]}
+          />
 
           {/* Try Another */}
           <div className="text-center">
