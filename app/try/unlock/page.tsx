@@ -184,7 +184,7 @@ export default function UnlockPage() {
 
         <div className="mt-6 pt-6 border-t border-indigo-200">
           <p className="text-sm text-muted-foreground mb-3">
-            ✨ As a free user, you get 1 free try of each AI feature:
+            As a free user, you get 1 free try of each AI feature:
           </p>
           <div className="flex flex-wrap gap-2 justify-center">
             <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">

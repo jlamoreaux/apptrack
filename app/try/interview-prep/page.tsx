@@ -121,7 +121,7 @@ export default function TryInterviewPrepPage() {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
       <div className="text-center mb-12">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           Ace Your Next Interview
         </h1>
         <p className="text-xl text-muted-foreground mb-2">
@@ -150,7 +150,7 @@ export default function TryInterviewPrepPage() {
           <SignupGate
             featureType="interview_prep"
             sessionId={sessionId}
-            title="🎯 Your Questions Are Ready!"
+            title="Your Questions Are Ready!"
             benefits={[
               { text: `All ${results.totalQuestions || results.questions?.length || 0} interview questions` },
               { text: "Suggested approaches for each question" },

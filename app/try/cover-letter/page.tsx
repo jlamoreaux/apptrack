@@ -134,7 +134,7 @@ export default function TryCoverLetterPage() {
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           AI Cover Letter Generator
         </h1>
         <p className="text-xl text-muted-foreground mb-2">
@@ -174,7 +174,7 @@ export default function TryCoverLetterPage() {
           <SignupGate
             featureType="cover_letter"
             sessionId={sessionId}
-            title="🎉 Your Cover Letter is Ready!"
+            title="Your Cover Letter is Ready!"
             benefits={[
               { text: "Full professionally-written cover letter" },
               { text: "Save and edit your cover letter" },

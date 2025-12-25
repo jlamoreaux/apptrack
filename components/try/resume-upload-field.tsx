@@ -59,7 +59,7 @@ Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS`,
   return (
     <div className="space-y-2">
       <Label htmlFor="userBackground" className="text-base font-medium">
-        👤 {label} <span className="text-destructive">*</span>
+        {label} <span className="text-destructive">*</span>
       </Label>
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border rounded-lg bg-muted/30">

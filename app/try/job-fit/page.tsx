@@ -143,7 +143,7 @@ export default function TryJobFitPage() {
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
       {/* Header */}
       <div className="text-center mb-12">
-        <h1 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           Find Out If You're a Good Fit
         </h1>
         <p className="text-xl text-muted-foreground mb-2">
@@ -178,7 +178,7 @@ export default function TryJobFitPage() {
           <SignupGate
             featureType="job_fit"
             sessionId={sessionId}
-            title="🎉 Your Analysis is Ready!"
+            title="Your Analysis is Ready!"
             benefits={[
               { text: "Full analysis with detailed breakdown" },
               { text: "Specific gaps and how to address them" },

@@ -68,7 +68,7 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
       {/* Job Description */}
       <div className="space-y-2">
         <Label htmlFor="jobDescription" className="text-base font-medium">
-          📋 Job Description <span className="text-destructive">*</span>
+          Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="jobDescription"
@@ -107,7 +107,7 @@ Requirements:
       {/* Target Role (Optional) */}
       <div className="space-y-2">
         <Label htmlFor="targetRole" className="text-base font-medium">
-          🎯 Target Role (optional)
+          Target Role (optional)
         </Label>
         <Input
           id="targetRole"
