@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { AIFeatureLockedOverlay } from "./ai-feature-locked-overlay";
 import { AIFeaturePreview } from "./ai-feature-preview";
 import { cn } from "@/lib/utils";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 export interface AIFeatureTeaserProps {
   feature: string;
@@ -23,11 +24,11 @@ export function AIFeatureTeaser({
 }: AIFeatureTeaserProps) {
   // Track teaser view
   useEffect(() => {
-    if (window.posthog && trackingId) {
-      window.posthog.capture("ai_feature_teaser_viewed", {
+    if (trackingId) {
+      capturePostHogEvent("ai_feature_teaser_viewed", {
         feature: feature,
         teaser_id: trackingId,
-        location: window.location.pathname,
+        location: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
     }
   }, [feature, trackingId]);

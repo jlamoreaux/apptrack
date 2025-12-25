@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigation } from "@/lib/utils/navigation";
 import { cn } from "@/lib/utils";
 import { AI_THEME } from "@/lib/constants/ai-theme";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 interface AIFeatureLockedOverlayProps {
   feature: string;
@@ -20,13 +21,10 @@ export function AIFeatureLockedOverlay({
   const { navigateToUpgrade } = useNavigation();
 
   const handleClick = () => {
-    // Track click event
-    if (window.posthog) {
-      window.posthog.capture("ai_feature_unlock_clicked", {
-        feature: feature,
-        location: "teaser_overlay",
-      });
-    }
+    capturePostHogEvent("ai_feature_unlock_clicked", {
+      feature: feature,
+      location: "teaser_overlay",
+    });
 
     if (onUpgradeClick) {
       onUpgradeClick();

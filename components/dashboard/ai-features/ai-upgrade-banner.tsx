@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigation } from "@/lib/utils/navigation";
 import { cn } from "@/lib/utils";
 import { AI_THEME } from "@/lib/constants/ai-theme";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 interface AIUpgradeBannerProps {
   className?: string;
@@ -51,14 +52,12 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
     // Show banner after a short delay
     const timer = setTimeout(() => {
       setIsVisible(true);
-      
+
       // Track banner impression
-      if (window.posthog) {
-        window.posthog.capture("ai_upgrade_banner_shown", {
-          message: BANNER_MESSAGES[messageIndex].title,
-          variant,
-        });
-      }
+      capturePostHogEvent("ai_upgrade_banner_shown", {
+        message: BANNER_MESSAGES[messageIndex].title,
+        variant,
+      });
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -76,21 +75,13 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
   const handleDismiss = () => {
     setIsVisible(false);
     localStorage.setItem("ai-banner-dismissed", new Date().toISOString());
-    
-    // Track dismissal
-    if (window.posthog) {
-      window.posthog.capture("ai_upgrade_banner_dismissed");
-    }
+    capturePostHogEvent("ai_upgrade_banner_dismissed");
   };
 
   const handleUpgradeClick = () => {
-    // Track click
-    if (window.posthog) {
-      window.posthog.capture("ai_upgrade_banner_clicked", {
-        message: BANNER_MESSAGES[messageIndex].title,
-      });
-    }
-    
+    capturePostHogEvent("ai_upgrade_banner_clicked", {
+      message: BANNER_MESSAGES[messageIndex].title,
+    });
     navigateToUpgrade();
   };
 

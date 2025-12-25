@@ -2,6 +2,8 @@
  * Conversion funnel event definitions for PostHog tracking
  */
 
+import { capturePostHogEvent } from "./posthog";
+
 export const CONVERSION_EVENTS = {
   // Landing page events
   LANDING_PAGE_VIEW: "landing_page_view",
@@ -118,12 +120,7 @@ export function trackConversionEvent(
   event: ConversionEvent,
   properties?: ConversionEventProperties
 ) {
-  if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture(event, {
-      ...properties,
-      timestamp: new Date().toISOString(),
-    });
-  }
+  capturePostHogEvent(event, properties);
 }
 
 /**
