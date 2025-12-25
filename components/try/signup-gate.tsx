@@ -38,7 +38,7 @@ export function SignupGate({
   };
 
   return (
-    <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-xl border-2 border-indigo-200 dark:border-indigo-800 p-6 sm:p-8">
+    <div className="bg-muted rounded-xl border p-6 sm:p-8">
       <div className="text-center max-w-md mx-auto">
         <h3 className="text-xl sm:text-2xl font-semibold mb-4">{title}</h3>
 

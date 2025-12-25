@@ -15,12 +15,16 @@ import {
   trackRateLimitReached,
 } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
+import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 
 export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirect logged-in users to dashboard
+  const isRedirecting = useAuthRedirect("interview-prep");
 
   const { canUse, isLoading: checkingLimit, resetAt } = usePreRegistrationRateLimit("interview_prep");
 
@@ -76,12 +80,13 @@ export default function TryInterviewPrepPage() {
     }
   };
 
-  if (checkingLimit) {
+  // Loading state while checking auth or rate limit
+  if (isRedirecting || checkingLimit) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking availability...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -97,7 +102,7 @@ export default function TryInterviewPrepPage() {
           <div>
             <h1 className="text-3xl font-bold mb-2">You've Used Your Free Interview Prep</h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free interview prep + track your applications!
+              Sign up free to access all AI tools and track your job search!
             </p>
           </div>
           {resetAt && (

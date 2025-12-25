@@ -164,7 +164,7 @@ export default function UnlockPage() {
       )}
 
       {/* Next Steps CTA */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
+      <div className="bg-muted rounded-lg border p-8 text-center">
         <h3 className="text-2xl font-semibold mb-4">
           What's Next?
         </h3>
@@ -181,7 +181,7 @@ export default function UnlockPage() {
           </Button>
         </div>
 
-        <div className="mt-6 pt-6 border-t border-indigo-200">
+        <div className="mt-6 pt-6 border-t">
           <p className="text-sm text-muted-foreground mb-3">
             As a free user, you get 1 free try of each AI feature:
           </p>

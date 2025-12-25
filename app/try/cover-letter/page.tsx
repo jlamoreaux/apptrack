@@ -15,6 +15,7 @@ import {
   trackRateLimitReached,
 } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
+import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 
 export default function TryCoverLetterPage() {
   const [results, setResults] = useState<any>(null);
@@ -22,6 +23,9 @@ export default function TryCoverLetterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<CoverLetterFormData | null>(null);
+
+  // Redirect logged-in users to dashboard
+  const isRedirecting = useAuthRedirect("cover-letter");
 
   const { canUse, isLoading: checkingLimit, resetAt } =
     usePreRegistrationRateLimit("cover_letter");
@@ -79,13 +83,13 @@ export default function TryCoverLetterPage() {
     }
   };
 
-  // Loading state while checking rate limit
-  if (checkingLimit) {
+  // Loading state while checking auth or rate limit
+  if (isRedirecting || checkingLimit) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Checking availability...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -105,7 +109,7 @@ export default function TryCoverLetterPage() {
               You've Used Your Free Cover Letter
             </h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free cover letter + track your applications!
+              Sign up free to access all AI tools and track your job search!
             </p>
           </div>
 
