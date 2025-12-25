@@ -4,6 +4,7 @@ import { createClient } from "../supabase/server";
 import { createAdminClient } from "../supabase/admin-client";
 import { revalidatePath } from "next/cache";
 import { stripe } from "../stripe";
+import { AuditAction, EntityType } from "../services/audit.service";
 
 export async function deleteAccountAction(formData: FormData) {
   try {
@@ -16,6 +17,16 @@ export async function deleteAccountAction(formData: FormData) {
     if (!user) {
       return { error: "Not authenticated" };
     }
+
+    // Capture user info BEFORE deletion for audit log
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .single();
+
+    const userEmail = profile?.email || user.email || "unknown";
+    const userName = profile?.full_name || "unknown";
 
     // Get user's subscription to cancel it
     const { data: subscription } = await supabase
@@ -62,6 +73,25 @@ export async function deleteAccountAction(formData: FormData) {
     if (deleteError) {
       return { error: deleteError.message };
     }
+
+    // Create audit log entry using admin client (user data is already deleted)
+    await adminClient.from("audit_logs").insert({
+      user_id: user.id,
+      user_email: userEmail,
+      user_name: userName,
+      action: AuditAction.USER_DELETED,
+      entity_type: EntityType.USER,
+      entity_id: user.id,
+      old_values: {
+        email: userEmail,
+        name: userName,
+        had_subscription: !!subscription?.stripe_subscription_id,
+      },
+      metadata: {
+        deleted_at: new Date().toISOString(),
+        self_service: true,
+      },
+    });
 
     revalidatePath("/");
     return { success: true };
