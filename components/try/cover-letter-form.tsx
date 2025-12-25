@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
+import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
 
 export interface CoverLetterFormData {
   jobDescription: string;
@@ -20,13 +21,18 @@ interface CoverLetterFormProps {
   isLoading?: boolean;
 }
 
+const initialFormData: CoverLetterFormData = {
+  jobDescription: "",
+  userBackground: "",
+  companyName: "",
+  roleName: "",
+};
+
 export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterFormProps) {
-  const [formData, setFormData] = useState<CoverLetterFormData>({
-    jobDescription: "",
-    userBackground: "",
-    companyName: "",
-    roleName: "",
-  });
+  const { formData, setFormData, clearSavedData, hasRestoredData } = useFormPersistence<CoverLetterFormData>(
+    "cover-letter",
+    initialFormData
+  );
 
   const [errors, setErrors] = useState<Partial<Record<keyof CoverLetterFormData, string>>>({});
 
@@ -56,11 +62,28 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       return;
     }
 
+    clearSavedData();
     await onSubmit(formData);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {hasRestoredData && (
+        <div className="flex items-center justify-between bg-muted rounded-md px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Your previous input was restored</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearSavedData();
+              setFormData(initialFormData);
+            }}
+            className="text-primary hover:underline text-xs"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Company Name */}
       <div className="space-y-2">
         <Label htmlFor="companyName">
