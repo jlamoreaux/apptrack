@@ -109,7 +109,7 @@ export default function TryCoverLetterPage() {
               You've Used Your Free Cover Letter
             </h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free cover letter + track your applications!
+              Sign up free to access all AI tools and track your job search!
             </p>
           </div>
 

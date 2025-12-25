@@ -102,7 +102,7 @@ export default function TryInterviewPrepPage() {
           <div>
             <h1 className="text-3xl font-bold mb-2">You've Used Your Free Interview Prep</h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free interview prep + track your applications!
+              Sign up free to access all AI tools and track your job search!
             </p>
           </div>
           {resetAt && (

@@ -118,7 +118,7 @@ export default function TryJobFitPage() {
               You've Used Your Free Analysis
             </h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free job fit analysis + track your applications!
+              Sign up free to access all AI tools and track your job search!
             </p>
           </div>
 
