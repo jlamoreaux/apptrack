@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobFitResults } from "@/components/try/job-fit-results";
 import { CoverLetterResults } from "@/components/try/cover-letter-results";
+import { InterviewPrepResults } from "@/components/try/interview-prep-results";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -121,28 +122,32 @@ export default function UnlockPage() {
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
       {/* Success Header */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 mb-4">
-          <CheckCircle2 className="h-8 w-8 text-green-600" />
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 mb-4">
+          <CheckCircle2 className="h-8 w-8 text-green-600 dark:text-green-400" />
         </div>
         <h1 className="text-4xl font-bold mb-4">
-          🎉 {featureType === "cover_letter" ? "Full Cover Letter Unlocked!" : "Full Analysis Unlocked!"}
+          {featureType === "cover_letter" && "Full Cover Letter Unlocked!"}
+          {featureType === "job_fit" && "Full Analysis Unlocked!"}
+          {featureType === "interview_prep" && "Interview Questions Unlocked!"}
+          {!["cover_letter", "job_fit", "interview_prep"].includes(featureType) && "Content Unlocked!"}
         </h1>
         <p className="text-lg text-muted-foreground">
           {featureType === "job_fit" && "Here's your complete job fit analysis"}
           {featureType === "cover_letter" && "Here's your complete professional cover letter"}
+          {featureType === "interview_prep" && "Here are all your personalized interview questions"}
         </p>
       </div>
 
       {/* Full Results - Job Fit */}
       {analysis && featureType === "job_fit" && (
-        <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
+        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
           <JobFitResults analysis={analysis} isPreview={false} />
         </div>
       )}
 
       {/* Full Results - Cover Letter */}
       {analysis && featureType === "cover_letter" && (
-        <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
+        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
           <CoverLetterResults
             coverLetter={analysis}
             isPreview={false}
@@ -152,8 +157,15 @@ export default function UnlockPage() {
         </div>
       )}
 
+      {/* Full Results - Interview Prep */}
+      {analysis && featureType === "interview_prep" && (
+        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm mb-8">
+          <InterviewPrepResults analysis={analysis} isPreview={false} />
+        </div>
+      )}
+
       {/* Next Steps CTA */}
-      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200 p-8 text-center">
+      <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
         <h3 className="text-2xl font-semibold mb-4">
           What's Next?
         </h3>
@@ -175,16 +187,16 @@ export default function UnlockPage() {
             ✨ As a free user, you get 1 free try of each AI feature:
           </p>
           <div className="flex flex-wrap gap-2 justify-center">
-            <span className="px-3 py-1 bg-white rounded-full text-xs font-medium border">
+            <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">
               Job Fit Analysis
             </span>
-            <span className="px-3 py-1 bg-white rounded-full text-xs font-medium border">
+            <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">
               Cover Letter Generator
             </span>
-            <span className="px-3 py-1 bg-white rounded-full text-xs font-medium border">
+            <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">
               Interview Prep
             </span>
-            <span className="px-3 py-1 bg-white rounded-full text-xs font-medium border">
+            <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">
               Resume Review
             </span>
           </div>

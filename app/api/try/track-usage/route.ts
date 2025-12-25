@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getClientIP } from "@/lib/utils/fingerprint";
 
 /**
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ipAddress = getClientIP(request);
-    const supabase = await createClient();
+    const supabase = createServiceRoleClient();
 
     // Insert usage record
     const { error } = await supabase.from("ai_preview_usage").insert({

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { CoverLetterForm, type CoverLetterFormData } from "@/components/try/cover-letter-form";
-import { CoverLetterResults } from "@/components/try/cover-letter-results";
+import { InterviewPrepForm, type InterviewPrepFormData } from "@/components/try/interview-prep-form";
+import { InterviewPrepResults } from "@/components/try/interview-prep-results";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,60 +16,57 @@ import {
   trackRateLimitReached,
 } from "@/lib/analytics/pre-registration-events";
 
-export default function TryCoverLetterPage() {
+export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<CoverLetterFormData | null>(null);
 
-  const { canUse, isLoading: checkingLimit, resetAt } =
-    usePreRegistrationRateLimit("cover_letter");
+  const { canUse, isLoading: checkingLimit, resetAt } = usePreRegistrationRateLimit("interview_prep");
 
   useEffect(() => {
     if (!checkingLimit && canUse) {
       trackPreviewStarted({
-        feature_type: "cover_letter",
+        feature_type: "interview_prep",
         entry_point: document.referrer ? "referral" : "direct",
       });
     }
   }, [checkingLimit, canUse]);
 
-  const handleSubmit = async (data: CoverLetterFormData) => {
+  const handleSubmit = async (formData: InterviewPrepFormData) => {
     setIsLoading(true);
     setError(null);
-    setFormData(data);
     const submitStartTime = Date.now();
 
     try {
       const fingerprint = await getFingerprint();
 
-      const response = await fetch("/api/try/cover-letter", {
+      const response = await fetch("/api/try/interview-prep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, fingerprint }),
+        body: JSON.stringify({ ...formData, fingerprint }),
       });
 
-      const responseData = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         if (response.status === 429) {
-          setError(responseData.message || "You've already used your free cover letter generator.");
-          trackRateLimitReached({ feature_type: "cover_letter", had_previous_session: true });
+          setError(data.message || "You've already used your free interview prep.");
+          trackRateLimitReached({ feature_type: "interview_prep", had_previous_session: true });
         } else {
-          setError(responseData.error || "Failed to generate cover letter. Please try again.");
+          setError(data.error || "Failed to generate questions. Please try again.");
         }
         return;
       }
 
-      setResults(responseData.preview);
-      setSessionId(responseData.sessionId);
+      setResults({ ...data.preview, totalQuestions: data.totalQuestions });
+      setSessionId(data.sessionId);
 
       trackPreviewCompleted({
-        feature_type: "cover_letter",
-        session_id: responseData.sessionId,
+        feature_type: "interview_prep",
+        session_id: data.sessionId,
         generation_time_ms: Date.now() - submitStartTime,
-        input_length: data.jobDescription.length + data.userBackground.length,
+        input_length: formData.jobDescription.length + formData.userBackground.length,
       });
     } catch (err) {
       console.error("Error:", err);
@@ -79,7 +76,6 @@ export default function TryCoverLetterPage() {
     }
   };
 
-  // Loading state while checking rate limit
   if (checkingLimit) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -91,7 +87,6 @@ export default function TryCoverLetterPage() {
     );
   }
 
-  // Rate limit reached
   if (!canUse) {
     return (
       <div className="max-w-2xl mx-auto p-8 min-h-screen flex flex-col justify-center">
@@ -99,24 +94,17 @@ export default function TryCoverLetterPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900 mb-4">
             <AlertCircle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
           </div>
-
           <div>
-            <h1 className="text-3xl font-bold mb-2">
-              You've Used Your Free Cover Letter
-            </h1>
+            <h1 className="text-3xl font-bold mb-2">You've Used Your Free Interview Prep</h1>
             <p className="text-lg text-muted-foreground">
-              Sign up to get 1 more free cover letter + track your applications!
+              Sign up to get 1 more free interview prep + track your applications!
             </p>
           </div>
-
           {resetAt && (
             <p className="text-sm text-muted-foreground">
-              Your free cover letter resets{" "}
-              {new Date(resetAt).toLocaleDateString()} at{" "}
-              {new Date(resetAt).toLocaleTimeString()}
+              Your free prep resets {new Date(resetAt).toLocaleDateString()} at {new Date(resetAt).toLocaleTimeString()}
             </p>
           )}
-
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
             <Button size="lg" asChild>
               <Link href="/signup">Sign Up Free</Link>
@@ -132,20 +120,16 @@ export default function TryCoverLetterPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
-      {/* Header */}
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-          AI Cover Letter Generator
+          Ace Your Next Interview
         </h1>
         <p className="text-xl text-muted-foreground mb-2">
-          Get a professional cover letter written by AI in 30 seconds
+          AI generates personalized interview questions in 30 seconds
         </p>
-        <p className="text-sm text-muted-foreground">
-          No signup required • Completely free
-        </p>
+        <p className="text-sm text-muted-foreground">No signup required - Get instant practice questions</p>
       </div>
 
-      {/* Error Alert */}
       {error && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
@@ -153,43 +137,31 @@ export default function TryCoverLetterPage() {
         </Alert>
       )}
 
-      {/* Form or Results */}
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-          <CoverLetterForm onSubmit={handleSubmit} isLoading={isLoading} />
+          <InterviewPrepForm onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
       ) : (
         <div className="space-y-8">
-          {/* Results */}
           <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-            <CoverLetterResults
-              coverLetter={results.text}
-              isPreview={true}
-              companyName={formData?.companyName}
-              roleName={formData?.roleName}
-            />
+            <InterviewPrepResults analysis={results} isPreview={true} />
           </div>
 
-          {/* Signup Gate */}
           <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
-            <h3 className="text-2xl font-semibold mb-4">
-              🎉 Your Cover Letter is Ready!
-            </h3>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Sign up free to unlock:
-            </p>
+            <h3 className="text-2xl font-semibold mb-4">Your Questions Are Ready!</h3>
+            <p className="text-muted-foreground mb-6 max-w-md mx-auto">Sign up free to unlock:</p>
             <ul className="text-left max-w-md mx-auto space-y-2 mb-8">
               <li className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <span className="text-sm">Full professionally-written cover letter</span>
+                <span className="text-sm">All {results.totalQuestions || results.questions?.length || 0} interview questions</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <span className="text-sm">Save and edit your cover letter</span>
+                <span className="text-sm">Suggested approaches for each question</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <span className="text-sm">Track this application</span>
+                <span className="text-sm">Practice tips and strategies</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-green-600">✓</span>
@@ -204,27 +176,23 @@ export default function TryCoverLetterPage() {
                 asChild
                 onClick={() =>
                   trackSignupClicked({
-                    feature_type: "cover_letter",
+                    feature_type: "interview_prep",
                     session_id: sessionId || undefined,
                     cta_location: "preview_card",
                   })
                 }
               >
-                <Link href={`/signup?session=${sessionId}`}>
-                  Sign Up Free to Unlock
-                </Link>
+                <Link href={`/signup?session=${sessionId}`}>Sign Up Free to Unlock</Link>
               </Button>
-
               <p className="text-xs text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/signin" className="underline hover:text-primary">
+                <Link href="/login" className="underline hover:text-primary">
                   Sign in
                 </Link>
               </p>
             </div>
           </div>
 
-          {/* Try Another */}
           <div className="text-center">
             <Button
               variant="outline"
@@ -232,16 +200,14 @@ export default function TryCoverLetterPage() {
                 setResults(null);
                 setSessionId(null);
                 setError(null);
-                setFormData(null);
               }}
             >
-              Generate Another Cover Letter
+              Try Another Job
             </Button>
           </div>
         </div>
       )}
 
-      {/* How It Works */}
       {!results && (
         <div className="mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
@@ -250,28 +216,22 @@ export default function TryCoverLetterPage() {
               <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 1
               </div>
-              <h4 className="font-medium mb-2">Enter Job Details</h4>
-              <p className="text-sm text-muted-foreground">
-                Paste the job description and company name
-              </p>
+              <h4 className="font-medium mb-2">Paste Job Description</h4>
+              <p className="text-sm text-muted-foreground">Copy the job posting you're interviewing for</p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 2
               </div>
               <h4 className="font-medium mb-2">Share Your Background</h4>
-              <p className="text-sm text-muted-foreground">
-                Paste your resume or describe your experience
-              </p>
+              <p className="text-sm text-muted-foreground">Paste your resume or write a brief summary</p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 3
               </div>
-              <h4 className="font-medium mb-2">Get Your Cover Letter</h4>
-              <p className="text-sm text-muted-foreground">
-                AI writes a personalized cover letter instantly
-              </p>
+              <h4 className="font-medium mb-2">Get Interview Questions</h4>
+              <p className="text-sm text-muted-foreground">AI generates tailored questions in 30 seconds</p>
             </div>
           </div>
         </div>

@@ -1,29 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
-import { generateCoverLetter } from "@/lib/ai-coach/functions";
+import { generateInterviewPrep } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
 
-/**
- * POST /api/try/cover-letter
- * Generate cover letter for anonymous users (pre-registration)
- *
- * Rate limited to 1 use per 24 hours per fingerprint
- */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { jobDescription, userBackground, companyName, roleName, fingerprint } = body;
+    const { jobDescription, userBackground, interviewType, fingerprint } = body;
 
-    // Validate required fields
-    if (!jobDescription || !userBackground || !companyName || !fingerprint) {
+    if (!jobDescription || !userBackground || !fingerprint) {
       return NextResponse.json(
-        { error: "Missing required fields: jobDescription, userBackground, companyName, fingerprint" },
+        { error: "Missing required fields: jobDescription, userBackground, fingerprint" },
         { status: 400 }
       );
     }
 
-    // Validate input lengths
     if (jobDescription.length < 100) {
       return NextResponse.json(
         { error: "Job description must be at least 100 characters" },
@@ -41,22 +33,18 @@ export async function POST(request: NextRequest) {
     const ipAddress = getClientIP(request);
     const supabase = createServiceRoleClient();
 
-    // Check rate limit - 1 use per 24 hours
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
     const { data: existingUsage, error: usageError } = await supabase
       .from("ai_preview_usage")
       .select("*")
       .eq("fingerprint", fingerprint)
-      .eq("feature_type", "cover_letter")
+      .eq("feature_type", "interview_prep")
       .gte("used_at", twentyFourHoursAgo);
 
     if (usageError) {
       console.error("Error checking usage:", usageError);
-      return NextResponse.json(
-        { error: "Failed to check usage limits" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to check usage limits" }, { status: 500 });
     }
 
     if (existingUsage && existingUsage.length > 0) {
@@ -66,53 +54,73 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
-          message: "You've already used your free cover letter generator. Sign up to get 1 more free try!",
+          message: "You've already used your free interview prep. Sign up to get 1 more free try!",
           resetAt: resetTime.toISOString(),
         },
         { status: 429 }
       );
     }
 
-    // Generate AI cover letter using existing infrastructure
-    let fullCoverLetter: string;
+    let analysisString: string;
     try {
-      fullCoverLetter = await generateCoverLetter(
+      analysisString = await generateInterviewPrep(
         jobDescription,
-        userBackground,
-        companyName,
-        userBackground // Using userBackground as resumeText parameter
+        interviewType || undefined,
+        userBackground
       );
     } catch (aiError) {
       console.error("AI generation error:", aiError);
       return NextResponse.json(
-        { error: "Failed to generate cover letter. Please try again." },
+        { error: "Failed to generate interview prep. Please try again." },
         { status: 500 }
       );
     }
 
-    // Create preview version (first ~300 characters)
-    const previewLength = 300;
-    const previewContent = {
-      text: fullCoverLetter.length > previewLength
-        ? fullCoverLetter.substring(0, previewLength) + "..."
-        : fullCoverLetter,
-      isPreview: fullCoverLetter.length > previewLength,
+    let parsedAnalysis: any;
+    try {
+      // Clean the response - remove markdown code blocks if present
+      let cleanResponse = analysisString.trim();
+      if (cleanResponse.startsWith('```json')) {
+        cleanResponse = cleanResponse.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (cleanResponse.startsWith('```')) {
+        cleanResponse = cleanResponse.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      cleanResponse = cleanResponse.trim();
+
+      parsedAnalysis = JSON.parse(cleanResponse);
+    } catch {
+      parsedAnalysis = {
+        questions: [],
+        generalTips: [],
+        practiceAreas: [],
+      };
+    }
+
+    const fullAnalysis = {
+      questions: parsedAnalysis.questions || [],
+      generalTips: parsedAnalysis.generalTips || [],
+      companyInsights: parsedAnalysis.companyInsights || [],
+      roleSpecificAdvice: parsedAnalysis.roleSpecificAdvice || [],
+      practiceAreas: parsedAnalysis.practiceAreas || [],
     };
 
-    // Encrypt full content
-    const encryptedContent = encryptContent(fullCoverLetter);
+    const previewContent = {
+      questions: fullAnalysis.questions.slice(0, 3),
+      generalTips: [],
+      practiceAreas: [],
+    };
 
-    // Store session in database
+    const encryptedContent = encryptContent(JSON.stringify(fullAnalysis));
+
     const { data: session, error: sessionError } = await supabase
       .from("ai_preview_sessions")
       .insert({
         session_fingerprint: fingerprint,
-        feature_type: "cover_letter",
+        feature_type: "interview_prep",
         input_data: {
           jobDescription,
           userBackground,
-          companyName,
-          roleName: roleName || null,
+          interviewType: interviewType || null,
         },
         preview_content: previewContent,
         full_content_encrypted: encryptedContent,
@@ -124,37 +132,23 @@ export async function POST(request: NextRequest) {
 
     if (sessionError) {
       console.error("Error storing session:", sessionError);
-      return NextResponse.json(
-        { error: "Failed to store cover letter" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to store analysis" }, { status: 500 });
     }
 
-    // Track usage
-    const { error: trackError } = await supabase
-      .from("ai_preview_usage")
-      .insert({
-        fingerprint,
-        ip_address: ipAddress,
-        feature_type: "cover_letter",
-      });
+    await supabase.from("ai_preview_usage").insert({
+      fingerprint,
+      ip_address: ipAddress,
+      feature_type: "interview_prep",
+    });
 
-    if (trackError) {
-      console.error("Error tracking usage:", trackError);
-      // Don't fail the request if tracking fails
-    }
-
-    // Return session ID and preview content
     return NextResponse.json({
       sessionId: session.id,
       preview: previewContent,
-      message: "Cover letter generated successfully. Sign up to see the full version!",
+      totalQuestions: fullAnalysis.questions.length,
+      message: "Interview prep generated successfully. Sign up to see full results!",
     });
   } catch (error) {
-    console.error("Cover letter API error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    console.error("Interview prep API error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

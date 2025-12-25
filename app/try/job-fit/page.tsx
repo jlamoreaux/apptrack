@@ -104,8 +104,8 @@ export default function TryJobFitPage() {
     return (
       <div className="max-w-2xl mx-auto p-8 min-h-screen flex flex-col justify-center">
         <div className="text-center space-y-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 mb-4">
-            <AlertCircle className="h-8 w-8 text-amber-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900 mb-4">
+            <AlertCircle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
           </div>
 
           <div>
@@ -163,18 +163,18 @@ export default function TryJobFitPage() {
 
       {/* Form or Results */}
       {!results ? (
-        <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm">
+        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
           <JobFitForm onSubmit={handleSubmit} isLoading={isLoading} />
         </div>
       ) : (
         <div className="space-y-8">
           {/* Results */}
-          <div className="bg-white rounded-lg border p-6 sm:p-8 shadow-sm">
+          <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
             <JobFitResults analysis={results} isPreview={true} />
           </div>
 
           {/* Signup Gate Placeholder */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-200 p-8 text-center">
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border-2 border-indigo-200 dark:border-indigo-800 p-8 text-center">
             <h3 className="text-2xl font-semibold mb-4">
               🎉 Your Analysis is Ready!
             </h3>
@@ -244,11 +244,11 @@ export default function TryJobFitPage() {
 
       {/* How It Works */}
       {!results && (
-        <div className="mt-12 p-6 bg-gray-50 rounded-lg">
+        <div className="mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 1
               </div>
               <h4 className="font-medium mb-2">Paste Job Description</h4>
@@ -257,7 +257,7 @@ export default function TryJobFitPage() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 2
               </div>
               <h4 className="font-medium mb-2">Share Your Background</h4>
@@ -266,7 +266,7 @@ export default function TryJobFitPage() {
               </p>
             </div>
             <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
                 3
               </div>
               <h4 className="font-medium mb-2">Get Instant Analysis</h4>

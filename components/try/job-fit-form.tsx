@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { ResumeUploadField } from "./resume-upload-field";
 
 export interface JobFitFormData {
   jobDescription: string;
@@ -24,7 +25,6 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
     userBackground: "",
     targetRole: "",
   });
-
   const [errors, setErrors] = useState<Partial<Record<keyof JobFitFormData, string>>>({});
 
   const validateForm = (): boolean => {
@@ -58,7 +58,6 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
 
   const handleChange = (field: keyof JobFitFormData, value: string) => {
     setFormData({ ...formData, [field]: value });
-    // Clear error for this field when user starts typing
     if (errors[field]) {
       setErrors({ ...errors, [field]: undefined });
     }
@@ -98,36 +97,12 @@ Requirements:
       </div>
 
       {/* User Background */}
-      <div className="space-y-2">
-        <Label htmlFor="userBackground" className="text-base font-medium">
-          👤 Your Background <span className="text-destructive">*</span>
-        </Label>
-        <Textarea
-          id="userBackground"
-          placeholder="Tell us about your experience and skills...
-
-You can either:
-1. Paste your resume here, or
-2. Write a brief summary of your experience
-
-Example:
-I'm a software engineer with 4 years of experience building web applications. I've worked extensively with React, TypeScript, and Node.js at two startups. My recent projects include building a real-time dashboard and implementing a microservices architecture.
-
-Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS
-"
-          value={formData.userBackground}
-          onChange={(e) => handleChange("userBackground", e.target.value)}
-          rows={8}
-          className={errors.userBackground ? "border-destructive" : ""}
-          disabled={isLoading}
-        />
-        {errors.userBackground && (
-          <p className="text-sm text-destructive">{errors.userBackground}</p>
-        )}
-        <p className="text-xs text-muted-foreground">
-          {formData.userBackground.length} characters (minimum 50)
-        </p>
-      </div>
+      <ResumeUploadField
+        value={formData.userBackground}
+        onChange={(value) => handleChange("userBackground", value)}
+        error={errors.userBackground}
+        disabled={isLoading}
+      />
 
       {/* Target Role (Optional) */}
       <div className="space-y-2">

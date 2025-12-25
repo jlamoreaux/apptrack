@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { decryptContent } from "@/lib/utils/encryption";
 
 /**
@@ -30,8 +31,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Use service role client for database operations (RLS requires service_role)
+    const serviceClient = createServiceRoleClient();
+
     // Load the session
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await serviceClient
       .from("ai_preview_sessions")
       .select("*")
       .eq("id", sessionId)
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update session to mark as converted
-    const { error: updateError } = await supabase
+    const { error: updateError } = await serviceClient
       .from("ai_preview_sessions")
       .update({
         user_id: user.id,
@@ -77,15 +81,6 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       console.error("Failed to update session:", updateError);
       // Don't fail the request - user still gets their content
-    }
-
-    // Track conversion in PostHog
-    if (typeof window !== "undefined" && window.posthog) {
-      window.posthog.capture("preview_session_converted", {
-        feature_type: session.feature_type,
-        session_id: sessionId,
-        user_id: user.id,
-      });
     }
 
     // Return full content and input data

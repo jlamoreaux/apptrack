@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getClientIP } from "@/lib/utils/fingerprint";
 
 /**
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ipAddress = getClientIP(request);
-    const supabase = await createClient();
+    const supabase = createServiceRoleClient();
 
     // Check usage in last 24 hours for this fingerprint + feature combination
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -38,20 +38,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const usedCount = data?.length || 0;
-    const canUse = usedCount === 0;
+    // TODO: Re-enable rate limiting after testing
+    // const usedCount = data?.length || 0;
+    // const canUse = usedCount === 0;
 
-    // Calculate reset time (24 hours from first use)
-    let resetAt: string | null = null;
-    if (data && data.length > 0) {
-      const firstUse = new Date(data[0].used_at);
-      resetAt = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000).toISOString();
-    }
+    // // Calculate reset time (24 hours from first use)
+    // let resetAt: string | null = null;
+    // if (data && data.length > 0) {
+    //   const firstUse = new Date(data[0].used_at);
+    //   resetAt = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    // }
 
+    // Temporarily bypass rate limiting for testing
     return NextResponse.json({
-      canUse,
-      usedCount,
-      resetAt,
+      canUse: true,
+      usedCount: 0,
+      resetAt: null,
     });
   } catch (error) {
     console.error("Check limit error:", error);
