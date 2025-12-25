@@ -111,6 +111,23 @@ task-master parse-prd .taskmaster/docs/prd.txt --append
 
 ## Scripts
 
+### Database Migrations
+
+Use `run-schema.sh` to execute SQL files against the Supabase database:
+
 ```bash
-./scripts/run-schema.sh schemas/file.sql    # Run SQL migrations
+./scripts/run-schema.sh schemas/migrations/009_example.sql
+./scripts/run-schema.sh schemas/some_feature.sql
 ```
+
+**How it works:**
+- Loads database credentials from `.env`
+- Prefers non-pooling connection (`POSTGRES_URL_NON_POOLING`) for DDL operations
+- Falls back to `POSTGRES_URL` or `POSTGRES_PRISMA_URL` if non-pooling unavailable
+- Executes the SQL file using `psql`
+
+**Migration naming convention:**
+- Numbered migrations in `schemas/migrations/` (e.g., `001_create_users.sql`, `002_add_index.sql`)
+- Feature schemas in `schemas/` root (e.g., `schemas/job_fit_analysis.sql`)
+
+**Note:** Always test migrations locally first. The script shows a partial DB URL for security but runs against the actual database.
