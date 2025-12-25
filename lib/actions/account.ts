@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "../supabase/server";
+import { createAdminClient } from "../supabase/admin-client";
 import { revalidatePath } from "next/cache";
 import { stripe } from "../stripe";
 
@@ -52,8 +53,9 @@ export async function deleteAccountAction(formData: FormData) {
       }
     }
 
-    // Delete the user account
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(
+    // Delete the user account using admin client (requires service role key)
+    const adminClient = createAdminClient();
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(
       user.id
     );
 
