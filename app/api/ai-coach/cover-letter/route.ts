@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
 
 async function coverLetterHandler(request: NextRequest) {
   const startTime = Date.now();
@@ -29,10 +30,11 @@ async function coverLetterHandler(request: NextRequest) {
       );
     }
 
-    // Check permission using middleware
-    const permissionResult = await PermissionMiddleware.checkApiPermission(
+    // Check permission with free tier support
+    const permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
-      "COVER_LETTER"
+      "COVER_LETTER",
+      "cover_letter"
     );
 
     if (!permissionResult.allowed) {
@@ -42,12 +44,17 @@ async function coverLetterHandler(request: NextRequest) {
         {
           feature: 'cover_letter',
           reason: permissionResult.reason || 'subscription_required',
-          userId: user.id
+          userId: user.id,
+          freeTierExhausted: permissionResult.reason === 'free_tier_exhausted'
         },
         { userId: user.id }
       );
       return NextResponse.json(
-        { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
+        {
+          error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
+          reason: permissionResult.reason,
+          requiresUpgrade: true
+        },
         { status: 403 }
       );
     }
@@ -203,6 +210,25 @@ async function coverLetterHandler(request: NextRequest) {
       // Continue anyway - the letter was generated successfully
     }
 
+    // Track free tier usage if applicable
+    if (permissionResult.usedFreeTier) {
+      await AIFeatureUsageService.trackUsage(user.id, "cover_letter", {
+        applicationId: applicationId || null,
+        companyName: finalCompanyName,
+        roleName: finalRoleName || null,
+      });
+
+      loggerService.info('Free tier usage tracked for cover letter', {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: 'free_tier_usage_tracked',
+        metadata: {
+          feature: 'cover_letter',
+          remainingTries: (permissionResult.remainingFreeTries || 1) - 1
+        }
+      });
+    }
+
     loggerService.info('Cover letter generated successfully', {
       category: LogCategory.BUSINESS,
       userId: user.id,
@@ -213,11 +239,18 @@ async function coverLetterHandler(request: NextRequest) {
         roleName: finalRoleName,
         applicationId,
         coverLetterLength: coverLetter.length,
-        tone: tone || 'professional'
+        tone: tone || 'professional',
+        usedFreeTier: permissionResult.usedFreeTier || false
       }
     });
 
-    return NextResponse.json({ coverLetter });
+    return NextResponse.json({
+      coverLetter,
+      usedFreeTier: permissionResult.usedFreeTier,
+      remainingFreeTries: permissionResult.usedFreeTier
+        ? (permissionResult.remainingFreeTries || 1) - 1
+        : undefined
+    });
   } catch (error) {
     loggerService.error('Error generating cover letter', error, {
       category: LogCategory.API,

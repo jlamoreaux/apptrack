@@ -7,6 +7,7 @@ import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
 
 async function handler(request: NextRequest) {
   const startTime = Date.now();
@@ -23,10 +24,11 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check permission
-    const permissionResult = await PermissionMiddleware.checkApiPermission(
+    // Check permission with free tier support
+    const permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
-      "JOB_FIT_ANALYSIS"
+      "JOB_FIT_ANALYSIS",
+      "job_fit"
     );
 
     if (!permissionResult.allowed) {
@@ -36,12 +38,17 @@ async function handler(request: NextRequest) {
         {
           feature: 'job_fit_analysis',
           reason: permissionResult.reason || 'subscription_required',
-          userId: user.id
+          userId: user.id,
+          freeTierExhausted: permissionResult.reason === 'free_tier_exhausted'
         },
         { userId: user.id }
       );
       return NextResponse.json(
-        { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
+        {
+          error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
+          reason: permissionResult.reason,
+          requiresUpgrade: true
+        },
         { status: 403 }
       );
     }
@@ -145,7 +152,25 @@ async function handler(request: NextRequest) {
         overall_score: analysis.overallScore,
         created_at: new Date().toISOString()
       });
-      
+
+      // Track free tier usage if applicable
+      if (permissionResult.usedFreeTier) {
+        await AIFeatureUsageService.trackUsage(user.id, "job_fit", {
+          applicationId: applicationId || null,
+          overallScore: analysis.overallScore,
+        });
+
+        loggerService.info('Free tier usage tracked for job fit analysis', {
+          category: LogCategory.BUSINESS,
+          userId: user.id,
+          action: 'free_tier_usage_tracked',
+          metadata: {
+            feature: 'job_fit',
+            remainingTries: (permissionResult.remainingFreeTries || 1) - 1
+          }
+        });
+      }
+
       loggerService.info('Job fit analysis completed', {
         category: LogCategory.BUSINESS,
         userId: user.id,
@@ -154,11 +179,18 @@ async function handler(request: NextRequest) {
         metadata: {
           applicationId,
           overallScore: analysis.overallScore,
-          aiGenerationTime: aiDuration
+          aiGenerationTime: aiDuration,
+          usedFreeTier: permissionResult.usedFreeTier || false
         }
       });
 
-      return NextResponse.json(analysis);
+      return NextResponse.json({
+        ...analysis,
+        usedFreeTier: permissionResult.usedFreeTier,
+        remainingFreeTries: permissionResult.usedFreeTier
+          ? (permissionResult.remainingFreeTries || 1) - 1
+          : undefined
+      });
       
     } catch (aiError) {
       loggerService.error('AI analysis failed, using fallback', aiError, {
@@ -270,7 +302,16 @@ async function handler(request: NextRequest) {
         overall_score: mockAnalysis.overallScore,
         created_at: new Date().toISOString()
       });
-      
+
+      // Track free tier usage if applicable (even for fallback)
+      if (permissionResult.usedFreeTier) {
+        await AIFeatureUsageService.trackUsage(user.id, "job_fit", {
+          applicationId: applicationId || null,
+          overallScore: mockAnalysis.overallScore,
+          fallback: true
+        });
+      }
+
       loggerService.info('Job fit analysis completed with fallback', {
         category: LogCategory.BUSINESS,
         userId: user.id,
@@ -278,11 +319,18 @@ async function handler(request: NextRequest) {
         duration: Date.now() - startTime,
         metadata: {
           applicationId,
-          overallScore: mockAnalysis.overallScore
+          overallScore: mockAnalysis.overallScore,
+          usedFreeTier: permissionResult.usedFreeTier || false
         }
       });
 
-      return NextResponse.json(mockAnalysis);
+      return NextResponse.json({
+        ...mockAnalysis,
+        usedFreeTier: permissionResult.usedFreeTier,
+        remainingFreeTries: permissionResult.usedFreeTier
+          ? (permissionResult.remainingFreeTries || 1) - 1
+          : undefined
+      });
     }
   } catch (error) {
     loggerService.error('Job fit analysis error', error, {

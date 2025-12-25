@@ -5,7 +5,7 @@ interface CheckListItem {
 }
 
 interface CheckListProps {
-  items: CheckListItem[] | string[]
+  items: readonly CheckListItem[] | readonly string[] | CheckListItem[] | string[]
   className?: string
 }
 

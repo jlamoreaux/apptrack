@@ -42,7 +42,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   }, [plans])
 
   return (
-    <section id="pricing" className="py-16 px-4" aria-labelledby="pricing-heading">
+    <section id="pricing" className="py-16 px-4 bg-muted" aria-labelledby="pricing-heading">
       <div className="text-center mb-8">
         <h2 id="pricing-heading" className="text-2xl font-bold mb-2 text-foreground">
           {COPY.pricing.title}

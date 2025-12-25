@@ -3,14 +3,14 @@
 import { ButtonLink } from "@/components/ui/button-link";
 import { CheckList } from "@/components/ui/check-list";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { 
-  Brain, 
-  FileText, 
-  Target, 
+import {
+  Brain,
+  FileText,
+  Target,
   MessageSquare,
-  ArrowRight 
+  ArrowRight
 } from "lucide-react";
-import { AI_THEME, AI_FEATURE_COLORS } from "@/lib/constants/ai-theme";
+import { FeatureIcon, type FeatureIconColor } from "@/components/ui/feature-icon";
 
 const AI_FEATURES = [
   {
@@ -23,7 +23,7 @@ const AI_FEATURES = [
       "Format recommendations",
       "Achievement quantification"
     ],
-    color: "amber" as const
+    color: "amber" as FeatureIconColor,
   },
   {
     icon: Target,
@@ -35,7 +35,7 @@ const AI_FEATURES = [
       "Missing qualifications",
       "Actionable next steps"
     ],
-    color: "blue" as const
+    color: "blue" as FeatureIconColor,
   },
   {
     icon: MessageSquare,
@@ -47,7 +47,7 @@ const AI_FEATURES = [
       "Company research tips",
       "Questions to ask"
     ],
-    color: "green" as const
+    color: "green" as FeatureIconColor,
   },
   {
     icon: FileText,
@@ -59,14 +59,14 @@ const AI_FEATURES = [
       "Keyword optimization",
       "Edit and customize"
     ],
-    color: "orange" as const
-  }
+    color: "orange" as FeatureIconColor,
+  },
 ] as const;
 
 export function HomeAICoachSection() {
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-background to-muted/20">
-      <div className="container mx-auto max-w-7xl">
+    <section className="py-16 px-4">
+      <div className="container mx-auto max-w-6xl">
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
@@ -80,36 +80,24 @@ export function HomeAICoachSection() {
 
         {/* Feature Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto mb-24">
-          {AI_FEATURES.map((feature) => {
-            const colorClasses = {
-              amber: `${AI_THEME.classes.iconContainer.default} ${AI_THEME.classes.iconContainer.bordered}`,
-              blue: "text-blue-600 bg-blue-50 border-blue-200",
-              green: "text-green-600 bg-green-50 border-green-200",
-              orange: "text-orange-600 bg-orange-50 border-orange-200"
-            };
-            const colors = colorClasses[feature.color];
-
-            return (
-              <Card key={feature.title} className="border-2 hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start gap-4">
-                    <div className={`p-3 rounded-lg ${colors} flex-shrink-0`}>
-                      <feature.icon className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {feature.description}
-                      </p>
-                    </div>
+          {AI_FEATURES.map((feature) => (
+            <Card key={feature.title} className="border-2 hover:shadow-lg transition-shadow">
+              <CardHeader>
+                <div className="flex items-start gap-4">
+                  <FeatureIcon icon={feature.icon} color={feature.color} />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {feature.description}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <CheckList items={feature.highlights} className="text-sm" />
-                </CardContent>
-              </Card>
-            );
-          })}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CheckList items={feature.highlights} className="text-sm" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
 
         {/* Bottom CTA */}

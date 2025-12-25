@@ -10,6 +10,7 @@ import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { HomeAICoachSection } from "@/components/home-ai-coach-section"
 import { TestimonialSection } from "@/components/testimonials"
 import { HeroContent } from "@/components/home-hero-variants"
+import { HomeTryAISection } from "@/components/home-try-ai-section"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
@@ -99,6 +100,9 @@ export default async function HomePage() {
         {/* Problem/Solution Section */}
         <HomeProblemSolution />
 
+        {/* Try AI Features Free Section */}
+        <HomeTryAISection />
+
         {/* Features Section */}
         <section className="py-16 px-4">
           <div className="container mx-auto">
@@ -180,7 +184,7 @@ export default async function HomePage() {
         <HomeAICoachSection />
 
         {/* Mobile Responsive Section */}
-        <section className="py-16 px-4 bg-muted/30">
+        <section className="py-16 px-4">
           <div className="container mx-auto max-w-6xl">
             <div className="grid lg:grid-cols-2 gap-8 items-center">
               <div className="order-2 lg:order-1">
