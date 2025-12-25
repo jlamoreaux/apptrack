@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useNavigation } from "@/lib/utils/navigation";
 import { cn } from "@/lib/utils";
 import { AI_THEME } from "@/lib/constants/ai-theme";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 interface UnlockAIButtonProps {
   variant?: "default" | "outline" | "ghost";
@@ -26,14 +27,11 @@ export function UnlockAIButton({
   const { navigateToUpgrade } = useNavigation();
 
   const handleClick = () => {
-    // Track click event
-    if (window.posthog) {
-      window.posthog.capture("unlock_ai_button_clicked", {
-        feature: feature,
-        location: window.location.pathname,
-        button_text: children,
-      });
-    }
+    capturePostHogEvent("unlock_ai_button_clicked", {
+      feature: feature,
+      location: typeof window !== "undefined" ? window.location.pathname : undefined,
+      button_text: children,
+    });
 
     if (onClick) {
       onClick();

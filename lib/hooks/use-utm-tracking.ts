@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 const UTM_PARAMS = [
   "utm_source",
@@ -21,15 +22,12 @@ const UTM_STORAGE_KEY = "apptrack_utm_params";
  * Track storage errors to PostHog for debugging
  */
 function trackStorageError(operation: "read" | "write", error: unknown) {
-  if (typeof window !== "undefined" && window.posthog) {
-    window.posthog.capture("utm_storage_error", {
-      operation,
-      error_message: error instanceof Error ? error.message : String(error),
-      error_name: error instanceof Error ? error.name : "Unknown",
-      storage_available: typeof sessionStorage !== "undefined",
-      timestamp: new Date().toISOString(),
-    });
-  }
+  capturePostHogEvent("utm_storage_error", {
+    operation,
+    error_message: error instanceof Error ? error.message : String(error),
+    error_name: error instanceof Error ? error.name : "Unknown",
+    storage_available: typeof sessionStorage !== "undefined",
+  });
 }
 
 /**

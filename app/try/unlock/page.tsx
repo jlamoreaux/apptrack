@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
 /**
  * Unlock page - shown after user signs up from a preview session
@@ -68,12 +69,10 @@ export default function UnlockPage() {
         setIsLoading(false);
 
         // Track in PostHog
-        if (window.posthog) {
-          window.posthog.capture("preview_unlocked", {
-            feature_type: data.featureType,
-            session_id: sessionId,
-          });
-        }
+        capturePostHogEvent("preview_unlocked", {
+          feature_type: data.featureType,
+          session_id: sessionId,
+        });
       } catch (err) {
         console.error("Error converting session:", err);
         setError("An unexpected error occurred");
