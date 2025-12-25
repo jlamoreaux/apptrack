@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
+import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
 
 export interface JobFitFormData {
   jobDescription: string;
@@ -20,11 +21,14 @@ interface JobFitFormProps {
 }
 
 export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
-  const [formData, setFormData] = useState<JobFitFormData>({
-    jobDescription: "",
-    userBackground: "",
-    targetRole: "",
-  });
+  const { formData, setFormData, clearSavedData, hasRestoredData } = useFormPersistence<JobFitFormData>(
+    "job-fit",
+    {
+      jobDescription: "",
+      userBackground: "",
+      targetRole: "",
+    }
+  );
   const [errors, setErrors] = useState<Partial<Record<keyof JobFitFormData, string>>>({});
 
   const validateForm = (): boolean => {
@@ -52,6 +56,7 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
     e.preventDefault();
 
     if (validateForm()) {
+      clearSavedData();
       onSubmit(formData);
     }
   };
@@ -65,6 +70,22 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {hasRestoredData && (
+        <div className="flex items-center justify-between bg-muted rounded-md px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Your previous input was restored</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearSavedData();
+              setFormData({ jobDescription: "", userBackground: "", targetRole: "" });
+            }}
+            className="text-primary hover:underline text-xs"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       {/* Job Description */}
       <div className="space-y-2">
         <Label htmlFor="jobDescription" className="text-base font-medium">

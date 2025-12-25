@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
+import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
 
 export interface InterviewPrepFormData {
   jobDescription: string;
@@ -19,12 +20,17 @@ interface InterviewPrepFormProps {
   isLoading?: boolean;
 }
 
+const initialFormData: InterviewPrepFormData = {
+  jobDescription: "",
+  userBackground: "",
+  interviewType: "",
+};
+
 export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrepFormProps) {
-  const [formData, setFormData] = useState<InterviewPrepFormData>({
-    jobDescription: "",
-    userBackground: "",
-    interviewType: "",
-  });
+  const { formData, setFormData, clearSavedData, hasRestoredData } = useFormPersistence<InterviewPrepFormData>(
+    "interview-prep",
+    initialFormData
+  );
   const [errors, setErrors] = useState<Partial<Record<keyof InterviewPrepFormData, string>>>({});
 
   const validate = (): boolean => {
@@ -42,12 +48,29 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validate()) {
+      clearSavedData();
       await onSubmit(formData);
     }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {hasRestoredData && (
+        <div className="flex items-center justify-between bg-muted rounded-md px-3 py-2 text-sm">
+          <span className="text-muted-foreground">Your previous input was restored</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearSavedData();
+              setFormData(initialFormData);
+            }}
+            className="text-primary hover:underline text-xs"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="interviewType">
           Interview Type <span className="text-muted-foreground text-sm">(optional)</span>
