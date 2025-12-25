@@ -45,6 +45,12 @@ export async function GET(request: NextRequest) {
           }
         }
         
+        // If user is unlocking pre-registration results, prioritize that redirect
+        // They can complete onboarding after seeing their results
+        if (next?.startsWith("/try/unlock")) {
+          return NextResponse.redirect(new URL(next, requestUrl.origin));
+        }
+
         // If email confirmation (signup flow) and onboarding not completed
         if (type === "signup" || !profile?.onboarding_completed) {
           // Check if user has a traffic source trial in their metadata
@@ -53,7 +59,7 @@ export async function GET(request: NextRequest) {
           }
           return NextResponse.redirect(new URL("/onboarding/welcome", requestUrl.origin));
         }
-        
+
         // Otherwise go to dashboard or specified next page
         return NextResponse.redirect(new URL(next ?? "/dashboard", requestUrl.origin));
       }

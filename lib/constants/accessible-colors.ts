@@ -34,13 +34,13 @@ export const ACCESSIBLE_COLORS = {
       foreground: '#ffffff'
     },
     accent: {
-      DEFAULT: '#424242', // Gray - 6.4:1+ contrast on white
-      50: '#F5F5F5',
-      100: '#EEEEEE',
-      600: '#424242',
-      700: '#616161', 
-      800: '#212121',
-      foreground: '#ffffff'
+      DEFAULT: '#E3F2FD', // Light blue - used for hover states on outline/ghost buttons
+      50: '#E3F2FD',
+      100: '#BBDEFB',
+      600: '#1565C0',
+      700: '#1976D2',
+      800: '#0D47A1',
+      foreground: '#0D47A1'
     }
   },
   // Status colors with guaranteed WCAG AA compliance
@@ -259,12 +259,12 @@ export function validateContrast(foreground: string, background: string, level: 
 }
 
 // Generate Tailwind color configuration from accessible colors
+// Note: accent is defined via CSS variables in tailwind.config.ts to support dark mode
 export function generateTailwindColors() {
   return {
-    // Brand colors (maps to primary, secondary, accent in Tailwind)
+    // Brand colors (maps to primary, secondary in Tailwind)
     primary: ACCESSIBLE_COLORS.brand.primary,
     secondary: ACCESSIBLE_COLORS.brand.secondary,
-    accent: ACCESSIBLE_COLORS.brand.accent,
     
     // Status colors for components
     status: {

@@ -13,6 +13,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NavigationStatic } from "@/components/navigation-static";
 import { SignUpForm } from "@/components/forms/sign-up-form";
+import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { Gift, Sparkles } from "lucide-react";
 
 export default function SignUpPageClient() {
@@ -83,6 +84,21 @@ export default function SignUpPageClient() {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <GoogleSignInButton
+                context="signup"
+                redirectTo={sessionId ? `/try/unlock?session=${sessionId}` : undefined}
+                className="mb-4"
+              />
+
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
+                </div>
+              </div>
+
               <SignUpForm />
               <div className="mt-4 text-center text-sm">
                 Already have an account?{" "}
