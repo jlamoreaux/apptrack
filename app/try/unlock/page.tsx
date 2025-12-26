@@ -169,11 +169,23 @@ export default function UnlockPage() {
           What's Next?
         </h3>
         <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-          Track this application and use AI Coach to help you throughout your job search
+          Access this in AI Coach or track this application
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button size="lg" asChild>
+          {featureType && (
+            <Button size="lg" asChild>
+              <Link href={`/dashboard/ai-coach?tab=${
+                featureType === 'job_fit' ? 'job-fit' :
+                featureType === 'cover_letter' ? 'cover-letter' :
+                featureType === 'interview_prep' ? 'interview' :
+                'job-fit'
+              }`}>
+                Open in AI Coach
+              </Link>
+            </Button>
+          )}
+          <Button size="lg" variant="outline" asChild>
             <Link href="/applications/new">Save as Application</Link>
           </Button>
           <Button size="lg" variant="outline" asChild>
@@ -183,7 +195,7 @@ export default function UnlockPage() {
 
         <div className="mt-6 pt-6 border-t">
           <p className="text-sm text-muted-foreground mb-3">
-            As a free user, you get 1 free try of each AI feature:
+            As a free user, you get 1 free try of each AI feature per day:
           </p>
           <div className="flex flex-wrap gap-2 justify-center">
             <span className="px-3 py-1 bg-card rounded-full text-xs font-medium border">
