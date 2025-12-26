@@ -1,18 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
+import * as crypto from 'crypto';
 import { unsubscribeContact } from '@/lib/email/audiences';
 import { cancelPendingDrips } from '@/lib/email/drip-scheduler';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
+const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || 'fallback-secret-change-me';
 
 /**
- * Verify the unsubscribe token
- * Simple base64 encoding of email for now
+ * Generate HMAC token for email unsubscribe
+ * Uses a secret key to prevent forging unsubscribe links
+ */
+export function generateUnsubscribeToken(email: string): string {
+  return crypto
+    .createHmac('sha256', UNSUBSCRIBE_SECRET)
+    .update(email.toLowerCase().trim())
+    .digest('hex');
+}
+
+/**
+ * Verify the unsubscribe token using HMAC
  */
 function verifyToken(email: string, token: string): boolean {
-  const expectedToken = Buffer.from(email).toString('base64');
-  return token === expectedToken;
+  const expectedToken = generateUnsubscribeToken(email);
+  // Use timing-safe comparison to prevent timing attacks
+  try {
+    return crypto.timingSafeEqual(
+      Buffer.from(token),
+      Buffer.from(expectedToken)
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Escape HTML entities to prevent XSS
+ */
+function escapeHtml(str: string): string {
+  const htmlEntities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return str.replace(/[&<>"']/g, (char) => htmlEntities[char]);
 }
 
 /**
@@ -105,6 +139,12 @@ export async function POST(request: NextRequest) {
 }
 
 function getConfirmationPage(email: string, token: string): string {
+  // Escape user input to prevent XSS
+  const safeEmail = escapeHtml(email);
+  // JSON.stringify handles escaping for JS context
+  const jsonEmail = JSON.stringify(email);
+  const jsonToken = JSON.stringify(token);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -163,7 +203,7 @@ function getConfirmationPage(email: string, token: string): string {
   <div class="container">
     <div id="confirm">
       <h1>Unsubscribe</h1>
-      <p>Are you sure you want to unsubscribe <span class="email">${email}</span> from AppTrack emails?</p>
+      <p>Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from AppTrack emails?</p>
       <button id="unsubscribeBtn" onclick="unsubscribe()">Unsubscribe</button>
       <button class="cancel" onclick="window.location.href='${APP_URL}'">Cancel</button>
       <p id="error" class="error"></p>
@@ -175,6 +215,9 @@ function getConfirmationPage(email: string, token: string): string {
     </div>
   </div>
   <script>
+    const EMAIL = ${jsonEmail};
+    const TOKEN = ${jsonToken};
+
     async function unsubscribe() {
       const btn = document.getElementById('unsubscribeBtn');
       const error = document.getElementById('error');
@@ -186,7 +229,7 @@ function getConfirmationPage(email: string, token: string): string {
         const response = await fetch('/api/email/unsubscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: '${email}', token: '${token}' })
+          body: JSON.stringify({ email: EMAIL, token: TOKEN })
         });
 
         if (response.ok) {
@@ -213,6 +256,9 @@ function getConfirmationPage(email: string, token: string): string {
 }
 
 function getErrorPage(message: string): string {
+  // Escape message to prevent XSS
+  const safeMessage = escapeHtml(message);
+
   return `
 <!DOCTYPE html>
 <html>
@@ -257,7 +303,7 @@ function getErrorPage(message: string): string {
 <body>
   <div class="container">
     <h1>Error</h1>
-    <p>${message}</p>
+    <p>${safeMessage}</p>
     <button onclick="window.location.href='${APP_URL}'">Go to AppTrack</button>
   </div>
 </body>

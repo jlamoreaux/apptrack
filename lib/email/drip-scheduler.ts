@@ -225,10 +225,20 @@ export async function markDripFailed(id: string, errorMessage: string): Promise<
 
 /**
  * Generate unsubscribe URL for a user
+ * Uses HMAC token for security (prevents forging unsubscribe links)
  */
 export function getUnsubscribeUrl(email: string): string {
-  const encoded = encodeURIComponent(email);
-  const token = Buffer.from(email).toString('base64');
+  // Import the token generator from unsubscribe route
+  // We duplicate the logic here to avoid circular imports
+  const crypto = require('crypto');
+  const secret = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || 'fallback-secret-change-me';
+  const normalizedEmail = email.toLowerCase().trim();
+  const token = crypto
+    .createHmac('sha256', secret)
+    .update(normalizedEmail)
+    .digest('hex');
+
+  const encoded = encodeURIComponent(normalizedEmail);
   return `${APP_URL}/api/email/unsubscribe?email=${encoded}&token=${token}`;
 }
 

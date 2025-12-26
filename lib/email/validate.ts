@@ -244,7 +244,6 @@ const DISPOSABLE_DOMAINS = new Set([
   'prtnx.com',
   'punkass.com',
   'putthisinyourspamdatabase.com',
-  'qq.com',
   'quickinbox.com',
   'rcpt.at',
   'reallymymail.com',
