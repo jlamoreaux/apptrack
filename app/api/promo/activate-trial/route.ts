@@ -4,6 +4,7 @@ import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { transitionAudience } from "@/lib/email/drip-scheduler";
 
 
 export async function POST(request: NextRequest) {
@@ -203,7 +204,19 @@ export async function POST(request: NextRequest) {
 
     // Send welcome email
     await sendWelcomeEmail(user.email!, endDate, promoCodeData.trial_days, promoCodeData.code_type, promoCodeData.plan_name);
-    
+
+    // Transition user to trial-users audience (non-blocking)
+    transitionAudience(user.email!, 'free-users', 'trial-users', {
+      userId: user.id,
+      metadata: {
+        source: 'promo-activation',
+        planName: promoCodeData.plan_name,
+        codeType: promoCodeData.code_type,
+      },
+    }).catch((err) => {
+      console.error('Failed to transition to trial-users audience:', err);
+    });
+
     loggerService.info('Promo trial activated successfully', {
       category: LogCategory.PAYMENT,
       userId: user.id,

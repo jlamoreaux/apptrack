@@ -6,17 +6,19 @@ import { generateRoast as generateRoastV2 } from "@/lib/roast/roast-generator-v2
 import { cookies, headers } from "next/headers";
 import * as crypto from "crypto";
 import { checkRoastRateLimit, checkGuestRoastRateLimit } from "@/lib/roast/rate-limiter";
-import { 
-  RoastError, 
-  RateLimitError, 
-  FileValidationError, 
-  AuthorizationError, 
+import {
+  RoastError,
+  RateLimitError,
+  FileValidationError,
+  AuthorizationError,
   ProcessingError,
-  handleRoastError 
+  handleRoastError
 } from "@/lib/roast/errors";
 import { ROAST_CONSTANTS, ROAST_ERRORS } from "@/lib/constants/roast";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { validateEmail } from "@/lib/email/validate";
+import { scheduleDripSequence } from "@/lib/email/drip-scheduler";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // 30 seconds timeout
@@ -108,7 +110,8 @@ export async function POST(req: NextRequest) {
     // Parse the form data
     const formData = await req.formData();
     const file = formData.get("resume") as File;
-    
+    const emailInput = formData.get("email") as string | null;
+
     if (!file) {
       loggerService.warn('Roast request missing file', {
         category: LogCategory.API,
@@ -118,6 +121,31 @@ export async function POST(req: NextRequest) {
       });
       throw new FileValidationError("No file provided");
     }
+
+    // Validate email (required for lead capture)
+    if (!emailInput) {
+      loggerService.warn('Roast request missing email', {
+        category: LogCategory.API,
+        userId: user?.id,
+        action: 'roast_no_email',
+        duration: Date.now() - startTime
+      });
+      throw new FileValidationError("Email is required");
+    }
+
+    const emailValidation = validateEmail(emailInput);
+    if (!emailValidation.valid) {
+      loggerService.warn('Roast request invalid email', {
+        category: LogCategory.API,
+        userId: user?.id,
+        action: 'roast_invalid_email',
+        duration: Date.now() - startTime,
+        metadata: { reason: emailValidation.reason }
+      });
+      throw new FileValidationError(emailValidation.message || "Invalid email address");
+    }
+
+    const email = emailInput.trim().toLowerCase();
     
     // Validate file type
     if (!ROAST_CONSTANTS.SUPPORTED_FILE_TYPES.includes(file.type as any)) {
@@ -286,7 +314,26 @@ export async function POST(req: NextRequest) {
       maxAge: 30 * 24 * 60 * 60, // 30 days
       path: "/",
     });
-    
+
+    // Schedule drip emails for lead (non-blocking)
+    scheduleDripSequence({
+      email,
+      audience: 'leads',
+      userId: user?.id,
+      firstName: firstName || undefined,
+      metadata: {
+        source: 'resume-roast',
+        roastId: savedRoast.shareable_id,
+      },
+    }).catch((err) => {
+      // Log but don't fail the request
+      loggerService.error('Failed to schedule drip emails', err, {
+        category: LogCategory.BUSINESS,
+        action: 'drip_schedule_error',
+        metadata: { email, roastId: savedRoast.shareable_id }
+      });
+    });
+
     loggerService.info('Roast generated successfully', {
       category: LogCategory.BUSINESS,
       userId: user?.id,

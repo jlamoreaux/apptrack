@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getAudienceMember } from "@/lib/email/audiences";
+import { transitionAudience, scheduleDripSequence } from "@/lib/email/drip-scheduler";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -35,7 +37,7 @@ export async function GET(request: NextRequest) {
                 "Cookie": request.headers.get("cookie") || ""
               },
             });
-            
+
             if (!customerResponse.ok) {
               console.error("Stripe customer creation returned non-OK status:", customerResponse.status);
             }
@@ -44,7 +46,36 @@ export async function GET(request: NextRequest) {
             // Don't block the user flow, continue with redirect
           }
         }
-        
+
+        // Handle email audience for new signups (non-blocking)
+        if (type === "signup" && user.email) {
+          (async () => {
+            try {
+              const existingMember = await getAudienceMember(user.email!);
+              const firstName = user.user_metadata?.full_name?.split(' ')[0];
+
+              if (existingMember && existingMember.current_audience === 'leads') {
+                // Transition from leads to free-users
+                await transitionAudience(user.email!, 'leads', 'free-users', {
+                  userId: user.id,
+                  firstName,
+                });
+              } else if (!existingMember) {
+                // New user, add to free-users
+                await scheduleDripSequence({
+                  email: user.email!,
+                  audience: 'free-users',
+                  userId: user.id,
+                  firstName,
+                  metadata: { source: 'signup' },
+                });
+              }
+            } catch (err) {
+              console.error("Failed to handle audience for new signup:", err);
+            }
+          })();
+        }
+
         // If user is unlocking pre-registration results, prioritize that redirect
         // They can complete onboarding after seeing their results
         if (next?.startsWith("/try/unlock")) {
