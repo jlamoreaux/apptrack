@@ -17,6 +17,7 @@ import {
 import { ROAST_CONSTANTS, ROAST_ERRORS } from "@/lib/constants/roast";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { serverAnalyticsService } from "@/lib/services/analytics-server.service";
 import { validateEmail } from "@/lib/email/validate";
 import { scheduleDripSequence } from "@/lib/email/drip-scheduler";
 
@@ -325,12 +326,36 @@ export async function POST(req: NextRequest) {
         source: 'resume-roast',
         roastId: savedRoast.shareable_id,
       },
+    }).then(() => {
+      loggerService.info('Drip emails scheduled successfully', {
+        category: LogCategory.BUSINESS,
+        action: 'drip_schedule_success',
+        userId: user?.id,
+        metadata: { email, roastId: savedRoast.shareable_id, audience: 'leads' }
+      });
     }).catch((err) => {
-      // Log but don't fail the request
+      // Log error with full details
       loggerService.error('Failed to schedule drip emails', err, {
         category: LogCategory.BUSINESS,
         action: 'drip_schedule_error',
-        metadata: { email, roastId: savedRoast.shareable_id }
+        userId: user?.id,
+        metadata: {
+          email,
+          roastId: savedRoast.shareable_id,
+          errorMessage: err instanceof Error ? err.message : String(err),
+          errorStack: err instanceof Error ? err.stack : undefined,
+        }
+      });
+
+      // Track error in analytics
+      serverAnalyticsService.trackEvent({
+        name: 'drip_schedule_error',
+        properties: {
+          email,
+          roastId: savedRoast.shareable_id,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        userId: user?.id,
       });
     });
 
