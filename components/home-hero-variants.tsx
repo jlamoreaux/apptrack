@@ -4,6 +4,9 @@ import { useFeatureFlagVariant } from "@/lib/hooks/use-feature-flag";
 import { FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 import { trackConversionEvent } from "@/lib/analytics/conversion-events";
 import { useEffect } from "react";
+import copyData from "@/content/copy.json";
+
+const AI_COACH_PRICE = copyData.pricing.plans.ai_coach.price;
 
 /**
  * Hero copy variants for A/B testing
@@ -11,17 +14,17 @@ import { useEffect } from "react";
 export const HERO_VARIANTS = {
   control: {
     title: "Land interviews faster with AI-powered career coaching",
-    subtitle: "Get expert resume feedback, custom cover letters, and interview prep for $9/month - 99% less than hiring a real career coach.",
+    subtitle: `Get expert resume feedback, custom cover letters, and interview prep for ${AI_COACH_PRICE} - 99% less than hiring a real career coach.`,
     stats: "Track every application • Perfect your resume & cover letters • Land more interviews",
   },
   outcome_focused: {
     title: "Turn applications into interviews with AI coaching",
-    subtitle: "Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching for just $9/month.",
+    subtitle: `Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching for just ${AI_COACH_PRICE}.`,
     stats: "Optimize every application • Stand out to recruiters • Interview with confidence",
   },
   problem_focused: {
     title: "Stop losing dream jobs to bad resumes",
-    subtitle: "Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies for just $9/month.",
+    subtitle: `Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies for just ${AI_COACH_PRICE}.`,
     stats: "Beat ATS filters • Stand out from other applicants • Get noticed by recruiters",
   },
 } as const;
