@@ -8,6 +8,7 @@ import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { transitionAudience } from "@/lib/email/drip-scheduler";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -282,6 +283,32 @@ async function handleCheckoutCompleted(
     console.log(`Status: ${subscription.status}`);
     console.log(`Period start: ${currentPeriodStart}`);
     console.log(`Period end: ${currentPeriodEnd}`);
+
+    // Transition user to paid-users audience (non-blocking)
+    // Get user email from Stripe customer
+    if (session.customer_email || session.customer_details?.email) {
+      const customerEmail = session.customer_email || session.customer_details?.email;
+      transitionAudience(customerEmail!, 'trial-users', 'paid-users', {
+        userId,
+        metadata: {
+          source: 'stripe-checkout',
+          planName,
+          subscriptionId: subscription.id,
+        },
+      }).catch((err) => {
+        // Try transitioning from free-users if not in trial
+        transitionAudience(customerEmail!, 'free-users', 'paid-users', {
+          userId,
+          metadata: {
+            source: 'stripe-checkout',
+            planName,
+            subscriptionId: subscription.id,
+          },
+        }).catch(() => {
+          console.error('Failed to transition to paid-users audience:', err);
+        });
+      });
+    }
   } catch (error) {
     loggerService.error('Error in handleCheckoutCompleted', error as Error, {
       category: LogCategory.PAYMENT,

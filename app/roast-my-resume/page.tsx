@@ -3,17 +3,47 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { FileUpload } from "@/components/ui/file-upload";
-import { Loader2, Flame } from "lucide-react";
+import { Flame } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
 import { RoastingAnimationLazy } from "@/components/roast/roasting-animation-lazy";
 
+// Disposable email domains to block (client-side check)
+const DISPOSABLE_DOMAINS = new Set([
+  'mailinator.com', 'guerrillamail.com', 'tempmail.com', 'temp-mail.org',
+  '10minutemail.com', 'throwaway.email', 'fakeinbox.com', 'trashmail.com',
+  'mailnesia.com', 'maildrop.cc', 'getnada.com', 'yopmail.com', 'yopmail.fr',
+  'sharklasers.com', 'spam4.me', 'grr.la', 'dispostable.com', 'tempail.com',
+]);
+
+function validateEmailClient(email: string): { valid: boolean; message?: string } {
+  if (!email || email.trim() === '') {
+    return { valid: false, message: 'Email is required' };
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return { valid: false, message: 'Please enter a valid email address' };
+  }
+
+  const domain = email.split('@')[1]?.toLowerCase();
+  if (domain && DISPOSABLE_DOMAINS.has(domain)) {
+    return { valid: false, message: 'Please use a permanent email address (temporary emails are not allowed)' };
+  }
+
+  return { valid: true };
+}
+
 export default function RoastMyResumePage() {
   const router = useRouter();
   const { trackEvent } = useRoastAnalytics();
   const [file, setFile] = useState<File | null>(null);
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,19 +70,50 @@ export default function RoastMyResumePage() {
   };
 
 
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (emailError) {
+      const validation = validateEmailClient(value);
+      if (validation.valid) {
+        setEmailError(null);
+      }
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (email) {
+      const validation = validateEmailClient(email);
+      if (!validation.valid) {
+        setEmailError(validation.message || 'Invalid email');
+      } else {
+        setEmailError(null);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
     if (!file) {
       setError("Please select a resume file");
       return;
     }
 
+    // Validate email
+    const emailValidation = validateEmailClient(email);
+    if (!emailValidation.valid) {
+      setEmailError(emailValidation.message || 'Invalid email');
+      return;
+    }
+
     setIsUploading(true);
     setError(null);
+    setEmailError(null);
     trackEvent(ROAST_EVENTS.UPLOAD_STARTED, { fileType: file.type, fileSize: file.size });
 
     try {
       const formData = new FormData();
       formData.append("resume", file);
+      formData.append("email", email.trim().toLowerCase());
 
       const response = await fetch("/api/roast", {
         method: "POST",
@@ -114,10 +175,31 @@ export default function RoastMyResumePage() {
             supportedFormats={["PDF", "DOC", "DOCX"]}
           />
 
+          {/* Email Input */}
+          <div className="mt-6 space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={handleEmailChange}
+              onBlur={handleEmailBlur}
+              disabled={isUploading}
+              className={emailError ? "border-red-500 focus-visible:ring-red-500" : ""}
+            />
+            {emailError && (
+              <p className="text-sm text-red-500">{emailError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              We&apos;ll send your roast results to this email
+            </p>
+          </div>
+
           {/* Submit Button */}
           <Button
             onClick={handleSubmit}
-            disabled={!file || isUploading}
+            disabled={!file || !email || isUploading}
             className="w-full mt-6"
             size="lg"
           >
