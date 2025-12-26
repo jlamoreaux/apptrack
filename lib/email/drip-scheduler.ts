@@ -10,7 +10,8 @@ import {
   transitionAudience as audienceTransition,
   type AudienceId,
 } from './audiences';
-import { getTemplatesForAudience } from './templates/drip';
+import { getTemplatesForAudience, getTemplateById } from './templates/drip';
+import { sendEmail } from './client';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
 
@@ -25,7 +26,8 @@ export type ScheduleDripOptions = {
 /**
  * Schedule a drip email sequence for a user
  * - Adds to audience (Resend + local DB)
- * - Schedules all drip emails for that audience
+ * - Sends Day 0 emails immediately
+ * - Schedules future emails for cron processing
  */
 export async function scheduleDripSequence({
   email,
@@ -33,7 +35,7 @@ export async function scheduleDripSequence({
   userId,
   firstName,
   metadata = {},
-}: ScheduleDripOptions): Promise<{ success: boolean; scheduled: number }> {
+}: ScheduleDripOptions): Promise<{ success: boolean; scheduled: number; sentImmediately: number }> {
   const normalizedEmail = email.trim().toLowerCase();
   const supabase = createAdminClient();
 
@@ -50,20 +52,20 @@ export async function scheduleDripSequence({
   const templates = getTemplatesForAudience(audience);
 
   if (templates.length === 0) {
-    return { success: true, scheduled: 0 };
+    return { success: true, scheduled: 0, sentImmediately: 0 };
   }
 
-  // Calculate scheduled times based on day offsets
+  // Separate Day 0 (immediate) from future emails
+  const immediateTemplates = templates.filter((t) => t.dayOffset === 0);
+  const futureTemplates = templates.filter((t) => t.dayOffset > 0);
+
+  // Calculate scheduled times for future emails
   const now = new Date();
-  const emailsToSchedule = templates.map((template) => {
+  const emailsToSchedule = futureTemplates.map((template) => {
     const scheduledFor = new Date(now);
     scheduledFor.setDate(scheduledFor.getDate() + template.dayOffset);
-
-    // Set to 10 AM in the user's assumed timezone (UTC for now)
-    // Day 0 emails are sent immediately (within next cron run)
-    if (template.dayOffset > 0) {
-      scheduledFor.setHours(10, 0, 0, 0);
-    }
+    // Set to 10 AM UTC
+    scheduledFor.setHours(10, 0, 0, 0);
 
     return {
       email: normalizedEmail,
@@ -75,18 +77,88 @@ export async function scheduleDripSequence({
     };
   });
 
-  // Insert drip emails, ignoring duplicates (UNIQUE constraint on email + template_id)
-  const { error } = await supabase.from('drip_emails').upsert(emailsToSchedule, {
-    onConflict: 'email,template_id',
-    ignoreDuplicates: true,
-  });
+  // Insert future emails
+  if (emailsToSchedule.length > 0) {
+    const { error } = await supabase.from('drip_emails').upsert(emailsToSchedule, {
+      onConflict: 'email,template_id',
+      ignoreDuplicates: true,
+    });
 
-  if (error) {
-    console.error('[drip-scheduler] Failed to schedule drip emails:', error);
-    return { success: false, scheduled: 0 };
+    if (error) {
+      console.error('[drip-scheduler] Failed to schedule future drip emails:', error);
+    }
   }
 
-  return { success: true, scheduled: emailsToSchedule.length };
+  // Send Day 0 emails immediately
+  let sentImmediately = 0;
+  for (const template of immediateTemplates) {
+    try {
+      // Check if already sent (duplicate prevention)
+      const { data: existing } = await supabase
+        .from('drip_emails')
+        .select('id, status')
+        .eq('email', normalizedEmail)
+        .eq('template_id', template.templateId)
+        .single();
+
+      if (existing?.status === 'sent') {
+        // Already sent, skip
+        continue;
+      }
+
+      // Generate unsubscribe URL
+      const unsubscribeUrl = getUnsubscribeUrl(normalizedEmail);
+
+      // Get roast URL if available
+      const roastId = metadata?.roastId;
+      const roastUrl = roastId ? `${APP_URL}/roast/${roastId}` : undefined;
+
+      // Generate email HTML
+      const html = template.getHtml({
+        firstName: firstName || undefined,
+        email: normalizedEmail,
+        unsubscribeUrl,
+        roastUrl,
+      });
+
+      // Send email
+      const result = await sendEmail({
+        to: normalizedEmail,
+        subject: template.subject,
+        html,
+      });
+
+      // Record in database
+      await supabase.from('drip_emails').upsert(
+        {
+          email: normalizedEmail,
+          user_id: userId || null,
+          audience,
+          template_id: template.templateId,
+          scheduled_for: now.toISOString(),
+          status: result.success ? 'sent' : 'failed',
+          sent_at: result.success ? now.toISOString() : null,
+          error: result.success ? null : 'Send failed',
+        },
+        {
+          onConflict: 'email,template_id',
+        }
+      );
+
+      if (result.success) {
+        sentImmediately++;
+        console.log(`[drip-scheduler] Sent immediate email: ${template.templateId} to ${normalizedEmail}`);
+      }
+    } catch (err) {
+      console.error(`[drip-scheduler] Failed to send immediate email ${template.templateId}:`, err);
+    }
+  }
+
+  return {
+    success: true,
+    scheduled: emailsToSchedule.length,
+    sentImmediately,
+  };
 }
 
 /**
