@@ -12,6 +12,7 @@ import {
   isOnProOrHigher,
   isOnAICoachPlan,
 } from "@/lib/utils/plan-helpers";
+import { PLAN_LIMITS } from "@/lib/constants/plans";
 
 export function useSubscription(userId: string | null) {
   const [subscription, setSubscription] = useState<UserSubscription | null>(
@@ -81,7 +82,7 @@ export function useSubscription(userId: string | null) {
     // If no subscription data loaded yet, default to free plan behavior
     if (!subscription) {
       if (!usage) return true; // Allow if usage not loaded yet
-      return usage.applications_count < 5; // Free plan limit
+      return usage.applications_count < PLAN_LIMITS.FREE_MAX_APPLICATIONS; // Free plan limit
     }
 
     // If no usage data, allow (will be created on first application)
@@ -104,7 +105,7 @@ export function useSubscription(userId: string | null) {
   const getUsagePercentage = () => {
     if (!subscription || !usage) return 0;
 
-    const maxApps = subscription.subscription_plans?.max_applications || 5;
+    const maxApps = subscription.subscription_plans?.max_applications || PLAN_LIMITS.FREE_MAX_APPLICATIONS;
     if (maxApps === -1 || maxApps === null) return 0; // Unlimited
     return Math.min((usage.applications_count / maxApps) * 100, 100);
   };
@@ -112,8 +113,8 @@ export function useSubscription(userId: string | null) {
   const getRemainingApplications = () => {
     if (!subscription) {
       // No subscription = free plan
-      if (!usage) return 5;
-      return Math.max(0, 5 - usage.applications_count);
+      if (!usage) return PLAN_LIMITS.FREE_MAX_APPLICATIONS;
+      return Math.max(0, PLAN_LIMITS.FREE_MAX_APPLICATIONS - usage.applications_count);
     }
 
     if (!usage) return -1; // Unknown

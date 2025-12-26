@@ -15,8 +15,8 @@ VALUES (
 );
 
 -- Update existing plans to ensure proper ordering
-UPDATE subscription_plans 
-SET features = '["Up to 5 applications", "Application tracking", "Interview notes", "Contact management"]'::jsonb
+UPDATE subscription_plans
+SET features = '["Up to 100 applications", "Application tracking", "Interview notes", "Contact management"]'::jsonb
 WHERE name = 'Free';
 
 UPDATE subscription_plans 
