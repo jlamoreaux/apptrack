@@ -14,6 +14,8 @@ import { signUpSchema, passwordRequirements } from "@/lib/actions/schemas";
 import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 import { getStoredTrafficSource } from "@/lib/utils/traffic-source";
 import { toast } from "@/hooks/use-toast";
+import { trackLinkedInSignup } from "@/lib/analytics/linkedin";
+import { trackConversionEvent, CONVERSION_EVENTS } from "@/lib/analytics/conversion-events";
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
@@ -152,9 +154,19 @@ export function SignUpForm() {
       if (result.error) {
         setError(result.error);
       } else {
-        // Store email for confirmation page (with error handling for private browsing)
+        // Track successful signup for analytics
+        trackLinkedInSignup();
+        trackConversionEvent(CONVERSION_EVENTS.SIGNUP_COMPLETED, {
+          utm_source: trafficSource || undefined,
+          referrer: typeof document !== "undefined" ? document.referrer : undefined,
+        });
+
+        // Store email and session for confirmation page (with error handling for private browsing)
         try {
           localStorage.setItem("pendingEmailConfirmation", data.email);
+          if (previewSessionId) {
+            localStorage.setItem("pendingPreviewSession", previewSessionId);
+          }
         } catch (e) {
           console.warn("Could not save to localStorage:", e);
         }

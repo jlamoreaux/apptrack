@@ -61,16 +61,24 @@ export default function ConfirmEmailPage() {
   const checkUserOnboardingStatus = async (userId?: string) => {
     const targetUserId = userId || user?.id;
     if (!targetUserId) return;
-    
+
+    // Check if there's a pending preview session to unlock
+    const previewSessionId = localStorage.getItem("pendingPreviewSession");
+    if (previewSessionId) {
+      localStorage.removeItem("pendingPreviewSession");
+      router.push(`/try/unlock?session=${previewSessionId}`);
+      return;
+    }
+
     try {
       const response = await fetch("/api/auth/check-new-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: targetUserId }),
       });
-      
+
       const { needsOnboarding } = await response.json();
-      
+
       if (needsOnboarding) {
         router.push("/onboarding/welcome");
       } else {
