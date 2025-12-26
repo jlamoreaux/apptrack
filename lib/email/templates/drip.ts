@@ -117,7 +117,7 @@ const leadsTemplates: DripTemplate[] = [
   {
     templateId: 'lead_day_2',
     subject: '3 Tips to Improve Your Job Search',
-    preheader: 'Based on thousands of successful applications',
+    preheader: 'Stand out from other applicants',
     dayOffset: 2,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
@@ -334,14 +334,14 @@ const trialUsersTemplates: DripTemplate[] = [
   {
     templateId: 'trial_day_3',
     subject: 'Have You Tried Interview Prep Yet?',
-    preheader: 'Our most popular feature',
+    preheader: 'Ace your next interview',
     dayOffset: 3,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
         ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        Interview Prep is one of our most-used features. Here's how it works:
+        Interview Prep can be a game-changer. Here's how it works:
       </p>
       <ol style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
         <li style="margin-bottom: 8px;">Paste the job description</li>
@@ -350,7 +350,7 @@ const trialUsersTemplates: DripTemplate[] = [
         <li style="margin-bottom: 8px;">Practice until you feel confident</li>
       </ol>
       <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        Users who practice with Interview Prep report feeling significantly more confident in their interviews.
+        Practice makes perfect - walk into your next interview feeling prepared and confident.
       </p>
       ${ctaButton('Try Interview Prep', `${APP_URL}/try/interview-prep`)}
     `, params),
@@ -409,7 +409,7 @@ const paidUsersTemplates: DripTemplate[] = [
         </p>
       </div>
       <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        Pro users who do this report higher callback rates. The AI spots things you might miss!
+        The AI spots things you might miss - give yourself an edge on every application.
       </p>
       ${ctaButton('Try It Now', `${APP_URL}/try/job-fit`)}
     `, params),
