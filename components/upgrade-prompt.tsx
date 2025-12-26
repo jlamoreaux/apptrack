@@ -5,6 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Sparkles, Crown, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { trackConversionEvent } from "@/lib/analytics/conversion-events";
+import copyData from "@/content/copy.json";
+
+const AI_COACH_PRICE = copyData.pricing.plans.ai_coach.price;
 
 interface UpgradePromptProps {
   variant?: "inline" | "card" | "banner";
@@ -18,7 +21,7 @@ interface UpgradePromptProps {
 export function UpgradePrompt({
   variant = "card",
   title = "Unlock AI-Powered Features",
-  description = "Get unlimited applications, AI resume analysis, custom cover letters, and interview prep for just $9/month.",
+  description = `Get unlimited applications, AI resume analysis, custom cover letters, and interview prep for just ${AI_COACH_PRICE}.`,
   buttonText = "Upgrade to AI Coach",
   feature,
   className = "",

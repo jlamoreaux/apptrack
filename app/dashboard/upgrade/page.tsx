@@ -411,7 +411,7 @@ export default function UpgradePage() {
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
-              💰 Save with yearly billing: AI Coach saves $18/year (2 months free)
+              💰 Save with yearly billing: AI Coach saves ${getYearlySavings(PLAN_NAMES.AI_COACH)}/year (2 months free)
             </p>
           </div>
 
