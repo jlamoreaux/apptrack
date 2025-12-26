@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { PLAN_LIMITS } from "@/lib/constants/plans";
 
 // This should be called by a cron job (e.g., Vercel Cron or external service)
 // Run daily to process trial notifications and expirations
@@ -188,7 +189,7 @@ async function sendNotificationEmail(
         <p>Thank you for trying AppTrack's AI Coach features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
-          <li>Track up to 5 applications</li>
+          <li>Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications</li>
           <li>Manage interviews and contacts</li>
           <li>Take interview notes</li>
         </ul>
@@ -233,7 +234,7 @@ async function sendNotificationEmail(
         <p>Thank you for using AppTrack's premium features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
-          <li>Track up to 5 applications</li>
+          <li>Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications</li>
           <li>Manage interviews and contacts</li>
           <li>Take interview notes</li>
         </ul>

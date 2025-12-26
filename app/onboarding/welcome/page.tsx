@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
-import { PLAN_NAMES } from "@/lib/constants/plans";
+import { PLAN_NAMES, PLAN_LIMITS } from "@/lib/constants/plans";
 import { clientLogger } from "@/lib/utils/client-logger";
 import { LogCategory } from "@/lib/services/logger.types";
 import type { PromoCode, WelcomeOffer, TrafficSourceTrial } from "@/types/promo-codes";
@@ -164,7 +164,7 @@ export default function OnboardingWelcomePage() {
       yearlyPrice: 0,
       description: "Perfect for trying out AppTrack",
       features: [
-        "Track up to 5 applications",
+        `Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications`,
         "Basic interview notes",
         "Contact management",
       ],
