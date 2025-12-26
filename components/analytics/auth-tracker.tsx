@@ -11,10 +11,8 @@ export function AuthTracker() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        // Identify user via API
-        await analyticsAPI.identify({
-          subscription_plan: 'free', // You can fetch this from your database
-        })
+        // Identify user via API (fetches subscription plan + traffic source automatically)
+        await analyticsAPI.identify()
 
         // Track sign in event via API
         await analyticsAPI.trackUserSignIn(
