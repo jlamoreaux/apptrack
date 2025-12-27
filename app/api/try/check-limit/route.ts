@@ -38,22 +38,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Re-enable rate limiting after testing
-    // const usedCount = data?.length || 0;
-    // const canUse = usedCount === 0;
+    const usedCount = data?.length || 0;
+    const canUse = usedCount === 0;
 
-    // // Calculate reset time (24 hours from first use)
-    // let resetAt: string | null = null;
-    // if (data && data.length > 0) {
-    //   const firstUse = new Date(data[0].used_at);
-    //   resetAt = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000).toISOString();
-    // }
+    // Calculate reset time (24 hours from first use)
+    let resetAt: string | null = null;
+    if (data && data.length > 0) {
+      const firstUse = new Date(data[0].used_at);
+      resetAt = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    }
 
-    // Temporarily bypass rate limiting for testing
     return NextResponse.json({
-      canUse: true,
-      usedCount: 0,
-      resetAt: null,
+      canUse,
+      usedCount,
+      resetAt,
     });
   } catch (error) {
     console.error("Check limit error:", error);

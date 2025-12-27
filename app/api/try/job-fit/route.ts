@@ -59,20 +59,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Re-enable rate limiting after testing
-    // if (existingUsage && existingUsage.length > 0) {
-    //   const firstUse = new Date(existingUsage[0].used_at);
-    //   const resetTime = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000);
+    if (existingUsage && existingUsage.length > 0) {
+      const firstUse = new Date(existingUsage[0].used_at);
+      const resetTime = new Date(firstUse.getTime() + 24 * 60 * 60 * 1000);
 
-    //   return NextResponse.json(
-    //     {
-    //       error: "Rate limit exceeded",
-    //       message: "You've already used your free job fit analysis. Sign up to get 1 more free try!",
-    //       resetAt: resetTime.toISOString(),
-    //     },
-    //     { status: 429 }
-    //   );
-    // }
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          message: "You've already used your free job fit analysis. Sign up to get 1 more free try!",
+          resetAt: resetTime.toISOString(),
+        },
+        { status: 429 }
+      );
+    }
 
     // Generate AI analysis using existing infrastructure
     let analysisString: string;
