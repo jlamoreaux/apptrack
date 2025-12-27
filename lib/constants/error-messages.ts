@@ -1,6 +1,11 @@
 export const ERROR_MESSAGES = {
   // Generic errors
   UNEXPECTED: "An unexpected error occurred. Please try again.",
+  UNAUTHORIZED: "Unauthorized",
+  AI_COACH_REQUIRED: "AI Coach features require an AI Coach subscription",
+  MISSING_REQUIRED_FIELDS: "Required fields are missing",
+  FETCH_JOB_DESCRIPTION_FAILED: "Failed to fetch job description",
+  JOB_FIT_ANALYSIS_FAILED: "Failed to analyze job fit",
 
   // AI Coach feature errors
   AI_COACH: {
@@ -25,6 +30,12 @@ export const ERROR_MESSAGES = {
     CAREER_ADVICE: {
       MISSING_QUESTION: "Please enter your question.",
       GENERATION_FAILED: "Failed to get career advice.",
+    },
+    JOB_FIT_ANALYSIS: {
+      MISSING_JOB_URL: "Job URL is required",
+      MISSING_COMPANY_NAME: "Company name is required",
+      MISSING_ROLE_NAME: "Role name is required",
+      ANALYSIS_FAILED: "Failed to analyze job fit",
     },
   },
 

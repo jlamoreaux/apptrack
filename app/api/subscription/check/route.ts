@@ -1,52 +1,70 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { SubscriptionService } from "@/services/subscriptions";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { PLAN_NAMES } from "@/lib/constants/plans";
+import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
     const searchParams = request.nextUrl.searchParams;
     const userId = searchParams.get("userId");
 
     if (!userId) {
+      loggerService.warn('Subscription check missing user ID', {
+        category: LogCategory.API,
+        action: 'subscription_check_missing_user_id',
+        duration: Date.now() - startTime
+      });
       return NextResponse.json(
-        { error: "User ID is required" },
+        { error: ERROR_MESSAGES.MISSING_REQUIRED_FIELDS },
         { status: 400 }
       );
     }
 
-    // Check for active subscription
-    const { data: subscription, error } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select(
-        `
-        *,
-        subscription_plans (*)
-      `
-      )
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
+    const subscriptionService = new SubscriptionService();
 
-    if (error) {
-      console.error("Error checking subscription:", error);
-      return NextResponse.json({ error: "Database error" }, { status: 500 });
-    }
+    // Get user's current subscription status
+    const subscriptionStatus = await subscriptionService.getSubscriptionStatus(
+      userId
+    );
 
-    // Check if subscription is for Pro plan
-    const isPro = subscription?.subscription_plans?.name === "Pro";
+    // Check if subscription is for Pro plan or higher
+    const isPro = isOnProOrHigher(subscriptionStatus.plan);
 
+    loggerService.info('Subscription check completed', {
+      category: LogCategory.BUSINESS,
+      userId,
+      action: 'subscription_check_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        plan: subscriptionStatus.plan,
+        status: subscriptionStatus.status,
+        isActive: subscriptionStatus.isActive,
+        isPro
+      }
+    });
+    
     return NextResponse.json({
-      isActive: !!subscription && isPro,
-      subscription: subscription || null,
+      isActive: subscriptionStatus.isActive && isPro,
+      subscription: {
+        plan: subscriptionStatus.plan,
+        status: subscriptionStatus.status,
+        isActive: subscriptionStatus.isActive,
+      },
     });
   } catch (error) {
-    console.error("Unexpected error checking subscription:", error);
+    loggerService.error('Unexpected error checking subscription', error, {
+      category: LogCategory.API,
+      userId,
+      action: 'subscription_check_error',
+      duration: Date.now() - startTime
+    });
     return NextResponse.json(
-      { error: "An unexpected error occurred" },
+      { error: ERROR_MESSAGES.UNEXPECTED },
       { status: 500 }
     );
   }

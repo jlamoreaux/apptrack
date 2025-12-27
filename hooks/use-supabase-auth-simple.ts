@@ -24,7 +24,6 @@ export function useSupabaseAuthSimple() {
           await fetchProfile(session.user.id);
         }
       } catch (error) {
-        console.error("Error getting initial session:", error);
       } finally {
         setLoading(false);
       }
@@ -52,25 +51,24 @@ export function useSupabaseAuthSimple() {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Use maybeSingle() to handle multiple or no rows gracefully
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
+      const response = await fetch("/api/auth/profile", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error("Error fetching profile:", error);
+      if (!response.ok) {
+        if (response.status === 404) {
+          // Profile not found, which is okay
+          return;
+        }
         return;
       }
 
-      if (!data) {
-        return;
+      const { profile } = await response.json();
+      if (profile) {
+        setProfile(profile);
       }
-
-      setProfile(data);
     } catch (error) {
-      console.error("Error fetching profile:", error);
     }
   };
 
@@ -126,10 +124,8 @@ export function useSupabaseAuthSimple() {
       setLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("Error signing out:", error);
       }
     } catch (error) {
-      console.error("Error signing out:", error);
     } finally {
       setLoading(false);
     }

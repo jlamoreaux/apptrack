@@ -16,10 +16,9 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   const [planData, setPlanData] = useState<any[]>([])
 
   useEffect(() => {
-    // Get plan configuration from centralized copy
+    // Get plan configuration from centralized copy - only show 2-tier pricing
     const planConfigs = [
       { name: PLAN_NAMES.FREE, ...getPlanCopy(PLAN_NAMES.FREE) },
-      { name: PLAN_NAMES.PRO, ...getPlanCopy(PLAN_NAMES.PRO) },
       { name: PLAN_NAMES.AI_COACH, ...getPlanCopy(PLAN_NAMES.AI_COACH) },
     ].filter(Boolean)
 
@@ -43,7 +42,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   }, [plans])
 
   return (
-    <section className="mt-16" aria-labelledby="pricing-heading">
+    <section id="pricing" className="py-16 px-4 bg-muted" aria-labelledby="pricing-heading">
       <div className="text-center mb-8">
         <h2 id="pricing-heading" className="text-2xl font-bold mb-2 text-foreground">
           {COPY.pricing.title}
@@ -51,50 +50,38 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
         <p className="text-muted-foreground">{COPY.pricing.subtitle}</p>
       </div>
 
-      <div className="max-w-6xl mx-auto">
-        {/* Grid with uniform heights and consistent widths */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 md:gap-6 auto-rows-fr">
-          {planData.map((plan, index) => {
-            const isThirdCard = planData.length === 3 && index === 2
-
-            return (
-              <div
-                key={plan.name}
-                className={`
-                  flex w-full
-                  ${isThirdCard ? "md:col-span-2 xl:col-span-1" : ""}
-                `}
-              >
-                <div
-                  className={`
-                    flex w-full
-                    ${isThirdCard ? "md:justify-center xl:justify-stretch" : ""}
-                  `}
-                >
-                  <PlanCard
-                    planName={plan.name}
-                    title={plan.title}
-                    subtitle={plan.subtitle}
-                    price={plan.price}
-                    features={plan.features}
-                    cta={plan.cta}
-                    variant="home"
-                    className={`
-                      ${isThirdCard ? "md:w-full md:max-w-sm xl:max-w-none" : "w-full"}
-                    `}
-                  />
-                </div>
-              </div>
-            )
-          })}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        {/* Simplified responsive grid - 2 plans */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 auto-rows-fr max-w-4xl mx-auto">
+          {planData.map((plan) => (
+            <div key={plan.name} className="flex w-full">
+              <PlanCard
+                planName={plan.name}
+                title={plan.title}
+                subtitle={plan.subtitle}
+                price={plan.price}
+                features={plan.features}
+                cta={plan.cta}
+                variant="home"
+                className="w-full"
+              />
+            </div>
+          ))}
         </div>
       </div>
 
+      {/* Ethical Promise */}
+      <div className="text-center mt-8 p-4 bg-primary/5 rounded-lg max-w-2xl mx-auto">
+        <p className="text-sm font-medium text-foreground">
+          🎯 {COPY.pricing.ethicalPromise}
+        </p>
+      </div>
+
       {/* Additional info */}
-      <div className="text-center mt-8">
+      <div className="text-center mt-4">
         <p className="text-sm text-muted-foreground">
           {COPY.pricing.footer}{" "}
-          <Link href="/dashboard/upgrade" className="text-blue-600 hover:text-blue-700 underline font-medium">
+          <Link href="/signup" className="text-blue-600 hover:text-blue-700 underline font-medium">
             Compare all features
           </Link>{" "}
           to find the perfect fit.

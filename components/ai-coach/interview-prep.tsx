@@ -1,32 +1,91 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { generateInterviewPrep } from "@/lib/ai-coach";
-import { Loader2, MessageSquare } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { MessageSquare } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
+import { useAICoachClient } from "@/hooks/use-ai-coach-client";
+import { useResumesClient } from "@/hooks/use-resumes-client";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useRateLimit } from "@/hooks/use-rate-limit";
+import { MarkdownOutputCard } from "./shared/MarkdownOutput";
+import { JobDescriptionInput } from "./shared/JobDescriptionInput";
+import { AIToolLayout } from "./shared/AIToolLayout";
+import { InterviewPrepHistory } from "./shared/InterviewPrepHistory";
+import { InterviewContextCard } from "./shared/InterviewContextCard";
+import { InterviewPrepDisplay } from "./shared/InterviewPrepDisplay";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
-const InterviewPrep = () => {
+interface InterviewPrepProps {
+  applicationId?: string;
+}
+
+const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
+  const { user } = useSupabaseAuth();
+  const {
+    createInterviewPrep,
+    loading: dalLoading,
+    error,
+    clearError,
+  } = useAICoachClient(user?.id || null);
+  const { getResumeText, loading: resumeLoading } = useResumesClient(
+    user?.id || null
+  );
+  const {
+    data,
+    loading: cacheLoading,
+    fetchInterviewPreps,
+    invalidateCache,
+  } = useAICoachData();
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
   const [jobDescription, setJobDescription] = useState("");
-  const [userBackground, setUserBackground] = useState("");
-  const [prep, setPrep] = useState("");
+  const [interviewContext, setInterviewContext] = useState("");
+  const [prep, setPrep] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showSavedPreps, setShowSavedPreps] = useState(false);
   const { toast } = useToast();
   const copy = COPY.aiCoach.interviewPrep;
+  
+  // Check rate limits for this feature
+  const { 
+    canUseFeature, 
+    isLimitReached, 
+    limitMessage, 
+    incrementUsage,
+    hourlyRemaining,
+    dailyRemaining 
+  } = useRateLimit('interview_prep');
+
+  // Initialize selected application from URL parameter
+  useEffect(() => {
+    if (applicationId) {
+      setSelectedApplicationId(applicationId);
+    }
+  }, [applicationId]);
+
+  // Fetch saved interview preps on mount (uses cache)
+  useEffect(() => {
+    if (user?.id) {
+      fetchInterviewPreps();
+    }
+  }, [user?.id, fetchInterviewPreps]);
 
   const handleGenerate = async () => {
-    if (!jobDescription) {
+    // Check rate limit first
+    if (!canUseFeature) {
+      toast({
+        title: "Rate Limit Reached",
+        description: limitMessage || "You've reached the usage limit for this feature. Please try again later.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!jobDescription && !selectedApplicationId) {
       toast({
         title: "Job Description Required",
         description:
@@ -37,19 +96,50 @@ const InterviewPrep = () => {
     }
 
     setIsLoading(true);
-    setPrep("");
+    setPrep(null);
+    clearError();
+
     try {
-      const response = await generateInterviewPrep(
+      // Call backend API route for interview prep
+      const payload: any = { 
+        interviewContext,
         jobDescription,
-        userBackground
-      );
-      setPrep(response);
+        applicationId: selectedApplicationId || undefined,
+        structured: true // Always request structured format for proper display
+      };
+      const response = await fetch("/api/ai-coach/interview-prep", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to generate interview prep");
+      }
+
+      setPrep(data.preparation);
+
+      // Save to database
+      if (user?.id) {
+        await createInterviewPrep(jobDescription, data.preparation);
+        // Invalidate cache and refresh saved preps list
+        invalidateCache('interviewPreps');
+        await fetchInterviewPreps(true);
+      }
+      
+      // Update rate limit usage
+      await incrementUsage();
+
       toast({
         title: copy.successToast.title,
         description: copy.successToast.description,
       });
     } catch (error) {
-      console.error("Error generating interview prep:", error);
       toast({
         title: "Error Generating Prep",
         description: (error as Error).message || ERROR_MESSAGES.UNEXPECTED,
@@ -60,57 +150,72 @@ const InterviewPrep = () => {
     }
   };
 
+  const isLoadingState = isLoading || dalLoading || resumeLoading;
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{copy.title}</CardTitle>
-        <CardDescription>{copy.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-2">
-          <Label htmlFor="jobDescription">{copy.jobDescriptionLabel}</Label>
-          <Textarea
-            id="jobDescription"
-            placeholder={copy.jobDescriptionPlaceholder}
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            rows={8}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="userBackground">{copy.backgroundLabel}</Label>
-          <Textarea
-            id="userBackground"
-            placeholder={copy.backgroundPlaceholder}
-            value={userBackground}
-            onChange={(e) => setUserBackground(e.target.value)}
-            rows={4}
-          />
-        </div>
-
-        <Button
-          onClick={handleGenerate}
-          disabled={isLoading}
-          className="w-full"
-        >
-          {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {copy.generateButton}
-        </Button>
-
-        {prep && (
-          <div className="space-y-2 pt-4">
-            <h3 className="text-lg font-semibold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              {copy.generatedTitle}
-            </h3>
-            <div className="p-4 border rounded-md bg-muted whitespace-pre-wrap text-sm">
-              {prep}
+    <AIToolLayout
+      title={copy.title}
+      description={`${copy.description}${resumeLoading ? " Loading your resume for personalized prep..." : ""}`}
+      icon={<MessageSquare className="h-5 w-5" />}
+      onSubmit={handleGenerate}
+      submitLabel={copy.generateButton}
+      isLoading={isLoadingState}
+      error={error}
+      isDisabled={!canUseFeature}
+      disabledMessage={limitMessage}
+      result={
+        prep ? (
+          typeof prep === 'string' ? (
+            <MarkdownOutputCard
+              title={copy.generatedTitle}
+              icon={<MessageSquare className="h-5 w-5" />}
+              content={prep}
+            />
+          ) : (
+            <div data-interview-prep-display>
+              <InterviewPrepDisplay
+                content={prep}
+                title={copy.generatedTitle}
+                icon={<MessageSquare className="h-5 w-5" />}
+              />
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          )
+        ) : null
+      }
+      savedItemsCount={data.savedInterviewPreps.length}
+      onViewSaved={() => setShowSavedPreps(!showSavedPreps)}
+    >
+      {showSavedPreps && data.savedInterviewPreps.length > 0 && (
+        <InterviewPrepHistory
+          onSelectPrep={(preparation) => {
+            setPrep(preparation);
+            setShowSavedPreps(false);
+          }}
+          currentUserId={user?.id}
+          isExpandable={false}
+        />
+      )}
+
+      <JobDescriptionInput
+        jobDescription={jobDescription}
+        setJobDescription={setJobDescription}
+        label={copy.jobDescriptionLabel}
+        placeholder={copy.jobDescriptionPlaceholder}
+        onApplicationSelect={(appId, company, role) => {
+          setSelectedApplicationId(appId);
+          if (company && role) {
+            setInterviewContext(`Interview for ${role} position at ${company}`);
+          }
+        }}
+      />
+
+      <InterviewContextCard
+        interviewContext={interviewContext}
+        onInterviewContextChange={setInterviewContext}
+        label={copy.interviewContextLabel}
+        placeholder={copy.interviewContextPlaceholder}
+      />
+    </AIToolLayout>
   );
 };
 

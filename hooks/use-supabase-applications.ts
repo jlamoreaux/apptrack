@@ -16,20 +16,17 @@ export function useSupabaseApplications(userId: string | null) {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+      const response = await fetch("/api/applications?sortBy=created_at&sortOrder=desc", {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error("Error fetching applications:", error);
-        return;
+      if (response.ok) {
+        const { applications: data } = await response.json();
+        setApplications(data || []);
+      } else {
       }
-
-      setApplications(data || []);
     } catch (error) {
-      console.error("Error fetching applications:", error);
     } finally {
       setLoading(false);
     }
@@ -48,58 +45,27 @@ export function useSupabaseApplications(userId: string | null) {
   }) => {
     if (!userId) return { success: false, error: "User not authenticated" };
 
-    // Check if user can add more applications
-    const { data: usage } = await supabase
-      .from("usage_tracking")
-      .select("applications_count")
-      .eq("user_id", userId)
-      .single();
-
-    const { data: subscription } = await supabase
-      .from("user_subscriptions")
-      .select(
-        `
-      *,
-      subscription_plans (max_applications)
-    `
-      )
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .single();
-
-    if (subscription?.subscription_plans?.max_applications !== -1) {
-      const maxApps = subscription?.subscription_plans?.max_applications || 0;
-      const currentCount = usage?.applications_count || 0;
-
-      if (currentCount >= maxApps) {
-        return {
-          success: false,
-          error:
-            "You've reached your application limit. Please upgrade to Pro for unlimited applications.",
-        };
-      }
-    }
-
-    // Rest of the existing function...
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .insert([
-          {
-            ...applicationData,
-            user_id: userId,
-            status: applicationData.status || "Applied",
-          },
-        ])
-        .select()
-        .single();
+      const response = await fetch("/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          ...applicationData,
+          status: applicationData.status || "Applied",
+        }),
+      });
 
-      if (error) {
-        return { success: false, error: error.message };
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || "Failed to add application" };
       }
 
-      setApplications((prev) => [data, ...prev]);
-      return { success: true, application: data };
+      setApplications((prev) => [result.application, ...prev]);
+      return { success: true, application: result.application };
     } catch (error) {
       return { success: false, error: "Failed to add application" };
     }
@@ -110,34 +76,25 @@ export function useSupabaseApplications(userId: string | null) {
     updates: Partial<Application>
   ) => {
     try {
-      // Get the current application to compare status
-      const { data: current, error: currentError } = await supabase
-        .from("applications")
-        .select("status")
-        .eq("id", id)
-        .single();
-      if (currentError) {
-        return { success: false, error: currentError.message };
-      }
-      // If status is being changed, track it
-      if (updates.status && updates.status !== current.status) {
-        await trackStatusChange(id, current.status, updates.status);
-      }
-      const { data, error } = await supabase
-        .from("applications")
-        .update(updates)
-        .eq("id", id)
-        .select()
-        .single();
+      const response = await fetch(`/api/applications/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(updates),
+      });
 
-      if (error) {
-        return { success: false, error: error.message };
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || "Failed to update application" };
       }
 
       setApplications((prev) =>
-        prev.map((app) => (app.id === id ? data : app))
+        prev.map((app) => (app.id === id ? result.application : app))
       );
-      return { success: true, application: data };
+      return { success: true, application: result.application };
     } catch (error) {
       return { success: false, error: "Failed to update application" };
     }
@@ -145,13 +102,14 @@ export function useSupabaseApplications(userId: string | null) {
 
   const deleteApplication = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("applications")
-        .delete()
-        .eq("id", id);
+      const response = await fetch(`/api/applications/${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
-      if (error) {
-        return { success: false, error: error.message };
+      if (!response.ok) {
+        const result = await response.json();
+        return { success: false, error: result.error || "Failed to delete application" };
       }
 
       setApplications((prev) => prev.filter((app) => app.id !== id));
@@ -163,20 +121,18 @@ export function useSupabaseApplications(userId: string | null) {
 
   const getApplication = async (id: string): Promise<Application | null> => {
     try {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("*")
-        .eq("id", id)
-        .single();
+      const response = await fetch(`/api/applications/${id}`, {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error("Error fetching application:", error);
+      if (!response.ok) {
         return null;
       }
 
-      return data;
+      const { application } = await response.json();
+      return application;
     } catch (error) {
-      console.error("Error fetching application:", error);
       return null;
     }
   };
@@ -203,20 +159,17 @@ export function useLinkedinProfiles(applicationId: string | null) {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("linkedin_profiles")
-        .select("*")
-        .eq("application_id", applicationId)
-        .order("created_at", { ascending: false });
+      const response = await fetch(`/api/applications/${applicationId}/linkedin`, {
+        method: "GET",
+        credentials: "include",
+      });
 
-      if (error) {
-        console.error("Error fetching LinkedIn profiles:", error);
-        return;
+      if (response.ok) {
+        const { profiles } = await response.json();
+        setProfiles(profiles || []);
+      } else {
       }
-
-      setProfiles(data || []);
     } catch (error) {
-      console.error("Error fetching LinkedIn profiles:", error);
     } finally {
       setLoading(false);
     }
@@ -235,23 +188,23 @@ export function useLinkedinProfiles(applicationId: string | null) {
       return { success: false, error: "Application ID required" };
 
     try {
-      const { data, error } = await supabase
-        .from("linkedin_profiles")
-        .insert([
-          {
-            ...profileData,
-            application_id: applicationId,
-          },
-        ])
-        .select()
-        .single();
+      const response = await fetch(`/api/applications/${applicationId}/linkedin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(profileData),
+      });
 
-      if (error) {
-        return { success: false, error: error.message };
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || "Failed to add LinkedIn profile" };
       }
 
-      setProfiles((prev) => [data, ...prev]);
-      return { success: true, profile: data };
+      setProfiles((prev) => [result.profile, ...prev]);
+      return { success: true, profile: result.profile };
     } catch (error) {
       return { success: false, error: "Failed to add LinkedIn profile" };
     }
@@ -259,13 +212,14 @@ export function useLinkedinProfiles(applicationId: string | null) {
 
   const deleteProfile = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from("linkedin_profiles")
-        .delete()
-        .eq("id", id);
+      const response = await fetch(`/api/applications/${applicationId}/linkedin?profileId=${id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
 
-      if (error) {
-        return { success: false, error: error.message };
+      if (!response.ok) {
+        const result = await response.json();
+        return { success: false, error: result.error || "Failed to delete LinkedIn profile" };
       }
 
       setProfiles((prev) => prev.filter((profile) => profile.id !== id));
@@ -275,11 +229,38 @@ export function useLinkedinProfiles(applicationId: string | null) {
     }
   };
 
+  const updateProfile = async (id: string, updates: { notes?: string; name?: string; title?: string; company?: string }) => {
+    try {
+      const response = await fetch(`/api/applications/${applicationId}/linkedin?profileId=${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(updates),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || "Failed to update LinkedIn profile" };
+      }
+
+      setProfiles((prev) =>
+        prev.map((profile) => (profile.id === id ? { ...profile, ...result.profile } : profile))
+      );
+      return { success: true, profile: result.profile };
+    } catch (error) {
+      return { success: false, error: "Failed to update LinkedIn profile" };
+    }
+  };
+
   return {
     profiles,
     loading,
     addProfile,
     deleteProfile,
+    updateProfile,
     refetch: fetchProfiles,
   };
 }

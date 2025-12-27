@@ -4,6 +4,7 @@ import { createClient } from "../supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { signUpSchema, signInSchema, profileUpdateSchema } from "./schemas";
+import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 
 // Form-based auth actions
 export async function signUpAction(formData: FormData) {
@@ -44,7 +45,6 @@ export async function signUpAction(formData: FormData) {
 
     redirect("/dashboard");
   } catch (error) {
-    console.error("Sign up error:", error);
     return { error: "An unexpected error occurred during sign up" };
   }
 }
@@ -80,7 +80,6 @@ export async function signInAction(formData: FormData) {
 
     redirect("/dashboard");
   } catch (error) {
-    console.error("Sign in error:", error);
     return { error: "An unexpected error occurred during sign in" };
   }
 }
@@ -91,7 +90,6 @@ export async function signOutAction() {
     await supabase.auth.signOut();
     redirect("/");
   } catch (error) {
-    console.error("Sign out error:", error);
     redirect("/");
   }
 }
@@ -113,7 +111,6 @@ export async function signInWithPassword(email: string, password: string) {
     revalidatePath("/", "layout");
     return { success: true, user: data.user };
   } catch (error) {
-    console.error("Sign in error:", error);
     return { error: "An unexpected error occurred during sign in" };
   }
 }
@@ -121,7 +118,9 @@ export async function signInWithPassword(email: string, password: string) {
 export async function signUpWithPassword(
   email: string,
   password: string,
-  fullName: string
+  fullName: string,
+  trafficSource?: TrafficSource,
+  trafficSourceTrial?: TrafficSourceTrial
 ) {
   try {
     const supabase = await createClient();
@@ -132,6 +131,8 @@ export async function signUpWithPassword(
       options: {
         data: {
           full_name: fullName,
+          traffic_source: trafficSource,
+          traffic_source_trial: trafficSourceTrial,
         },
       },
     });
@@ -140,10 +141,16 @@ export async function signUpWithPassword(
       return { error: error.message };
     }
 
+    // Check if email confirmation is required
+    const requiresEmailConfirmation = data.user && !data.session;
+
     revalidatePath("/", "layout");
-    return { success: true, user: data.user };
+    return { 
+      success: true, 
+      user: data.user,
+      requiresEmailConfirmation 
+    };
   } catch (error) {
-    console.error("Sign up error:", error);
     return { error: "An unexpected error occurred during sign up" };
   }
 }
@@ -155,13 +162,12 @@ export async function signOut() {
     revalidatePath("/", "layout");
     return { success: true };
   } catch (error) {
-    console.error("Sign out error:", error);
     return { error: "An unexpected error occurred during sign out" };
   }
 }
 
 // Profile update action
-export async function updateProfileAction(formData: FormData) {
+export async function updateProfileAction(data: { full_name: string }) {
   try {
     const supabase = await createClient();
 
@@ -174,7 +180,7 @@ export async function updateProfileAction(formData: FormData) {
     }
 
     const rawData = {
-      full_name: formData.get("full_name") as string,
+      full_name: data.full_name,
     };
 
     const result = profileUpdateSchema.safeParse(rawData);
@@ -199,7 +205,6 @@ export async function updateProfileAction(formData: FormData) {
 
     return { success: true };
   } catch (error) {
-    console.error("Profile update error:", error);
     return { error: "An unexpected error occurred during profile update" };
   }
 }

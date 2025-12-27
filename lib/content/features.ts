@@ -1,12 +1,12 @@
 import { COPY } from "./copy"
-import { Target, FileText, Users, Heart } from "lucide-react"
+import { Target, Brain, BarChart3, Users } from "lucide-react"
 
 // Icon mapping (technical concern)
 const ICON_MAP = {
   Target,
-  FileText,
+  Brain,
+  BarChart3,
   Users,
-  Heart,
 } as const
 
 export const getFeatures = () => {

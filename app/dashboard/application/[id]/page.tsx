@@ -28,7 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ArrowLeft, ExternalLink, Plus, Trash2, Linkedin, Edit, MoreVertical, Archive, Trash } from "lucide-react"
+import { ArrowLeft, ExternalLink, Plus, Edit, MoreVertical, Archive, Trash, Pencil, X, Check } from "lucide-react"
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
 import { useSupabaseApplications, useLinkedinProfiles } from "@/hooks/use-supabase-applications"
 import type { Application } from "@/lib/supabase"
@@ -37,14 +37,14 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { StatusSelector } from "@/components/status-selector"
 import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
-import { JobAnalysisCard } from "@/components/ai-coach/job-analysis-card"
+import { ApplicationAIAnalysis } from "@/components/ai-coach/ApplicationAIAnalysis"
+import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
 
 export default function ApplicationDetailPage() {
   const { user, loading: authLoading } = useSupabaseAuth()
   const { getApplication, updateApplication } = useSupabaseApplications(user?.id || null)
   const [application, setApplication] = useState<Application | null>(null)
   const [newNote, setNewNote] = useState("")
-  const [newLinkedinProfile, setNewLinkedinProfile] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const router = useRouter()
@@ -54,8 +54,10 @@ export default function ApplicationDetailPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null)
+  const [editedNoteText, setEditedNoteText] = useState("")
 
-  const { profiles: linkedinProfiles, addProfile, deleteProfile } = useLinkedinProfiles(application?.id || null)
+  const { profiles: linkedinProfiles, addProfile, deleteProfile, updateProfile } = useLinkedinProfiles(application?.id || null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -73,7 +75,6 @@ export default function ApplicationDetailPage() {
       const app = await getApplication(params.id as string)
       setApplication(app)
     } catch (error) {
-      console.error("Failed to fetch application:", error)
     } finally {
       setLoading(false)
     }
@@ -94,7 +95,6 @@ export default function ApplicationDetailPage() {
         }
       }
     } catch (error) {
-      console.error("Failed to update application:", error)
     } finally {
       setSaving(false)
     }
@@ -115,20 +115,36 @@ export default function ApplicationDetailPage() {
     setNewNote("")
   }
 
-  const handleAddLinkedinProfile = async () => {
-    if (!newLinkedinProfile.trim()) return
-
-    const result = await addProfile({
-      profile_url: newLinkedinProfile,
-    })
-
-    if (result.success) {
-      setNewLinkedinProfile("")
-    }
+  const handleEditNote = (index: number) => {
+    if (!application) return
+    const notes = application.notes.split('\n\n')
+    setEditingNoteIndex(index)
+    setEditedNoteText(notes[index])
   }
 
-  const handleRemoveLinkedinProfile = async (profileId: string) => {
-    await deleteProfile(profileId)
+  const handleSaveEditedNote = () => {
+    if (!application || editingNoteIndex === null) return
+    
+    const notes = application.notes.split('\n\n')
+    notes[editingNoteIndex] = editedNoteText
+    const updatedNotes = notes.join('\n\n')
+    handleUpdateNotes(updatedNotes)
+    setEditingNoteIndex(null)
+    setEditedNoteText("")
+  }
+
+  const handleCancelEdit = () => {
+    setEditingNoteIndex(null)
+    setEditedNoteText("")
+  }
+
+  const handleDeleteNote = (index: number) => {
+    if (!application) return
+    
+    const notes = application.notes.split('\n\n')
+    notes.splice(index, 1)
+    const updatedNotes = notes.join('\n\n')
+    handleUpdateNotes(updatedNotes)
   }
 
   const handleArchiveApplication = async () => {
@@ -140,10 +156,8 @@ export default function ApplicationDetailPage() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        console.error("Failed to archive application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to archive application:", error)
     } finally {
       setIsArchiving(false)
     }
@@ -158,10 +172,8 @@ export default function ApplicationDetailPage() {
       if (result.success) {
         router.push("/dashboard")
       } else {
-        console.error("Failed to delete application:", result.error)
       }
     } catch (error) {
-      console.error("Failed to delete application:", error)
     } finally {
       setIsDeleting(false)
     }
@@ -171,7 +183,7 @@ export default function ApplicationDetailPage() {
     return (
       <div className="min-h-screen bg-background">
         <NavigationClient />
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto px-4 py-6 sm:py-8">
           <div className="flex items-center justify-center">
             <div className="text-center">Loading...</div>
           </div>
@@ -185,9 +197,9 @@ export default function ApplicationDetailPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      <div className="container mx-auto py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
-          <div className="flex items-center gap-4">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -199,20 +211,20 @@ export default function ApplicationDetailPage() {
           {/* Application Overview */}
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <CardTitle className="text-2xl">{application.role}</CardTitle>
-                  <CardDescription className="text-lg">{application.company}</CardDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <CardTitle className="text-xl sm:text-2xl break-words">{application.role}</CardTitle>
+                  <CardDescription className="text-base sm:text-lg break-words">{application.company}</CardDescription>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusSelector
                     currentStatus={application.status}
                     onStatusChange={(status: Application["status"]) => handleUpdateApplication({ status })}
                     disabled={saving}
                   />
                   <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit
+                    <Edit className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Edit</span>
                   </Button>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -289,15 +301,8 @@ export default function ApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* AI Job Analysis */}
-          {application.role_link && (
-            <JobAnalysisCard
-              jobUrl={application.role_link}
-              userId={user.id}
-              companyName={application.company}
-              roleName={application.role}
-            />
-          )}
+          {/* AI Analysis Section */}
+          <ApplicationAIAnalysis application={application} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Interview Notes */}
@@ -307,21 +312,7 @@ export default function ApplicationDetailPage() {
                 <CardDescription>Keep track of interview questions, feedback, and follow-ups</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={application.notes}
-                    onChange={(e) => handleUpdateNotes(e.target.value)}
-                    placeholder="Add your interview notes here..."
-                    className="min-h-[200px]"
-                    disabled={saving}
-                  />
-                  {saving && <p className="text-xs text-muted-foreground">Saving...</p>}
-                </div>
-
-                <Separator />
-
+                {/* Add New Note */}
                 <div className="space-y-2">
                   <Label htmlFor="newNote">Add New Note</Label>
                   <div className="flex gap-2">
@@ -332,60 +323,126 @@ export default function ApplicationDetailPage() {
                       placeholder="Add a new note..."
                       className="min-h-[80px]"
                     />
-                    <Button onClick={handleAddNote} size="sm" disabled={!newNote.trim()}>
+                    <Button onClick={handleAddNote} size="sm" disabled={!newNote.trim() || saving}>
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
+                  {saving && <p className="text-xs text-muted-foreground">Saving...</p>}
+                </div>
+
+                <Separator />
+
+                {/* Notes List */}
+                <div className="space-y-2">
+                  <Label>Notes History</Label>
+                  {application.notes ? (
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                      {application.notes.split('\n\n').map((note, index) => (
+                        <div key={index} className="p-3 bg-muted/50 rounded-lg relative group">
+                          {editingNoteIndex === index ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editedNoteText}
+                                onChange={(e) => setEditedNoteText(e.target.value)}
+                                className="min-h-[60px] text-sm"
+                                autoFocus
+                              />
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={handleSaveEditedNote} disabled={saving}>
+                                  <Check className="h-3 w-3 mr-1" />
+                                  Save
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                                  <X className="h-3 w-3 mr-1" />
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm whitespace-pre-wrap pr-16">{note}</p>
+                              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-7 w-7 p-0"
+                                  onClick={() => handleEditNote(index)}
+                                  disabled={saving}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 w-7 p-0 hover:bg-destructive/10"
+                                      disabled={saving}
+                                    >
+                                      <Trash className="h-3 w-3" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Note</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete this note? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDeleteNote(index)}
+                                        className="bg-red-600 hover:bg-red-700"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No notes yet. Add your first note above.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             {/* LinkedIn Contacts */}
-            <Card>
-              <CardHeader>
-                <CardTitle>LinkedIn Contacts</CardTitle>
-                <CardDescription>Save relevant LinkedIn profiles for networking</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  {linkedinProfiles.map((profile) => (
-                    <div key={profile.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Linkedin className="h-4 w-4 text-blue-600" />
-                        <a
-                          href={profile.profile_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          {profile.name || profile.profile_url.split("/").pop() || profile.profile_url}
-                        </a>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleRemoveLinkedinProfile(profile.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <Label htmlFor="newProfile">Add LinkedIn Profile</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="newProfile"
-                      value={newLinkedinProfile}
-                      onChange={(e) => setNewLinkedinProfile(e.target.value)}
-                      placeholder="https://linkedin.com/in/username"
-                    />
-                    <Button onClick={handleAddLinkedinProfile} size="sm" disabled={!newLinkedinProfile.trim()}>
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <LinkedInContactsSection
+              profiles={linkedinProfiles}
+              onAddProfile={async (profileData) => {
+                const result = await addProfile({
+                  profile_url: profileData.profile_url,
+                  name: profileData.name,
+                  title: profileData.title,
+                  company: profileData.company
+                })
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+              onDeleteProfile={async (profileId) => {
+                const result = await deleteProfile(profileId)
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+              onUpdateProfile={async (profileId, updates) => {
+                const result = await updateProfile(profileId, updates)
+                return { 
+                  success: result.success, 
+                  error: result.error 
+                }
+              }}
+            />
           </div>
         </div>
       </div>

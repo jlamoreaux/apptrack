@@ -1,15 +1,20 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3, Crown } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { User, LogOut, Crown, Flame, BarChart3 } from "lucide-react"
+import { NavItemTag } from "@/components/ui/nav-item-tag"
 import { useSupabaseAuthSimple } from "@/hooks/use-supabase-auth-simple"
 import { useSubscription } from "@/hooks/use-subscription"
 
 export function Navigation() {
   const { user, profile, signOut } = useSupabaseAuthSimple()
   const { isOnFreePlan } = useSubscription(user?.id || null)
+  
+  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
+  const resumeRoastNewTagExpiry = new Date('2026-03-22')
 
   const handleLogout = async () => {
     await signOut()
@@ -39,7 +44,13 @@ export function Navigation() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
+            <Image
+              src="/logo_square.png"
+              alt="AppTrack Logo"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
             <span className="font-bold text-xl">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
@@ -94,6 +105,24 @@ export function Navigation() {
                   {isOnFreePlan() ? "Upgrade to Pro" : "Manage Subscription"}
                 </DropdownMenuItem>
               </Link>
+
+              <DropdownMenuSeparator />
+
+              <Link href="/roast-my-resume">
+                <DropdownMenuItem>
+                  <Flame className="h-4 w-4 mr-2" />
+                  <span className="flex items-center gap-1">
+                    Resume Roast
+                    <NavItemTag 
+                      label="new" 
+                      variant="new" 
+                      expiresAt={resumeRoastNewTagExpiry}
+                    />
+                  </span>
+                </DropdownMenuItem>
+              </Link>
+
+              <DropdownMenuSeparator />
 
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />

@@ -1,0 +1,185 @@
+# Task ID: 12
+# Title: Mobile Responsiveness Audit
+# Status: pending
+# Dependencies: None
+# Priority: high
+# Description: Conduct comprehensive audit of all pages for mobile responsiveness (320px-768px breakpoints).
+# Details:
+Systematically audit every page and component in the application to ensure full mobile responsiveness across all device sizes from 320px to 768px width.
+
+### Audit Checklist for Each Page:
+
+1. **Layout and Structure**
+   - [ ] Page layout adapts properly at 320px (minimum mobile)
+   - [ ] Page layout adapts properly at 375px (iPhone SE)
+   - [ ] Page layout adapts properly at 390px (standard mobile)
+   - [ ] Page layout adapts properly at 768px (tablet)
+   - [ ] No horizontal scrolling at any breakpoint
+   - [ ] Content remains readable and accessible
+
+2. **Navigation and Menus**
+   - [ ] Mobile menu functions correctly
+   - [ ] Navigation items are touch-friendly (44px minimum touch target)
+   - [ ] Dropdown menus work on touch devices
+   - [ ] Back navigation is accessible
+
+3. **Text and Typography**
+   - [ ] No text overflow or clipping
+   - [ ] Font sizes are readable on mobile (minimum 14px)
+   - [ ] Line heights provide comfortable reading
+   - [ ] Text wraps properly without breaking layout
+
+4. **Forms and Inputs**
+   - [ ] Form fields are sized appropriately for touch input
+   - [ ] Labels are positioned correctly on mobile
+   - [ ] Error messages display properly
+   - [ ] Submit buttons are easily tappable
+   - [ ] Keyboard types are appropriate (email, number, etc.)
+
+5. **Interactive Elements**
+   - [ ] Buttons meet 44px minimum touch target
+   - [ ] Links are spaced adequately to prevent mis-taps
+   - [ ] Modals/dialogs fit within viewport
+   - [ ] Tooltips work on touch devices (or have alternatives)
+   - [ ] Swipe gestures work where applicable
+
+6. **Images and Media**
+   - [ ] Images scale responsively
+   - [ ] No image overflow
+   - [ ] Appropriate image sizes for mobile bandwidth
+   - [ ] Icons remain visible and clear
+
+7. **Tables and Data**
+   - [ ] Tables scroll horizontally if needed
+   - [ ] Data remains readable
+   - [ ] Alternative mobile layouts for complex tables
+
+8. **Performance**
+   - [ ] Page loads quickly on mobile networks
+   - [ ] Animations perform smoothly
+   - [ ] Touch interactions are responsive
+
+### Testing Methodology:
+
+1. Use Chrome DevTools device emulation for initial testing
+2. Test on actual devices when possible (iPhone, Android)
+3. Use BrowserStack or similar for comprehensive device testing
+4. Test both portrait and landscape orientations
+5. Test with slow 3G network throttling
+6. Document all issues with screenshots
+7. Create fix tickets for each identified issue
+
+### Component Audit:
+
+For each component used in pages, verify:
+- Component renders correctly at all breakpoints
+- Props and content don't break mobile layout
+- Component is reusable across different mobile contexts
+- Touch interactions work as expected
+
+# Test Strategy:
+1. Automated visual regression testing at key breakpoints
+2. Manual testing on real devices (iOS and Android)
+3. Cross-browser testing (Safari iOS, Chrome Android)
+4. Accessibility testing with mobile screen readers
+5. Performance testing on mobile networks
+6. User testing with actual mobile users
+7. Document all findings in a comprehensive report
+
+# Subtasks:
+## 1. Audit Landing Page (app/page.tsx) [pending]
+### Dependencies: None
+### Description: Comprehensive mobile responsiveness audit of the landing/home page
+### Details:
+Audit the landing page for mobile responsiveness. Check hero section, feature cards, CTA buttons, navigation menu, footer, and any animations or interactive elements. Verify text readability, image scaling, and overall layout at all breakpoints.
+
+## 2. Audit Login Page (app/login/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the login page
+### Details:
+Check login form layout, input field sizes, button placement, error message display, social login buttons if present, and forgot password link accessibility. Ensure keyboard behavior is correct on mobile.
+
+## 3. Audit Signup Page (app/signup/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the signup/registration page
+### Details:
+Verify signup form layout, multi-step form navigation if applicable, field validation messages, terms and conditions display, and submit button accessibility. Check password strength indicators on mobile.
+
+## 4. Audit Dashboard Main (app/dashboard/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the main dashboard
+### Details:
+Check dashboard cards layout, statistics display, navigation sidebar/menu, quick actions accessibility, and data visualization components. Verify that all dashboard widgets are usable on mobile.
+
+## 5. Audit Applications List (app/dashboard/applications/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the applications list page
+### Details:
+Check application cards layout on mobile, filtering and search functionality, pagination controls, sort options, and bulk actions if present. Verify that application cards are fully clickable and action buttons work.
+
+## 6. Audit Application Detail (app/dashboard/application/[id]/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of individual application detail pages
+### Details:
+Check application information layout, status display, action buttons, notes section, document attachments, timeline/history view, and AI analysis section. Ensure all tabs and sections are accessible on mobile.
+
+## 7. Audit Add Application (app/dashboard/add/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the add new application page
+### Details:
+Verify form layout for adding applications, field grouping, date pickers, dropdown selects, file upload functionality, and form validation. Check that long forms are easy to navigate on mobile.
+
+## 8. Audit AI Coach Page (app/dashboard/ai-coach/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the AI Coach dashboard
+### Details:
+Check AI feature cards layout, chat interface if present, results display, file upload for resume analysis, and navigation between AI features. Verify that AI responses are readable on mobile.
+
+## 9. Audit Analytics Page (app/dashboard/analytics/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the analytics dashboard
+### Details:
+Check charts and graphs rendering on mobile, data table layouts, filter controls, date range pickers, and export functionality. Ensure visualizations are interpretable on small screens.
+
+## 10. Audit Settings Pages (app/dashboard/settings/) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of all settings pages
+### Details:
+Check settings forms layout, toggle switches, preference selections, account information display, subscription management, and usage statistics. Verify all settings are accessible and modifiable on mobile.
+
+## 11. Audit Archived Page (app/dashboard/archived/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the archived applications page
+### Details:
+Check archived items list layout, restore functionality, permanent delete options, search within archives, and bulk operations. Ensure archived items are manageable on mobile.
+
+## 12. Audit Upgrade Pages (app/dashboard/upgrade/) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of subscription upgrade flow
+### Details:
+Check pricing cards layout, feature comparison tables, payment form, checkout process, and success page. Verify that pricing information is clear and payment process works on mobile.
+
+## 13. Audit Onboarding (app/onboarding/welcome/page.tsx) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of the onboarding flow
+### Details:
+Check welcome screens, tutorial steps, progress indicators, skip options, and getting started actions. Ensure onboarding is smooth and intuitive on mobile devices.
+
+## 14. Audit Admin Pages (app/admin/) [pending]
+### Dependencies: None
+### Description: Mobile responsiveness audit of admin panel pages
+### Details:
+Check admin dashboard layout, promo code management, user management tables, and admin actions. Verify that admin functions are accessible on mobile for emergency access.
+
+## 15. Audit Shared Components [pending]
+### Dependencies: None
+### Description: Comprehensive audit of all shared components used across pages
+### Details:
+Audit reusable components including: Header/Navigation, Footer, Modals/Dialogs, Forms/Inputs, Buttons, Cards, Tables, Charts, Alerts/Toasts, Loading states, Error boundaries. Check each component in isolation and in various page contexts.
+
+## 16. Document Findings and Create Fix Tasks [pending]
+### Dependencies: 12.1, 12.2, 12.3, 12.4, 12.5, 12.6, 12.7, 12.8, 12.9, 12.10, 12.11, 12.12, 12.13, 12.14, 12.15
+### Description: Compile audit results and create actionable fix tasks
+### Details:
+Create a comprehensive report documenting all mobile responsiveness issues found. Prioritize issues by severity (Critical, High, Medium, Low). Create individual fix tasks for each issue or group of related issues. Include screenshots and specific reproduction steps.
+

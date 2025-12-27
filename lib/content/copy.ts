@@ -1,10 +1,11 @@
 import copyData from "@/content/copy.json";
 import { PLAN_LIMITS } from "@/lib/constants/plans";
-import { Brain, FileText, MessageSquare, Target } from "lucide-react";
+import { Brain, FileText, MessageSquare, Target, BarChart3 } from "lucide-react";
 
 // Type-safe access to copy with validation
 export const COPY = {
   ...copyData,
+  testimonials: copyData.testimonials,
   // Dynamic content that uses constants
   pricing: {
     ...copyData.pricing,
@@ -63,18 +64,29 @@ export const COPY = {
           bgColor: "bg-orange-50",
           borderColor: "border-orange-200",
         },
+        {
+          id: "job-fit",
+          title: "Job Fit Analysis",
+          description:
+            "Analyze how well your profile matches specific job requirements",
+          icon: BarChart3,
+          color: "text-indigo-600",
+          bgColor: "bg-indigo-50",
+          borderColor: "border-indigo-200",
+        },
       ],
       tabs: {
         resume: "Resume",
         interview: "Interview",
         coverLetter: "Cover Letter",
         advice: "Advice",
+        jobFit: "Job Fit",
       },
     },
     resumeAnalyzer: {
       title: "Resume Analysis",
       description:
-        "Upload your resume or paste the text below, and optionally include a job description for targeted feedback",
+        "We'll use the resume you've already uploaded for analysis. If you'd like to analyze a different resume, you can upload a new one below. Uploading a new resume is optional. Optionally, you can also include a job description for targeted feedback.",
       resumeLabel: "Resume *",
       uploadButton: {
         default: "Upload Resume",
@@ -141,9 +153,9 @@ export const COPY = {
         "Get tailored interview questions and talking points based on the job description.",
       jobDescriptionLabel: "Job Description",
       jobDescriptionPlaceholder: "Paste the job description here.",
-      backgroundLabel: "Your Background (Optional)",
-      backgroundPlaceholder:
-        "Briefly describe your experience and skills for more tailored questions.",
+      interviewContextLabel: "Interview Context (Optional)",
+      interviewContextPlaceholder:
+        "Share any information about the interview type, format, or specific concerns you have (e.g., 'This is a technical interview', 'I'm nervous about behavioral questions', 'It's a panel interview with 3 people').",
       generateButton: "Generate Interview Prep",
       generatedTitle: "Your Interview Prep",
       successToast: {

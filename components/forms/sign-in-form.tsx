@@ -39,8 +39,26 @@ export function SignInForm() {
 
       if (result.error) {
         setError(result.error);
-      } else {
-        router.push("/dashboard");
+      } else if (result.user) {
+        // Check if this is a new user who needs onboarding via API
+        try {
+          const response = await fetch("/api/auth/check-new-user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: result.user.id }),
+          });
+          
+          const { needsOnboarding } = await response.json();
+          
+          if (needsOnboarding) {
+            router.push("/onboarding/welcome");
+          } else {
+            router.push("/dashboard");
+          }
+        } catch (error) {
+          // If check fails, default to dashboard
+          router.push("/dashboard");
+        }
         router.refresh();
       }
     } catch (error) {
@@ -53,8 +71,15 @@ export function SignInForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {error && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           {error}
+          {error.includes("Email not confirmed") && (
+            <div className="mt-2">
+              <p className="text-xs">
+                Please check your email and click the confirmation link.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -63,6 +88,7 @@ export function SignInForm() {
         <Input
           id="email"
           type="email"
+          autoComplete="email"
           {...register("email")}
           disabled={loading}
         />
@@ -76,6 +102,7 @@ export function SignInForm() {
         <Input
           id="password"
           type="password"
+          autoComplete="current-password"
           {...register("password")}
           disabled={loading}
         />

@@ -8,6 +8,7 @@ import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -34,6 +35,7 @@ export default function AddApplicationPage() {
     company: "",
     role: "",
     role_link: "",
+    job_description: "",
     date_applied: "",
     status: "Applied",
   });
@@ -57,7 +59,12 @@ export default function AddApplicationPage() {
     if (result.success) {
       router.push("/dashboard");
     } else {
-      setError(result.error || "Failed to add application");
+      // Check if it's a limit error
+      if (result.error?.toLowerCase().includes("application limit reached")) {
+        setError("You've reached the free plan limit of 100 applications. Please upgrade to AI Coach for unlimited tracking.");
+      } else {
+        setError(result.error || "Failed to add application");
+      }
     }
 
     setLoading(false);
@@ -81,7 +88,7 @@ export default function AddApplicationPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationClient />
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <div className="max-w-2xl mx-auto space-y-8">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
@@ -102,8 +109,17 @@ export default function AddApplicationPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
-                  <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                    {error}
+                  <div className="space-y-3">
+                    <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                      {error}
+                    </div>
+                    {error.includes("100 applications") && (
+                      <Link href="/dashboard/upgrade" className="block">
+                        <Button variant="default" className="w-full">
+                          Upgrade to AI Coach for Unlimited Applications
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 )}
 
@@ -150,6 +166,26 @@ export default function AddApplicationPage() {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label htmlFor="job_description">
+                    Job Description (Optional)
+                    <span className="text-xs text-muted-foreground ml-2">
+                      Save for AI features
+                    </span>
+                  </Label>
+                  <Textarea
+                    id="job_description"
+                    value={formData.job_description}
+                    onChange={(e) =>
+                      setFormData({ ...formData, job_description: e.target.value })
+                    }
+                    placeholder="Paste the job description here to use with AI features like cover letter generation and interview prep..."
+                    rows={6}
+                    disabled={loading}
+                    className="resize-none"
+                  />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date_applied">Date Applied</Label>
@@ -192,16 +228,16 @@ export default function AddApplicationPage() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
+                <div className="flex flex-col sm:flex-row gap-4">
                   <Button
                     type="submit"
-                    className="flex-1 bg-secondary hover:bg-secondary/90"
+                    className="w-full sm:flex-1 bg-secondary hover:bg-secondary/90"
                     disabled={loading}
                   >
                     {loading ? "Adding Application..." : "Add Application"}
                   </Button>
-                  <Link href="/dashboard">
-                    <Button type="button" variant="outline" disabled={loading}>
+                  <Link href="/dashboard" className="w-full sm:w-auto">
+                    <Button type="button" variant="outline" disabled={loading} className="w-full">
                       Cancel
                     </Button>
                   </Link>

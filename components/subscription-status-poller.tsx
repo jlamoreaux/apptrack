@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw, CheckCircle, AlertCircle } from "lucide-react"
 
@@ -79,7 +80,9 @@ export function SubscriptionStatusPoller({ userId, initialStatus }: Subscription
           <CheckCircle className="h-5 w-5 mr-2" />
           <span>Subscription active!</span>
         </div>
-        <Button onClick={() => router.push("/dashboard")}>Go to Dashboard</Button>
+        <Button asChild>
+          <Link href="/dashboard">Go to Dashboard</Link>
+        </Button>
       </div>
     )
   }
@@ -113,7 +116,9 @@ export function SubscriptionStatusPoller({ userId, initialStatus }: Subscription
               <RefreshCw className="h-4 w-4 mr-2" />
               Try Again
             </Button>
-            <Button onClick={() => router.push("/debug/subscription")}>Check Subscription Status</Button>
+            <Button asChild>
+              <Link href="/debug/subscription">Check Subscription Status</Link>
+            </Button>
           </div>
         </div>
       )}

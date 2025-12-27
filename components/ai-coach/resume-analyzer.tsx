@@ -2,57 +2,35 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Brain,
-  Sparkles,
-  AlertCircle,
-  Upload,
-  FileText,
-  Link,
-} from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { API_ROUTES } from "@/lib/constants/api-routes";
+import { useState } from "react";
+import { Brain, FileText } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
+import { AI_THEME } from "@/lib/constants/ai-theme";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useToast } from "@/hooks/use-toast";
+import { MarkdownOutputCard } from "./shared/MarkdownOutput";
+import { AIToolLayout } from "./shared/AIToolLayout";
+import { ResumeAndJobInput } from "./shared/ResumeAndJobInput";
 
 interface ResumeAnalyzerProps {
   userId: string;
 }
 
 export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
+  const { user } = useSupabaseAuth();
+  const { toast } = useToast();
   const [resumeText, setResumeText] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [jobUrl, setJobUrl] = useState("");
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
-  const [uploadLoading, setUploadLoading] = useState(false);
-  const [urlLoading, setUrlLoading] = useState(false);
   const [error, setError] = useState("");
-  const [inputMethod, setInputMethod] = useState<"text" | "url">("text");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
   const copy = COPY.aiCoach.resumeAnalyzer;
 
-  const handleFileUpload = async (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
+  const handleResumeUpload = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
       setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.FILE_TOO_LARGE);
       return;
     }
@@ -69,15 +47,13 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
       return;
     }
 
-    setUploadLoading(true);
-    setError("");
-
     try {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(API_ROUTES.AI_COACH.UPLOAD_RESUME, {
+      const response = await fetch("/api/resume/upload", {
         method: "POST",
+        credentials: "include",
         body: formData,
       });
 
@@ -90,59 +66,31 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         );
       }
 
-      setResumeText(data.text);
+      // Handle both old and new response formats
+      const extractedText = data.text || data.resume?.extracted_text;
+      if (extractedText) {
+        setResumeText(extractedText);
+      }
+      toast({
+        title: "Resume uploaded",
+        description: "Your resume has been processed successfully",
+      });
     } catch (err) {
       setError(
         err instanceof Error
           ? err.message
           : ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.RESUME_PROCESSING_FAILED
       );
-    } finally {
-      setUploadLoading(false);
-    }
-  };
-
-  const handleUrlFetch = async () => {
-    if (!jobUrl.trim()) {
-      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_URL);
-      return;
-    }
-
-    setUrlLoading(true);
-    setError("");
-
-    try {
-      const response = await fetch(API_ROUTES.AI_COACH.FETCH_JOB_DESCRIPTION, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ url: jobUrl.trim() }),
+      toast({
+        title: "Upload failed",
+        description: "Failed to process resume file",
+        variant: "destructive",
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error || ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.URL_FETCH_FAILED
-        );
-      }
-
-      setJobDescription(data.description);
-      setInputMethod("text"); // Switch to text view to show the fetched content
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.URL_FETCH_FAILED
-      );
-    } finally {
-      setUrlLoading(false);
     }
   };
 
   const handleAnalyze = async () => {
-    if (!resumeText.trim()) {
+    if (!resumeText) {
       setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_RESUME);
       return;
     }
@@ -152,192 +100,76 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
     setAnalysis("");
 
     try {
-      const response = await fetch(API_ROUTES.AI_COACH.ANALYZE_RESUME, {
+      const response = await fetch("/api/ai-coach/analyze-resume", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({
-          resumeText: resumeText.trim(),
-          jobDescription: jobDescription.trim() || undefined,
+          resumeText,
+          jobDescription: jobDescription || undefined,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(
-          data.error || ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.ANALYSIS_FAILED
-        );
+        setError(data.error || "Failed to analyze resume");
+        return;
       }
 
       setAnalysis(data.analysis);
+      toast({
+        title: "Analysis complete!",
+        description: "Your resume analysis is ready",
+      });
     } catch (err) {
-      setError(err instanceof Error ? err.message : ERROR_MESSAGES.UNEXPECTED);
+      setError(
+        err instanceof Error ? err.message : "Failed to analyze resume"
+      );
+      toast({
+        title: "Analysis failed",
+        description: "Failed to analyze resume",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
+
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-purple-600" />
-            {copy.title}
-          </CardTitle>
-          <CardDescription>{copy.description}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Resume Input */}
-          <div className="space-y-4">
-            <Label>{copy.resumeLabel}</Label>
-            <div className="space-y-4">
-              {/* File Upload */}
-              <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <div className="space-y-2">
-                  <Upload className="h-8 w-8 mx-auto text-muted-foreground" />
-                  <div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploadLoading}
-                    >
-                      {uploadLoading ? (
-                        <>
-                          <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                          {copy.uploadButton.processing}
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-4 w-4 mr-2" />
-                          {copy.uploadButton.default}
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {copy.uploadHint}
-                  </p>
-                </div>
-              </div>
-
-              {/* Text Input */}
-              <div className="space-y-2">
-                <Label htmlFor="resume-text">{copy.pasteLabel}</Label>
-                <Textarea
-                  id="resume-text"
-                  placeholder={copy.pastePlaceholder}
-                  value={resumeText}
-                  onChange={(e) => setResumeText(e.target.value)}
-                  className="min-h-[200px]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Job Description Input */}
-          <div className="space-y-4">
-            <Label>{copy.jobDescriptionLabel}</Label>
-            <Tabs
-              value={inputMethod}
-              onValueChange={(value) => setInputMethod(value as "text" | "url")}
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="text" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  {copy.tabs.paste}
-                </TabsTrigger>
-                <TabsTrigger value="url" className="flex items-center gap-2">
-                  <Link className="h-4 w-4" />
-                  {copy.tabs.url}
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="text" className="space-y-2">
-                <Textarea
-                  placeholder={copy.jobDescriptionPlaceholder}
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  className="min-h-[120px]"
-                />
-              </TabsContent>
-
-              <TabsContent value="url" className="space-y-2">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={copy.jdUrlPlaceholder}
-                    value={jobUrl}
-                    onChange={(e) => setJobUrl(e.target.value)}
-                  />
-                  <Button
-                    onClick={handleUrlFetch}
-                    disabled={urlLoading || !jobUrl.trim()}
-                    variant="outline"
-                  >
-                    {urlLoading ? (
-                      <Sparkles className="h-4 w-4 animate-spin" />
-                    ) : (
-                      copy.fetchButton
-                    )}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Enter a job posting URL to automatically extract the
-                  description
-                </p>
-              </TabsContent>
-            </Tabs>
-          </div>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <Button
-            onClick={handleAnalyze}
-            disabled={loading || !resumeText.trim()}
-            className="w-full"
-          >
-            {loading ? (
-              <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Brain className="h-4 w-4 mr-2" />
-            )}
-            {loading ? "Analyzing..." : copy.analyzeButton}
-          </Button>
-        </CardContent>
-      </Card>
-
-      {analysis && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600" />
-              {copy.analysisTitle}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="prose prose-sm max-w-none">
-              <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                {analysis}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    <AIToolLayout
+      title={copy.title}
+      description={copy.description}
+      icon={<Brain className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />}
+      onSubmit={handleAnalyze}
+      submitLabel={copy.analyzeButton}
+      isLoading={loading}
+      error={error}
+      result={
+        analysis ? (
+          <MarkdownOutputCard
+            title={copy.analysisTitle}
+            icon={<FileText className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />}
+            content={analysis}
+          />
+        ) : null
+      }
+      savedItemsCount={savedAnalyses.length}
+      onViewSaved={() => {}}
+    >
+      <ResumeAndJobInput
+        jobDescription={jobDescription}
+        setJobDescription={setJobDescription}
+        resumeText={resumeText}
+        setResumeText={setResumeText}
+        jobDescriptionLabel="Job Description for Targeted Analysis"
+        jobDescriptionOptional={true}
+        allowResumeUpload={true}
+        onResumeUpload={handleResumeUpload}
+      />
+    </AIToolLayout>
   );
 }

@@ -13,6 +13,7 @@ export interface Application {
   company: string;
   role: string;
   role_link: string | null;
+  job_description: string | null;
   date_applied: string;
   status:
     | "Applied"
@@ -48,11 +49,15 @@ export interface LinkedinProfile {
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  description?: string | null;
   price_monthly: number;
   price_yearly: number;
   max_applications: number;
   features: string[];
   created_at: string;
+  stripe_monthly_price_id?: string | null;
+  stripe_yearly_price_id?: string | null;
+  is_active?: boolean;
 }
 
 export interface UserSubscription {
@@ -68,6 +73,7 @@ export interface UserSubscription {
   created_at: string;
   updated_at: string;
   subscription_plans?: SubscriptionPlan;
+  cancel_at_period_end?: boolean;
 }
 
 export interface UsageTracking {

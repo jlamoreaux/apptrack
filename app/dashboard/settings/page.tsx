@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { redirect } from "next/navigation";
 import { NavigationServer } from "@/components/navigation-server";
 import {
@@ -12,8 +13,9 @@ import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
 import { AccountInfoForm } from "@/components/forms/account-info-form";
 import { SubscriptionManagement } from "@/components/subscription-management";
 import { DangerZone } from "@/components/danger-zone";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/theme-toggle";
 import Link from "next/link";
 
 export default async function SettingsPage() {
@@ -31,8 +33,8 @@ export default async function SettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <div className="container mx-auto py-8">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-4xl mx-auto space-y-6 sm:space-y-8">
           <div className="flex items-center gap-4">
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
@@ -43,7 +45,7 @@ export default async function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Settings</h1>
             <p className="text-muted-foreground">
               Manage your account settings and preferences
             </p>
@@ -62,6 +64,48 @@ export default async function SettingsPage() {
                 <AccountInfoForm user={user} profile={profile} />
               </CardContent>
             </Card>
+
+            <Separator />
+
+            {/* Appearance */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Appearance</CardTitle>
+                <CardDescription>Choose your preferred theme</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ThemeToggle />
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* AI Usage */}
+            {(subscription?.subscription_plans?.name === "Pro" || 
+              subscription?.subscription_plans?.name === "AI Coach") && (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Zap className="h-5 w-5" />
+                      AI Feature Usage
+                    </CardTitle>
+                    <CardDescription>
+                      Monitor your AI feature usage and limits
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Link href="/dashboard/settings/usage">
+                      <Button variant="outline" className="w-full">
+                        View Detailed Usage
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+
+                <Separator />
+              </>
+            )}
 
             <Separator />
 

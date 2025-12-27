@@ -1,19 +1,22 @@
 import type React from "react";
-import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
-import { SITE_CONFIG } from "@/lib/constants/site-config";
+import { SkipNavigation } from "@/components/accessibility/skip-link";
+import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posthog-provider";
+import { AuthTracker } from "@/components/analytics/auth-tracker";
+import { GlobalErrorTracker } from "@/components/analytics/global-error-tracker";
+import { LinkedInInsight } from "@/components/analytics/linkedin-insight";
+import { Footer } from "@/components/footer";
+import { CookieBanner } from "@/components/cookie-banner";
+import { siteMetadata } from "@/lib/metadata";
 
 const inter = Inter({ subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: `${SITE_CONFIG.name} - Job Application Tracker`,
-  description: SITE_CONFIG.description,
-  generator: "v0.dev",
-};
+export const metadata = siteMetadata;
 
 export default function RootLayout({
   children,
@@ -23,17 +26,33 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <Suspense fallback={<div>Loading...</div>}>
-            {children}
-            <Analytics />
-          </Suspense>
-        </ThemeProvider>
+        <SkipNavigation />
+        <CSPostHogProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <Suspense
+              fallback={
+                <div aria-live="polite" aria-busy="true">
+                  Loading...
+                </div>
+              }
+            >
+              <PostHogPageView />
+              <AuthTracker />
+              <GlobalErrorTracker />
+              <LinkedInInsight />
+              {children}
+              <Footer />
+              <CookieBanner />
+              <Analytics />
+              <SpeedInsights />
+            </Suspense>
+          </ThemeProvider>
+        </CSPostHogProvider>
       </body>
     </html>
   );

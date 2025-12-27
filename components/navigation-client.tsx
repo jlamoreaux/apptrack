@@ -1,65 +1,112 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3, Crown } from "lucide-react"
-import { useSupabaseAuth } from "@/hooks/use-supabase-auth"
-import { useSubscription } from "@/hooks/use-subscription"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { User, LogOut, Crown, Shield, Flame } from "lucide-react";
+import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import { useSubscription } from "@/hooks/use-subscription";
+import { NavItemTag } from "@/components/ui/nav-item-tag";
 
 export function NavigationClient() {
-  const { user, profile, signOut } = useSupabaseAuth()
-  const { isOnFreePlan } = useSubscription(user?.id || null)
+  const { user, profile, signOut } = useSupabaseAuth();
+  const { isOnFreePlan } = useSubscription(user?.id || null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  
+  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
+  const resumeRoastNewTagExpiry = new Date('2026-03-22');
+
+  // Check if user is admin
+  useEffect(() => {
+    async function checkAdminStatus() {
+      if (!user?.id) {
+        setIsAdmin(false);
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/admin/check');
+        const data = await response.json();
+        setIsAdmin(data.isAdmin || false);
+      } catch (error) {
+        setIsAdmin(false);
+      }
+    }
+
+    checkAdminStatus();
+  }, [user?.id]);
 
   const handleLogout = async () => {
-    await signOut()
-  }
+    await signOut();
+  };
 
   // Helper function to get display name with proper truncation
   const getDisplayName = () => {
     if (profile?.full_name) {
       // If name is longer than 20 characters, show first name + last initial
       if (profile.full_name.length > 20) {
-        const parts = profile.full_name.split(" ")
+        const parts = profile.full_name.split(" ");
         if (parts.length > 1) {
-          return `${parts[0]} ${parts[parts.length - 1][0]}.`
+          return `${parts[0]} ${parts[parts.length - 1][0]}.`;
         }
-        return profile.full_name.substring(0, 17) + "..."
+        return profile.full_name.substring(0, 17) + "...";
       }
-      return profile.full_name
+      return profile.full_name;
     }
     if (user?.email) {
-      return user.email.length > 20 ? user.email.substring(0, 17) + "..." : user.email
+      return user.email.length > 20
+        ? user.email.substring(0, 17) + "..."
+        : user.email;
     }
-    return "User"
-  }
+    return "User";
+  };
 
   if (!user) {
     return (
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <BarChart3 className="h-6 w-6 text-primary" />
+            <Image
+              src="/logo_square.png"
+              alt="AppTrack Logo"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+            />
             <span className="font-bold text-xl text-primary">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
-            <Link href="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">Sign Up</Button>
-            </Link>
+            <Button variant="ghost" asChild>
+              <Link href="/login">Login</Link>
+            </Button>
+            <Button asChild className="bg-primary hover:bg-primary/90">
+              <Link href="/signup">Sign Up</Link>
+            </Button>
           </div>
         </div>
       </nav>
-    )
+    );
   }
 
   return (
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
+          <Image
+            src="/logo_square.png"
+            alt="AppTrack Logo"
+            width={24}
+            height={24}
+            className="h-6 w-6"
+          />
           <span className="font-bold text-xl text-primary">AppTrack</span>
         </Link>
 
@@ -88,7 +135,9 @@ export function NavigationClient() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5 text-sm text-muted-foreground border-b">
-                <div className="font-medium text-foreground truncate">{profile?.full_name || user.email}</div>
+                <div className="font-medium text-foreground truncate">
+                  {profile?.full_name || user.email}
+                </div>
                 <div className="text-xs truncate">{user.email}</div>
               </div>
 
@@ -99,6 +148,36 @@ export function NavigationClient() {
                 </DropdownMenuItem>
               </Link>
 
+              <DropdownMenuSeparator />
+
+              <Link href="/roast-my-resume">
+                <DropdownMenuItem>
+                  <Flame className="h-4 w-4 mr-2" />
+                  <span className="flex items-center gap-1">
+                    Resume Roast
+                    <NavItemTag 
+                      label="new" 
+                      variant="new" 
+                      expiresAt={resumeRoastNewTagExpiry}
+                    />
+                  </span>
+                </DropdownMenuItem>
+              </Link>
+
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <Link href="/admin">
+                    <DropdownMenuItem>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin Dashboard
+                    </DropdownMenuItem>
+                  </Link>
+                </>
+              )}
+
+              <DropdownMenuSeparator />
+              
               <DropdownMenuItem onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -108,5 +187,5 @@ export function NavigationClient() {
         </div>
       </div>
     </nav>
-  )
+  );
 }

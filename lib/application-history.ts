@@ -15,10 +15,8 @@ export async function trackStatusChange(
     })
 
     if (error) {
-      console.error("Error tracking status change:", error)
     }
   } catch (error) {
-    console.error("Error tracking status change:", error)
   }
 }
 
@@ -31,13 +29,11 @@ export async function getApplicationHistory(applicationId: string) {
       .order("changed_at", { ascending: true })
 
     if (error) {
-      console.error("Error fetching application history:", error)
       return []
     }
 
     return data || []
   } catch (error) {
-    console.error("Error fetching application history:", error)
     return []
   }
 }

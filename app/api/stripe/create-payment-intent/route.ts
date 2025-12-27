@@ -1,57 +1,133 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { stripe, STRIPE_CONFIG } from "@/lib/stripe"
-import { createClient } from "@supabase/supabase-js"
-
-const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+import { type NextRequest, NextResponse } from "next/server";
+import { stripe } from "@/lib/stripe";
+import { SubscriptionService } from "@/services/subscriptions";
+import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
+import { BILLING_CYCLES } from "@/lib/constants/plans";
+import { createClient, getUser } from "@/lib/supabase/server";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
   try {
-    const { planId, billingCycle, userId } = await request.json()
-
-    if (!userId) {
-      return NextResponse.json({ error: "User ID is required" }, { status: 400 })
+    // CRITICAL: Authenticate user first
+    const user = await getUser();
+    if (!user) {
+      loggerService.warn('Unauthorized payment intent creation', {
+        category: LogCategory.SECURITY,
+        action: 'stripe_payment_intent_unauthorized',
+        duration: Date.now() - startTime
+      });
+      return NextResponse.json(
+        { error: ERROR_MESSAGES.UNAUTHORIZED },
+        { status: 401 }
+      );
     }
 
+    const { planId, billingCycle } = await request.json();
+
+    // Use authenticated user's ID, NOT from request body
+    const userId = user.id;
+
     // Get user profile
-    const { data: profile, error: profileError } = await supabaseAdmin
+    const supabase = await createClient();
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .single()
+      .single();
 
     if (profileError || !profile) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      loggerService.warn('Profile not found for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_profile_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          error: profileError?.message
+        }
+      });
+      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
     }
 
     // Get plan details
-    const { data: plan, error: planError } = await supabaseAdmin
+    const { data: plan, error: planError } = await supabase
       .from("subscription_plans")
       .select("*")
       .eq("id", planId)
-      .single()
+      .single();
 
     if (planError || !plan) {
-      return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+      loggerService.warn('Plan not found for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_plan_not_found',
+        duration: Date.now() - startTime,
+        metadata: {
+          planId,
+          error: planError?.message
+        }
+      });
+      return NextResponse.json({ error: "Plan not found" }, { status: 404 });
+    }
+
+    // Validate billing cycle
+    if (!Object.values(BILLING_CYCLES).includes(billingCycle)) {
+      loggerService.warn('Invalid billing cycle for payment intent', {
+        category: LogCategory.API,
+        userId,
+        action: 'stripe_payment_intent_invalid_cycle',
+        duration: Date.now() - startTime,
+        metadata: {
+          providedCycle: billingCycle
+        }
+      });
+      return NextResponse.json(
+        { error: "Invalid billing cycle" },
+        { status: 400 }
+      );
     }
 
     // Determine price based on billing cycle
-    const priceAmount = billingCycle === "yearly" ? plan.price_yearly : plan.price_monthly
+    const priceAmount =
+      billingCycle === BILLING_CYCLES.YEARLY
+        ? plan.price_yearly
+        : plan.price_monthly;
+
+    // Get the correct Stripe price ID from the database
     const priceId =
-      billingCycle === "yearly" ? STRIPE_CONFIG.plans.pro_yearly.priceId : STRIPE_CONFIG.plans.pro_monthly.priceId
+      billingCycle === BILLING_CYCLES.YEARLY
+        ? plan.stripe_yearly_price_id
+        : plan.stripe_monthly_price_id;
+
+    if (!priceId) {
+      loggerService.error('No Stripe price ID for billing cycle', new Error('Missing price ID'), {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_no_price',
+        duration: Date.now() - startTime,
+        metadata: {
+          planName: plan.name,
+          planId,
+          billingCycle
+        }
+      });
+      return NextResponse.json(
+        { error: "Price ID not found for billing cycle" },
+        { status: 400 }
+      );
+    }
 
     // Create or get Stripe customer
-    let customerId: string
+    let customerId: string;
 
     // Check if user already has a Stripe customer ID
-    const { data: existingSubscription } = await supabaseAdmin
-      .from("user_subscriptions")
-      .select("stripe_customer_id")
-      .eq("user_id", userId)
-      .not("stripe_customer_id", "is", null)
-      .single()
-
-    if (existingSubscription?.stripe_customer_id) {
-      customerId = existingSubscription.stripe_customer_id
+    const subscriptionService = new SubscriptionService();
+    const currentSubscription =
+      await subscriptionService.getCurrentSubscription(userId);
+    if (currentSubscription?.stripe_customer_id) {
+      customerId = currentSubscription.stripe_customer_id;
     } else {
       // Create new Stripe customer
       const customer = await stripe.customers.create({
@@ -60,40 +136,59 @@ export async function POST(request: NextRequest) {
         metadata: {
           userId: userId,
         },
-      })
-      customerId = customer.id
+      });
+      customerId = customer.id;
+      
+      loggerService.info('Created new Stripe customer for payment intent', {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: 'stripe_payment_intent_customer_created',
+        metadata: {
+          stripeCustomerId: customerId
+        }
+      });
     }
 
-    // Create subscription
-    const subscription = await stripe.subscriptions.create({
+    // Create subscription setup intent for recurring payments
+    const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
-      items: [
-        {
-          price: priceId,
-        },
-      ],
-      payment_behavior: "default_incomplete",
-      payment_settings: { save_default_payment_method: "on_subscription" },
-      expand: ["latest_invoice.payment_intent"],
+      payment_method_types: ["card"],
       metadata: {
         userId: userId,
         planId: planId,
         billingCycle: billingCycle,
       },
-    })
+      usage: "off_session", // For future subscription payments
+    });
 
-    const paymentIntent = subscription.latest_invoice?.payment_intent
-
-    if (!paymentIntent || typeof paymentIntent === "string") {
-      return NextResponse.json({ error: "Failed to create payment intent" }, { status: 500 })
-    }
-
+    loggerService.info('Payment setup intent created', {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: 'stripe_payment_intent_created',
+      duration: Date.now() - startTime,
+      metadata: {
+        setupIntentId: setupIntent.id,
+        customerId,
+        planId,
+        planName: plan.name,
+        billingCycle,
+        priceAmount
+      }
+    });
+    
     return NextResponse.json({
-      subscriptionId: subscription.id,
-      clientSecret: paymentIntent.client_secret,
-    })
+      clientSecret: setupIntent.client_secret,
+    });
   } catch (error) {
-    console.error("Error creating payment intent:", error)
-    return NextResponse.json({ error: "Failed to create payment intent" }, { status: 500 })
+    loggerService.error('Error creating payment intent', error, {
+      category: LogCategory.PAYMENT,
+      userId: user?.id,
+      action: 'stripe_payment_intent_error',
+      duration: Date.now() - startTime
+    });
+    return NextResponse.json(
+      { error: ERROR_MESSAGES.UNEXPECTED },
+      { status: 500 }
+    );
   }
 }

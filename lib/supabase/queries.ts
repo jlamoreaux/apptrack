@@ -11,13 +11,11 @@ export async function getUser() {
     } = await supabase.auth.getUser();
 
     if (error) {
-      console.error("Error getting user:", error);
       return null;
     }
 
     return user;
   } catch (error) {
-    console.error("Exception getting user:", error);
     return null;
   }
 }
@@ -43,13 +41,11 @@ export async function getProfile(userId: string) {
       .single();
 
     if (error) {
-      console.error("Error getting profile:", error);
       return null;
     }
 
     return profile;
   } catch (error) {
-    console.error("Exception getting profile:", error);
     return null;
   }
 }
@@ -67,17 +63,17 @@ export async function getSubscription(userId: string) {
       `
       )
       .eq("user_id", userId)
-      .eq("status", "active")
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error getting subscription:", error);
       return null;
     }
 
     return subscription;
   } catch (error) {
-    console.error("Exception getting subscription:", error);
     return null;
   }
 }
@@ -93,13 +89,11 @@ export async function getUsage(userId: string) {
       .single();
 
     if (error && error.code !== "PGRST116") {
-      console.error("Error getting usage:", error);
       return null;
     }
 
     return usage;
   } catch (error) {
-    console.error("Exception getting usage:", error);
     return null;
   }
 }
@@ -116,13 +110,11 @@ export async function getApplications(userId: string) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      console.error("Error getting applications:", error);
       return [];
     }
 
     return applications || [];
   } catch (error) {
-    console.error("Exception getting applications:", error);
     return [];
   }
 }
@@ -139,13 +131,11 @@ export async function getArchivedApplications(userId: string) {
       .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("Error getting archived applications:", error);
       return [];
     }
 
     return applications || [];
   } catch (error) {
-    console.error("Error in getArchivedApplications:", error);
     return [];
   }
 }
@@ -167,13 +157,11 @@ export async function getApplicationHistory(userId: string) {
       .order("changed_at", { ascending: true });
 
     if (error) {
-      console.error("Error getting application history:", error);
       return [];
     }
 
     return history || [];
   } catch (error) {
-    console.error("Exception getting application history:", error);
     return [];
   }
 }
@@ -190,13 +178,11 @@ export async function getApplication(id: string, userId: string) {
       .single();
 
     if (error) {
-      console.error("Error getting application:", error);
       return null;
     }
 
     return application;
   } catch (error) {
-    console.error("Exception getting application:", error);
     return null;
   }
 }
@@ -227,13 +213,11 @@ export async function getLinkedinProfiles(
       .order("created_at", { ascending: true });
 
     if (error) {
-      console.error("Error getting LinkedIn profiles:", error);
       return [];
     }
 
     return profiles || [];
   } catch (error) {
-    console.error("Exception getting LinkedIn profiles:", error);
     return [];
   }
 }

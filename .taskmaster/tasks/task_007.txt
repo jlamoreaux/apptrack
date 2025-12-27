@@ -1,0 +1,206 @@
+# Task ID: 7
+# Title: Implement Career Advice Chat Interface
+# Status: done
+# Dependencies: 5
+# Priority: medium
+# Description: Create a conversational AI coach interface for personalized career guidance with conversation history.
+# Details:
+Build a chat-based interface for the Career Advice AI feature:
+
+1. Create a dedicated Career Advice page with chat UI
+2. Implement conversation history storage in Supabase
+3. Integrate with Replicate API for AI responses
+4. Add conversation context management
+5. Implement typing indicators and loading states
+
+```typescript
+// pages/ai-coach/advice.tsx
+import { useState, useEffect, useRef } from 'react'
+import { useUser } from '@/lib/auth'
+import { supabase } from '@/lib/supabase'
+
+export default function CareerAdvice() {
+  const { user } = useUser()
+  const [messages, setMessages] = useState([])
+  const [inputMessage, setInputMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef(null)
+  
+  // Fetch conversation history
+  useEffect(() => {
+    async function fetchConversation() {
+      if (!user) return
+      
+      const { data, error } = await supabase
+        .from('career_advice')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+      
+      if (!error && data) {
+        setMessages(data)
+      }
+    }
+    
+    fetchConversation()
+  }, [user])
+  
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+  
+  async function sendMessage(e) {
+    e.preventDefault()
+    if (!inputMessage.trim() || isLoading) return
+    
+    const userMessage = {
+      id: Date.now(),
+      user_id: user.id,
+      content: inputMessage,
+      is_user: true,
+      created_at: new Date().toISOString()
+    }
+    
+    // Optimistically update UI
+    setMessages(prev => [...prev, userMessage])
+    setInputMessage('')
+    setIsLoading(true)
+    
+    try {
+      // Save user message to database
+      const { error: saveError } = await supabase
+        .from('career_advice')
+        .insert(userMessage)
+      
+      if (saveError) throw saveError
+      
+      // Get conversation context (last 10 messages)
+      const context = messages.slice(-10).map(msg => ({
+        role: msg.is_user ? 'user' : 'assistant',
+        content: msg.content
+      }))
+      
+      // Add current message
+      context.push({
+        role: 'user',
+        content: inputMessage
+      })
+      
+      // Call AI API
+      const response = await fetch('/api/ai/career-advice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: context })
+      })
+      
+      if (!response.ok) throw new Error('Failed to get AI response')
+      
+      const data = await response.json()
+      
+      // Create AI response message
+      const aiMessage = {
+        id: Date.now() + 1,
+        user_id: user.id,
+        content: data.response,
+        is_user: false,
+        created_at: new Date().toISOString()
+      }
+      
+      // Save AI message to database
+      await supabase
+        .from('career_advice')
+        .insert(aiMessage)
+      
+      // Update UI with AI response
+      setMessages(prev => [...prev, aiMessage])
+    } catch (error) {
+      console.error('Error in chat:', error)
+      // Show error toast
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  return (
+    <div className="max-w-4xl mx-auto py-8">
+      <h1 className="text-2xl font-bold mb-6">AI Career Coach</h1>
+      
+      <div className="bg-white rounded-lg shadow overflow-hidden flex flex-col h-[600px]">
+        {/* Chat messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>Welcome to your AI Career Coach! Ask any career-related questions.</p>
+              <p className="text-sm mt-2">Examples:</p>
+              <ul className="text-sm mt-1 space-y-1">
+                <li>"How can I improve my resume for software engineering roles?"</li>
+                <li>"What should I focus on when changing careers to marketing?"</li>
+                <li>"How do I negotiate a higher salary offer?"</li>
+              </ul>
+            </div>
+          ) : (
+            messages.map(message => (
+              <div 
+                key={message.id}
+                className={`flex ${message.is_user ? 'justify-end' : 'justify-start'}`}
+              >
+                <div 
+                  className={`max-w-[80%] rounded-lg px-4 py-2 ${message.is_user ? 'bg-indigo-100 text-indigo-900' : 'bg-gray-100 text-gray-900'}`}
+                >
+                  {message.content}
+                </div>
+              </div>
+            ))
+          )}
+          
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-lg px-4 py-2 bg-gray-100">
+                <span className="flex space-x-2">
+                  <span className="animate-bounce">•</span>
+                  <span className="animate-bounce delay-100">•</span>
+                  <span className="animate-bounce delay-200">•</span>
+                </span>
+              </div>
+            </div>
+          )}
+          
+          <div ref={messagesEndRef} />
+        </div>
+        
+        {/* Input form */}
+        <form onSubmit={sendMessage} className="border-t p-4">
+          <div className="flex space-x-2">
+            <input
+              type="text"
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              placeholder="Ask your career question..."
+              className="flex-1 border-gray-300 rounded-md shadow-sm"
+              disabled={isLoading}
+            />
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isLoading || !inputMessage.trim()}
+            >
+              Send
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+# Test Strategy:
+1. Unit test the Career Advice component
+2. Test chat message submission and display
+3. Mock API responses for AI generation
+4. Test conversation history loading and persistence
+5. Verify database storage of conversation
+6. Test error handling for API failures
+7. Test loading states and typing indicators
+8. End-to-end test with real Replicate API integration
+9. Test with various career questions and scenarios

@@ -21,6 +21,7 @@ export async function addApplicationAction(formData: FormData) {
       company: formData.get("company") as string,
       role: formData.get("role") as string,
       role_link: formData.get("role_link") as string,
+      job_description: formData.get("job_description") as string,
       date_applied: formData.get("date_applied") as string,
       status: formData.get("status") as string,
     };
@@ -37,6 +38,7 @@ export async function addApplicationAction(formData: FormData) {
       user_id: user.id,
       ...result.data,
       role_link: result.data.role_link || null,
+      job_description: result.data.job_description || null,
     });
 
     if (error) {
@@ -46,7 +48,6 @@ export async function addApplicationAction(formData: FormData) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Add application error:", error);
     return {
       error: "An unexpected error occurred while adding the application",
     };
@@ -72,6 +73,7 @@ export async function updateApplicationAction(
       company: formData.get("company") as string,
       role: formData.get("role") as string,
       role_link: formData.get("role_link") as string,
+      job_description: formData.get("job_description") as string,
       date_applied: formData.get("date_applied") as string,
       status: formData.get("status") as string,
     };
@@ -89,6 +91,7 @@ export async function updateApplicationAction(
       .update({
         ...result.data,
         role_link: result.data.role_link || null,
+        job_description: result.data.job_description || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", applicationId)
@@ -101,7 +104,6 @@ export async function updateApplicationAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Update application error:", error);
     return {
       error: "An unexpected error occurred while updating the application",
     };
@@ -161,7 +163,6 @@ export async function addLinkedinProfileAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Add LinkedIn profile error:", error);
     return {
       error: "An unexpected error occurred while adding the LinkedIn profile",
     };
@@ -208,7 +209,6 @@ export async function deleteLinkedinProfileAction(
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Delete LinkedIn profile error:", error);
     return {
       error: "An unexpected error occurred while deleting the LinkedIn profile",
     };
@@ -243,7 +243,6 @@ export async function archiveApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Archive application error:", error);
     return {
       error: "An unexpected error occurred while archiving the application",
     };
@@ -278,7 +277,6 @@ export async function unarchiveApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Unarchive application error:", error);
     return {
       error: "An unexpected error occurred while unarchiving the application",
     };
@@ -310,7 +308,6 @@ export async function deleteApplicationAction(applicationId: string) {
     revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
-    console.error("Delete application error:", error);
     return {
       error: "An unexpected error occurred while deleting the application",
     };
