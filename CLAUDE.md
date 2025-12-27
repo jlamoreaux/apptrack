@@ -7,6 +7,7 @@
 3. **NEVER co-author commits** - no `Co-Authored-By` lines in commit messages
 4. **NEVER access Supabase from client components** - use API routes instead
 5. **ALWAYS check `./schemas/` before writing database code** - verify field names match
+6. **Main branch is `main`** - create PRs against `main`, not `v0`
 
 ---
 

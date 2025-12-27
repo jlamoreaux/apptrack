@@ -1,18 +1,32 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, ArrowRight } from "lucide-react"
+import { trackLinkedInPurchase } from "@/lib/analytics/linkedin"
+import { trackConversionEvent, CONVERSION_EVENTS } from "@/lib/analytics/conversion-events"
 
 export default function UpgradeSuccessPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session_id")
   const [countdown, setCountdown] = useState(5)
+  const hasTracked = useRef(false)
+
+  // Track purchase conversion once on successful checkout
+  useEffect(() => {
+    if (sessionId && !hasTracked.current) {
+      hasTracked.current = true
+      trackLinkedInPurchase()
+      trackConversionEvent(CONVERSION_EVENTS.UPGRADE_COMPLETED, {
+        session_id: sessionId,
+      })
+    }
+  }, [sessionId])
 
   useEffect(() => {
     if (!sessionId) {
