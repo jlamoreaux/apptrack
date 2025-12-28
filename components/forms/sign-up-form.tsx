@@ -15,7 +15,10 @@ import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 import { getStoredTrafficSource } from "@/lib/utils/traffic-source";
 import { toast } from "@/hooks/use-toast";
 import { trackLinkedInSignup } from "@/lib/analytics/linkedin";
-import { trackConversionEvent, CONVERSION_EVENTS } from "@/lib/analytics/conversion-events";
+import {
+  trackConversionEvent,
+  CONVERSION_EVENTS,
+} from "@/lib/analytics/conversion-events";
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
@@ -31,33 +34,39 @@ function checkPasswordCriteria(password: string) {
 }
 
 // Password criteria display component
-function PasswordCriteria({ criteria }: { criteria: ReturnType<typeof checkPasswordCriteria> }) {
+function PasswordCriteria({
+  criteria,
+}: {
+  criteria: ReturnType<typeof checkPasswordCriteria>;
+}) {
   const criteriaList = [
-    { 
-      met: criteria.minLength, 
-      label: `At least ${passwordRequirements.minLength} characters` 
+    {
+      met: criteria.minLength,
+      label: `At least ${passwordRequirements.minLength} characters`,
     },
-    { 
-      met: criteria.hasUppercase, 
-      label: "One uppercase letter" 
+    {
+      met: criteria.hasUppercase,
+      label: "One uppercase letter",
     },
-    { 
-      met: criteria.hasLowercase, 
-      label: "One lowercase letter" 
+    {
+      met: criteria.hasLowercase,
+      label: "One lowercase letter",
     },
-    { 
-      met: criteria.hasNumber, 
-      label: "One number" 
+    {
+      met: criteria.hasNumber,
+      label: "One number",
     },
-    { 
-      met: criteria.hasSpecialChar, 
-      label: "One special character (!@#$%^&*...)" 
+    {
+      met: criteria.hasSpecialChar,
+      label: "One special character (!@#$%^&*...)",
     },
   ];
 
   return (
     <div className="text-sm space-y-1 mt-2">
-      <p className="text-muted-foreground font-medium">Password must contain:</p>
+      <p className="text-muted-foreground font-medium">
+        Password must contain:
+      </p>
       <div className="space-y-1">
         {criteriaList.map((item, index) => (
           <div key={index} className="flex items-center gap-2">
@@ -66,7 +75,9 @@ function PasswordCriteria({ criteria }: { criteria: ReturnType<typeof checkPassw
             ) : (
               <X className="h-4 w-4 text-muted-foreground" />
             )}
-            <span className={item.met ? "text-green-600" : "text-muted-foreground"}>
+            <span
+              className={item.met ? "text-green-600" : "text-muted-foreground"}
+            >
               {item.label}
             </span>
           </div>
@@ -87,8 +98,11 @@ export function SignUpForm() {
     hasSpecialChar: false,
   });
   const [showPasswordCriteria, setShowPasswordCriteria] = useState(false);
-  const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(null);
-  const [trafficSourceTrial, setTrafficSourceTrial] = useState<TrafficSourceTrial | null>(null);
+  const [trafficSource, setTrafficSource] = useState<TrafficSource | null>(
+    null
+  );
+  const [trafficSourceTrial, setTrafficSourceTrial] =
+    useState<TrafficSourceTrial | null>(null);
   const [hasTrialIntent, setHasTrialIntent] = useState(false);
   const [previewSessionId, setPreviewSessionId] = useState<string | null>(null);
   const router = useRouter();
@@ -113,7 +127,7 @@ export function SignUpForm() {
       setShowPasswordCriteria(false);
     }
   }, [watchedPassword]);
-  
+
   // Check for traffic source and session on mount
   useEffect(() => {
     const { source, trial } = getStoredTrafficSource();
@@ -158,37 +172,45 @@ export function SignUpForm() {
         trackLinkedInSignup();
         trackConversionEvent(CONVERSION_EVENTS.SIGNUP_COMPLETED, {
           utm_source: trafficSource || undefined,
-          referrer: typeof document !== "undefined" ? document.referrer : undefined,
+          referrer:
+            typeof document !== "undefined" ? document.referrer : undefined,
         });
 
-        // Store email for confirmation page (with error handling for private browsing)
+        // Store email and session for confirmation page (with error handling for private browsing)
         try {
           localStorage.setItem("pendingEmailConfirmation", data.email);
+          if (previewSessionId) {
+            localStorage.setItem("pendingPreviewSession", previewSessionId);
+          }
         } catch (e) {
           console.warn("Could not save to localStorage:", e);
         }
-        
+
         // Create Stripe customer if email is already verified
         if (!result.requiresEmailConfirmation) {
           try {
             // Wait for customer creation to complete before proceeding
-            const customerResponse = await fetch("/api/stripe/create-customer", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-            });
-            
+            const customerResponse = await fetch(
+              "/api/stripe/create-customer",
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              }
+            );
+
             if (!customerResponse.ok) {
               // Log error details but don't block user flow
               const errorData = await customerResponse.json().catch(() => ({}));
               console.error("Stripe customer creation failed:", {
                 status: customerResponse.status,
-                error: errorData.error || "Unknown error"
+                error: errorData.error || "Unknown error",
               });
-              
+
               // Show warning toast but allow user to continue
               toast({
                 title: "Payment setup incomplete",
-                description: "You can complete payment setup later from your account settings.",
+                description:
+                  "You can complete payment setup later from your account settings.",
                 variant: "default", // Use default, not destructive, since it's not blocking
               });
             }
@@ -197,12 +219,13 @@ export function SignUpForm() {
             console.error("Failed to create Stripe customer:", err);
             toast({
               title: "Connection issue",
-              description: "Payment setup will be completed when you first upgrade.",
+              description:
+                "Payment setup will be completed when you first upgrade.",
               variant: "default",
             });
           }
         }
-        
+
         // Check if email confirmation is required
         if (result.requiresEmailConfirmation) {
           // Redirect to email confirmation page
@@ -273,7 +296,7 @@ export function SignUpForm() {
           {...register("password")}
           disabled={loading}
         />
-        
+
         {/* Password criteria display with real-time validation */}
         <PasswordCriteria criteria={passwordCriteria} />
       </div>
