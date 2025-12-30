@@ -13,18 +13,18 @@ const AI_COACH_PRICE = copyData.pricing.plans.ai_coach.price;
  */
 export const HERO_VARIANTS = {
   control: {
-    title: "Land interviews faster with AI-powered career coaching",
-    subtitle: `Get expert resume feedback, custom cover letters, and interview prep for ${AI_COACH_PRICE} - 99% less than hiring a real career coach.`,
-    stats: "Track every application • Perfect your resume & cover letters • Land more interviews",
+    title: "Never lose track of your dream job again",
+    subtitle: "The smart job application tracker with AI-powered career coaching. Organize applications, visualize your pipeline, and get expert help with resumes, cover letters, and interview prep.",
+    stats: "Start organizing your job search today",
   },
   outcome_focused: {
     title: "Turn applications into interviews with AI coaching",
-    subtitle: `Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching for just ${AI_COACH_PRICE}.`,
+    subtitle: "Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching at a fraction of the cost.",
     stats: "Optimize every application • Stand out to recruiters • Interview with confidence",
   },
   problem_focused: {
     title: "Stop losing dream jobs to bad resumes",
-    subtitle: `Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies for just ${AI_COACH_PRICE}.`,
+    subtitle: "Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies.",
     stats: "Beat ATS filters • Stand out from other applicants • Get noticed by recruiters",
   },
 } as const;

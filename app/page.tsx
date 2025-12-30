@@ -103,6 +103,9 @@ export default async function HomePage() {
         {/* Try AI Features Free Section */}
         <HomeTryAISection />
 
+        {/* Testimonials Section - Early social proof before feature details */}
+        <TestimonialSection />
+
         {/* Features Section */}
         <section className="py-16 px-4">
           <div className="container mx-auto">
@@ -210,9 +213,6 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* Testimonials Section */}
-        <TestimonialSection />
 
         {/* Pricing Section */}
         <HomePricingSection plans={plans} />

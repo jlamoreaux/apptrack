@@ -50,7 +50,9 @@ export function TestimonialCard({
           {highlight && (
             <p className="font-semibold text-lg mb-2 text-primary">"{highlight}"</p>
           )}
-          <p className="text-muted-foreground leading-relaxed">{content}</p>
+          {content && (
+            <p className="text-muted-foreground leading-relaxed">{content}</p>
+          )}
         </div>
 
         {/* Author Info */}
