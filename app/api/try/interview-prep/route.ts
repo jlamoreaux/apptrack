@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { generateInterviewPrep } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
       .gte("used_at", twentyFourHoursAgo);
 
     if (usageError) {
-      console.error("Error checking usage:", usageError);
+      loggerService.error("Error checking usage", LogCategory.DATABASE, { error: usageError, fingerprint });
       return NextResponse.json({ error: "Failed to check usage limits" }, { status: 500 });
     }
 
@@ -69,7 +70,7 @@ export async function POST(request: NextRequest) {
         userBackground
       );
     } catch (aiError) {
-      console.error("AI generation error:", aiError);
+      loggerService.error("AI generation error", LogCategory.API, { error: aiError, fingerprint });
       return NextResponse.json(
         { error: "Failed to generate interview prep. Please try again." },
         { status: 500 }
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sessionError) {
-      console.error("Error storing session:", sessionError);
+      loggerService.error("Error storing session", LogCategory.DATABASE, { error: sessionError, fingerprint });
       return NextResponse.json({ error: "Failed to store analysis" }, { status: 500 });
     }
 
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
       message: "Interview prep generated successfully. Sign up to see full results!",
     });
   } catch (error) {
-    console.error("Interview prep API error:", error);
+    loggerService.error("Interview prep API error", LogCategory.API, { error });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

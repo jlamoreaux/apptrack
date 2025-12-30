@@ -2,16 +2,21 @@
 
 import type React from "react";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Brain, FileText } from "lucide-react";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
 import { AI_THEME } from "@/lib/constants/ai-theme";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useRateLimit } from "@/hooks/use-rate-limit";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { AIToolLayout } from "./shared/AIToolLayout";
-import { ResumeAndJobInput } from "./shared/ResumeAndJobInput";
+import { JobDescriptionInput } from "./shared/JobDescriptionInput";
+import { ResumeSelector } from "@/components/resume-management/ResumeSelector";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAICoachData } from "@/contexts/ai-coach-data-context";
+import { SavedItemCard } from "./shared/SavedItemCard";
 
 interface ResumeAnalyzerProps {
   userId: string;
@@ -20,78 +25,65 @@ interface ResumeAnalyzerProps {
 export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
-  const [resumeText, setResumeText] = useState("");
+  const { data: cachedData, fetchResumeAnalyses, invalidateCache, fetchResume } = useAICoachData();
+  const { canUseFeature, limitMessage, incrementUsage } = useRateLimit('resume_analysis');
   const [jobDescription, setJobDescription] = useState("");
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
   const [analysis, setAnalysis] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [savedAnalyses, setSavedAnalyses] = useState<any[]>([]);
+  const [showSavedAnalyses, setShowSavedAnalyses] = useState(false);
+  const [hasInitialized, setHasInitialized] = useState(false);
   const copy = COPY.aiCoach.resumeAnalyzer;
 
-
-  const handleResumeUpload = async (file: File) => {
-    if (file.size > 5 * 1024 * 1024) {
-      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.FILE_TOO_LARGE);
-      return;
+  // Fetch saved analyses on mount
+  useEffect(() => {
+    if (user?.id && !hasInitialized) {
+      setHasInitialized(true);
+      fetchResumeAnalyses();
     }
+  }, [user?.id, hasInitialized, fetchResumeAnalyses]);
 
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.INVALID_FILE_TYPE);
-      return;
-    }
-
+  const deleteAnalysis = async (id: string) => {
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/resume/upload", {
-        method: "POST",
-        credentials: "include",
-        body: formData,
+      const response = await fetch(`/api/ai-coach/resume-analysis/history?id=${id}`, {
+        method: "DELETE",
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(
-          data.error ||
-            ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.RESUME_PROCESSING_FAILED
-        );
+      if (response.ok) {
+        invalidateCache('resumeAnalyses');
+        await fetchResumeAnalyses(true);
+        toast({
+          title: "Deleted",
+          description: "Resume analysis deleted successfully",
+        });
       }
-
-      // Handle both old and new response formats
-      const extractedText = data.text || data.resume?.extracted_text;
-      if (extractedText) {
-        setResumeText(extractedText);
-      }
+    } catch (error) {
       toast({
-        title: "Resume uploaded",
-        description: "Your resume has been processed successfully",
-      });
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.RESUME_PROCESSING_FAILED
-      );
-      toast({
-        title: "Upload failed",
-        description: "Failed to process resume file",
+        title: "Error",
+        description: "Failed to delete analysis",
         variant: "destructive",
       });
     }
   };
 
   const handleAnalyze = async () => {
+    // Fetch resume text from selected resume or default
+    const resumeText = await fetchResume(selectedResumeId || undefined);
+
     if (!resumeText) {
-      setError(ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_RESUME);
+      setError("Please upload a resume first. You can upload your resume at the top of this page.");
+      toast({
+        title: "Resume Required",
+        description: "Please upload your resume first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check rate limit
+    if (!canUseFeature) {
+      setError(limitMessage || "You've reached your Resume Analysis limit. Please try again later or upgrade your subscription.");
       return;
     }
 
@@ -109,6 +101,7 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
         body: JSON.stringify({
           resumeText,
           jobDescription: jobDescription || undefined,
+          resumeId: selectedResumeId || undefined,
         }),
       });
 
@@ -120,6 +113,11 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
       }
 
       setAnalysis(data.analysis);
+      // Invalidate cache and refresh saved analyses
+      invalidateCache('resumeAnalyses');
+      await fetchResumeAnalyses(true);
+      // Increment usage on successful analysis
+      await incrementUsage();
       toast({
         title: "Analysis complete!",
         description: "Your resume analysis is ready",
@@ -157,18 +155,66 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
           />
         ) : null
       }
-      savedItemsCount={savedAnalyses.length}
-      onViewSaved={() => {}}
+      savedItemsCount={cachedData.savedResumeAnalyses?.length || 0}
+      onViewSaved={() => setShowSavedAnalyses(!showSavedAnalyses)}
     >
-      <ResumeAndJobInput
+      {showSavedAnalyses && cachedData.savedResumeAnalyses && cachedData.savedResumeAnalyses.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Your Saved Resume Analyses</CardTitle>
+            <CardDescription>
+              Previously generated resume analyses
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {cachedData.savedResumeAnalyses.map((savedAnalysis: any) => (
+                <SavedItemCard
+                  key={savedAnalysis.id}
+                  id={savedAnalysis.id}
+                  title="Resume Analysis"
+                  subtitle={savedAnalysis.job_description ? "With job description" : "General analysis"}
+                  timestamp={savedAnalysis.created_at}
+                  onSelect={() => {
+                    setAnalysis(savedAnalysis.analysis_result);
+                    setShowSavedAnalyses(false);
+                  }}
+                  onDelete={() => deleteAnalysis(savedAnalysis.id)}
+                />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {user?.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Select Resume</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <ResumeSelector
+              userId={user.id}
+              selectedResumeId={selectedResumeId}
+              onSelect={setSelectedResumeId}
+              placeholder="Use default resume..."
+              allowDefault={true}
+            />
+            <p className="text-xs text-muted-foreground">
+              Choose which resume to analyze
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <JobDescriptionInput
         jobDescription={jobDescription}
         setJobDescription={setJobDescription}
-        resumeText={resumeText}
-        setResumeText={setResumeText}
-        jobDescriptionLabel="Job Description for Targeted Analysis"
-        jobDescriptionOptional={true}
-        allowResumeUpload={true}
-        onResumeUpload={handleResumeUpload}
+        label="Job Description for Targeted Analysis (Optional)"
+        placeholder="Paste the job description to get targeted feedback..."
+        onApplicationSelect={(appId, company, role) => {
+          setSelectedApplicationId(appId);
+        }}
       />
     </AIToolLayout>
   );

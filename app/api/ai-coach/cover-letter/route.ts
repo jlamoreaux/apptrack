@@ -8,6 +8,7 @@ import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
+import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 
 async function coverLetterHandler(request: NextRequest) {
   const startTime = Date.now();
@@ -59,14 +60,15 @@ async function coverLetterHandler(request: NextRequest) {
       );
     }
 
-    const { 
-      jobDescription, 
-      userBackground, 
+    const {
+      jobDescription,
+      userBackground,
       companyName,
       roleName,
       applicationId,
+      resumeId,
       tone,
-      additionalInfo 
+      additionalInfo
     } = await request.json();
 
     // Fetch saved data if applicationId provided
@@ -74,20 +76,16 @@ async function coverLetterHandler(request: NextRequest) {
     let finalUserBackground = userBackground;
     let finalCompanyName = companyName;
     let finalRoleName = roleName;
+    let userResumeId: string | null = null;
 
     if (applicationId) {
       const context = await AIDataFetcherService.getAIContext(user.id, applicationId);
-      
+
       // Use saved job description if not provided
       if (!finalJobDescription && context.jobDescription) {
         finalJobDescription = context.jobDescription;
       }
-      
-      // Use saved resume if background not provided
-      if (!finalUserBackground && context.resumeText) {
-        finalUserBackground = context.resumeText;
-      }
-      
+
       // Use application data if not provided
       if (context.applicationData) {
         if (!finalCompanyName) {
@@ -99,10 +97,33 @@ async function coverLetterHandler(request: NextRequest) {
       }
     }
 
-    // If still no resume, try to fetch user's current resume
+    // Resolve resume using centralized service
     if (!finalUserBackground) {
-      const resume = await AIDataFetcherService.getUserResume(user.id);
-      finalUserBackground = resume.text;
+      try {
+        const resumeResult = await ResumeResolutionService.resolveResume(user.id, {
+          resumeText: userBackground,
+          resumeId,
+          applicationId
+        });
+
+        finalUserBackground = resumeResult.text;
+        userResumeId = resumeResult.id;
+      } catch (error) {
+        loggerService.warn('Cover letter missing resume', {
+          category: LogCategory.API,
+          userId: user.id,
+          action: 'cover_letter_missing_resume',
+          duration: Date.now() - startTime,
+          metadata: {
+            applicationId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          }
+        });
+        return NextResponse.json(
+          { error: "No resume found. Please upload your resume first." },
+          { status: 400 }
+        );
+      }
     }
 
     if (!finalJobDescription || !finalUserBackground || !finalCompanyName) {
@@ -170,6 +191,7 @@ async function coverLetterHandler(request: NextRequest) {
         .insert({
           user_id: user.id,
           application_id: applicationId || null,
+          user_resume_id: userResumeId,
           company_name: finalCompanyName,
           role_name: finalRoleName || null,
           job_description: finalJobDescription,

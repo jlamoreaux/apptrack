@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { generateJobFitAnalysis } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * POST /api/try/job-fit
@@ -52,7 +53,10 @@ export async function POST(request: NextRequest) {
       .gte("used_at", twentyFourHoursAgo);
 
     if (usageError) {
-      console.error("Error checking usage:", usageError);
+      loggerService.error("Error checking usage", LogCategory.DATABASE, {
+        error: usageError,
+        fingerprint
+      });
       return NextResponse.json(
         { error: "Failed to check usage limits" },
         { status: 500 }
@@ -83,7 +87,10 @@ export async function POST(request: NextRequest) {
         targetRole || "the role" // Use provided target role or generic placeholder
       );
     } catch (aiError) {
-      console.error("AI generation error:", aiError);
+      loggerService.error("AI generation error", LogCategory.API, {
+        error: aiError,
+        fingerprint
+      });
       return NextResponse.json(
         { error: "Failed to generate job fit analysis. Please try again." },
         { status: 500 }
@@ -104,7 +111,10 @@ export async function POST(request: NextRequest) {
 
       parsedAnalysis = JSON.parse(cleanResponse);
     } catch (parseError) {
-      console.error("Failed to parse AI response as JSON:", parseError);
+      loggerService.error("Failed to parse AI response as JSON", LogCategory.API, {
+        error: parseError,
+        fingerprint
+      });
       // Fallback: treat as plain text
       parsedAnalysis = {
         overallScore: 0,
@@ -157,7 +167,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sessionError) {
-      console.error("Error storing session:", sessionError);
+      loggerService.error("Error storing session", LogCategory.DATABASE, {
+        error: sessionError,
+        fingerprint
+      });
       return NextResponse.json(
         { error: "Failed to store analysis" },
         { status: 500 }
@@ -174,7 +187,10 @@ export async function POST(request: NextRequest) {
       });
 
     if (trackError) {
-      console.error("Error tracking usage:", trackError);
+      loggerService.error("Error tracking usage", LogCategory.DATABASE, {
+        error: trackError,
+        fingerprint
+      });
       // Don't fail the request if tracking fails
     }
 
@@ -185,7 +201,7 @@ export async function POST(request: NextRequest) {
       message: "Analysis generated successfully. Sign up to see full results!",
     });
   } catch (error) {
-    console.error("Job fit API error:", error);
+    loggerService.error("Job fit API error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

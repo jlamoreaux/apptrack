@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
-import { ExternalLink } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ExternalLink, FileText, MessagesSquare, BrainCircuit, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { Application } from "@/types";
+import type { Application, ApplicationWithAnalyses } from "@/types";
 
 /**
  * Props for the presentation component
  */
 interface ApplicationCardPresentationProps {
   /** Application data to display */
-  application: Application;
+  application: ApplicationWithAnalyses;
   /** Formatted date string for accessibility */
   formattedDate: string;
   /** Number of days since application was submitted */
@@ -21,7 +22,7 @@ interface ApplicationCardPresentationProps {
   className?: string;
   /** Whether edit functionality is available */
   showEdit: boolean;
-  
+
   // Event handlers
   onMouseEnter: () => void;
   onMouseLeave: () => void;
@@ -102,17 +103,23 @@ function ApplicationCardContent({
   formattedDate,
   onExternalLinkClick,
 }: {
-  application: Application;
+  application: ApplicationWithAnalyses;
   formattedDate: string;
   onExternalLinkClick: (e: React.MouseEvent) => void;
 }) {
+  const hasAnalyses = application.ai_analyses && (
+    application.ai_analyses.job_fit_count > 0 ||
+    application.ai_analyses.cover_letter_count > 0 ||
+    application.ai_analyses.interview_prep_count > 0
+  );
+
   return (
-    <div 
+    <div
       className="space-y-1 flex-1 min-w-0"
       id={`application-${application.id}-details`}
     >
       <div className="flex items-center gap-2">
-        <h3 
+        <h3
           className="font-semibold line-clamp-2 sm:truncate"
           id={`application-${application.id}-title`}
         >
@@ -132,13 +139,13 @@ function ApplicationCardContent({
           </a>
         )}
       </div>
-      <p 
+      <p
         className="text-sm text-muted-foreground"
         aria-label={`Company: ${application.company}`}
       >
         {application.company}
       </p>
-      <p 
+      <p
         className="text-xs text-muted-foreground"
         aria-label={`Application date: ${formattedDate}`}
       >
@@ -146,6 +153,35 @@ function ApplicationCardContent({
           ? new Date(application.date_applied).toLocaleDateString()
           : "Not specified"}
       </p>
+
+      {/* AI Analysis Badges */}
+      {hasAnalyses && (
+        <div className="flex flex-wrap gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+          {application.ai_analyses!.job_fit_count > 0 && (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <BrainCircuit className="h-3 w-3" />
+              <span>Job Fit</span>
+              {application.ai_analyses!.best_fit_score && (
+                <span className="font-semibold">
+                  {Math.round(application.ai_analyses!.best_fit_score)}%
+                </span>
+              )}
+            </Badge>
+          )}
+          {application.ai_analyses!.cover_letter_count > 0 && (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <FileText className="h-3 w-3" />
+              <span>Cover Letter</span>
+            </Badge>
+          )}
+          {application.ai_analyses!.interview_prep_count > 0 && (
+            <Badge variant="secondary" className="text-xs flex items-center gap-1">
+              <MessagesSquare className="h-3 w-3" />
+              <span>Interview Prep</span>
+            </Badge>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -158,12 +194,12 @@ function ApplicationCardActions({
   showEdit,
   onEditClick,
 }: {
-  application: Application;
+  application: ApplicationWithAnalyses;
   showEdit: boolean;
   onEditClick: (e: React.MouseEvent) => void;
 }) {
   return (
-    <div 
+    <div
       className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto sm:flex-shrink-0"
       role="group"
       aria-label="Application actions and status"
@@ -171,9 +207,9 @@ function ApplicationCardActions({
       <div aria-label={`Application status: ${application.status}`}>
         <StatusBadge status={application.status} />
       </div>
-      
-      <div 
-        className="flex space-x-2" 
+
+      <div
+        className="flex space-x-2"
         onClick={(e) => e.stopPropagation()}
         role="group"
         aria-label="Application actions"

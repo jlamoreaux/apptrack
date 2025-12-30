@@ -53,26 +53,36 @@ async function handler(request: NextRequest) {
       );
     }
 
-    const { jobDescription, applicationId } = await request.json();
+    const { jobDescription, applicationId, resumeId } = await request.json();
 
     // Try to get job description from saved data if not provided
     let finalJobDescription = jobDescription;
     let finalResumeText: string | null = null;
-    
+    let userResumeId: string | null = null;
+
     if (applicationId) {
       const context = await AIDataFetcherService.getAIContext(user.id, applicationId);
-      
+
       if (!finalJobDescription && context.jobDescription) {
         finalJobDescription = context.jobDescription;
       }
-      
+
       finalResumeText = context.resumeText;
     }
-    
-    // If still no resume, try to fetch user's current resume
+
+    // Fetch resume: prioritize resumeId, then default resume
     if (!finalResumeText) {
-      const resume = await AIDataFetcherService.getUserResume(user.id);
-      finalResumeText = resume.text;
+      if (resumeId) {
+        // Fetch specific resume by ID
+        const resume = await AIDataFetcherService.getUserResumeById(user.id, resumeId);
+        finalResumeText = resume.text;
+        userResumeId = resumeId;
+      } else {
+        // Fetch default resume
+        const resume = await AIDataFetcherService.getUserResume(user.id);
+        finalResumeText = resume.text;
+        userResumeId = resume.id || null;
+      }
     }
 
     if (!finalJobDescription || typeof finalJobDescription !== "string") {
@@ -147,10 +157,10 @@ async function handler(request: NextRequest) {
       await supabase.from("job_fit_analysis").insert({
         user_id: user.id,
         application_id: applicationId || null,
+        user_resume_id: userResumeId,
         job_description: finalJobDescription,
         analysis_result: analysis,
-        overall_score: analysis.overallScore,
-        created_at: new Date().toISOString()
+        fit_score: analysis.overallScore,
       });
 
       // Track free tier usage if applicable
@@ -299,8 +309,7 @@ async function handler(request: NextRequest) {
         application_id: applicationId || null,
         job_description: finalJobDescription,
         analysis_result: mockAnalysis,
-        overall_score: mockAnalysis.overallScore,
-        created_at: new Date().toISOString()
+        fit_score: mockAnalysis.overallScore,
       });
 
       // Track free tier usage if applicable (even for fallback)

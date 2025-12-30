@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getClientIP } from "@/lib/utils/fingerprint";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * Check if a user (identified by fingerprint + IP) can use a pre-registration AI feature
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
       .gte("used_at", twentyFourHoursAgo);
 
     if (error) {
-      console.error("Rate limit check error:", error);
+      loggerService.error("Rate limit check error", LogCategory.DATABASE, { error, fingerprint });
       return NextResponse.json(
         { error: "Failed to check rate limit" },
         { status: 500 }
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
       resetAt,
     });
   } catch (error) {
-    console.error("Check limit error:", error);
+    loggerService.error("Check limit error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -104,7 +104,18 @@ export async function getApplications(userId: string) {
 
     const { data: applications, error } = await supabase
       .from("applications")
-      .select("*")
+      .select(`
+        *,
+        ai_analyses:application_ai_analyses(
+          job_fit_count,
+          cover_letter_count,
+          interview_prep_count,
+          latest_job_fit,
+          latest_cover_letter,
+          latest_interview_prep,
+          best_fit_score
+        )
+      `)
       .eq("user_id", userId)
       .eq("archived", false) // Only get non-archived applications
       .order("created_at", { ascending: false });
@@ -113,7 +124,11 @@ export async function getApplications(userId: string) {
       return [];
     }
 
-    return applications || [];
+    // Transform the joined data to match ApplicationWithAnalyses type
+    return (applications || []).map((app: any) => ({
+      ...app,
+      ai_analyses: app.ai_analyses?.[0] || undefined,
+    }));
   } catch (error) {
     return [];
   }

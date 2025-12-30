@@ -183,6 +183,7 @@ export function useLinkedinProfiles(applicationId: string | null) {
     profile_url: string;
     name?: string;
     title?: string;
+    company?: string;
   }) => {
     if (!applicationId)
       return { success: false, error: "Application ID required" };

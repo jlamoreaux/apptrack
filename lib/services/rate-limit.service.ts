@@ -2,12 +2,13 @@ import { createClient } from "@/lib/supabase/server";
 import { redis, isRedisAvailable } from "@/lib/redis/client";
 import { Ratelimit } from "@upstash/ratelimit";
 
-export type AIFeature = 
-  | 'resume_analysis' 
-  | 'interview_prep' 
-  | 'cover_letter' 
-  | 'career_advice' 
-  | 'job_fit_analysis';
+export type AIFeature =
+  | 'resume_analysis'
+  | 'interview_prep'
+  | 'cover_letter'
+  | 'career_advice'
+  | 'job_fit_analysis'
+  | 'resume_upload';
 
 export type SubscriptionTier = 'free' | 'pro' | 'ai_coach';
 

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { generateCoverLetter } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * POST /api/try/cover-letter
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
       .gte("used_at", twentyFourHoursAgo);
 
     if (usageError) {
-      console.error("Error checking usage:", usageError);
+      loggerService.error("Error checking usage", LogCategory.DATABASE, { error: usageError, fingerprint });
       return NextResponse.json(
         { error: "Failed to check usage limits" },
         { status: 500 }
@@ -83,7 +84,7 @@ export async function POST(request: NextRequest) {
         userBackground // Using userBackground as resumeText parameter
       );
     } catch (aiError) {
-      console.error("AI generation error:", aiError);
+      loggerService.error("AI generation error", LogCategory.API, { error: aiError, fingerprint });
       return NextResponse.json(
         { error: "Failed to generate cover letter. Please try again." },
         { status: 500 }
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sessionError) {
-      console.error("Error storing session:", sessionError);
+      loggerService.error("Error storing session", LogCategory.DATABASE, { error: sessionError, fingerprint });
       return NextResponse.json(
         { error: "Failed to store cover letter" },
         { status: 500 }
@@ -140,7 +141,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (trackError) {
-      console.error("Error tracking usage:", trackError);
+      loggerService.error("Error tracking usage", LogCategory.DATABASE, { error: trackError, fingerprint });
       // Don't fail the request if tracking fails
     }
 
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
       message: "Cover letter generated successfully. Sign up to see the full version!",
     });
   } catch (error) {
-    console.error("Cover letter API error:", error);
+    loggerService.error("Cover letter API error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

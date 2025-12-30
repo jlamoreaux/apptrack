@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Brain, MessageSquare, FileText, Target, BarChart3 } from "lucide-react";
+import { Clock, Brain, MessageSquare, FileText, Target, BarChart3, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { AI_THEME } from "@/lib/constants/ai-theme";
@@ -45,6 +46,7 @@ const featureColors: Record<string, string> = {
 };
 
 export function RecentActivity({ userId }: RecentActivityProps) {
+  const router = useRouter();
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -67,6 +69,22 @@ export function RecentActivity({ userId }: RecentActivityProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleActivityClick = (activity: ActivityItem) => {
+    // Map feature_name to analysis type for the history component
+    const typeMap: Record<string, string> = {
+      resume_analysis: "resumeAnalysis",
+      interview_prep: "interviewPrep",
+      cover_letter: "coverLetter",
+      job_fit_analysis: "jobFit",
+      career_advice: "careerAdvice",
+    };
+
+    const analysisType = typeMap[activity.feature_name] || activity.feature_name;
+
+    // Navigate to history tab with the specific analysis selected
+    router.push(`/ai-coach?tab=history&type=${analysisType}&id=${activity.id}`);
   };
 
   if (isLoading) {
@@ -136,13 +154,17 @@ export function RecentActivity({ userId }: RecentActivityProps) {
             const colorClass = featureColors[activity.feature_name] || "bg-gray-100 text-gray-700";
 
             return (
-              <div key={activity.id} className="flex items-start gap-3">
+              <div
+                key={activity.id}
+                onClick={() => handleActivityClick(activity)}
+                className="flex items-start gap-3 p-3 -mx-3 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors group"
+              >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${colorClass.split(' ')[0]}`}>
                   <Icon className={`h-5 w-5 ${colorClass.split(' ')[1]}`} />
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-medium text-sm">{name}</p>
+                    <p className="font-medium text-sm group-hover:text-primary transition-colors">{name}</p>
                     {activity.metadata?.overall_score && (
                       <Badge variant="secondary" className="text-xs">
                         {activity.metadata.overall_score}% match
@@ -153,6 +175,7 @@ export function RecentActivity({ userId }: RecentActivityProps) {
                     {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
                   </p>
                 </div>
+                <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
               </div>
             );
           })}

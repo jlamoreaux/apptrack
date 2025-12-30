@@ -37,7 +37,7 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { StatusSelector } from "@/components/status-selector"
 import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
-import { ApplicationAIAnalysis } from "@/components/ai-coach/ApplicationAIAnalysis"
+import { Sparkles } from "lucide-react"
 import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
 
 export default function ApplicationDetailPage() {
@@ -302,7 +302,39 @@ export default function ApplicationDetailPage() {
           </Card>
 
           {/* AI Analysis Section */}
-          <ApplicationAIAnalysis application={application} />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                AI-Powered Analysis
+              </CardTitle>
+              <CardDescription>
+                Get personalized insights and recommendations for this application
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Use our AI Coach tools to analyze your fit for this role, generate a tailored cover letter, or prepare for interviews.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button asChild variant="default" className="flex-1">
+                  <Link href={`/dashboard/ai-coach?tab=job-fit&applicationId=${application.id}`}>
+                    Analyze Job Fit
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="flex-1">
+                  <Link href={`/dashboard/ai-coach?tab=cover-letter&applicationId=${application.id}`}>
+                    Generate Cover Letter
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="flex-1">
+                  <Link href={`/dashboard/ai-coach?tab=interview&applicationId=${application.id}`}>
+                    Prepare for Interview
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Interview Notes */}

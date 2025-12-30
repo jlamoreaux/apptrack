@@ -260,4 +260,90 @@ export class ResumeDAL
       throw new DALError("Failed to count resumes", "QUERY_ERROR", error);
     }
   }
+
+  async findDefaultByUserId(userId: string): Promise<UserResume | null> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("user_resumes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("is_default", true)
+        .maybeSingle();
+
+      if (error) {
+        throw new DALError(
+          `Failed to find default resume: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError("Failed to find default resume", "QUERY_ERROR", error);
+    }
+  }
+
+  async findAllByUserId(userId: string): Promise<UserResume[]> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("user_resumes")
+        .select("*")
+        .eq("user_id", userId)
+        .order("display_order", { ascending: true });
+
+      if (error) {
+        throw new DALError(
+          `Failed to find resumes: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data || [];
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError("Failed to find resumes", "QUERY_ERROR", error);
+    }
+  }
+
+  async setAsDefault(id: string): Promise<UserResume | null> {
+    try {
+      // The database trigger will automatically unset other defaults
+      return await this.update(id, { is_default: true });
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError("Failed to set default resume", "UPDATE_ERROR", error);
+    }
+  }
+
+  async getMaxDisplayOrder(userId: string): Promise<number> {
+    try {
+      const supabase = await createClient();
+      const { data, error } = await supabase
+        .from("user_resumes")
+        .select("display_order")
+        .eq("user_id", userId)
+        .order("display_order", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        throw new DALError(
+          `Failed to get max display order: ${error.message}`,
+          "QUERY_ERROR"
+        );
+      }
+
+      return data?.display_order || 0;
+    } catch (error) {
+      if (error instanceof DALError) throw error;
+      throw new DALError(
+        "Failed to get max display order",
+        "QUERY_ERROR",
+        error
+      );
+    }
+  }
 }

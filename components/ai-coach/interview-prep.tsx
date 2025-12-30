@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -15,16 +16,16 @@ import { useRateLimit } from "@/hooks/use-rate-limit";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { AIToolLayout } from "./shared/AIToolLayout";
-import { InterviewPrepHistory } from "./shared/InterviewPrepHistory";
 import { InterviewContextCard } from "./shared/InterviewContextCard";
 import { InterviewPrepDisplay } from "./shared/InterviewPrepDisplay";
 import { useAICoachData } from "@/contexts/ai-coach-data-context";
+import { ResumeSelector } from "@/components/resume-management/ResumeSelector";
+import { SavedItemCard } from "./shared/SavedItemCard";
+import { Badge } from "@/components/ui/badge";
 
-interface InterviewPrepProps {
-  applicationId?: string;
-}
-
-const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
+const InterviewPrep = () => {
+  const searchParams = useSearchParams();
+  const urlApplicationId = searchParams?.get("applicationId");
   const { user } = useSupabaseAuth();
   const {
     createInterviewPrep,
@@ -42,6 +43,7 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
     invalidateCache,
   } = useAICoachData();
   const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [jobDescription, setJobDescription] = useState("");
   const [interviewContext, setInterviewContext] = useState("");
   const [prep, setPrep] = useState<any>(null);
@@ -62,10 +64,10 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
 
   // Initialize selected application from URL parameter
   useEffect(() => {
-    if (applicationId) {
-      setSelectedApplicationId(applicationId);
+    if (urlApplicationId) {
+      setSelectedApplicationId(urlApplicationId);
     }
-  }, [applicationId]);
+  }, [urlApplicationId]);
 
   // Fetch saved interview preps on mount (uses cache)
   useEffect(() => {
@@ -73,6 +75,61 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       fetchInterviewPreps();
     }
   }, [user?.id, fetchInterviewPreps]);
+
+  const deletePrep = async (id: string) => {
+    try {
+      const response = await fetch(`/api/ai-coach/interview-prep/history/${id}`, {
+        method: "DELETE",
+      });
+      if (response.ok) {
+        invalidateCache('interviewPreps');
+        await fetchInterviewPreps(true);
+        toast({
+          title: "Deleted",
+          description: "Interview preparation deleted successfully",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete interview preparation",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const extractContext = (prep: any) => {
+    let company = "Unknown Company";
+    let role = "Unknown Position";
+
+    if (prep.interview_context) {
+      const contextMatch = prep.interview_context.match(/Interview for (.+?) position at (.+)/);
+      if (contextMatch) {
+        role = contextMatch[1];
+        company = contextMatch[2];
+      }
+    }
+    return { company, role };
+  };
+
+  const parsePreparation = (prep: any) => {
+    if (typeof prep.prep_content === 'object' && prep.prep_content !== null) {
+      return prep.prep_content;
+    }
+
+    if (typeof prep.prep_content === 'string') {
+      try {
+        const parsed = JSON.parse(prep.prep_content);
+        if (parsed.questions && Array.isArray(parsed.questions)) {
+          return parsed;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  };
 
   const handleGenerate = async () => {
     // Check rate limit first
@@ -101,10 +158,11 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
 
     try {
       // Call backend API route for interview prep
-      const payload: any = { 
+      const payload: any = {
         interviewContext,
         jobDescription,
         applicationId: selectedApplicationId || undefined,
+        resumeId: selectedResumeId || undefined,
         structured: true // Always request structured format for proper display
       };
       const response = await fetch("/api/ai-coach/interview-prep", {
@@ -186,14 +244,68 @@ const InterviewPrep = ({ applicationId }: InterviewPrepProps) => {
       onViewSaved={() => setShowSavedPreps(!showSavedPreps)}
     >
       {showSavedPreps && data.savedInterviewPreps.length > 0 && (
-        <InterviewPrepHistory
-          onSelectPrep={(preparation) => {
-            setPrep(preparation);
-            setShowSavedPreps(false);
-          }}
-          currentUserId={user?.id}
-          isExpandable={false}
-        />
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Your Saved Interview Preparations</CardTitle>
+            <CardDescription>
+              Previously generated interview questions and preparations
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {data.savedInterviewPreps.map((savedPrep: any) => {
+                const { company, role } = extractContext(savedPrep);
+                const parsedPrep = parsePreparation(savedPrep);
+                const questionCount = parsedPrep?.questions?.length || 0;
+
+                return (
+                  <SavedItemCard
+                    key={savedPrep.id}
+                    id={savedPrep.id}
+                    title={company}
+                    subtitle={role}
+                    timestamp={savedPrep.created_at}
+                    badge={
+                      questionCount > 0 ? (
+                        <Badge variant="secondary" className="text-xs">
+                          {questionCount} questions
+                        </Badge>
+                      ) : undefined
+                    }
+                    onSelect={() => {
+                      const preparation = parsePreparation(savedPrep);
+                      if (preparation) {
+                        setPrep(preparation);
+                        setShowSavedPreps(false);
+                      }
+                    }}
+                    onDelete={() => deletePrep(savedPrep.id)}
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {user?.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Select Resume</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <ResumeSelector
+              userId={user.id}
+              selectedResumeId={selectedResumeId}
+              onSelect={setSelectedResumeId}
+              placeholder="Use default resume..."
+              allowDefault={true}
+            />
+            <p className="text-xs text-muted-foreground">
+              Choose which resume to prepare interview questions for
+            </p>
+          </CardContent>
+        </Card>
       )}
 
       <JobDescriptionInput

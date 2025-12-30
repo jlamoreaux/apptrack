@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -27,6 +28,7 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { COPY } from "@/lib/content/copy";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useToast } from "@/hooks/use-toast";
+import { useRateLimit } from "@/hooks/use-rate-limit";
 import {
   Tooltip,
   TooltipContent,
@@ -35,8 +37,9 @@ import {
 } from "@/components/ui/tooltip";
 import { MarkdownOutputCard } from "./shared/MarkdownOutput";
 import { AIToolLayout } from "./shared/AIToolLayout";
-import { ResumeAndJobInput } from "./shared/ResumeAndJobInput";
+import { JobDescriptionInput } from "./shared/JobDescriptionInput";
 import { SavedItemCard } from "./shared/SavedItemCard";
+import { ResumeSelector } from "@/components/resume-management/ResumeSelector";
 import {
   Select,
   SelectContent,
@@ -48,8 +51,11 @@ import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
 import { useAICoachData } from "@/contexts/ai-coach-data-context";
 
 const CoverLetterGenerator = () => {
+  const searchParams = useSearchParams();
+  const urlApplicationId = searchParams?.get("applicationId");
   const { user } = useSupabaseAuth();
   const { toast } = useToast();
+  const { canUseFeature, limitMessage, incrementUsage } = useRateLimit('cover_letter');
   const {
     data,
     loading: cacheLoading,
@@ -58,23 +64,38 @@ const CoverLetterGenerator = () => {
     fetchResume,
     invalidateCache,
   } = useAICoachData();
-  
+
   // State management
   const [coverLetter, setCoverLetter] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [resumeText, setResumeText] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [roleName, setRoleName] = useState("");
   const [tone, setTone] = useState("professional");
   const [additionalInfo, setAdditionalInfo] = useState("");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
-  
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+
   // Saved cover letters state
   const [showSavedLetters, setShowSavedLetters] = useState(false);
   const [hasInitialized, setHasInitialized] = useState(false);
 
+  // Initialize selected application from URL parameter
+  useEffect(() => {
+    if (urlApplicationId) {
+      setSelectedApplicationId(urlApplicationId);
+      // Also fetch and populate the application details
+      const app = data.applications.find((a) => a.id === urlApplicationId);
+      if (app) {
+        setCompanyName(app.company || "");
+        setRoleName(app.role || "");
+        if (app.job_description) {
+          setJobDescription(app.job_description);
+        }
+      }
+    }
+  }, [urlApplicationId, data.applications]);
 
   // Load cached data on mount
   useEffect(() => {
@@ -82,19 +103,8 @@ const CoverLetterGenerator = () => {
       setHasInitialized(true);
       fetchCoverLetters();
       fetchApplications();
-      // Pre-load resume for faster UX
-      fetchResume().then(text => {
-        if (text) setResumeText(text);
-      });
     }
   }, [user?.id, hasInitialized]);
-  
-  // Also sync with cached data when it becomes available
-  useEffect(() => {
-    if (data.resumeText && !resumeText) {
-      setResumeText(data.resumeText);
-    }
-  }, [data.resumeText]);
 
   const handleApplicationSelect = (appId: string, company?: string, role?: string) => {
     const app = data.applications.find((a) => a.id === appId);
@@ -120,8 +130,22 @@ const CoverLetterGenerator = () => {
       return;
     }
 
+    // Fetch resume text from selected resume or default
+    const resumeText = await fetchResume(selectedResumeId || undefined);
+
     if (!resumeText) {
-      setError("Please upload or paste your resume");
+      setError("Please upload a resume first. You can upload your resume at the top of this page.");
+      toast({
+        title: "Resume Required",
+        description: "Please upload your resume first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check rate limit
+    if (!canUseFeature) {
+      setError(limitMessage || "You've reached your Cover Letter generation limit. Please try again later or upgrade your subscription.");
       return;
     }
 
@@ -141,6 +165,7 @@ const CoverLetterGenerator = () => {
           companyName,
           roleName,
           tone,
+          resumeId: selectedResumeId || undefined,
           additionalInfo: additionalInfo.trim() || undefined,
           applicationId: selectedApplicationId || undefined,
         }),
@@ -153,11 +178,13 @@ const CoverLetterGenerator = () => {
 
       const data = await response.json();
       setCoverLetter(data.coverLetter);
-      
+
       // Invalidate cache and refresh saved letters list
       invalidateCache('coverLetters');
       await fetchCoverLetters(true);
-      
+      // Increment usage on successful generation
+      await incrementUsage();
+
       toast({
         title: "Cover letter generated!",
         description: "Your personalized cover letter is ready and saved.",
@@ -207,7 +234,6 @@ const CoverLetterGenerator = () => {
     setError("");
   };
 
-
   const deleteCoverLetter = async (id: string) => {
     try {
       const response = await fetch(`/api/ai-coach/cover-letters?id=${id}`, {
@@ -233,40 +259,6 @@ const CoverLetterGenerator = () => {
 
 
 
-  const handleResumeUpload = async (file: File) => {
-    // Process the file and extract text
-    if (file.type === "text/plain") {
-      const text = await file.text();
-      setResumeText(text);
-    } else {
-      // For PDFs and other formats, you would need to process them
-      // This would typically be done via an API endpoint
-      const formData = new FormData();
-      formData.append("file", file);
-      
-      try {
-        const response = await fetch("/api/resume/upload", {
-          method: "POST",
-          body: formData,
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Handle both old and new response formats
-          const extractedText = data.text || data.resume?.extracted_text;
-          if (extractedText) {
-            setResumeText(extractedText);
-          }
-        }
-      } catch (error) {
-        toast({
-          title: "Upload failed",
-          description: "Failed to process resume file",
-          variant: "destructive",
-        });
-      }
-    }
-  };
 
   return (
     <AIToolLayout
@@ -364,20 +356,35 @@ const CoverLetterGenerator = () => {
           </CardContent>
         </Card>
       )}
-      
-      <ResumeAndJobInput
+
+      {user?.id && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Select Resume</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <ResumeSelector
+              userId={user.id}
+              selectedResumeId={selectedResumeId}
+              onSelect={setSelectedResumeId}
+              placeholder="Use default resume..."
+              allowDefault={true}
+            />
+            <p className="text-xs text-muted-foreground">
+              Choose which resume to base this cover letter on
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <JobDescriptionInput
         jobDescription={jobDescription}
         setJobDescription={setJobDescription}
-        resumeText={resumeText}
-        setResumeText={setResumeText}
+        label="Job Description"
+        placeholder="Paste the job description here..."
         onApplicationSelect={handleApplicationSelect}
-        jobDescriptionLabel="Job Description"
-        jobDescriptionOptional={false}
-        allowResumeUpload={true}
-        onResumeUpload={handleResumeUpload}
       />
-      
-      {/* Additional Options */}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Cover Letter Details</CardTitle>
@@ -406,7 +413,7 @@ const CoverLetterGenerator = () => {
               />
             </div>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="tone">Cover Letter Tone</Label>
             <Select value={tone} onValueChange={setTone}>
@@ -421,7 +428,7 @@ const CoverLetterGenerator = () => {
               </SelectContent>
             </Select>
           </div>
-          
+
           <div className="space-y-2">
             <Label htmlFor="additional">
               Additional Information (Optional)

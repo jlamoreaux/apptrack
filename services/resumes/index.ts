@@ -5,6 +5,8 @@ import {
   NotFoundServiceError,
   wrapDALError,
 } from "@/services/base";
+import { getSubscription } from "@/lib/supabase/queries";
+import { PLAN_NAMES } from "@/lib/constants/plans";
 
 export class ResumeService
   implements BaseService<UserResume, CreateResumeInput, UpdateResumeInput>
@@ -121,6 +123,74 @@ export class ResumeService
       return resume?.extracted_text || null;
     } catch (error) {
       throw wrapDALError(error, "Failed to get resume text");
+    }
+  }
+
+  // Multi-resume support methods
+
+  async getDefaultResume(userId: string): Promise<UserResume | null> {
+    try {
+      return await this.resumeDAL.findDefaultByUserId(userId);
+    } catch (error) {
+      throw wrapDALError(error, "Failed to get default resume");
+    }
+  }
+
+  async getAllResumes(userId: string): Promise<UserResume[]> {
+    try {
+      return await this.resumeDAL.findAllByUserId(userId);
+    } catch (error) {
+      throw wrapDALError(error, "Failed to get all resumes");
+    }
+  }
+
+  async setDefaultResume(resumeId: string, userId: string): Promise<UserResume | null> {
+    try {
+      // Verify the resume belongs to this user
+      const resume = await this.resumeDAL.findById(resumeId);
+      if (!resume) {
+        throw new NotFoundServiceError("Resume", resumeId);
+      }
+      if (resume.user_id !== userId) {
+        throw new Error("Unauthorized: Resume does not belong to this user");
+      }
+
+      return await this.resumeDAL.setAsDefault(resumeId);
+    } catch (error) {
+      throw wrapDALError(error, "Failed to set default resume");
+    }
+  }
+
+  async canAddResume(userId: string): Promise<{
+    allowed: boolean;
+    limit: number;
+    current: number;
+    plan: string;
+  }> {
+    try {
+      const current = await this.resumeDAL.count(userId);
+      const subscription = await getSubscription(userId);
+      const planName = subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
+
+      // AI Coach and Pro plans get 100 resumes, Free gets 1
+      const limit = [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO].includes(planName) ? 100 : 1;
+
+      return {
+        allowed: current < limit,
+        limit,
+        current,
+        plan: planName,
+      };
+    } catch (error) {
+      throw wrapDALError(error, "Failed to check resume limit");
+    }
+  }
+
+  async getMaxDisplayOrder(userId: string): Promise<number> {
+    try {
+      return await this.resumeDAL.getMaxDisplayOrder(userId);
+    } catch (error) {
+      throw wrapDALError(error, "Failed to get max display order");
     }
   }
 }

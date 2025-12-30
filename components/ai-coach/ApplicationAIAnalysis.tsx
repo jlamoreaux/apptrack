@@ -128,7 +128,7 @@ export function ApplicationAIAnalysis({
     (): AnalysisContext => ({
       company: application.company,
       role: application.role,
-      jobDescription: application.role_link,
+      jobDescription: application.job_description,
       userId: user?.id || "",
       applicationId: application.id,
     }),
@@ -164,13 +164,27 @@ export function ApplicationAIAnalysis({
 
           if (analyses.length > 0) {
             const mostRecent = analyses[0];
-            setMostRecentAnalysis(mostRecent);
 
-            // Check if the most recent analysis is older than 7 days
-            const daysSinceAnalysis =
-              (Date.now() - new Date(mostRecent.created_at).getTime()) /
-              (1000 * 60 * 60 * 24);
-            setShouldSuggestRefresh(daysSinceAnalysis > 7);
+            // Validate the analysis has required fields and valid data
+            const isValid =
+              mostRecent?.analysis_result &&
+              typeof mostRecent.analysis_result === 'object' &&
+              mostRecent.analysis_result.generatedAt &&
+              typeof mostRecent.analysis_result.overallScore === 'number' &&
+              mostRecent.analysis_result.overallScore > 0;
+
+            if (isValid) {
+              setMostRecentAnalysis(mostRecent);
+
+              // Check if the most recent analysis is older than 7 days
+              const daysSinceAnalysis =
+                (Date.now() - new Date(mostRecent.created_at).getTime()) /
+                (1000 * 60 * 60 * 24);
+              setShouldSuggestRefresh(daysSinceAnalysis > 7);
+            } else {
+              // Invalid analysis - don't show it
+              setMostRecentAnalysis(null);
+            }
           }
         }
       } catch (error) {
@@ -196,6 +210,8 @@ export function ApplicationAIAnalysis({
     clearAnalysis,
     isLoading,
     canRetry,
+    setError: setAnalysisError,
+    setStatus: setAnalysisStatus,
   } = useAIAnalysis({
     applicationId: application.id,
     userId: user?.id || "",
@@ -212,7 +228,23 @@ export function ApplicationAIAnalysis({
   });
 
   const handleGenerateAnalysis = useCallback(async () => {
-    if (!hasAICoachAccess || !currentTabConfig) return;
+    if (!currentTabConfig) {
+      return;
+    }
+
+    // Validate that we have required data
+    if (activeTab === "job-fit" && !application.job_description) {
+      const validationError = {
+        type: 'validation' as const,
+        message: 'Job description required',
+        details: 'Please add a job description to your application before generating a job fit analysis.',
+        retryable: false,
+      };
+      setAnalysisError(validationError);
+      setAnalysisStatus('error');
+      announceError("Job description is required. Please add a job description to your application first.");
+      return;
+    }
 
     announceLoading(`Generating ${currentTabConfig.label}...`);
     setMostRecentAnalysis(null); // Clear any existing analysis
@@ -225,13 +257,16 @@ export function ApplicationAIAnalysis({
       }, 1000); // Small delay to ensure the new analysis is saved
     }
   }, [
-    hasAICoachAccess,
     currentTabConfig,
     generateAnalysis,
     activeTab,
     analysisContext,
     announceLoading,
+    announceError,
+    application,
     fetchMostRecentAnalysis,
+    setAnalysisError,
+    setAnalysisStatus,
   ]);
 
   const handleReset = useCallback(() => {
@@ -315,68 +350,6 @@ export function ApplicationAIAnalysis({
           >
             <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
             <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!hasAICoachAccess) {
-    return (
-      <Card
-        className={`${AI_THEME.getCardClasses(true)} ${
-          className || ""
-        }`}
-      >
-        <CardHeader className="text-center">
-          <CardTitle className="flex items-center justify-center gap-2 text-amber-900 dark:text-amber-100">
-            <Crown className={`h-6 w-6 ${AI_THEME.classes.text.primary}`} />
-            {UPGRADE_PROMPT_CONFIG.title}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-center space-y-3">
-            <p className="text-gray-700">{UPGRADE_PROMPT_CONFIG.description}</p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {AI_FEATURES.map((feature) => (
-                <div key={feature.id} className="relative">
-                  <div className="bg-white rounded-lg p-3 border border-gray-200 opacity-75">
-                    <div className="flex items-center gap-2 mb-1">
-                      {getTabIcon(feature.icon)}
-                      <span className="font-medium text-sm">
-                        {feature.label}
-                      </span>
-                      <Lock className="h-3 w-3 text-gray-400 ml-auto" />
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      {feature.description}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className={`bg-white dark:bg-gray-800 rounded-lg p-4 ${AI_THEME.classes.border.default}`}>
-              <h4 className="font-semibold text-amber-900 dark:text-amber-100 mb-2">
-                What's Included:
-              </h4>
-              <ul className="text-sm text-gray-700 space-y-1">
-                {UPGRADE_PROMPT_CONFIG.features.map((feature, index) => (
-                  <li key={index}>• {feature}</li>
-                ))}
-              </ul>
-            </div>
-
-            <Button
-              className={AI_THEME.getButtonClasses("primary")}
-              onClick={handleUpgradeClick}
-              aria-label={`${UPGRADE_PROMPT_CONFIG.buttonText} - opens upgrade page`}
-            >
-              <Crown className="h-4 w-4 mr-2" />
-              {UPGRADE_PROMPT_CONFIG.buttonText}
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -468,12 +441,20 @@ export function ApplicationAIAnalysis({
                       Estimated time: {currentTabConfig.estimatedTime} seconds
                     </p>
                   )}
+
+                  {activeTab === "job-fit" && !application.job_description && (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mt-3">
+                      <p className="text-sm text-amber-800 dark:text-amber-200">
+                        <strong>Job description required:</strong> Please add a job description to your application to generate a job fit analysis.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <Button
                   onClick={handleGenerateAnalysis}
-                  disabled={isAnyLoading}
-                  className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary"
+                  disabled={isAnyLoading || (activeTab === "job-fit" && !application.job_description)}
+                  className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary disabled:opacity-50"
                   aria-label={`Generate ${currentTabConfig?.label} for ${application.company} ${application.role} position`}
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
@@ -674,19 +655,29 @@ export function ApplicationAIAnalysis({
                   />
                 )}
 
-              <div className="flex justify-end gap-3">
-                {mostRecentAnalysis && status === "idle" ? (
-                  <Button
-                    onClick={handleGenerateAnalysis}
-                    disabled={isAnyLoading}
-                    className="bg-secondary hover:bg-secondary/90 focus:ring-2 focus:ring-secondary"
-                    aria-label="Generate fresh analysis"
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Generate Fresh Analysis
-                  </Button>
-                ) : (
-                  <>
+              <div className="space-y-3">
+                {/* Warning for missing job description */}
+                {activeTab === "job-fit" && !application.job_description && (
+                  <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      <strong>Job description required:</strong> Please add a job description to your application to generate a fresh analysis.
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3">
+                  {mostRecentAnalysis && status === "idle" ? (
+                    <Button
+                      onClick={handleGenerateAnalysis}
+                      disabled={isAnyLoading || (activeTab === "job-fit" && !application.job_description)}
+                      className="bg-secondary hover:bg-secondary/90 focus:ring-2 focus:ring-secondary disabled:opacity-50"
+                      aria-label="Generate fresh analysis"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Fresh Analysis
+                    </Button>
+                  ) : (
+                    <>
                     <Button
                       variant="outline"
                       onClick={handleReset}
@@ -697,8 +688,8 @@ export function ApplicationAIAnalysis({
                     </Button>
                     <Button
                       onClick={handleGenerateAnalysis}
-                      disabled={isLoading}
-                      className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary"
+                      disabled={isLoading || (activeTab === "job-fit" && !application.job_description)}
+                      className="bg-primary hover:bg-primary/90 focus:ring-2 focus:ring-primary disabled:opacity-50"
                       aria-label={`Regenerate ${currentTabConfig?.label}`}
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
@@ -706,6 +697,7 @@ export function ApplicationAIAnalysis({
                     </Button>
                   </>
                 )}
+                </div>
               </div>
             </div>
           )}

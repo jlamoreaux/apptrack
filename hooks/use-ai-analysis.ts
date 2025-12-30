@@ -199,6 +199,8 @@ export function useAIAnalysis({
     analysis,
     status,
     error,
+    setError,
+    setStatus,
     generateAnalysis,
     clearAnalysis,
     isLoading: status === 'loading',
