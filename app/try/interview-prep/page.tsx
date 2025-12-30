@@ -132,7 +132,7 @@ export default function TryInterviewPrepPage() {
         <p className="text-xl text-muted-foreground mb-2">
           AI generates personalized interview questions in 30 seconds
         </p>
-        <p className="text-sm text-muted-foreground">No signup required - Get instant practice questions</p>
+        <p className="text-sm text-muted-foreground">One free trial daily • Get instant practice questions</p>
       </div>
 
       {error && (

@@ -4,7 +4,7 @@ import { NavigationStatic } from "@/components/navigation-static";
 export const metadata: Metadata = {
   title: "Try AI Tools Free | AppTrack",
   description:
-    "Try our AI-powered job search tools free - no signup required. Get job fit analysis, cover letter generation, and interview prep questions instantly.",
+    "Try our AI-powered job search tools with one free trial daily. Get job fit analysis, cover letter generation, and interview prep questions instantly.",
   keywords: [
     "job fit analysis",
     "cover letter generator",
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Try AI Job Search Tools Free | AppTrack",
     description:
-      "Try our AI-powered job search tools free - no signup required. Get instant insights.",
+      "Try our AI-powered job search tools with one free trial daily. Get instant insights.",
     url: "https://apptrack.ing/try",
     siteName: "AppTrack",
     type: "website",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Try AI Job Search Tools Free | AppTrack",
     description:
-      "Try our AI-powered job search tools free - no signup required.",
+      "Try our AI-powered job search tools with one free trial daily.",
   },
 };
 

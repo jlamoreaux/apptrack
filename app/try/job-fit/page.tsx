@@ -154,7 +154,7 @@ export default function TryJobFitPage() {
           AI analyzes the job description against your background in 30 seconds
         </p>
         <p className="text-sm text-muted-foreground">
-          No signup required • Get instant insights
+          One free trial daily • Get instant insights
         </p>
       </div>
 
