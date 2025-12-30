@@ -47,10 +47,21 @@ export async function generateCoverLetter(
   jobDescription: string,
   userBackground: string,
   companyName: string,
-  resumeText?: string
+  resumeText?: string,
+  roleName?: string,
+  tone?: string,
+  additionalInfo?: string
 ): Promise<string> {
-  const { systemPrompt, userPrompt } = PROMPT_BUILDERS.coverLetter(jobDescription, companyName, userBackground, resumeText);
-  
+  const { systemPrompt, userPrompt } = PROMPT_BUILDERS.coverLetter(
+    jobDescription,
+    companyName,
+    userBackground,
+    resumeText,
+    roleName,
+    tone,
+    additionalInfo
+  );
+
   const messages: ChatMessage[] = [
     {
       role: "system",

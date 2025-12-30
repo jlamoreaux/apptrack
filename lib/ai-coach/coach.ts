@@ -91,13 +91,21 @@ export class AICareerCoach {
   async generateCoverLetter(
     jobDescription: string,
     userBackground: string,
-    companyName: string
+    companyName: string,
+    resumeText?: string,
+    roleName?: string,
+    tone?: string,
+    additionalInfo?: string
   ): Promise<string> {
     try {
       const coverLetter = await generateCoverLetter(
         jobDescription,
         userBackground,
-        companyName
+        companyName,
+        resumeText,
+        roleName,
+        tone,
+        additionalInfo
       );
 
       await this.saveCoachingSession("cover_letter", [

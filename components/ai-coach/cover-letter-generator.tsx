@@ -83,16 +83,13 @@ const CoverLetterGenerator = () => {
 
   // Initialize selected application from URL parameter
   useEffect(() => {
-    if (urlApplicationId) {
-      setSelectedApplicationId(urlApplicationId);
-      // Also fetch and populate the application details
+    if (urlApplicationId && data.applications.length > 0) {
       const app = data.applications.find((a) => a.id === urlApplicationId);
       if (app) {
-        setCompanyName(app.company || "");
-        setRoleName(app.role || "");
-        if (app.job_description) {
-          setJobDescription(app.job_description);
-        }
+        setSelectedApplicationId(urlApplicationId);
+        if (app.company) setCompanyName(app.company);
+        if (app.role) setRoleName(app.role);
+        // Note: job description will be loaded by JobDescriptionInput if available
       }
     }
   }, [urlApplicationId, data.applications]);
@@ -107,15 +104,28 @@ const CoverLetterGenerator = () => {
   }, [user?.id, hasInitialized]);
 
   const handleApplicationSelect = (appId: string, company?: string, role?: string) => {
-    const app = data.applications.find((a) => a.id === appId);
-    if (app) {
-      setCompanyName(company || app.company || "");
-      setRoleName(role || app.role || "");
-      if (app.job_description) {
-        setJobDescription(app.job_description);
+    setSelectedApplicationId(appId);
+
+    // Prefer passed parameters, then fall back to finding in applications list
+    if (company) {
+      setCompanyName(company);
+    } else {
+      const app = data.applications.find((a) => a.id === appId);
+      if (app?.company) {
+        setCompanyName(app.company);
       }
     }
-    setSelectedApplicationId(appId);
+
+    if (role) {
+      setRoleName(role);
+    } else {
+      const app = data.applications.find((a) => a.id === appId);
+      if (app?.role) {
+        setRoleName(app.role);
+      }
+    }
+
+    // Job description is handled separately by JobDescriptionInput component
   };
 
   const generateCoverLetter = async () => {
