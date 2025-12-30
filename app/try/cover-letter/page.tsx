@@ -145,7 +145,7 @@ export default function TryCoverLetterPage() {
           Get a professional cover letter written by AI in 30 seconds
         </p>
         <p className="text-sm text-muted-foreground">
-          No signup required • Completely free
+          One free trial daily
         </p>
       </div>
 

@@ -40,7 +40,7 @@ export function HomeTryAISection() {
             Free Preview
           </span>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-4">
-            Try Our AI Career Tools Free — No Signup Required
+            Try Our AI Career Tools Free
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Get job fit scores, AI-written cover letters, and personalized interview questions. See real results before you commit.

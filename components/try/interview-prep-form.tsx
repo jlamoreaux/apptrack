@@ -129,7 +129,7 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
       </Button>
 
       <p className="text-xs text-center text-muted-foreground">
-        Free - No signup required - Takes ~30 seconds
+        One free trial daily • Quick signup • Takes ~30 seconds
       </p>
     </form>
   );
