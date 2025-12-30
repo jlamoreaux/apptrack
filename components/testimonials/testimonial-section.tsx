@@ -7,13 +7,12 @@ import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 import { COPY } from "@/lib/content/copy";
 
 export function TestimonialSection() {
-  const showTestimonials = useFeatureFlag(FEATURE_FLAGS.SHOW_TESTIMONIALS);
-  
-  // Don't render if feature flag is off
-  // Enable in PostHog when real testimonials are available
-  if (!showTestimonials) {
-    return null;
-  }
+  // const showTestimonials = useFeatureFlag(FEATURE_FLAGS.SHOW_TESTIMONIALS);
+
+  // Temporarily disabled feature flag check for preview
+  // if (!showTestimonials) {
+  //   return null;
+  // }
 
   const testimonialCopy = COPY.testimonials || {
     badge: "Coming Soon",
