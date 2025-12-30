@@ -93,12 +93,15 @@ jest.mock('next/navigation', () => ({
   },
 }))
 
-// Mock Replicate module
-jest.mock('replicate', () => {
-  return jest.fn().mockImplementation(() => ({
-    run: jest.fn(),
-  }))
-})
+// Mock Replicate module (commented out - module not installed)
+// jest.mock('replicate', () => {
+//   return jest.fn().mockImplementation(() => ({
+//     run: jest.fn(),
+//   }))
+// })
+
+// Mock pdf-parse to prevent debug code from running
+jest.mock('pdf-parse', () => jest.fn())
 
 // Mock fetch for tests
 global.fetch = jest.fn()

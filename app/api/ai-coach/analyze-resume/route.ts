@@ -1,10 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
-import { ResumeDAL } from "@/dal/resumes";
+import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
+import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
@@ -48,17 +49,15 @@ async function analyzeResumeHandler(request: NextRequest) {
     const { resumeText, jobDescription, jobUrl, userResumeId } =
       await request.json();
 
-    let finalResumeText = resumeText;
-    let finalUserResumeId = userResumeId;
-    if (!finalResumeText) {
-      // Fetch the current resume for the user if not provided
-      const resumeDAL = new ResumeDAL();
-      const currentResume = await resumeDAL.findCurrentByUserId(user.id);
-      if (currentResume) {
-        finalResumeText = currentResume.extracted_text;
-        finalUserResumeId = currentResume.id;
-      }
-    }
+    // Use centralized resume resolution service
+    const resumeResult = await ResumeResolutionService.resolveResume(user.id, {
+      resumeText,
+      resumeId: userResumeId
+    });
+
+    const finalResumeText = resumeResult.text;
+    const finalUserResumeId = resumeResult.id;
+
     if (!finalResumeText && !jobUrl) {
       return NextResponse.json(
         { error: ERROR_MESSAGES.AI_COACH.RESUME_ANALYZER.MISSING_RESUME },

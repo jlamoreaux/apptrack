@@ -35,19 +35,32 @@ export interface Application {
   user_id: string;
   company: string;
   role: string;
-  role_link?: string;
-  job_description?: string;
+  role_link?: string | null;
+  job_description?: string | null;
   date_applied: string;
   status:
     | "Applied"
     | "Interview Scheduled"
     | "Interviewed"
     | "Offer"
-    | "Rejected";
-  notes?: string;
-  archived?: boolean;
+    | "Rejected"
+    | "Hired";
+  notes?: string | null;
+  archived?: boolean | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ApplicationWithAnalyses extends Application {
+  ai_analyses?: {
+    job_fit_count: number;
+    cover_letter_count: number;
+    interview_prep_count: number;
+    latest_job_fit?: string;
+    latest_cover_letter?: string;
+    latest_interview_prep?: string;
+    best_fit_score?: number;
+  };
 }
 
 export interface ApplicationHistory {
@@ -90,18 +103,28 @@ export interface CareerAdvice {
 export interface CoverLetter {
   id: string;
   user_id: string;
+  application_id?: string | null;
+  user_resume_id?: string | null;
+  company_name?: string;
+  role_name?: string;
   job_description: string;
   cover_letter: string;
+  tone?: string;
+  additional_info?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface JobFitAnalysis {
   id: string;
   user_id: string;
+  application_id?: string | null;
+  user_resume_id?: string | null;
   job_description: string;
   analysis_result: string;
   fit_score: number;
   created_at: string;
+  updated_at?: string;
 }
 
 // API Response types
@@ -215,9 +238,13 @@ export interface Database {
 export interface UserResume {
   id: string;
   user_id: string;
+  name: string;
+  description?: string | null;
   file_url: string;
   file_type: string;
   extracted_text: string | null;
+  is_default: boolean;
+  display_order: number;
   uploaded_at: string;
   updated_at: string;
 }
@@ -233,13 +260,21 @@ export interface CreateResumeAnalysisInput {
 
 export interface CreateResumeInput {
   user_id: string;
+  name: string;
+  description?: string;
   file_url: string;
   file_type: string;
   extracted_text: string;
+  is_default?: boolean;
+  display_order?: number;
 }
 
 export interface UpdateResumeInput {
+  name?: string;
+  description?: string;
   file_url?: string;
   file_type?: string;
   extracted_text?: string;
+  is_default?: boolean;
+  display_order?: number;
 }

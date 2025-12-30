@@ -5,9 +5,10 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
   const startTime = Date.now();
-  
+  let user;
+
   try {
-    const user = await getUser();
+    user = await getUser();
     
     if (!user) {
       loggerService.warn('Unauthorized resume analysis history access', {
@@ -45,7 +46,34 @@ export async function GET() {
       }
     });
 
-    return NextResponse.json({ analyses: analyses || [] });
+    // Parse analysis_result from JSON string to object
+    const parsedAnalyses = (analyses || []).map(analysis => {
+      let parsedResult = analysis.analysis_result;
+
+      if (typeof analysis.analysis_result === 'string') {
+        try {
+          parsedResult = JSON.parse(analysis.analysis_result);
+        } catch (error) {
+          loggerService.warn('Failed to parse resume analysis result', {
+            category: LogCategory.API,
+            userId: user.id,
+            action: 'resume_analysis_parse_error',
+            metadata: {
+              analysisId: analysis.id,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            }
+          });
+          parsedResult = { error: 'Failed to parse analysis result', raw: analysis.analysis_result };
+        }
+      }
+
+      return {
+        ...analysis,
+        analysis_result: parsedResult
+      };
+    });
+
+    return NextResponse.json({ analyses: parsedAnalyses });
 
   } catch (error) {
     loggerService.error('Resume analysis history GET error', error, {
@@ -60,9 +88,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  let user;
+
   try {
-    const user = await getUser();
+    user = await getUser();
     
     if (!user) {
       loggerService.warn('Unauthorized resume analysis history creation', {
@@ -128,6 +157,74 @@ export async function POST(request: NextRequest) {
       category: LogCategory.API,
       userId: user?.id,
       action: 'resume_analysis_history_post_error',
+      duration: Date.now() - startTime
+    });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const startTime = Date.now();
+  let user;
+
+  try {
+    user = await getUser();
+
+    if (!user) {
+      loggerService.warn('Unauthorized resume analysis deletion', {
+        category: LogCategory.SECURITY,
+        action: 'resume_analysis_delete_unauthorized'
+      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { error: "Analysis ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = await createClient();
+
+    // Delete the analysis, ensuring it belongs to the user
+    const { error } = await supabase
+      .from("resume_analysis")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", user.id);
+
+    if (error) {
+      loggerService.error('Error deleting resume analysis', error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: 'resume_analysis_delete_error',
+        duration: Date.now() - startTime
+      });
+      return NextResponse.json(
+        { error: "Failed to delete analysis" },
+        { status: 500 }
+      );
+    }
+
+    loggerService.info('Resume analysis deleted', {
+      category: LogCategory.BUSINESS,
+      userId: user.id,
+      action: 'resume_analysis_deleted',
+      duration: Date.now() - startTime,
+      metadata: { analysisId: id }
+    });
+
+    return NextResponse.json({ success: true });
+
+  } catch (error) {
+    loggerService.error('Resume analysis DELETE error', error, {
+      category: LogCategory.API,
+      userId: user?.id,
+      action: 'resume_analysis_delete_error',
       duration: Date.now() - startTime
     });
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

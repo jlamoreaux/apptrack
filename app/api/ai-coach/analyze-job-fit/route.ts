@@ -9,6 +9,7 @@ import { generateJobFitAnalysis } from "@/lib/ai-coach/functions";
 import DOMPurify from 'isomorphic-dompurify';
 import { checkRateLimit, checkBurstRateLimit, getRateLimitHeaders } from "@/lib/utils/rate-limiting";
 import { CONTENT_LIMITS } from "@/lib/constants/ai-limits";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -163,10 +164,10 @@ export async function POST(request: NextRequest) {
     try {
       resume = await resumeDAL.findCurrentByUserId(user.id);
     } catch (error) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn("Resume DAL error:", error instanceof Error ? error.message : 'Unknown error');
-      }
-      // In production, would send to error tracking service here
+      loggerService.warn("Resume DAL error", LogCategory.DATABASE, {
+        error,
+        userId: user.id
+      });
       return NextResponse.json(
         {
           error: "Error retrieving resume. Please try again or contact support.",
@@ -214,11 +215,14 @@ export async function POST(request: NextRequest) {
       }
       
       cleanResponse = cleanResponse.trim();
-      
+
       analysis = JSON.parse(cleanResponse);
     } catch (parseError) {
-      console.error("Failed to parse AI analysis response:", parseError instanceof Error ? parseError.message : String(parseError));
-      
+      loggerService.error("Failed to parse AI analysis response", LogCategory.API, {
+        error: parseError,
+        userId: user.id
+      });
+
       return NextResponse.json(
         {
           error: "Failed to parse analysis response. Please try again.",
@@ -228,9 +232,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log what we got from AI for debugging
+    loggerService.debug("Parsed AI analysis", LogCategory.API, {
+      hasOverallScore: !!analysis.overallScore,
+      overallScore: analysis.overallScore,
+      hasStrengths: !!analysis.strengths,
+      hasMatchDetails: !!analysis.matchDetails,
+      keys: Object.keys(analysis),
+    });
+
     // Validate the analysis structure
     if (!analysis.overallScore || !analysis.strengths || !Array.isArray(analysis.strengths)) {
-      
+      loggerService.error("Invalid analysis structure", LogCategory.API, {
+        overallScore: analysis.overallScore,
+        hasStrengths: !!analysis.strengths,
+        isStrengthsArray: Array.isArray(analysis.strengths),
+      });
+
       return NextResponse.json(
         {
           error: "Invalid analysis format received. Please try again.",
@@ -247,6 +265,9 @@ export async function POST(request: NextRequest) {
 
     // Ensure matchDetails exists with default values if missing
     if (!analysis.matchDetails) {
+      loggerService.warn("matchDetails missing from AI response", LogCategory.API, {
+        userId: user.id
+      });
       analysis.matchDetails = {
         skillsMatch: 0,
         experienceMatch: 0,
@@ -256,18 +277,21 @@ export async function POST(request: NextRequest) {
 
     // Create job fit analysis record using service
     const aiCoachService = new AICoachService();
-    
+
     try {
       await aiCoachService.createJobFitAnalysis(
         user.id,
         applicationId,
         sanitizedDescription,
         JSON.stringify(analysis),
-        analysis.overallScore
+        analysis.overallScore // This will be mapped to fit_score in the service
       );
     } catch (saveError) {
-      console.error("Failed to save analysis:", saveError instanceof Error ? saveError.message : String(saveError));
-      
+      loggerService.error("Failed to save analysis", LogCategory.DATABASE, {
+        error: saveError,
+        userId: user.id
+      });
+
       return NextResponse.json(
         {
           error: "Analysis generated but failed to save. Please try again.",
@@ -279,9 +303,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ analysis });
   } catch (error) {
-    console.error("Job fit analysis error:", error instanceof Error ? error.message : String(error));
+    loggerService.error("Job fit analysis error", LogCategory.API, {
+      error,
+      userId: user?.id
+    });
     return NextResponse.json(
-      { 
+      {
         error: ERROR_MESSAGES.JOB_FIT_ANALYSIS_FAILED,
         code: "ANALYSIS_ERROR"
       },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { decryptContent } from "@/lib/utils/encryption";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * POST /api/try/convert-session
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
       const decryptedString = decryptContent(session.full_content_encrypted);
       fullContent = JSON.parse(decryptedString);
     } catch (decryptError) {
-      console.error("Failed to decrypt session content:", decryptError);
+      loggerService.error("Failed to decrypt session content", LogCategory.SECURITY, { error: decryptError, sessionId });
       return NextResponse.json(
         { error: "Failed to decrypt session content" },
         { status: 500 }
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       .eq("id", sessionId);
 
     if (updateError) {
-      console.error("Failed to update session:", updateError);
+      loggerService.error("Failed to update session", LogCategory.DATABASE, { error: updateError, sessionId });
       // Don't fail the request - user still gets their content
     }
 
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
         });
       }
     } catch (historyError) {
-      console.error("Failed to save to AI coach history:", historyError);
+      loggerService.error("Failed to save to AI coach history", LogCategory.DATABASE, { error: historyError, sessionId, userId: user.id });
       // Log but don't fail the request - conversion still succeeded
     }
 
@@ -131,7 +132,7 @@ export async function POST(request: NextRequest) {
       inputData: session.input_data,
     });
   } catch (error) {
-    console.error("Convert session error:", error);
+    loggerService.error("Convert session error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server-client";
+import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { AICoachService } from "@/services/ai-coach";
@@ -11,6 +11,7 @@ import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -154,19 +155,28 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     }
 
     // 4. Resolve resume data
-    const { finalResumeText, finalUserResumeId } = await resolveResumeData(
-      user.id,
-      resumeText,
-      userResumeId
-    );
+    let finalResumeText: string;
+    let finalUserResumeId: string | null;
 
-    if (!finalResumeText) {
+    try {
+      const resumeResult = await ResumeResolutionService.resolveResume(user.id, {
+        resumeText,
+        resumeId: userResumeId,
+        applicationId
+      });
+
+      finalResumeText = resumeResult.text;
+      finalUserResumeId = resumeResult.id;
+    } catch (error) {
       loggerService.warn('Interview prep missing resume', {
         category: LogCategory.API,
         userId: user.id,
         action: 'interview_prep_missing_resume',
         duration: Date.now() - startTime,
-        metadata: { applicationId }
+        metadata: {
+          applicationId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
       });
       return NextResponse.json(
         { error: "No resume found. Please upload your resume first." },
@@ -342,29 +352,6 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       { status: 500 }
     );
   }
-}
-
-/**
- * Resolve resume data from request or database
- */
-async function resolveResumeData(
-  userId: string,
-  resumeText?: string,
-  userResumeId?: string
-): Promise<{ finalResumeText: string | null; finalUserResumeId: string | null }> {
-  let finalResumeText = resumeText || null;
-  let finalUserResumeId = userResumeId || null;
-
-  if (!finalResumeText) {
-    const resumeDAL = new ResumeDAL();
-    const currentResume = await resumeDAL.findCurrentByUserId(userId);
-    if (currentResume) {
-      finalResumeText = currentResume.extracted_text;
-      finalUserResumeId = currentResume.id;
-    }
-  }
-
-  return { finalResumeText, finalUserResumeId };
 }
 
 // Export with rate limiting middleware

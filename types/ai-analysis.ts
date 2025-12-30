@@ -24,7 +24,7 @@ export interface AnalysisError {
 export interface AnalysisContext {
   company: string;
   role: string;
-  jobDescription?: string;
+  jobDescription?: string | null;
   userId: string;
   applicationId: string;
   userProfile?: {
@@ -148,6 +148,8 @@ export interface UseAIAnalysisReturn {
   analysis: AnalysisResult | null;
   status: AnalysisStatus;
   error: AnalysisError | null;
+  setError: (error: AnalysisError | null) => void;
+  setStatus: (status: AnalysisStatus) => void;
   generateAnalysis: (
     activeTab: AIAnalysisTab,
     analysisContext: AnalysisContext

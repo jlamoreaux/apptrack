@@ -10,17 +10,21 @@ interface CachedData {
     uploadedAt?: string;
     fileUrl?: string;
   } | null;
+  resumes: any[]; // List of all user resumes
   savedCoverLetters: any[];
   savedInterviewPreps: any[];
   careerAdviceHistory: any[];
   savedResumeAnalyses: any[];
+  savedJobFitAnalyses: any[];
   applications: any[];
   lastFetched: {
     resume: number | null;
+    resumes: number | null;
     coverLetters: number | null;
     interviewPreps: number | null;
     careerAdvice: number | null;
     resumeAnalyses: number | null;
+    jobFitAnalyses: number | null;
     applications: number | null;
   };
 }
@@ -29,17 +33,21 @@ interface AICoachDataContextType {
   data: CachedData;
   loading: {
     resume: boolean;
+    resumes: boolean;
     coverLetters: boolean;
     interviewPreps: boolean;
     careerAdvice: boolean;
     resumeAnalyses: boolean;
+    jobFitAnalyses: boolean;
     applications: boolean;
   };
   fetchResume: (force?: boolean) => Promise<string | null>;
+  fetchResumes: (force?: boolean) => Promise<any[]>;
   fetchCoverLetters: (force?: boolean) => Promise<any[]>;
   fetchInterviewPreps: (force?: boolean) => Promise<any[]>;
   fetchCareerAdvice: (force?: boolean) => Promise<any[]>;
   fetchResumeAnalyses: (force?: boolean) => Promise<any[]>;
+  fetchJobFitAnalyses: (force?: boolean) => Promise<any[]>;
   fetchApplications: (force?: boolean) => Promise<any[]>;
   invalidateCache: (type?: keyof CachedData['lastFetched']) => void;
   preloadAll: () => Promise<void>;
@@ -60,27 +68,33 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
   const [data, setData] = useState<CachedData>({
     resumeText: null,
     resumeInfo: null,
+    resumes: [],
     savedCoverLetters: [],
     savedInterviewPreps: [],
     careerAdviceHistory: [],
     savedResumeAnalyses: [],
+    savedJobFitAnalyses: [],
     applications: [],
     lastFetched: {
       resume: null,
+      resumes: null,
       coverLetters: null,
       interviewPreps: null,
       careerAdvice: null,
       resumeAnalyses: null,
+      jobFitAnalyses: null,
       applications: null,
     },
   });
 
   const [loading, setLoading] = useState({
     resume: false,
+    resumes: false,
     coverLetters: false,
     interviewPreps: false,
     careerAdvice: false,
     resumeAnalyses: false,
+    jobFitAnalyses: false,
     applications: false,
   });
 
@@ -168,6 +182,45 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
     }
     
     return null;
+  }, [user?.id]);
+
+  const fetchResumes = useCallback(async (force = false): Promise<any[]> => {
+    if (!user?.id) return [];
+
+    const currentData = dataRef.current || data;
+
+    if (!force && isCacheValid(currentData.lastFetched.resumes)) {
+      return currentData.resumes;
+    }
+
+    if (fetchingRef.current.resumes) {
+      return currentData.resumes;
+    }
+
+    fetchingRef.current.resumes = true;
+    setLoading(prev => ({ ...prev, resumes: true }));
+
+    try {
+      const response = await fetch('/api/resume/list');
+      if (response.ok) {
+        const result = await response.json();
+        const resumes = result.resumes || [];
+
+        setData(prev => ({
+          ...prev,
+          resumes,
+          lastFetched: { ...prev.lastFetched, resumes: Date.now() },
+        }));
+
+        return resumes;
+      }
+    } catch (error) {
+    } finally {
+      setLoading(prev => ({ ...prev, resumes: false }));
+      fetchingRef.current.resumes = false;
+    }
+
+    return [];
   }, [user?.id]);
 
   const fetchCoverLetters = useCallback(async (force = false): Promise<any[]> => {
@@ -326,6 +379,45 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
     return [];
   }, [user?.id]);
 
+  const fetchJobFitAnalyses = useCallback(async (force = false): Promise<any[]> => {
+    if (!user?.id) return [];
+
+    const currentData = dataRef.current || data;
+
+    if (!force && isCacheValid(currentData.lastFetched.jobFitAnalyses)) {
+      return currentData.savedJobFitAnalyses;
+    }
+
+    if (fetchingRef.current.jobFitAnalyses) {
+      return currentData.savedJobFitAnalyses;
+    }
+
+    fetchingRef.current.jobFitAnalyses = true;
+    setLoading(prev => ({ ...prev, jobFitAnalyses: true }));
+
+    try {
+      const response = await fetch('/api/ai-coach/job-fit/history');
+      if (response.ok) {
+        const result = await response.json();
+        const analyses = result.analyses || [];
+
+        setData(prev => ({
+          ...prev,
+          savedJobFitAnalyses: analyses,
+          lastFetched: { ...prev.lastFetched, jobFitAnalyses: Date.now() },
+        }));
+
+        return analyses;
+      }
+    } catch (error) {
+    } finally {
+      setLoading(prev => ({ ...prev, jobFitAnalyses: false }));
+      fetchingRef.current.jobFitAnalyses = false;
+    }
+
+    return [];
+  }, [user?.id]);
+
   const fetchApplications = useCallback(async (force = false): Promise<any[]> => {
     if (!user?.id) return [];
     
@@ -380,6 +472,7 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
           interviewPreps: null,
           careerAdvice: null,
           resumeAnalyses: null,
+          jobFitAnalyses: null,
           applications: null,
         },
       }));
@@ -397,6 +490,7 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
       fetchInterviewPreps(),
       fetchCareerAdvice(),
       fetchResumeAnalyses(),
+      fetchJobFitAnalyses(),
     ];
 
     // Fire and forget - let them complete in background
@@ -429,6 +523,9 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
         case 'resume':
           await fetchResumeAnalyses();
           break;
+        case 'job-fit':
+          await fetchJobFitAnalyses();
+          break;
       }
 
       // Preload other data after initial tab loads
@@ -444,10 +541,12 @@ export const AICoachDataProvider: React.FC<{ children: React.ReactNode; initialT
     data,
     loading,
     fetchResume,
+    fetchResumes,
     fetchCoverLetters,
     fetchInterviewPreps,
     fetchCareerAdvice,
     fetchResumeAnalyses,
+    fetchJobFitAnalyses,
     fetchApplications,
     invalidateCache,
     preloadAll,

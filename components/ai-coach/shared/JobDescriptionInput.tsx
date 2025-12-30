@@ -24,6 +24,7 @@ interface JobDescriptionInputProps {
   placeholder?: string;
   label?: string;
   onApplicationSelect?: (applicationId: string, companyName?: string, roleName?: string) => void;
+  initialApplicationId?: string;
 }
 
 export function JobDescriptionInput({
@@ -32,11 +33,14 @@ export function JobDescriptionInput({
   placeholder = "Paste the full job description here...",
   label = "Job Description",
   onApplicationSelect,
+  initialApplicationId,
 }: JobDescriptionInputProps) {
   const { user } = useSupabaseAuth();
   const { applications } = useSupabaseApplications(user?.id || null);
-  const [inputMethod, setInputMethod] = useState<"application" | "text" | "url">("text");
-  const [selectedApplicationId, setSelectedApplicationId] = useState<string>("");
+  const [inputMethod, setInputMethod] = useState<"application" | "text" | "url">(
+    initialApplicationId ? "application" : "text"
+  );
+  const [selectedApplicationId, setSelectedApplicationId] = useState<string>(initialApplicationId || "");
   const [jobUrl, setJobUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [savedJobDescription, setSavedJobDescription] = useState("");

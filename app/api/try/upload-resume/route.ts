@@ -3,6 +3,7 @@ import {
   extractTextFromBuffer,
   isSupportedFileType,
 } from "@/lib/utils/text-extraction-server";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ text: extractionResult.text });
   } catch (error) {
-    console.error("Resume upload error:", error);
+    loggerService.error("Resume upload error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Failed to process resume" },
       { status: 500 }

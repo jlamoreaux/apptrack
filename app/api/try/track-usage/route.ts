@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getClientIP } from "@/lib/utils/fingerprint";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * Track usage of a pre-registration AI feature
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
-      console.error("Track usage error:", error);
+      loggerService.error("Track usage error", LogCategory.DATABASE, { error, fingerprint });
       return NextResponse.json(
         { error: "Failed to track usage" },
         { status: 500 }
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Track usage error:", error);
+    loggerService.error("Track usage error", LogCategory.API, { error });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

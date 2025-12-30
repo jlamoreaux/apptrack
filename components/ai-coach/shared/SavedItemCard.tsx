@@ -40,9 +40,21 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
     onCopy?.();
   };
 
-  const formattedDate = typeof timestamp === 'string' 
-    ? new Date(timestamp) 
+  const formattedDate = typeof timestamp === 'string'
+    ? new Date(timestamp)
     : timestamp;
+
+  // Format date safely with fallback
+  const getFormattedDate = () => {
+    try {
+      if (!formattedDate || isNaN(formattedDate.getTime())) {
+        return 'Date unavailable';
+      }
+      return format(formattedDate, "MMM d, yyyy 'at' h:mm a");
+    } catch (error) {
+      return 'Date unavailable';
+    }
+  };
 
   return (
     <div
@@ -56,7 +68,7 @@ export const SavedItemCard: React.FC<SavedItemCardProps> = ({
             <div className="text-sm text-muted-foreground">{subtitle}</div>
           )}
           <div className="text-xs text-muted-foreground mt-1">
-            {format(formattedDate, "MMM d, yyyy 'at' h:mm a")}
+            {getFormattedDate()}
           </div>
           {badge && <div className="mt-2">{badge}</div>}
         </div>

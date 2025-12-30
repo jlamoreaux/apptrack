@@ -222,7 +222,15 @@ export class AICoachService {
   async createCoverLetter(
     userId: string,
     jobDescription: string,
-    coverLetter: string
+    coverLetter: string,
+    options?: {
+      application_id?: string;
+      user_resume_id?: string;
+      company_name?: string;
+      role_name?: string;
+      tone?: string;
+      additional_info?: string;
+    }
   ): Promise<CoverLetter> {
     try {
       // Validate inputs
@@ -242,6 +250,12 @@ export class AICoachService {
         user_id: userId,
         job_description: jobDescription,
         cover_letter: coverLetter,
+        application_id: options?.application_id,
+        user_resume_id: options?.user_resume_id,
+        company_name: options?.company_name,
+        role_name: options?.role_name,
+        tone: options?.tone,
+        additional_info: options?.additional_info,
       });
     } catch (error) {
       throw wrapDALError(error, "Failed to create cover letter");
@@ -262,7 +276,8 @@ export class AICoachService {
     applicationId: string,
     jobDescription: string,
     analysisResult: string,
-    fitScore: number
+    fitScore: number,
+    userResumeId?: string
   ): Promise<JobFitAnalysis> {
     try {
       // Validate inputs
@@ -292,6 +307,7 @@ export class AICoachService {
         job_description: jobDescription,
         analysis_result: analysisResult,
         fit_score: fitScore,
+        user_resume_id: userResumeId,
       });
     } catch (error) {
       throw wrapDALError(error, "Failed to create job fit analysis");

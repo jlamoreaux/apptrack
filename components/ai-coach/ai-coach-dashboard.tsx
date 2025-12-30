@@ -18,14 +18,13 @@ import {
   Upload,
   Sparkles,
   BarChart3,
-  Clock,
 } from "lucide-react";
 import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
 import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
 import { JobFitAnalysis } from "./job-fit-analysis";
-import { ResumeSection } from "@/components/resume-section";
+import { ResumeSectionImproved } from "@/components/resume-section-improved";
 import { RecentActivity } from "./recent-activity";
 import { COPY } from "@/lib/content/copy";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +41,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
   const { tabs } = COPY.aiCoach.dashboard;
 
   // Valid tab values
-  const validTabs = ["resume", "interview", "cover-letter", "advice", "job-fit"];
+  const validTabs = ["resume", "interview", "cover-letter", "job-fit", "advice"];
 
   useEffect(() => {
     // Read tab parameter from URL
@@ -66,7 +65,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
       )}
 
       {/* Resume Section */}
-      <ResumeSection />
+      <ResumeSectionImproved />
 
       {/* Recent Activity - Removed Usage Display as it's in settings */}
       <RecentActivity userId={userId} />
@@ -90,13 +89,13 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
             <FileText className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Cover</span>
           </TabsTrigger>
+          <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
+            <BarChart3 className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Job Fit</span>
+          </TabsTrigger>
           <TabsTrigger value="advice" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <Target className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Advice</span>
-          </TabsTrigger>
-          <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] col-start-2 sm:col-start-auto">
-            <BarChart3 className="h-4 w-4 flex-shrink-0" />
-            <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Job Fit</span>
           </TabsTrigger>
         </TabsList>
 
@@ -105,19 +104,19 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         </TabsContent>
 
         <TabsContent value="interview" className="space-y-6">
-          <InterviewPrep applicationId={applicationId || undefined} />
+          <InterviewPrep />
         </TabsContent>
 
         <TabsContent value="cover-letter" className="space-y-6">
           <CoverLetterGenerator />
         </TabsContent>
 
-        <TabsContent value="advice" className="space-y-6">
-          <CareerAdvice />
-        </TabsContent>
-
         <TabsContent value="job-fit" className="space-y-6">
           <JobFitAnalysis />
+        </TabsContent>
+
+        <TabsContent value="advice" className="space-y-6">
+          <CareerAdvice />
         </TabsContent>
       </Tabs>
     </div>
