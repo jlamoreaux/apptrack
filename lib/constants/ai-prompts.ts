@@ -171,15 +171,34 @@ Provide a comprehensive job fit analysis in the specified JSON format.`
     };
   },
 
-  coverLetter: (jobDescription: string, companyName: string, userBackground: string, resumeText?: string) => {
-    let content = `Please write a cover letter for me for this position at ${companyName}:\n\nJob Description:\n${jobDescription}`;
-    
+  coverLetter: (
+    jobDescription: string,
+    companyName: string,
+    userBackground: string,
+    resumeText?: string,
+    roleName?: string,
+    tone?: string,
+    additionalInfo?: string
+  ) => {
+    const roleText = roleName ? ` for the ${roleName} position` : '';
+    let content = `Please write a cover letter for me${roleText} at ${companyName}:\n\nJob Description:\n${jobDescription}`;
+
     if (resumeText) {
       content += `\n\nMy Resume:\n${resumeText}`;
     }
-    
-    content += `\n\nMy Background:\n${userBackground}\n\nPlease make it professional, engaging, and tailored to this specific role.`;
-    
+
+    content += `\n\nMy Background:\n${userBackground}`;
+
+    if (additionalInfo) {
+      content += `\n\nAdditional Information to Emphasize:\n${additionalInfo}`;
+    }
+
+    const toneInstruction = tone && tone !== 'professional'
+      ? `\n\nPlease write the letter in a ${tone} tone.`
+      : '';
+
+    content += `${toneInstruction}\n\nPlease make it ${tone || 'professional'}, engaging, and tailored to this specific role.`;
+
     return {
       systemPrompt: CONTENT_GENERATION_PROMPTS.COVER_LETTER,
       userPrompt: content

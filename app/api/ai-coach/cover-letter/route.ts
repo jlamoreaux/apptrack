@@ -163,7 +163,11 @@ async function coverLetterHandler(request: NextRequest) {
     const coverLetter = await aiCoach.generateCoverLetter(
       finalJobDescription,
       finalUserBackground,
-      finalCompanyName
+      finalCompanyName,
+      undefined, // resumeText - not used since userBackground already contains resume
+      finalRoleName,
+      tone,
+      additionalInfo
     );
     const aiGenerationDuration = Date.now() - aiGenerationStartTime;
 
