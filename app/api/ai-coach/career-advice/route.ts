@@ -283,13 +283,12 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
       );
     }
 
-    // Validate message structure - check that all messages have valid content
+    // Basic validation - check that all messages have some content
     for (const msg of messages) {
       const content = getMessageContent(msg);
-      const validation = validateMessageContent(content);
-      if (!validation.valid) {
+      if (!content.trim()) {
         return new Response(
-          JSON.stringify({ error: validation.error || "Invalid message content" }),
+          JSON.stringify({ error: "Message cannot be empty" }),
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -312,7 +311,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
 
     const lastUserContent = getMessageContent(lastUserMessage);
 
-    // Validate the last user message with comprehensive checks
+    // Validate only the new user message with comprehensive checks (length, spam detection, etc.)
     const lastMessageValidation = validateMessageContent(lastUserContent);
     if (!lastMessageValidation.valid) {
       return new Response(
