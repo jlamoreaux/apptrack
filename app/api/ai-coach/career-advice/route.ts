@@ -18,15 +18,49 @@ interface MessagePart {
   text?: string;
 }
 
+/**
+ * Message interface that handles both traditional content format and UIMessage parts format.
+ *
+ * EXPERIMENTAL: experimental_attachments is not part of the official AI SDK types.
+ * This is a custom extension that may break with SDK updates. Use with caution.
+ *
+ * @see https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot for official SDK documentation
+ */
 interface Message {
   role: "user" | "assistant" | "system";
   content?: string;
   parts?: MessagePart[];
+  /**
+   * EXPERIMENTAL: Custom attachment handling.
+   * Not part of official SDK. May break with updates.
+   * Runtime validation required before use.
+   */
   experimental_attachments?: Array<{
     name: string;
     contentType: string;
     url: string;
   }>;
+}
+
+/**
+ * Type guard to validate experimental attachment structure.
+ * Use this before accessing attachment properties to ensure runtime safety.
+ */
+function isValidAttachment(attachment: unknown): attachment is {
+  name: string;
+  contentType: string;
+  url: string;
+} {
+  return (
+    typeof attachment === "object" &&
+    attachment !== null &&
+    "name" in attachment &&
+    typeof attachment.name === "string" &&
+    "contentType" in attachment &&
+    typeof attachment.contentType === "string" &&
+    "url" in attachment &&
+    typeof attachment.url === "string"
+  );
 }
 
 // Helper to extract content from message including attachments
@@ -44,9 +78,19 @@ function getMessageContent(message: Message): string {
       .join("");
   }
 
-  // Handle experimental_attachments
-  if (message.experimental_attachments) {
+  // Handle experimental_attachments with runtime validation
+  if (message.experimental_attachments && Array.isArray(message.experimental_attachments)) {
     for (const attachment of message.experimental_attachments) {
+      // Validate attachment structure at runtime
+      if (!isValidAttachment(attachment)) {
+        loggerService.warn("Invalid attachment structure detected", {
+          category: LogCategory.SECURITY,
+          action: "invalid_attachment",
+          metadata: { attachment },
+        });
+        continue;
+      }
+
       if (attachment.contentType.startsWith("text/") && attachment.url) {
         try {
           // Decode data URL
@@ -62,7 +106,10 @@ function getMessageContent(message: Message): string {
             textContent += `\n\n=== ATTACHED ${fileType.toUpperCase()}: ${attachment.name} ===\n\n${fileContent}\n\n=== END OF ${fileType.toUpperCase()} ===`;
           }
         } catch (err) {
-          console.error("Failed to decode attachment:", err);
+          loggerService.error("Failed to decode attachment", err, {
+            category: LogCategory.API,
+            action: "attachment_decode_error",
+          });
         }
       }
     }
@@ -73,6 +120,41 @@ function getMessageContent(message: Message): string {
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_MESSAGE_LENGTH = 10000;
+const MIN_MESSAGE_LENGTH = 3;
+
+/**
+ * Validates message content for quality and security.
+ */
+function validateMessageContent(content: string): { valid: boolean; error?: string } {
+  const trimmed = content.trim();
+
+  if (!trimmed) {
+    return { valid: false, error: "Message cannot be empty" };
+  }
+
+  if (trimmed.length < MIN_MESSAGE_LENGTH) {
+    return { valid: false, error: "Message is too short. Please provide more context." };
+  }
+
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    return {
+      valid: false,
+      error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters`,
+    };
+  }
+
+  // Check for suspicious patterns
+  const uniqueChars = new Set(trimmed.toLowerCase().replace(/\s/g, "")).size;
+  const totalChars = trimmed.replace(/\s/g, "").length;
+  if (totalChars > 20 && uniqueChars / totalChars < 0.3) {
+    return {
+      valid: false,
+      error: "Message appears to contain suspicious patterns. Please use normal text.",
+    };
+  }
+
+  return { valid: true };
+}
 
 async function careerAdviceHandler(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
@@ -204,9 +286,10 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Validate message structure - check that all messages have valid content
     for (const msg of messages) {
       const content = getMessageContent(msg);
-      if (!content || !content.trim()) {
+      const validation = validateMessageContent(content);
+      if (!validation.valid) {
         return new Response(
-          JSON.stringify({ error: "Invalid message format: all messages must have content" }),
+          JSON.stringify({ error: validation.error || "Invalid message content" }),
           {
             status: 400,
             headers: { "Content-Type": "application/json" },
@@ -229,10 +312,11 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
 
     const lastUserContent = getMessageContent(lastUserMessage);
 
-    // Validate message length
-    if (lastUserContent.length > MAX_MESSAGE_LENGTH) {
+    // Validate the last user message with comprehensive checks
+    const lastMessageValidation = validateMessageContent(lastUserContent);
+    if (!lastMessageValidation.valid) {
       return new Response(
-        JSON.stringify({ error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` }),
+        JSON.stringify({ error: lastMessageValidation.error || "Invalid message" }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },

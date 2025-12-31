@@ -61,7 +61,7 @@ export function CareerAdvice() {
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ message: string; code?: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState("");
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
@@ -258,7 +258,7 @@ export function CareerAdvice() {
 
     const messageText = chatInput;
     setChatInput("");
-    setFileError(null);
+    setLoadError(null);
     setSuggestedPrompts([]);
 
     try {
@@ -285,47 +285,58 @@ export function CareerAdvice() {
   }, [fetchConversations]);
 
   // Load messages for a specific conversation
-  const loadConversation = useCallback(async (conversationId: string, updateUrl = true) => {
-    if (conversationId === activeConversationId) return;
+  const loadConversation = useCallback(
+    async (conversationId: string, updateUrl = true) => {
+      if (conversationId === activeConversationId) return;
 
-    setIsLoadingMessages(true);
-    setFileError(null);
+      setIsLoadingMessages(true);
+      setLoadError(null);
 
-    try {
-      const response = await fetch(`/api/ai-coach/conversations/${conversationId}`, {
-        credentials: "include",
-      });
+      try {
+        const response = await fetch(`/api/ai-coach/conversations/${conversationId}`, {
+          credentials: "include",
+        });
 
-      if (response.ok) {
-        const { messages: convMessages } = await response.json();
-        // Convert to the format expected by useChat (UIMessage format)
-        const formattedMessages: UIMessage[] = (convMessages || []).map(
-          (msg: { id: string; content: string; is_user: boolean; created_at: string }) => ({
-            id: msg.id,
-            role: msg.is_user ? "user" : "assistant",
-            parts: [{ type: "text" as const, text: msg.content }],
-            createdAt: new Date(msg.created_at),
-          })
-        );
-        setMessages(formattedMessages);
-        setActiveConversationId(conversationId);
+        if (response.ok) {
+          const { messages: convMessages } = await response.json();
+          // Convert to the format expected by useChat (UIMessage format)
+          const formattedMessages: UIMessage[] = (convMessages || []).map(
+            (msg: { id: string; content: string; is_user: boolean; created_at: string }) => ({
+              id: msg.id,
+              role: msg.is_user ? "user" : "assistant",
+              parts: [{ type: "text" as const, text: msg.content }],
+              createdAt: new Date(msg.created_at),
+            })
+          );
+          setMessages(formattedMessages);
+          setActiveConversationId(conversationId);
 
-        // Update URL to maintain state on refresh
-        if (updateUrl) {
-          const params = new URLSearchParams(searchParams.toString());
-          params.set("conversation", conversationId);
-          router.push(`?${params.toString()}`, { scroll: false });
+          // Update URL to maintain state on refresh
+          if (updateUrl) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("conversation", conversationId);
+            router.push(`?${params.toString()}`, { scroll: false });
+          }
+        } else {
+          setLoadError({
+            message: "Failed to load conversation",
+            code: "CONVERSATION_LOAD_FAILED",
+          });
         }
-      } else {
-        setFileError("Failed to load conversation");
+      } catch (err) {
+        console.error("Failed to load conversation:", err);
+        setLoadError({
+          message: "Failed to load conversation. Please try again.",
+          code: "CONVERSATION_LOAD_ERROR",
+        });
+      } finally {
+        setIsLoadingMessages(false);
       }
-    } catch (err) {
-      console.error("Failed to load conversation:", err);
-      setFileError("Failed to load conversation");
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  }, [activeConversationId, router, setMessages, searchParams]);
+    },
+    // setMessages is from useChat and is guaranteed to be stable by the SDK
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeConversationId, router, searchParams]
+  );
 
   // Restore conversation from URL on mount
   useEffect(() => {
@@ -347,7 +358,7 @@ export function CareerAdvice() {
   const startNewConversation = () => {
     setActiveConversationId(null);
     setMessages([]);
-    setFileError(null);
+    setLoadError(null);
     setSuggestedPrompts([]);
     pendingConversationIdRef.current = null;
 
@@ -631,10 +642,15 @@ export function CareerAdvice() {
             )}
           </CardContent>
 
-          {/* Display errors - SDK error takes precedence */}
-          {(error || fileError) && (
+          {/* Display errors - SDK error takes precedence over load errors */}
+          {(error || loadError) && (
             <div className="px-6 py-2 bg-destructive/10 text-destructive text-sm flex items-center justify-between gap-2">
-              <span>{error?.message || fileError}</span>
+              <div className="flex-1">
+                <span>{error?.message || loadError?.message}</span>
+                {loadError?.code && (
+                  <span className="ml-2 text-xs opacity-75">({loadError.code})</span>
+                )}
+              </div>
               {error && status === "error" && (
                 <Button
                   variant="ghost"
@@ -644,6 +660,16 @@ export function CareerAdvice() {
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
                   Retry
+                </Button>
+              )}
+              {loadError && !error && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLoadError(null)}
+                  className="h-7 text-xs"
+                >
+                  Dismiss
                 </Button>
               )}
             </div>
