@@ -14,7 +14,6 @@ import {
   Brain,
   MessageSquare,
   FileText,
-  Target,
   Upload,
   Sparkles,
   BarChart3,
@@ -111,7 +110,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Job Fit</span>
           </TabsTrigger>
           <TabsTrigger value="advice" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
-            <Target className="h-4 w-4 flex-shrink-0" />
+            <MessageSquare className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Advice</span>
           </TabsTrigger>
         </TabsList>
