@@ -589,21 +589,20 @@ export function CareerAdvice() {
                             "max-w-[80%] rounded-lg px-4 py-2",
                             message.role === "user"
                               ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+                              : "bg-muted",
+                            "prose prose-sm max-w-none dark:prose-invert break-words",
+                            "prose-p:my-2 prose-p:leading-relaxed",
+                            "prose-ul:my-2 prose-li:my-1",
+                            "prose-ol:my-2",
+                            "prose-headings:font-semibold prose-headings:my-3",
+                            "prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm",
+                            "prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg",
+                            "prose-a:text-primary prose-a:underline prose-a:underline-offset-2",
+                            "prose-strong:font-semibold",
+                            "prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic"
                           )}
                         >
-                          <ReactMarkdown
-                            className="prose prose-sm max-w-none dark:prose-invert break-words
-                              prose-p:my-2 prose-p:leading-relaxed
-                              prose-ul:my-2 prose-li:my-1
-                              prose-ol:my-2
-                              prose-headings:font-semibold prose-headings:my-3
-                              prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
-                              prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg
-                              prose-a:text-primary prose-a:underline prose-a:underline-offset-2
-                              prose-strong:font-semibold
-                              prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic"
-                          >
+                          <ReactMarkdown>
                             {message.parts
                               ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
                               .map((part) => part.text)
