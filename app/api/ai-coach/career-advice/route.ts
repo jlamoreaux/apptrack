@@ -1,37 +1,184 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest } from "next/server";
+import { streamText, generateText, createTextStreamResponse, type LanguageModel } from "ai";
+import { openai } from "@ai-sdk/openai";
 import { createClient } from "@/lib/supabase/server";
-import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
-import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { AI_COACH_PROMPTS } from "@/lib/constants/ai-prompts";
+import { RateLimitService } from "@/lib/services/rate-limit.service";
+import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 
-async function careerAdviceHandler(request: NextRequest) {
+// Cast to LanguageModel to handle type compatibility between ai and @ai-sdk/openai
+const model = openai("gpt-4o-mini") as LanguageModel;
+
+interface MessagePart {
+  type: string;
+  text?: string;
+}
+
+/**
+ * Message interface that handles both traditional content format and UIMessage parts format.
+ *
+ * EXPERIMENTAL: experimental_attachments is not part of the official AI SDK types.
+ * This is a custom extension that may break with SDK updates. Use with caution.
+ *
+ * @see https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot for official SDK documentation
+ */
+interface Message {
+  role: "user" | "assistant" | "system";
+  content?: string;
+  parts?: MessagePart[];
+  /**
+   * EXPERIMENTAL: Custom attachment handling.
+   * Not part of official SDK. May break with updates.
+   * Runtime validation required before use.
+   */
+  experimental_attachments?: Array<{
+    name: string;
+    contentType: string;
+    url: string;
+  }>;
+}
+
+/**
+ * Type guard to validate experimental attachment structure.
+ * Use this before accessing attachment properties to ensure runtime safety.
+ */
+function isValidAttachment(attachment: unknown): attachment is {
+  name: string;
+  contentType: string;
+  url: string;
+} {
+  return (
+    typeof attachment === "object" &&
+    attachment !== null &&
+    "name" in attachment &&
+    typeof attachment.name === "string" &&
+    "contentType" in attachment &&
+    typeof attachment.contentType === "string" &&
+    "url" in attachment &&
+    typeof attachment.url === "string"
+  );
+}
+
+// Helper to extract content from message including attachments
+function getMessageContent(message: Message): string {
+  let textContent = "";
+
+  if (message.content) {
+    textContent = message.content;
+  }
+
+  if (message.parts) {
+    textContent += message.parts
+      .filter((part) => part.type === "text" && part.text)
+      .map((part) => part.text)
+      .join("");
+  }
+
+  // Handle experimental_attachments with runtime validation
+  if (message.experimental_attachments && Array.isArray(message.experimental_attachments)) {
+    for (const attachment of message.experimental_attachments) {
+      // Validate attachment structure at runtime
+      if (!isValidAttachment(attachment)) {
+        loggerService.warn("Invalid attachment structure detected", {
+          category: LogCategory.SECURITY,
+          action: "invalid_attachment",
+          metadata: { attachment },
+        });
+        continue;
+      }
+
+      if (attachment.contentType.startsWith("text/") && attachment.url) {
+        try {
+          // Decode data URL
+          const base64Data = attachment.url.split(",")[1];
+          if (base64Data) {
+            const fileContent = Buffer.from(base64Data, "base64").toString("utf-8");
+            const fileType = attachment.name.toLowerCase().includes("resume")
+              ? "resume"
+              : attachment.name.toLowerCase().includes("job") ||
+                attachment.name.toLowerCase().includes("jd")
+              ? "job description"
+              : "document";
+            textContent += `\n\n=== ATTACHED ${fileType.toUpperCase()}: ${attachment.name} ===\n\n${fileContent}\n\n=== END OF ${fileType.toUpperCase()} ===`;
+          }
+        } catch (err) {
+          loggerService.error("Failed to decode attachment", err, {
+            category: LogCategory.API,
+            action: "attachment_decode_error",
+          });
+        }
+      }
+    }
+  }
+
+  return textContent;
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_MESSAGE_LENGTH = 10000;
+const MIN_MESSAGE_LENGTH = 3;
+
+/**
+ * Validates message content for quality and security.
+ */
+function validateMessageContent(content: string): { valid: boolean; error?: string } {
+  const trimmed = content.trim();
+
+  if (!trimmed) {
+    return { valid: false, error: "Message cannot be empty" };
+  }
+
+  if (trimmed.length < MIN_MESSAGE_LENGTH) {
+    return { valid: false, error: "Message is too short. Please provide more context." };
+  }
+
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    return {
+      valid: false,
+      error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters`,
+    };
+  }
+
+  // Check for suspicious patterns
+  const uniqueChars = new Set(trimmed.toLowerCase().replace(/\s/g, "")).size;
+  const totalChars = trimmed.replace(/\s/g, "").length;
+  if (totalChars > 20 && uniqueChars / totalChars < 0.3) {
+    return {
+      valid: false,
+      error: "Message appears to contain suspicious patterns. Please use normal text.",
+    };
+  }
+
+  return { valid: true };
+}
+
+async function careerAdviceHandler(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
-  let user: any = null;
-  let message: string | undefined;
-  
+  let userId: string | undefined;
+
   try {
     const supabase = await createClient();
 
     const {
-      data: { user: authUser },
-      error,
+      data: { user },
     } = await supabase.auth.getUser();
-    
-    user = authUser;
 
     if (!user) {
-      loggerService.warn('Unauthorized career advice request', {
+      loggerService.warn("Unauthorized career advice request", {
         category: LogCategory.SECURITY,
-        action: 'career_advice_unauthorized'
+        action: "career_advice_unauthorized",
       });
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.UNAUTHORIZED },
-        { status: 401 }
-      );
+      return new Response(JSON.stringify({ error: ERROR_MESSAGES.UNAUTHORIZED }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    userId = user.id;
 
     // Check permission using middleware
     const permissionResult = await PermissionMiddleware.checkApiPermission(
@@ -41,177 +188,373 @@ async function careerAdviceHandler(request: NextRequest) {
 
     if (!permissionResult.allowed) {
       loggerService.logSecurityEvent(
-        'ai_feature_access_denied',
-        'medium',
+        "ai_feature_access_denied",
+        "medium",
         {
-          feature: 'career_advice',
-          reason: permissionResult.reason || 'subscription_required',
-          userId: user.id
+          feature: "career_advice",
+          reason: permissionResult.reason || "subscription_required",
+          userId: user.id,
         },
         { userId: user.id }
       );
-      return NextResponse.json(
-        { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
-        { status: 403 }
+      return new Response(
+        JSON.stringify({
+          error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
+        }),
+        {
+          status: 403,
+          headers: { "Content-Type": "application/json" },
+        }
       );
     }
 
-    const requestBody = await request.json();
-    message = requestBody.message;
-    const conversationHistory = requestBody.conversationHistory;
+    // Check rate limit
+    const subscriptionTier = await getUserSubscriptionTier(user.id);
+    const rateLimitService = RateLimitService.getInstance();
+    const rateLimitResult = await rateLimitService.checkLimit(
+      user.id,
+      "career_advice",
+      subscriptionTier
+    );
 
-    if (!message) {
-      loggerService.warn('Career advice request missing message', {
-        category: LogCategory.API,
+    if (!rateLimitResult.allowed) {
+      loggerService.warn("Rate limit exceeded for career advice", {
+        category: LogCategory.SECURITY,
         userId: user.id,
-        action: 'career_advice_missing_message',
-        duration: Date.now() - startTime
+        action: "rate_limit_exceeded",
+        metadata: {
+          feature: "career_advice",
+          limit: rateLimitResult.limit,
+          resetAt: rateLimitResult.reset.toISOString(),
+        },
       });
-      return NextResponse.json(
-        { error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({
+          error: "Rate limit exceeded",
+          message: `You have exceeded the ${rateLimitResult.limit} requests limit. Please try again after ${rateLimitResult.reset.toLocaleTimeString()}.`,
+          resetAt: rateLimitResult.reset.toISOString(),
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": rateLimitResult.reset.toISOString(),
+            ...(rateLimitResult.retryAfter && {
+              "Retry-After": rateLimitResult.retryAfter.toString(),
+            }),
+          },
+        }
       );
     }
 
-    // Save user message to database
-    const userMessage = {
+    // Track usage asynchronously
+    rateLimitService.trackUsage(user.id, "career_advice", true).catch((err) => {
+      loggerService.error("Failed to track rate limit usage", err, {
+        category: LogCategory.PERFORMANCE,
+        userId: user.id,
+        action: "rate_limit_track_error",
+      });
+    });
+
+    const body = await request.json();
+    const messages: Message[] = body.messages || [];
+    let conversationId: string | undefined = body.conversationId;
+
+    // Validate conversationId format if provided
+    if (conversationId && !UUID_REGEX.test(conversationId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid conversation ID format" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!messages.length) {
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Basic validation - check that all messages have some content
+    for (const msg of messages) {
+      const content = getMessageContent(msg);
+      if (!content.trim()) {
+        return new Response(
+          JSON.stringify({ error: "Message cannot be empty" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    // Get the last user message
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUserMessage) {
+      return new Response(
+        JSON.stringify({ error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const lastUserContent = getMessageContent(lastUserMessage);
+
+    // Validate only the new user message with comprehensive checks (length, spam detection, etc.)
+    const lastMessageValidation = validateMessageContent(lastUserContent);
+    if (!lastMessageValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: lastMessageValidation.error || "Invalid message" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Validate conversation ownership if conversationId is provided
+    if (conversationId) {
+      const { data: existingConv, error: convCheckError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (convCheckError || !existingConv) {
+        loggerService.warn("Invalid conversation access attempt", {
+          category: LogCategory.SECURITY,
+          userId: user.id,
+          action: "invalid_conversation_access",
+          metadata: { conversationId },
+        });
+        return new Response(
+          JSON.stringify({ error: "Conversation not found" }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
+    // Create a new conversation if none provided
+    if (!conversationId) {
+      const { data: conversation, error: convError } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: null, // Will be generated after first exchange
+        })
+        .select()
+        .single();
+
+      if (convError) {
+        loggerService.error("Error creating conversation", convError, {
+          category: LogCategory.DATABASE,
+          userId: user.id,
+          action: "conversation_create_error",
+        });
+        return new Response(
+          JSON.stringify({ error: "Failed to create conversation" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      conversationId = conversation.id;
+    }
+
+    // Save the user message
+    const { error: saveUserError } = await supabase.from("career_advice").insert({
       user_id: user.id,
-      content: message,
+      conversation_id: conversationId,
+      content: lastUserContent,
       is_user: true,
       created_at: new Date().toISOString(),
-    };
-
-    const { error: saveUserError } = await supabase
-      .from("career_advice")
-      .insert(userMessage);
+    });
 
     if (saveUserError) {
-      loggerService.error('Error saving user message', saveUserError, {
+      loggerService.error("Error saving user message", saveUserError, {
         category: LogCategory.DATABASE,
         userId: user.id,
-        action: 'career_advice_save_user_message_error',
-        metadata: {
-          messageLength: message.length
-        }
+        action: "career_advice_save_user_message_error",
       });
     }
 
-    // Generate AI response using the AI Coach
-    const aiCoach = createAICoach(user.id);
-
-    // Build context from conversation history
-    const context = conversationHistory || [];
-
-    loggerService.debug('Generating career advice response', {
+    loggerService.debug("Generating career advice response", {
       category: LogCategory.AI_SERVICE,
       userId: user.id,
-      action: 'career_advice_generation_start',
+      action: "career_advice_generation_start",
       metadata: {
-        contextLength: context.length,
-        messageLength: message.length
-      }
+        conversationId,
+        messageCount: messages.length,
+      },
     });
 
-    // Call the askCareerQuestion method with the message and context
-    const aiGenerationStartTime = Date.now();
-    const response = await aiCoach.askCareerQuestion(message, context);
-    const aiGenerationDuration = Date.now() - aiGenerationStartTime;
+    // Convert messages to the format expected by the AI SDK
+    const aiMessages = messages.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: getMessageContent(m),
+    }));
 
-    loggerService.info('Career advice generated successfully', {
-      category: LogCategory.AI_SERVICE,
-      userId: user.id,
-      action: 'career_advice_ai_response',
-      duration: aiGenerationDuration,
-      metadata: {
-        promptLength: message.length,
-        responseLength: response.length,
-        model: 'gpt-4o-mini', // Based on the logs showing this model
-        estimatedTokens: Math.round((message.length + response.length) / 4)
-      }
-    });
+    // Stream the response
+    const result = streamText({
+      model,
+      system: AI_COACH_PROMPTS.CAREER_ADVISOR,
+      messages: aiMessages,
+      async onFinish({ text, usage }) {
+        const aiGenerationDuration = Date.now() - startTime;
 
-    // Save AI response to database
-    const aiMessage = {
-      user_id: user.id,
-      content: response,
-      is_user: false,
-      created_at: new Date().toISOString(),
-    };
+        // Save the AI response
+        const { error: saveAiError } = await supabase.from("career_advice").insert({
+          user_id: user.id,
+          conversation_id: conversationId,
+          content: text,
+          is_user: false,
+          created_at: new Date().toISOString(),
+        });
 
-    const { error: saveAiError } = await supabase
-      .from("career_advice")
-      .insert(aiMessage);
-
-    if (saveAiError) {
-      loggerService.error('Error saving AI message', saveAiError, {
-        category: LogCategory.DATABASE,
-        userId: user.id,
-        action: 'career_advice_save_ai_message_error',
-        metadata: {
-          responseLength: response.length
+        if (saveAiError) {
+          loggerService.error("Error saving AI message", saveAiError, {
+            category: LogCategory.DATABASE,
+            userId: user.id,
+            action: "career_advice_save_ai_message_error",
+          });
         }
-      });
-    }
 
-    loggerService.info('Career advice generated successfully', {
-      category: LogCategory.BUSINESS,
-      userId: user.id,
-      action: 'career_advice_generated',
-      duration: Date.now() - startTime,
-      metadata: {
-        messageLength: message.length,
-        responseLength: response.length,
-        hasConversationHistory: (conversationHistory?.length || 0) > 0
-      }
+        // Generate a title for new conversations (first message)
+        const { data: conv } = await supabase
+          .from("conversations")
+          .select("title")
+          .eq("id", conversationId)
+          .single();
+
+        if (conv && !conv.title) {
+          try {
+            const titleResult = await generateText({
+              model,
+              system:
+                "Generate a short, descriptive title (max 50 characters) for this conversation. Return only the title text, no quotes or extra formatting.",
+              prompt: lastUserContent,
+              maxOutputTokens: 50,
+            });
+
+            const generatedTitle = titleResult.text.trim().slice(0, 50);
+
+            await supabase
+              .from("conversations")
+              .update({
+                title: generatedTitle,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", conversationId);
+          } catch (titleError) {
+            loggerService.warn("Failed to generate conversation title", {
+              category: LogCategory.AI_SERVICE,
+              userId: user.id,
+              action: "conversation_title_generation_error",
+              metadata: { conversationId },
+            });
+          }
+        } else {
+          // Update the conversation's updated_at timestamp
+          await supabase
+            .from("conversations")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", conversationId);
+        }
+
+        loggerService.info("Career advice generated successfully", {
+          category: LogCategory.AI_SERVICE,
+          userId: user.id,
+          action: "career_advice_ai_response",
+          duration: aiGenerationDuration,
+          metadata: {
+            conversationId,
+            responseLength: text.length,
+            model: "gpt-4o-mini",
+            inputTokens: usage?.inputTokens,
+            outputTokens: usage?.outputTokens,
+          },
+        });
+      },
     });
 
-    return NextResponse.json({ response: aiMessage.content });
+    // Return the stream with the conversation ID in the headers
+    return createTextStreamResponse({
+      textStream: result.textStream,
+      headers: {
+        ...(conversationId && { "X-Conversation-Id": conversationId }),
+        "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+        "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+      },
+    });
   } catch (error) {
-    loggerService.error('Error getting career advice', error, {
+    loggerService.error("Error getting career advice", error, {
       category: LogCategory.API,
-      userId: user?.id,
-      action: 'career_advice_error',
+      userId,
+      action: "career_advice_error",
       duration: Date.now() - startTime,
       metadata: {
-        message: message?.substring(0, 100), // First 100 chars for context
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        errorType: error instanceof Error ? error.constructor.name : typeof error
-      }
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        errorType: error instanceof Error ? error.constructor.name : typeof error,
+      },
     });
-    
-    // Return specific error messages for better debugging
+
     if (error instanceof Error) {
-      if (error.message.includes('OPENAI_API_KEY') || error.message.includes('API key')) {
-        return NextResponse.json(
-          { error: 'AI service not configured. Please contact support.' },
-          { status: 503 }
+      if (error.message.includes("OPENAI_API_KEY") || error.message.includes("API key")) {
+        return new Response(
+          JSON.stringify({ error: "AI service not configured. Please contact support." }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          }
         );
       }
-      if (error.message.includes('Rate limit')) {
-        return NextResponse.json(
-          { error: 'AI service rate limit exceeded. Please try again in a few moments.' },
-          { status: 429 }
+      if (error.message.includes("Rate limit")) {
+        return new Response(
+          JSON.stringify({
+            error: "AI service rate limit exceeded. Please try again in a few moments.",
+          }),
+          {
+            status: 429,
+            headers: { "Content-Type": "application/json" },
+          }
         );
       }
-      if (error.message.includes('quota')) {
-        return NextResponse.json(
-          { error: 'AI service quota exceeded. Please contact support.' },
-          { status: 503 }
+      if (error.message.includes("quota")) {
+        return new Response(
+          JSON.stringify({ error: "AI service quota exceeded. Please contact support." }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          }
         );
       }
     }
-    
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.GENERATION_FAILED },
-      { status: 500 }
+
+    return new Response(
+      JSON.stringify({ error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.GENERATION_FAILED }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
     );
   }
 }
 
-// Export with rate limiting middleware
-export const POST = async (request: NextRequest) => {
-  return withRateLimit(careerAdviceHandler, {
-    feature: "career_advice",
-    request,
-  });
-};
+export const POST = careerAdviceHandler;

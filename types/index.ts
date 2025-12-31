@@ -92,6 +92,26 @@ export interface InterviewPrep {
   created_at: string;
 }
 
+// Conversation for AI coach chat sessions
+export interface Conversation {
+  id: string;
+  user_id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Individual message in a career advice conversation
+export interface CareerAdviceMessage {
+  id: string;
+  user_id: string;
+  conversation_id: string | null;
+  content: string;
+  is_user: boolean;
+  created_at: string;
+}
+
+// Legacy type - kept for backwards compatibility
 export interface CareerAdvice {
   id: string;
   user_id: string;
