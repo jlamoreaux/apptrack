@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport, type UIMessage } from "ai";
 import { Button } from "@/components/ui/button";
@@ -51,14 +51,17 @@ export function CareerAdvice() {
   const [conversations, setConversations] = useState<ConversationWithPreview[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [chatMessages, setChatMessages] = useState<UIMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
-  const [isSending, setIsSending] = useState(false);
+
+  // Store the conversation ID ref to capture from response headers
+  const pendingConversationIdRef = useRef<string | null>(null);
 
   // Fetch all conversations
   const fetchConversations = useCallback(async () => {
@@ -71,12 +74,35 @@ export function CareerAdvice() {
         const { conversations: convs } = await response.json();
         setConversations(convs || []);
       }
-    } catch (error) {
-      console.error("Failed to fetch conversations:", error);
+    } catch (err) {
+      console.error("Failed to fetch conversations:", err);
     } finally {
       setIsLoadingConversations(false);
     }
   }, []);
+
+  // Memoize the transport to prevent recreation on every render
+  const transport = useMemo(() => {
+    return new TextStreamChatTransport({
+      api: "/api/ai-coach/career-advice",
+      credentials: "include",
+      body: () => ({
+        conversationId: activeConversationId,
+      }),
+      // Custom fetch to capture conversation ID from response headers
+      fetch: async (input, init) => {
+        const response = await fetch(input, init);
+
+        // Capture conversation ID from headers for new conversations
+        const newConversationId = response.headers.get("X-Conversation-Id");
+        if (newConversationId && !activeConversationId) {
+          pendingConversationIdRef.current = newConversationId;
+        }
+
+        return response;
+      },
+    });
+  }, [activeConversationId]);
 
   const {
     messages,
@@ -84,16 +110,19 @@ export function CareerAdvice() {
     setMessages,
     status,
   } = useChat({
-    transport: new TextStreamChatTransport({
-      api: "/api/ai-coach/career-advice",
-      credentials: "include",
-      body: () => ({
-        conversationId: activeConversationId,
-      }),
-    }),
+    transport,
     onFinish: async () => {
+      // Update conversation ID if we got a new one
+      if (pendingConversationIdRef.current) {
+        setActiveConversationId(pendingConversationIdRef.current);
+        pendingConversationIdRef.current = null;
+      }
       // Refresh conversations to update the title and order
       await fetchConversations();
+      setError(null);
+    },
+    onError: (err) => {
+      setError(err.message || "Failed to send message. Please try again.");
     },
   });
 
@@ -106,12 +135,14 @@ export function CareerAdvice() {
 
     const messageText = chatInput;
     setChatInput("");
+    setError(null);
 
     try {
       await sendMessage({ text: messageText });
-    } catch (error) {
-      console.error("Failed to send message:", error);
+    } catch (err) {
+      console.error("Failed to send message:", err);
       setChatInput(messageText); // Restore input on error
+      setError("Failed to send message. Please try again.");
     }
   };
 
@@ -134,6 +165,11 @@ export function CareerAdvice() {
 
   // Load messages for a specific conversation
   const loadConversation = async (conversationId: string) => {
+    if (conversationId === activeConversationId) return;
+
+    setIsLoadingMessages(true);
+    setError(null);
+
     try {
       const response = await fetch(`/api/ai-coach/conversations/${conversationId}`, {
         credentials: "include",
@@ -152,9 +188,14 @@ export function CareerAdvice() {
         );
         setMessages(formattedMessages);
         setActiveConversationId(conversationId);
+      } else {
+        setError("Failed to load conversation");
       }
-    } catch (error) {
-      console.error("Failed to load conversation:", error);
+    } catch (err) {
+      console.error("Failed to load conversation:", err);
+      setError("Failed to load conversation");
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
 
@@ -162,6 +203,8 @@ export function CareerAdvice() {
   const startNewConversation = () => {
     setActiveConversationId(null);
     setMessages([]);
+    setError(null);
+    pendingConversationIdRef.current = null;
   };
 
   // Delete a conversation
@@ -178,8 +221,8 @@ export function CareerAdvice() {
           startNewConversation();
         }
       }
-    } catch (error) {
-      console.error("Failed to delete conversation:", error);
+    } catch (err) {
+      console.error("Failed to delete conversation:", err);
     }
     setDeleteDialogOpen(false);
     setConversationToDelete(null);
@@ -200,8 +243,8 @@ export function CareerAdvice() {
           prev.map((c) => (c.id === conversationId ? { ...c, title: newTitle } : c))
         );
       }
-    } catch (error) {
-      console.error("Failed to rename conversation:", error);
+    } catch (err) {
+      console.error("Failed to rename conversation:", err);
     }
     setEditingTitle(null);
     setEditTitleValue("");
@@ -339,7 +382,12 @@ export function CareerAdvice() {
         {/* Chat Interface Card */}
         <Card className="flex-1 flex flex-col min-h-0">
           <CardContent className="flex-1 overflow-y-auto p-6">
-            {messages.length === 0 ? (
+            {isLoadingMessages ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Loading messages...</span>
+              </div>
+            ) : messages.length === 0 ? (
               <div className="text-center py-8 space-y-4">
                 <p className="text-muted-foreground">
                   Welcome to your AI Career Coach! Ask me anything about your career.
@@ -412,6 +460,12 @@ export function CareerAdvice() {
             )}
           </CardContent>
 
+          {error && (
+            <div className="px-6 py-2 bg-destructive/10 text-destructive text-sm">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="p-6 border-t">
             <div className="flex gap-2">
               <Input
@@ -419,10 +473,10 @@ export function CareerAdvice() {
                 value={input}
                 onChange={handleInputChange}
                 placeholder="Ask your career question..."
-                disabled={isLoading}
+                disabled={isLoading || isLoadingMessages}
                 className="flex-1"
               />
-              <Button type="submit" disabled={isLoading || !input.trim()} size="icon">
+              <Button type="submit" disabled={isLoading || isLoadingMessages || !input.trim()} size="icon">
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

@@ -7,6 +7,8 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { AI_COACH_PROMPTS } from "@/lib/constants/ai-prompts";
+import { RateLimitService } from "@/lib/services/rate-limit.service";
+import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 
 // Cast to LanguageModel to handle type compatibility between ai and @ai-sdk/openai
 const model = openai("gpt-4o-mini") as LanguageModel;
@@ -68,6 +70,56 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
       );
     }
 
+    // Check rate limit
+    const subscriptionTier = await getUserSubscriptionTier(user.id);
+    const rateLimitService = RateLimitService.getInstance();
+    const rateLimitResult = await rateLimitService.checkLimit(
+      user.id,
+      "career_advice",
+      subscriptionTier
+    );
+
+    if (!rateLimitResult.allowed) {
+      loggerService.warn("Rate limit exceeded for career advice", {
+        category: LogCategory.SECURITY,
+        userId: user.id,
+        action: "rate_limit_exceeded",
+        metadata: {
+          feature: "career_advice",
+          limit: rateLimitResult.limit,
+          resetAt: rateLimitResult.reset.toISOString(),
+        },
+      });
+      return new Response(
+        JSON.stringify({
+          error: "Rate limit exceeded",
+          message: `You have exceeded the ${rateLimitResult.limit} requests limit. Please try again after ${rateLimitResult.reset.toLocaleTimeString()}.`,
+          resetAt: rateLimitResult.reset.toISOString(),
+        }),
+        {
+          status: 429,
+          headers: {
+            "Content-Type": "application/json",
+            "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": rateLimitResult.reset.toISOString(),
+            ...(rateLimitResult.retryAfter && {
+              "Retry-After": rateLimitResult.retryAfter.toString(),
+            }),
+          },
+        }
+      );
+    }
+
+    // Track usage asynchronously
+    rateLimitService.trackUsage(user.id, "career_advice", true).catch((err) => {
+      loggerService.error("Failed to track rate limit usage", err, {
+        category: LogCategory.PERFORMANCE,
+        userId: user.id,
+        action: "rate_limit_track_error",
+      });
+    });
+
     const body = await request.json();
     const messages: Message[] = body.messages || [];
     let conversationId: string | undefined = body.conversationId;
@@ -92,6 +144,32 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
           headers: { "Content-Type": "application/json" },
         }
       );
+    }
+
+    // Validate conversation ownership if conversationId is provided
+    if (conversationId) {
+      const { data: existingConv, error: convCheckError } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("id", conversationId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (convCheckError || !existingConv) {
+        loggerService.warn("Invalid conversation access attempt", {
+          category: LogCategory.SECURITY,
+          userId: user.id,
+          action: "invalid_conversation_access",
+          metadata: { conversationId },
+        });
+        return new Response(
+          JSON.stringify({ error: "Conversation not found" }),
+          {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
     }
 
     // Create a new conversation if none provided
@@ -242,9 +320,11 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Return the stream with the conversation ID in the headers
     return createTextStreamResponse({
       textStream: result.textStream,
-      headers: conversationId
-        ? { "X-Conversation-Id": conversationId }
-        : undefined,
+      headers: {
+        ...(conversationId && { "X-Conversation-Id": conversationId }),
+        "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+        "X-RateLimit-Limit": rateLimitResult.limit.toString(),
+      },
     });
   } catch (error) {
     loggerService.error("Error getting career advice", error, {

@@ -42,29 +42,42 @@ CREATE POLICY "Users can delete their own conversations"
   USING (auth.uid() = user_id);
 
 -- Migrate existing career_advice messages to a legacy conversation per user
--- This creates one conversation per user who has existing messages
-INSERT INTO public.conversations (id, user_id, title, created_at, updated_at)
-SELECT DISTINCT
-  gen_random_uuid() as id,
-  user_id,
-  'Previous Conversation' as title,
-  MIN(created_at) as created_at,
-  MAX(created_at) as updated_at
-FROM public.career_advice
-WHERE conversation_id IS NULL
-GROUP BY user_id;
+-- This uses a CTE to create conversations and immediately update messages in a single transaction
+DO $$
+DECLARE
+  user_record RECORD;
+  new_conv_id uuid;
+BEGIN
+  -- Loop through each user who has messages without a conversation_id
+  FOR user_record IN
+    SELECT DISTINCT user_id, MIN(created_at) as first_msg, MAX(created_at) as last_msg
+    FROM public.career_advice
+    WHERE conversation_id IS NULL
+    GROUP BY user_id
+  LOOP
+    -- Create a legacy conversation for this user
+    INSERT INTO public.conversations (user_id, title, created_at, updated_at)
+    VALUES (user_record.user_id, 'Previous Conversation', user_record.first_msg, user_record.last_msg)
+    RETURNING id INTO new_conv_id;
 
--- Update existing career_advice messages to reference their legacy conversation
-UPDATE public.career_advice ca
-SET conversation_id = c.id
-FROM public.conversations c
-WHERE ca.user_id = c.user_id
-  AND ca.conversation_id IS NULL
-  AND c.title = 'Previous Conversation';
+    -- Update all their orphaned messages to reference the new conversation
+    UPDATE public.career_advice
+    SET conversation_id = new_conv_id
+    WHERE user_id = user_record.user_id
+      AND conversation_id IS NULL;
+  END LOOP;
+END $$;
 
 -- Add foreign key constraint now that data is migrated
--- Note: conversation_id remains nullable to allow for edge cases
-ALTER TABLE public.career_advice
-  ADD CONSTRAINT career_advice_conversation_id_fkey
-  FOREIGN KEY (conversation_id)
-  REFERENCES public.conversations (id) ON DELETE CASCADE;
+-- Use IF NOT EXISTS pattern to make migration idempotent
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'career_advice_conversation_id_fkey'
+  ) THEN
+    ALTER TABLE public.career_advice
+      ADD CONSTRAINT career_advice_conversation_id_fkey
+      FOREIGN KEY (conversation_id)
+      REFERENCES public.conversations (id) ON DELETE CASCADE;
+  END IF;
+END $$;
