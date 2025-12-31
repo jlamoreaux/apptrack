@@ -11,13 +11,13 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Brain,
   MessageSquare,
   FileText,
   Upload,
   Sparkles,
   BarChart3,
   Briefcase,
+  Mail,
 } from "lucide-react";
 import { ResumeAnalyzer } from "./resume-analyzer";
 import InterviewPrep from "./interview-prep";
@@ -95,7 +95,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
       >
         <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 w-full h-auto p-1 gap-1">
           <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
-            <Brain className="h-4 w-4 flex-shrink-0" />
+            <FileText className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Resume</span>
           </TabsTrigger>
           <TabsTrigger value="interview" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
@@ -103,7 +103,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Interview</span>
           </TabsTrigger>
           <TabsTrigger value="cover-letter" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
-            <FileText className="h-4 w-4 flex-shrink-0" />
+            <Mail className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Cover</span>
           </TabsTrigger>
           <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
