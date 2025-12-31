@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport, type UIMessage } from "ai";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,8 @@ import {
   MoreVertical,
   Trash2,
   Pencil,
+  RefreshCw,
+  Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Conversation } from "@/types";
@@ -48,6 +51,8 @@ interface ConversationWithPreview extends Conversation {
 }
 
 export function CareerAdvice() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [conversations, setConversations] = useState<ConversationWithPreview[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
@@ -56,12 +61,20 @@ export function CareerAdvice() {
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [chatInput, setChatInput] = useState("");
+  const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([]);
 
   // Store the conversation ID ref to capture from response headers
   const pendingConversationIdRef = useRef<string | null>(null);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const hasLoadedFromUrlRef = useRef(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
 
   // Fetch all conversations
   const fetchConversations = useCallback(async () => {
@@ -81,13 +94,14 @@ export function CareerAdvice() {
     }
   }, []);
 
-  // Memoize the transport to prevent recreation on every render
+  // Memoize the transport (no dependencies since we use refs for dynamic values)
   const transport = useMemo(() => {
     return new TextStreamChatTransport({
       api: "/api/ai-coach/career-advice",
       credentials: "include",
-      body: () => ({
-        conversationId: activeConversationId,
+      body: (messages: UIMessage[]) => ({
+        messages,
+        conversationId: activeConversationIdRef.current,
       }),
       // Custom fetch to capture conversation ID from response headers
       fetch: async (input, init) => {
@@ -95,38 +109,147 @@ export function CareerAdvice() {
 
         // Capture conversation ID from headers for new conversations
         const newConversationId = response.headers.get("X-Conversation-Id");
-        if (newConversationId && !activeConversationId) {
+        if (newConversationId && !activeConversationIdRef.current) {
           pendingConversationIdRef.current = newConversationId;
         }
 
         return response;
       },
     });
-  }, [activeConversationId]);
+  }, []); // Empty deps - we use refs to get current values
 
   const {
     messages,
     sendMessage,
     setMessages,
     status,
+    error,
+    reload,
+    stop,
   } = useChat({
     transport,
-    onFinish: async () => {
+    onFinish: async ({ message }) => {
       // Update conversation ID if we got a new one
       if (pendingConversationIdRef.current) {
-        setActiveConversationId(pendingConversationIdRef.current);
+        const newConvId = pendingConversationIdRef.current;
+        setActiveConversationId(newConvId);
         pendingConversationIdRef.current = null;
+
+        // Update URL with new conversation ID
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("conversation", newConvId);
+        router.push(`?${params.toString()}`, { scroll: false });
       }
       // Refresh conversations to update the title and order
       await fetchConversations();
-      setError(null);
+
+      // Generate contextual follow-up suggestions
+      const messageContent = message.parts
+        ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+        .map((part) => part.text)
+        .join("") || "";
+
+      if (messageContent) {
+        generateSuggestedPrompts(messageContent);
+      }
     },
     onError: (err) => {
-      setError(err.message || "Failed to send message. Please try again.");
+      console.error("Chat error:", err);
+      // Error is automatically set in the error object from useChat
     },
   });
 
   const isLoading = status === "streaming" || status === "submitted";
+
+  // Generate contextual suggested prompts based on AI response
+  const generateSuggestedPrompts = (aiResponse: string) => {
+    const lowerResponse = aiResponse.toLowerCase();
+    const suggestions: string[] = [];
+
+    // Keyword-based contextual suggestions
+    const suggestionMap: Record<string, string[]> = {
+      resume: [
+        "How can I tailor my resume for ATS systems?",
+        "What are common resume mistakes to avoid?",
+      ],
+      interview: [
+        "What should I wear to an interview?",
+        "How do I answer 'Tell me about yourself'?",
+      ],
+      salary: [
+        "When is the right time to negotiate salary?",
+        "How do I research salary ranges for my role?",
+      ],
+      "career change": [
+        "How do I explain a career change to employers?",
+        "What skills are transferable across industries?",
+      ],
+      networking: [
+        "How do I network effectively on LinkedIn?",
+        "What's the best way to follow up after networking?",
+      ],
+      skill: [
+        "How do I identify skill gaps in my career?",
+        "What are the most in-demand skills right now?",
+      ],
+    };
+
+    // Find matching keywords and add relevant suggestions
+    for (const [keyword, prompts] of Object.entries(suggestionMap)) {
+      if (lowerResponse.includes(keyword)) {
+        suggestions.push(...prompts);
+      }
+    }
+
+    // Default suggestions if no keywords match
+    if (suggestions.length === 0) {
+      suggestions.push(
+        "How can I stand out in a competitive job market?",
+        "What are red flags to watch for in job postings?",
+        "How do I build my personal brand?"
+      );
+    }
+
+    // Limit to 3 unique suggestions
+    const uniqueSuggestions = [...new Set(suggestions)].slice(0, 3);
+    setSuggestedPrompts(uniqueSuggestions);
+  };
+
+  // Handle clicking a suggested prompt
+  const handleSuggestedPrompt = (prompt: string) => {
+    setChatInput(prompt);
+    setSuggestedPrompts([]);
+  };
+
+  // Handle regenerate - remove last assistant message and resend last user message
+  const handleRegenerate = async () => {
+    if (messages.length < 2) return;
+
+    // Find the last user message
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUserMessage) return;
+
+    // Extract text from the message
+    const messageText = lastUserMessage.parts
+      ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+      .map((part) => part.text)
+      .join("") || "";
+
+    if (!messageText) return;
+
+    // Remove the last assistant message
+    const newMessages = messages.slice(0, -1);
+    setMessages(newMessages);
+    setSuggestedPrompts([]);
+
+    try {
+      await sendMessage({ text: messageText });
+    } catch (err) {
+      console.error("Failed to regenerate message:", err);
+      // Restore messages on error
+      setMessages(messages);
+    }
+  };
 
   // Handle form submit
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,14 +258,14 @@ export function CareerAdvice() {
 
     const messageText = chatInput;
     setChatInput("");
-    setError(null);
+    setFileError(null);
+    setSuggestedPrompts([]);
 
     try {
       await sendMessage({ text: messageText });
     } catch (err) {
       console.error("Failed to send message:", err);
       setChatInput(messageText); // Restore input on error
-      setError("Failed to send message. Please try again.");
     }
   };
 
@@ -162,11 +285,11 @@ export function CareerAdvice() {
   }, [fetchConversations]);
 
   // Load messages for a specific conversation
-  const loadConversation = async (conversationId: string) => {
+  const loadConversation = useCallback(async (conversationId: string, updateUrl = true) => {
     if (conversationId === activeConversationId) return;
 
     setIsLoadingMessages(true);
-    setError(null);
+    setFileError(null);
 
     try {
       const response = await fetch(`/api/ai-coach/conversations/${conversationId}`, {
@@ -186,23 +309,52 @@ export function CareerAdvice() {
         );
         setMessages(formattedMessages);
         setActiveConversationId(conversationId);
+
+        // Update URL to maintain state on refresh
+        if (updateUrl) {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("conversation", conversationId);
+          router.push(`?${params.toString()}`, { scroll: false });
+        }
       } else {
-        setError("Failed to load conversation");
+        setFileError("Failed to load conversation");
       }
     } catch (err) {
       console.error("Failed to load conversation:", err);
-      setError("Failed to load conversation");
+      setFileError("Failed to load conversation");
     } finally {
       setIsLoadingMessages(false);
     }
-  };
+  }, [activeConversationId, router, setMessages, searchParams]);
+
+  // Restore conversation from URL on mount
+  useEffect(() => {
+    // Only load from URL once on initial mount
+    if (hasLoadedFromUrlRef.current) return;
+
+    const conversationId = searchParams.get("conversation");
+    if (conversationId && conversations.length > 0) {
+      // Verify the conversation exists before loading
+      const conversationExists = conversations.some((c) => c.id === conversationId);
+      if (conversationExists) {
+        loadConversation(conversationId, false);
+        hasLoadedFromUrlRef.current = true;
+      }
+    }
+  }, [searchParams, conversations, loadConversation]);
 
   // Start a new conversation
   const startNewConversation = () => {
     setActiveConversationId(null);
     setMessages([]);
-    setError(null);
+    setFileError(null);
+    setSuggestedPrompts([]);
     pendingConversationIdRef.current = null;
+
+    // Clear conversation parameter but keep tab parameter
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("conversation");
+    router.push(`?${params.toString()}`, { scroll: false });
   };
 
   // Delete a conversation
@@ -216,6 +368,7 @@ export function CareerAdvice() {
       if (response.ok) {
         setConversations((prev) => prev.filter((c) => c.id !== conversationId));
         if (activeConversationId === conversationId) {
+          // Clear the conversation and update URL
           startNewConversation();
         }
       }
@@ -402,41 +555,61 @@ export function CareerAdvice() {
               </div>
             ) : (
               <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex gap-3",
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    )}
-                  >
-                    {message.role === "assistant" && (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0">
-                        <Bot className="h-5 w-5 text-white" />
+                {messages.map((message, index) => {
+                  const isLastMessage = index === messages.length - 1;
+                  const isLastAssistantMessage = message.role === "assistant" && isLastMessage;
+
+                  return (
+                    <div key={message.id}>
+                      <div
+                        className={cn(
+                          "flex gap-3",
+                          message.role === "user" ? "justify-end" : "justify-start"
+                        )}
+                      >
+                        {message.role === "assistant" && (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center flex-shrink-0">
+                            <Bot className="h-5 w-5 text-white" />
+                          </div>
+                        )}
+                        <div
+                          className={cn(
+                            "max-w-[80%] rounded-lg px-4 py-2",
+                            message.role === "user"
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted"
+                          )}
+                        >
+                          <p className="whitespace-pre-wrap break-words">
+                            {message.parts
+                              ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+                              .map((part) => part.text)
+                              .join("") || ""}
+                          </p>
+                        </div>
+                        {message.role === "user" && (
+                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                            <User className="h-5 w-5 text-primary-foreground" />
+                          </div>
+                        )}
                       </div>
-                    )}
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-lg px-4 py-2",
-                        message.role === "user"
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted"
+                      {isLastAssistantMessage && !isLoading && (
+                        <div className="flex gap-3 mt-2">
+                          <div className="w-8" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleRegenerate}
+                            className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                          >
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Regenerate
+                          </Button>
+                        </div>
                       )}
-                    >
-                      <p className="whitespace-pre-wrap">
-                        {message.parts
-                          ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
-                          .map((part) => part.text)
-                          .join("") || ""}
-                      </p>
                     </div>
-                    {message.role === "user" && (
-                      <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                        <User className="h-5 w-5 text-primary-foreground" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {isLoading && (
                   <div className="flex gap-3 justify-start">
@@ -458,9 +631,40 @@ export function CareerAdvice() {
             )}
           </CardContent>
 
-          {error && (
-            <div className="px-6 py-2 bg-destructive/10 text-destructive text-sm">
-              {error}
+          {/* Display errors - SDK error takes precedence */}
+          {(error || fileError) && (
+            <div className="px-6 py-2 bg-destructive/10 text-destructive text-sm flex items-center justify-between gap-2">
+              <span>{error?.message || fileError}</span>
+              {error && status === "error" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => reload()}
+                  className="h-7 text-xs"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry
+                </Button>
+              )}
+            </div>
+          )}
+
+          {suggestedPrompts.length > 0 && !isLoading && (
+            <div className="px-6 py-3 border-t bg-muted/30">
+              <p className="text-xs text-muted-foreground mb-2">Suggested questions:</p>
+              <div className="flex flex-wrap gap-2">
+                {suggestedPrompts.map((prompt, index) => (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSuggestedPrompt(prompt)}
+                    className="h-auto py-1.5 px-3 text-xs text-left whitespace-normal"
+                  >
+                    {prompt}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -474,13 +678,21 @@ export function CareerAdvice() {
                 disabled={isLoading || isLoadingMessages}
                 className="flex-1"
               />
-              <Button type="submit" disabled={isLoading || isLoadingMessages || !chatInput.trim()} size="icon">
-                {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
+              {isLoading ? (
+                <Button
+                  type="button"
+                  onClick={stop}
+                  variant="outline"
+                  size="icon"
+                  title="Stop generating"
+                >
+                  <Square className="h-4 w-4" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={isLoadingMessages || !chatInput.trim()} size="icon">
                   <Send className="h-4 w-4" />
-                )}
-              </Button>
+                </Button>
+              )}
             </div>
           </form>
         </Card>

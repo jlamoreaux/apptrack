@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AICoachDataProvider } from "@/contexts/ai-coach-data-context";
 import {
   Card,
@@ -35,9 +35,10 @@ interface AICoachDashboardProps {
 }
 
 function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isNewUser, setIsNewUser] = useState(false);
   const [activeTab, setActiveTab] = useState("resume");
-  const searchParams = useSearchParams();
   const { tabs } = COPY.aiCoach.dashboard;
 
   // Valid tab values
@@ -53,6 +54,22 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
 
   // Get applicationId from URL for passing to components that need it
   const applicationId = searchParams.get("applicationId");
+
+  // Handle tab changes - update URL to maintain state on refresh
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+
+    // Build new URL with updated tab parameter
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("tab", newTab);
+
+    // Clear conversation parameter when switching away from advice tab
+    if (newTab !== "advice" && params.has("conversation")) {
+      params.delete("conversation");
+    }
+
+    router.push(`?${params.toString()}`, { scroll: false });
+  };
 
   // Check if user is new (would be determined by checking if they have any AI usage history)
   // For now, we'll just show onboarding if they haven't dismissed it
@@ -73,7 +90,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
       {/* Main Content - Streamlined tabs interface */}
       <Tabs
         value={activeTab}
-        onValueChange={setActiveTab}
+        onValueChange={handleTabChange}
         className="space-y-6"
       >
         <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 w-full h-auto p-1 gap-1">

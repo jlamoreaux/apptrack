@@ -13,9 +13,62 @@ import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware"
 // Cast to LanguageModel to handle type compatibility between ai and @ai-sdk/openai
 const model = openai("gpt-4o-mini") as LanguageModel;
 
+interface MessagePart {
+  type: string;
+  text?: string;
+}
+
 interface Message {
   role: "user" | "assistant" | "system";
-  content: string;
+  content?: string;
+  parts?: MessagePart[];
+  experimental_attachments?: Array<{
+    name: string;
+    contentType: string;
+    url: string;
+  }>;
+}
+
+// Helper to extract content from message including attachments
+function getMessageContent(message: Message): string {
+  let textContent = "";
+
+  if (message.content) {
+    textContent = message.content;
+  }
+
+  if (message.parts) {
+    textContent += message.parts
+      .filter((part) => part.type === "text" && part.text)
+      .map((part) => part.text)
+      .join("");
+  }
+
+  // Handle experimental_attachments
+  if (message.experimental_attachments) {
+    for (const attachment of message.experimental_attachments) {
+      if (attachment.contentType.startsWith("text/") && attachment.url) {
+        try {
+          // Decode data URL
+          const base64Data = attachment.url.split(",")[1];
+          if (base64Data) {
+            const fileContent = Buffer.from(base64Data, "base64").toString("utf-8");
+            const fileType = attachment.name.toLowerCase().includes("resume")
+              ? "resume"
+              : attachment.name.toLowerCase().includes("job") ||
+                attachment.name.toLowerCase().includes("jd")
+              ? "job description"
+              : "document";
+            textContent += `\n\n=== ATTACHED ${fileType.toUpperCase()}: ${attachment.name} ===\n\n${fileContent}\n\n=== END OF ${fileType.toUpperCase()} ===`;
+          }
+        } catch (err) {
+          console.error("Failed to decode attachment:", err);
+        }
+      }
+    }
+  }
+
+  return textContent;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -148,6 +201,20 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
       );
     }
 
+    // Validate message structure - check that all messages have valid content
+    for (const msg of messages) {
+      const content = getMessageContent(msg);
+      if (!content || !content.trim()) {
+        return new Response(
+          JSON.stringify({ error: "Invalid message format: all messages must have content" }),
+          {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+      }
+    }
+
     // Get the last user message
     const lastUserMessage = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUserMessage) {
@@ -160,8 +227,10 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
       );
     }
 
+    const lastUserContent = getMessageContent(lastUserMessage);
+
     // Validate message length
-    if (lastUserMessage.content.length > MAX_MESSAGE_LENGTH) {
+    if (lastUserContent.length > MAX_MESSAGE_LENGTH) {
       return new Response(
         JSON.stringify({ error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` }),
         {
@@ -230,7 +299,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     const { error: saveUserError } = await supabase.from("career_advice").insert({
       user_id: user.id,
       conversation_id: conversationId,
-      content: lastUserMessage.content,
+      content: lastUserContent,
       is_user: true,
       created_at: new Date().toISOString(),
     });
@@ -256,7 +325,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Convert messages to the format expected by the AI SDK
     const aiMessages = messages.map((m) => ({
       role: m.role as "user" | "assistant",
-      content: m.content,
+      content: getMessageContent(m),
     }));
 
     // Stream the response
@@ -297,7 +366,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
               model,
               system:
                 "Generate a short, descriptive title (max 50 characters) for this conversation. Return only the title text, no quotes or extra formatting.",
-              prompt: lastUserMessage.content,
+              prompt: lastUserContent,
               maxOutputTokens: 50,
             });
 
