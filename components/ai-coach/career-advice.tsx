@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport, type UIMessage } from "ai";
+import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -591,12 +592,23 @@ export function CareerAdvice() {
                               : "bg-muted"
                           )}
                         >
-                          <p className="whitespace-pre-wrap break-words">
+                          <ReactMarkdown
+                            className="prose prose-sm max-w-none dark:prose-invert break-words
+                              prose-p:my-2 prose-p:leading-relaxed
+                              prose-ul:my-2 prose-li:my-1
+                              prose-ol:my-2
+                              prose-headings:font-semibold prose-headings:my-3
+                              prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm
+                              prose-pre:bg-muted prose-pre:p-3 prose-pre:rounded-lg
+                              prose-a:text-primary prose-a:underline prose-a:underline-offset-2
+                              prose-strong:font-semibold
+                              prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic"
+                          >
                             {message.parts
                               ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
                               .map((part) => part.text)
                               .join("") || ""}
-                          </p>
+                          </ReactMarkdown>
                         </div>
                         {message.role === "user" && (
                           <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
