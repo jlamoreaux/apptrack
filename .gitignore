@@ -52,3 +52,6 @@ node_modules/
 
 # Working documentation
 .working_docs/
+
+# Test coverage
+coverage/
