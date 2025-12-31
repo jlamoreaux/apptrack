@@ -151,8 +151,6 @@ export function CareerAdvice() {
     setChatInput(e.target.value);
   };
 
-  const input = chatInput;
-
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -470,13 +468,13 @@ export function CareerAdvice() {
             <div className="flex gap-2">
               <Input
                 type="text"
-                value={input}
+                value={chatInput}
                 onChange={handleInputChange}
                 placeholder="Ask your career question..."
                 disabled={isLoading || isLoadingMessages}
                 className="flex-1"
               />
-              <Button type="submit" disabled={isLoading || isLoadingMessages || !input.trim()} size="icon">
+              <Button type="submit" disabled={isLoading || isLoadingMessages || !chatInput.trim()} size="icon">
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (

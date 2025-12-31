@@ -18,6 +18,9 @@ interface Message {
   content: string;
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MAX_MESSAGE_LENGTH = 10000;
+
 async function careerAdviceHandler(request: NextRequest): Promise<Response> {
   const startTime = Date.now();
   let userId: string | undefined;
@@ -124,6 +127,17 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     const messages: Message[] = body.messages || [];
     let conversationId: string | undefined = body.conversationId;
 
+    // Validate conversationId format if provided
+    if (conversationId && !UUID_REGEX.test(conversationId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid conversation ID format" }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
     if (!messages.length) {
       return new Response(
         JSON.stringify({ error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION }),
@@ -139,6 +153,17 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     if (!lastUserMessage) {
       return new Response(
         JSON.stringify({ error: ERROR_MESSAGES.AI_COACH.CAREER_ADVICE.MISSING_QUESTION }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Validate message length
+    if (lastUserMessage.content.length > MAX_MESSAGE_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` }),
         {
           status: 400,
           headers: { "Content-Type": "application/json" },

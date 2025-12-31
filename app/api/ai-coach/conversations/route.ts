@@ -4,6 +4,8 @@ import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { RateLimitService } from "@/lib/services/rate-limit.service";
+import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 import { z } from "zod";
 
 const CreateConversationSchema = z.object({
@@ -73,6 +75,25 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient();
     const user = authResult.user;
+
+    // Rate limit conversation creation to prevent spam
+    const subscriptionTier = await getUserSubscriptionTier(user.id);
+    const rateLimitService = RateLimitService.getInstance();
+    const rateLimitResult = await rateLimitService.checkLimit(
+      user.id,
+      "career_advice",
+      subscriptionTier
+    );
+
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: "Rate limit exceeded",
+          resetAt: rateLimitResult.reset.toISOString(),
+        },
+        { status: 429 }
+      );
+    }
 
     const body = await request.json().catch(() => ({}));
     const { title } = CreateConversationSchema.parse(body);
