@@ -3,6 +3,8 @@ import Link from "next/link"
 import { NavigationStatic } from "@/components/navigation-static"
 import { Card } from "@/components/ui/card"
 import { ButtonLink } from "@/components/ui/button-link"
+import { CheckList } from "@/components/ui/check-list"
+import { FeatureIcon } from "@/components/ui/feature-icon"
 import { SITE_CONFIG } from "@/lib/constants/site-config"
 import { FREE_TOOLS, ROLE_LANDING_PAGES } from "@/lib/constants/free-tools"
 
@@ -58,20 +60,11 @@ export default function FreeToolsPage() {
             <Link key={tool.href} href={tool.href}>
               <Card className="p-6 h-full hover:border-primary transition-colors cursor-pointer">
                 <div className="flex items-start gap-4">
-                  <div className={`p-3 rounded-lg ${tool.bgColor}`}>
-                    <tool.icon className={`h-6 w-6 ${tool.color}`} />
-                  </div>
+                  <FeatureIcon icon={tool.icon} color={tool.iconColor} />
                   <div className="flex-1">
                     <h2 className="text-xl font-semibold mb-2">{tool.title}</h2>
                     <p className="text-muted-foreground mb-4">{tool.description}</p>
-                    <ul className="space-y-1">
-                      {tool.features.map((feature, index) => (
-                        <li key={index} className="text-sm flex items-center gap-2">
-                          <span className={tool.color}>+</span>
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
+                    <CheckList items={tool.features} />
                   </div>
                 </div>
               </Card>

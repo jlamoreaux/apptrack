@@ -1,6 +1,7 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { ButtonLink } from "@/components/ui/button-link"
+import { CheckList } from "@/components/ui/check-list"
 import { NavigationStatic } from "@/components/navigation-static"
 import { FAQSchema, HowToSchema } from "@/components/seo/structured-data"
 import { SITE_CONFIG } from "@/lib/constants/site-config"
@@ -100,14 +101,7 @@ export function RoleLandingPage({
           <h2 className="text-2xl font-bold mb-6">
             Why Use Our {role} Cover Letter Generator?
           </h2>
-          <ul className="space-y-3">
-            {benefits.map((benefit, index) => (
-              <li key={index} className="flex items-start gap-3">
-                <span className="text-primary font-bold">+</span>
-                <span>{benefit}</span>
-              </li>
-            ))}
-          </ul>
+          <CheckList items={benefits} />
         </section>
 
         {/* Example Section */}

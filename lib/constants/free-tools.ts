@@ -1,4 +1,5 @@
 import { FileText, Target, MessageSquare, Flame, LucideIcon } from "lucide-react"
+import { FeatureIconColor } from "@/components/ui/feature-icon"
 
 export interface FreeTool {
   title: string
@@ -6,8 +7,7 @@ export interface FreeTool {
   shortDescription: string
   href: string
   icon: LucideIcon
-  color: string
-  bgColor: string
+  iconColor: FeatureIconColor
   features: string[]
 }
 
@@ -18,8 +18,7 @@ export const FREE_TOOLS: FreeTool[] = [
     shortDescription: "Write professional cover letters instantly",
     href: "/try/cover-letter",
     icon: FileText,
-    color: "text-blue-600",
-    bgColor: "bg-blue-100 dark:bg-blue-900/30",
+    iconColor: "blue",
     features: [
       "Personalized to each job",
       "ATS-friendly formatting",
@@ -32,8 +31,7 @@ export const FREE_TOOLS: FreeTool[] = [
     shortDescription: "Check how well your resume matches a job",
     href: "/try/job-fit",
     icon: Target,
-    color: "text-green-600",
-    bgColor: "bg-green-100 dark:bg-green-900/30",
+    iconColor: "green",
     features: [
       "Match percentage score",
       "Missing keywords identified",
@@ -46,8 +44,7 @@ export const FREE_TOOLS: FreeTool[] = [
     shortDescription: "Get personalized interview questions",
     href: "/try/interview-prep",
     icon: MessageSquare,
-    color: "text-purple-600",
-    bgColor: "bg-purple-100 dark:bg-purple-900/30",
+    iconColor: "purple",
     features: [
       "Role-specific questions",
       "Behavioral & technical",
@@ -60,8 +57,7 @@ export const FREE_TOOLS: FreeTool[] = [
     shortDescription: "Get brutally honest resume feedback",
     href: "/roast-my-resume",
     icon: Flame,
-    color: "text-red-600",
-    bgColor: "bg-red-100 dark:bg-red-900/30",
+    iconColor: "orange",
     features: [
       "Brutally honest feedback",
       "Shareable results",
