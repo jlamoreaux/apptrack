@@ -1,108 +1,193 @@
-# AppTrack SEO & Traffic Growth Plan
+# AppTrack SEO Plan: Revised Approach
 
-## Executive Summary
+## Current State
 
-This plan outlines technical SEO improvements (some already implemented) and content/marketing strategies to increase organic traffic to apptrack.ing. The goal is to leverage our free tools as traffic drivers that convert visitors into registered users.
+- **Weekly traffic:** ~277 visitors
+- **Top channel:** LinkedIn (organic + paid credits)
+- **Technical SEO:** Foundation complete (sitemap, robots.txt, JSON-LD, metadata, canonicals)
+- **Stage:** Early - need to validate before scaling investment
 
-## Phase 1: Technical SEO Foundation (Implemented)
+## Implementation Status
 
-| Item | Status | Impact |
-|------|--------|--------|
-| Dynamic XML Sitemap | Done | Enables Google to discover and index all public pages efficiently |
-| robots.txt | Done | Guides crawlers to public content, blocks private routes |
-| JSON-LD Structured Data | Done | Enables rich snippets (app ratings, organization info) in search results |
-| Unique metadata per tool page | Done | Each free tool now targets specific keywords |
-| Canonical URLs | Done | Prevents duplicate content issues |
+| Item | Status |
+|------|--------|
+| Sitemap.xml | Done |
+| robots.txt | Done |
+| JSON-LD structured data | Done |
+| Unique metadata per tool page | Done |
+| Canonical URLs | Done |
+| LinkedIn share on Roast results | Done |
+| Role-specific landing pages (3) | Done |
+| /free-tools hub page | Done |
 
-**Next steps:**
-- Submit sitemap to Google Search Console
-- Submit sitemap to Bing Webmaster Tools
-- Monitor indexing status and fix any crawl errors
+## Immediate Priorities (Next 2 Weeks)
 
-## Phase 2: Content Strategy
+### 1. Get Visibility into What's Working
 
-### 2a. Blog/Resource Center
+| Task | Why | Time |
+|------|-----|------|
+| Submit sitemap to Google Search Console | Can't improve what you can't measure | 30 min |
+| Submit to Bing Webmaster Tools | Low effort, incremental traffic | 15 min |
+| Set up basic keyword tracking | Track 10-15 target keywords manually or via free tier tools | 1 hr |
 
-Create SEO-optimized content targeting job seeker searches:
+### 2. Manual Competitor Audit (No Paid Tools)
 
-| Content Type | Example Topics | Target Keywords |
-|--------------|----------------|-----------------|
-| How-to guides | "How to Write a Cover Letter That Gets Interviews" | cover letter examples, cover letter template |
-| Industry guides | "Software Engineer Job Search Guide 2025" | software engineer interview questions |
-| Career advice | "10 Signs You Should Apply for That Job" | when to apply for a job, job fit |
-| Tool comparisons | "Best Job Application Trackers Compared" | job tracker app, application organizer |
+Pick 3-4 competitors and document:
 
-**Recommended cadence:** 2-4 posts/month initially
+**Suggested competitors to analyze:**
 
-### 2b. Landing Page Expansion
+- Teal (tealhq.com) - job tracker + resume tools
+- Huntr (huntr.co) - job application tracker
+- Jobscan (jobscan.co) - resume/job matching
+- Kickresume or similar cover letter tools
 
-Create targeted landing pages for specific audiences:
+**What to look for:**
 
-| Page | Target Search |
-|------|---------------|
-| `/cover-letter-generator/software-engineer` | "software engineer cover letter" |
-| `/cover-letter-generator/marketing` | "marketing cover letter example" |
-| `/interview-prep/behavioral-questions` | "behavioral interview questions" |
-| `/interview-prep/technical` | "technical interview prep" |
-| `/free-tools` | Hub page linking all free tools |
+- What pages are they ranking for? (Google their brand + your target keywords)
+- What blog topics do they cover?
+- How deep is their content? (word count, structure)
+- What landing pages exist beyond the homepage?
+- Where are they getting backlinks? (use free Ahrefs Webmaster Tools or Ubersuggest)
 
-## Phase 3: Link Building & Distribution
+## Phase 1: Double Down on What's Working (Weeks 1-4)
 
-### 3a. Directory Submissions
+### LinkedIn-First Content Strategy
 
-| Platform | Type | Priority |
-|----------|------|----------|
-| Product Hunt | Launch | High |
-| AlternativeTo | Listing | High |
-| G2 / Capterra | SaaS review | Medium |
-| Indie Hackers | Community | Medium |
-| r/jobs, r/cscareerquestions | Reddit | Medium |
+Since LinkedIn is already your best channel, create content there that drives traffic back to your tools:
 
-### 3b. Backlink Opportunities
+| Content Type | Example | CTA |
+|--------------|---------|-----|
+| Hot take posts | "Most cover letters fail in the first sentence. Here's why." | Link to cover letter generator |
+| Before/after | Show a resume transformation (anonymized) | Link to Roast My Resume |
+| Data/insights | "I analyzed 100 job postings for [role]. Here's what they actually want." | Link to Job Fit tool |
+| Personal story | Your own job search experiences | General brand awareness |
 
-| Strategy | Approach |
-|----------|----------|
-| Guest posting | Career blogs, job search sites |
-| HARO responses | Respond to journalist queries about job searching |
-| Podcast appearances | Career/job search podcasts |
-| Partnership content | Career coaches, resume writers |
+**Cadence:** 3-4 posts/week on LinkedIn, repurpose best performers to blog later
 
-## Phase 4: Conversion Optimization
+This flips the typical SEO approach - instead of writing blog posts hoping they rank, you're validating content ideas on LinkedIn first, then turning winners into SEO content.
 
-### 4a. Social Sharing
+### Viral Loop: Roast My Resume
 
-- Add share buttons to "Roast My Resume" results (viral potential)
-- Create shareable summary cards for job fit scores
-- Enable LinkedIn sharing for cover letters
+This tool has the most sharing potential. Prioritize:
 
-### 4b. Social Proof
+- [x] Add LinkedIn share button to results
+- [x] Create a shareable summary card/image (OG image already exists)
+- [ ] Track shares as a conversion event in PostHog
 
-- Display "X resumes roasted this week" counter
-- Add review/rating schema to testimonials
-- Create case studies from successful users
+## Phase 2: High-Intent Landing Pages (Weeks 3-6)
 
-## Metrics to Track
+Skip the blog initially. Focus on pages where searchers are ready to use a tool:
 
-| Metric | Tool | Target |
-|--------|------|--------|
-| Organic traffic | Google Analytics / PostHog | +50% in 6 months |
-| Keyword rankings | Google Search Console | Top 10 for 5 target keywords |
-| Indexed pages | Search Console | 100% of public pages |
-| Backlinks | Ahrefs/SEMrush | 50+ referring domains |
-| Tool to Signup conversion | PostHog | 15%+ |
+| Page | Target Keyword | Status |
+|------|----------------|--------|
+| `/cover-letter-generator/software-engineer` | "software engineer cover letter" | Done |
+| `/cover-letter-generator/product-manager` | "product manager cover letter" | Done |
+| `/cover-letter-generator/data-analyst` | "data analyst cover letter" | Done |
+| `/free-tools` | "free job search tools" | Done |
 
-## Recommended Priority Order
+**Why these first:**
 
-1. **Immediate:** Submit sitemap to Search Console, verify indexing
-2. **Week 1-2:** Set up blog infrastructure, publish first 2 articles
-3. **Week 3-4:** Submit to Product Hunt and directories
-4. **Month 2:** Launch role-specific landing pages
-5. **Ongoing:** Content publishing, link building, monitor and iterate
+- Higher conversion intent than blog readers
+- Less content to produce than full articles
+- Can rank for long-tail keywords faster than competitive head terms
 
-## Questions for Marketing Discussion
+**Template for each page:**
 
-1. Do we have capacity to produce 2-4 blog posts per month?
-2. What's our budget for tools like Ahrefs/SEMrush for keyword research?
-3. Should we prioritize Product Hunt launch timing?
-4. Any existing relationships with career bloggers/podcasters for backlinks?
-5. What's our brand voice for content? (Professional vs. casual like "Roast My Resume")
+1. H1 targeting the keyword
+2. Brief intro (2-3 sentences)
+3. The tool itself (embedded via CTA link)
+4. Example output for that role
+5. FAQ section (helps with featured snippets)
+6. Internal links to related tools
+
+## Phase 3: Lightweight Link Building (Weeks 4-8)
+
+### Directory Submissions (Low Effort, Legitimate Links)
+
+| Platform | Priority | Notes |
+|----------|----------|-------|
+| AlternativeTo | High | List as alternative to Teal, Huntr |
+| Product Hunt | High | Time this strategically, not rushed |
+| Indie Hackers | Medium | Share building journey, not just product |
+| GitHub (if any open source components) | Medium | Readme links back to main site |
+
+### Hold Off On
+
+- Guest posting (time-intensive, validate other channels first)
+- HARO (hit or miss, time sink)
+- Podcast outreach (save for when you have more traction/story)
+
+## Phase 4: Blog (Only After Validation) - Month 2+
+
+Once you've validated which topics resonate on LinkedIn and which landing pages convert, *then* invest in blog content:
+
+### Content Prioritization Framework
+
+Only write blog posts that meet at least 2 of these criteria:
+
+1. Already performed well on LinkedIn
+2. Has clear keyword search volume (check via Ubersuggest free tier)
+3. Directly relates to a tool you offer
+4. Competitors are ranking but content is weak/outdated
+
+### Realistic Cadence
+
+- **Month 2:** 2 posts (test the workflow)
+- **Month 3+:** 2-4 posts/month if seeing traction
+
+## Tools Budget Recommendation
+
+| Tool | Cost | When to Add |
+|------|------|-------------|
+| Google Search Console | Free | Now |
+| Bing Webmaster Tools | Free | Now |
+| Ahrefs Webmaster Tools | Free | Now (for your own site's backlink data) |
+| Ubersuggest | Free tier / $29/mo | Now for free tier; paid if you need more queries |
+| PostHog | Free tier | Already using |
+| Ahrefs/SEMrush | $99-129/mo | Only after Month 3 if SEO is clearly working |
+
+## Revised Metrics & Targets
+
+| Metric | Baseline | 3-Month Target | 6-Month Target |
+|--------|----------|----------------|----------------|
+| Weekly visitors | 277 | 500 | 1,000 |
+| Indexed pages | TBD (check Search Console) | 100% of public pages | - |
+| Keywords in top 50 | TBD | 10 | 25 |
+| Keywords in top 10 | TBD | 2-3 | 5-10 |
+| LinkedIn → Site clicks | TBD | Track and grow 25% | - |
+| Tool → Signup conversion | TBD | 10% | 15% |
+
+## Weekly Time Investment
+
+| Activity | Hours/Week |
+|----------|------------|
+| LinkedIn content creation | 2-3 hrs |
+| Monitoring Search Console / analytics | 30 min |
+| Landing page creation (during Phase 2) | 2-4 hrs |
+| Competitor monitoring | 30 min |
+| **Total** | **5-8 hrs/week** |
+
+This is sustainable alongside other work. The original plan was solid but spread across too many initiatives simultaneously. This version sequences things so you're not fighting on all fronts at once.
+
+## Decision Points
+
+**End of Month 1:**
+
+- Is organic traffic up from baseline?
+- Which LinkedIn content drove the most clicks?
+- Are role-specific landing pages getting indexed?
+
+**End of Month 3:**
+
+- Worth investing in Ahrefs/SEMrush?
+- Is blog content ranking? Double down or deprioritize?
+- Ready for Product Hunt launch?
+
+## Questions Resolved
+
+| Original Question | Recommendation |
+|-------------------|----------------|
+| Capacity for 2-4 blog posts/month? | Start with 0. Validate on LinkedIn first, then 2/month in Month 2+ |
+| Budget for Ahrefs/SEMrush? | Not yet. Use free tools until Month 3+ |
+| Product Hunt timing? | After landing pages are live and you have some social proof |
+| Brand voice? | Let LinkedIn engagement tell you - test professional vs. casual |

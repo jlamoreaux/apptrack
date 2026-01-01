@@ -29,6 +29,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Free tool pages - high priority for SEO traffic
   const toolPages: MetadataRoute.Sitemap = [
     {
+      url: `${baseUrl}/free-tools`,
+      lastModified: currentDate,
+      changeFrequency: 'weekly',
+      priority: 0.9,
+    },
+    {
       url: `${baseUrl}/roast-my-resume`,
       lastModified: currentDate,
       changeFrequency: 'weekly',
@@ -54,6 +60,28 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 
+  // Role-specific landing pages for SEO
+  const roleLandingPages: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/cover-letter-generator/software-engineer`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/cover-letter-generator/product-manager`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/cover-letter-generator/data-analyst`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+  ]
+
   // Legal/info pages
   const infoPages: MetadataRoute.Sitemap = [
     {
@@ -76,5 +104,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 
-  return [...corePages, ...toolPages, ...infoPages]
+  return [...corePages, ...toolPages, ...roleLandingPages, ...infoPages]
 }
