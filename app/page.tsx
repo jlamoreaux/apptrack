@@ -15,7 +15,7 @@ import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
 import { SCREENSHOT_STYLES, FEATURE_SECTIONS } from "@/lib/constants/homepage-content"
-import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/structured-data"
+import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
 
 async function getPlans() {
   try {
@@ -45,6 +45,7 @@ export default async function HomePage() {
     <HomepageClientWrapper>
       <OrganizationSchema />
       <SoftwareApplicationSchema />
+      <FAQSchema faqs={COPY.faq.items} />
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
         <NavigationStatic />
         <main className="flex-1">
