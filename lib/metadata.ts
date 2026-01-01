@@ -59,6 +59,9 @@ export const siteMetadata: Metadata = {
     shortcut: "/logo_square.png",
     apple: "/logo_square.png",
   },
+  alternates: {
+    canonical: SITE_CONFIG.url,
+  },
 }
 
 /**
@@ -68,8 +71,10 @@ export const siteMetadata: Metadata = {
  */
 export function generatePageMetadata(
   title?: string,
-  description?: string
+  description?: string,
+  path?: string
 ): Metadata {
+  const canonicalUrl = path ? `${SITE_CONFIG.url}${path}` : SITE_CONFIG.url
   return {
     ...siteMetadata,
     title: title ? `${title} | ${SITE_CONFIG.name}` : siteMetadata.title,
@@ -78,11 +83,15 @@ export function generatePageMetadata(
       ...siteMetadata.openGraph,
       title: title ? `${title} | ${SITE_CONFIG.name}` : siteMetadata.openGraph?.title,
       description: description || siteMetadata.openGraph?.description,
+      url: canonicalUrl,
     },
     twitter: {
       ...siteMetadata.twitter,
       title: title ? `${title} | ${SITE_CONFIG.name}` : siteMetadata.twitter?.title,
       description: description || siteMetadata.twitter?.description,
+    },
+    alternates: {
+      canonical: canonicalUrl,
     },
   }
 }
