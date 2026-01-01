@@ -24,9 +24,8 @@ export const SITE_CONFIG = {
     ],
   },
 
-  // Social links (add as needed)
+  // Social links
   links: {
-    github: "https://github.com/yourusername/apptrack", // Update with your actual links
     twitter: "https://twitter.com/apptrack",
   },
 } as const;
