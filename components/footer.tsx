@@ -7,8 +7,13 @@ export function Footer() {
   return (
     <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 py-8">
-        {/* Bottom Section */}
-        <div className="flex flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+          <Link
+            href="/free-tools"
+            className="text-foreground font-medium hover:text-primary transition-colors"
+          >
+            Free Job Search Tools
+          </Link>
           <p>
             © {currentYear} {SITE_CONFIG.name}. All rights reserved.
           </p>
@@ -34,7 +39,6 @@ export function Footer() {
               Cookie Policy
             </Link>
           </div>
-          <span>Made with ❤️ for job seekers</span>
         </div>
       </div>
     </footer>

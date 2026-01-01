@@ -1,7 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
 import { NavigationStatic } from "@/components/navigation-static"
-import { Footer } from "@/components/footer"
 import { Card } from "@/components/ui/card"
 import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
@@ -42,7 +41,7 @@ export const metadata: Metadata = {
 
 export default function FreeToolsPage() {
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <WebPageSchema
         title="Free Job Search Tools"
         description="AI-powered tools to help you land your dream job. Try free daily."
@@ -50,7 +49,7 @@ export default function FreeToolsPage() {
       />
       <NavigationStatic />
 
-      <main className="container mx-auto px-4 py-12 max-w-5xl flex-1">
+      <main className="container mx-auto px-4 py-12 max-w-5xl">
         {/* Hero */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
@@ -113,7 +112,6 @@ export default function FreeToolsPage() {
           </ButtonLink>
         </section>
       </main>
-      <Footer />
     </div>
   )
 }

@@ -3,7 +3,6 @@ import Link from "next/link"
 import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
 import { NavigationStatic } from "@/components/navigation-static"
-import { Footer } from "@/components/footer"
 import { FAQSchema, HowToSchema } from "@/components/seo/structured-data"
 import { SITE_CONFIG } from "@/lib/constants/site-config"
 import { FREE_TOOLS } from "@/lib/constants/free-tools"
@@ -69,7 +68,7 @@ export function RoleLandingPage({
   ]
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background">
       <NavigationStatic />
 
       <FAQSchema faqs={faqs} />
@@ -79,7 +78,7 @@ export function RoleLandingPage({
         steps={howToSteps}
       />
 
-      <main className="container mx-auto px-4 py-12 max-w-4xl flex-1">
+      <main className="container mx-auto px-4 py-12 max-w-4xl">
         {/* Hero Section */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
@@ -189,7 +188,6 @@ export function RoleLandingPage({
           </div>
         </section>
       </main>
-      <Footer />
     </div>
   )
 }
