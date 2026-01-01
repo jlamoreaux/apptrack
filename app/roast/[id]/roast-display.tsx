@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Flame, Copy, Twitter, TrendingUp, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
+import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 interface RoastData {
   content: string;
@@ -54,9 +55,9 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
     trackEvent(ROAST_EVENTS.ROAST_VIEWED, { roastId, emojiScore: roast.emojiScore });
   }, [roastId, roast.emojiScore, trackEvent]);
 
-  const shareUrl = typeof window !== "undefined" 
+  const shareUrl = typeof window !== "undefined"
     ? `${window.location.origin}/roast/${roastId}`
-    : `https://apptrack.ing/roast/${roastId}`;
+    : `${SITE_CONFIG.url}/roast/${roastId}`;
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -185,22 +186,25 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
               onClick={handleCopyLink}
               variant="outline"
               className="flex items-center gap-2"
+              aria-label={copied ? "Link copied to clipboard" : "Copy share link"}
             >
-              <Copy className="h-4 w-4" />
+              <Copy className="h-4 w-4" aria-hidden="true" />
               {copied ? "Copied!" : "Copy Link"}
             </Button>
             <Button
               onClick={handleTwitterShare}
               className="flex items-center gap-2 bg-black hover:bg-gray-800"
+              aria-label="Share this roast on X (formerly Twitter)"
             >
-              <Twitter className="h-4 w-4" />
+              <Twitter className="h-4 w-4" aria-hidden="true" />
               Share on X
             </Button>
             <Button
               onClick={handleLinkedInShare}
               className="flex items-center gap-2 bg-[#0A66C2] hover:bg-[#004182]"
+              aria-label="Share this roast on LinkedIn"
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
               </svg>
               Share on LinkedIn

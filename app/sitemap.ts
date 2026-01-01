@@ -1,7 +1,9 @@
 import { MetadataRoute } from 'next'
+import { SITE_CONFIG } from '@/lib/constants/site-config'
+import { ROLE_LANDING_PAGES } from '@/lib/constants/free-tools'
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://apptrack.ing'
+  const baseUrl = SITE_CONFIG.url
   const currentDate = new Date()
 
   // Core marketing pages - highest priority
@@ -60,27 +62,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ]
 
-  // Role-specific landing pages for SEO
-  const roleLandingPages: MetadataRoute.Sitemap = [
-    {
-      url: `${baseUrl}/cover-letter-generator/software-engineer`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/cover-letter-generator/product-manager`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/cover-letter-generator/data-analyst`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
-    },
-  ]
+  // Role-specific landing pages for SEO - generated from constant
+  const roleLandingPages: MetadataRoute.Sitemap = ROLE_LANDING_PAGES.map(role => ({
+    url: `${baseUrl}/cover-letter-generator/${role.slug}`,
+    lastModified: currentDate,
+    changeFrequency: 'monthly' as const,
+    priority: 0.8,
+  }))
 
   // Legal/info pages
   const infoPages: MetadataRoute.Sitemap = [

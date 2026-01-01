@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next'
+import { SITE_CONFIG } from '@/lib/constants/site-config'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = 'https://apptrack.ing'
+  const baseUrl = SITE_CONFIG.url
 
   return {
     rules: [
