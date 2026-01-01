@@ -3,11 +3,12 @@ import Link from "next/link"
 import { ButtonLink } from "@/components/ui/button-link"
 import { NavigationStatic } from "@/components/navigation-static"
 import { FAQSchema, HowToSchema } from "@/components/seo/structured-data"
+import { SITE_CONFIG } from "@/lib/constants/site-config"
+import { FREE_TOOLS } from "@/lib/constants/free-tools"
 
 interface RoleLandingPageProps {
   role: string
   roleSlug: string
-  industry?: string
   description: string
   benefits: string[]
   exampleIntro: string
@@ -17,8 +18,9 @@ interface RoleLandingPageProps {
 }
 
 export function generateRoleMetadata(role: string, roleSlug: string): Metadata {
-  const title = `Free ${role} Cover Letter Generator | AppTrack`
+  const title = `Free ${role} Cover Letter Generator | ${SITE_CONFIG.name}`
   const description = `Generate a professional ${role} cover letter in 30 seconds. Our AI creates personalized, ATS-friendly cover letters tailored to ${role.toLowerCase()} positions.`
+  const canonicalUrl = `${SITE_CONFIG.url}/cover-letter-generator/${roleSlug}`
 
   return {
     title,
@@ -33,8 +35,8 @@ export function generateRoleMetadata(role: string, roleSlug: string): Metadata {
     openGraph: {
       title,
       description,
-      url: `https://apptrack.ing/cover-letter-generator/${roleSlug}`,
-      siteName: "AppTrack",
+      url: canonicalUrl,
+      siteName: SITE_CONFIG.name,
       type: "website",
     },
     twitter: {
@@ -43,7 +45,7 @@ export function generateRoleMetadata(role: string, roleSlug: string): Metadata {
       description,
     },
     alternates: {
-      canonical: `https://apptrack.ing/cover-letter-generator/${roleSlug}`,
+      canonical: canonicalUrl,
     },
   }
 }
@@ -177,33 +179,18 @@ export function RoleLandingPage({
             More Free Job Search Tools
           </h2>
           <div className="grid sm:grid-cols-3 gap-4">
-            <Link
-              href="/try/job-fit"
-              className="p-4 border rounded-lg hover:border-primary transition-colors"
-            >
-              <h3 className="font-semibold mb-2">Job Fit Analysis</h3>
-              <p className="text-sm text-muted-foreground">
-                Check how well your resume matches a job description
-              </p>
-            </Link>
-            <Link
-              href="/try/interview-prep"
-              className="p-4 border rounded-lg hover:border-primary transition-colors"
-            >
-              <h3 className="font-semibold mb-2">Interview Prep</h3>
-              <p className="text-sm text-muted-foreground">
-                Get personalized interview questions for any role
-              </p>
-            </Link>
-            <Link
-              href="/roast-my-resume"
-              className="p-4 border rounded-lg hover:border-primary transition-colors"
-            >
-              <h3 className="font-semibold mb-2">Resume Roast</h3>
-              <p className="text-sm text-muted-foreground">
-                Get brutally honest feedback on your resume
-              </p>
-            </Link>
+            {FREE_TOOLS.filter(tool => tool.href !== "/try/cover-letter").slice(0, 3).map((tool) => (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className="p-4 border rounded-lg hover:border-primary transition-colors"
+              >
+                <h3 className="font-semibold mb-2">{tool.title}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {tool.shortDescription}
+                </p>
+              </Link>
+            ))}
           </div>
         </section>
       </main>

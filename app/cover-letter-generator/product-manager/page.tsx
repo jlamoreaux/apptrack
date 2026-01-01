@@ -48,12 +48,10 @@ const faqs = [
   },
 ]
 
+// Only link to pages that exist - update as more are added
 const relatedRoles = [
-  { name: "Technical Product Manager", slug: "technical-product-manager" },
-  { name: "Product Owner", slug: "product-owner" },
-  { name: "Program Manager", slug: "program-manager" },
-  { name: "Business Analyst", slug: "business-analyst" },
-  { name: "UX Designer", slug: "ux-designer" },
+  { name: "Software Engineer", slug: "software-engineer" },
+  { name: "Data Analyst", slug: "data-analyst" },
 ]
 
 export default function ProductManagerCoverLetterPage() {

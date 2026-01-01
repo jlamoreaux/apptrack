@@ -65,11 +65,7 @@ export function SoftwareApplicationSchema({
       "@type": "Offer",
       ...offers,
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "150",
-    },
+    // Note: Add aggregateRating only when you have real review data
   }
 
   return (

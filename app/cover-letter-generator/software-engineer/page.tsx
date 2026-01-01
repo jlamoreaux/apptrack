@@ -48,12 +48,10 @@ const faqs = [
   },
 ]
 
+// Only link to pages that exist - update as more are added
 const relatedRoles = [
-  { name: "Frontend Developer", slug: "frontend-developer" },
-  { name: "Backend Developer", slug: "backend-developer" },
-  { name: "Full Stack Developer", slug: "full-stack-developer" },
-  { name: "Data Engineer", slug: "data-engineer" },
-  { name: "DevOps Engineer", slug: "devops-engineer" },
+  { name: "Product Manager", slug: "product-manager" },
+  { name: "Data Analyst", slug: "data-analyst" },
 ]
 
 export default function SoftwareEngineerCoverLetterPage() {
