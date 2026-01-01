@@ -102,10 +102,10 @@ export default function FreeToolsPage() {
         {/* CTA */}
         <section className="text-center bg-primary/5 rounded-lg p-8">
           <h2 className="text-2xl font-bold mb-4">
-            Want Unlimited Access?
+            Want More?
           </h2>
           <p className="text-muted-foreground mb-6 max-w-xl mx-auto">
-            Sign up free to get unlimited access to all AI tools, track your job applications, and get personalized career coaching.
+            Sign up free to track your job applications and save your results. Upgrade to AI Coach for more daily uses and personalized career coaching.
           </p>
           <ButtonLink href="/signup" size="lg">
             Sign Up Free
