@@ -17,8 +17,10 @@ jest.mock('jose', () => ({
 
 // Mock dependencies before importing route
 jest.mock('@/lib/auth/extension-auth');
-jest.mock('@/lib/auth/auth-rate-limit', () => ({
-  checkAuthRateLimit: jest.fn().mockResolvedValue({ allowed: true }),
+jest.mock('@/lib/redis/client', () => ({
+  createRateLimiter: jest.fn().mockReturnValue({
+    limit: jest.fn().mockResolvedValue({ success: true }),
+  }),
 }));
 jest.mock('@/lib/services/logger.service', () => ({
   loggerService: {

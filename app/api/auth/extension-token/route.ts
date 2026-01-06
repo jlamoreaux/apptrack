@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { signExtensionToken } from "@/lib/auth/extension-auth";
-import { checkAuthRateLimit } from "@/lib/auth/auth-rate-limit";
+import { createRateLimiter } from "@/lib/redis/client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+
+// Rate limiter: 10 token generations per minute per user
+const rateLimiter = createRateLimiter(10, "1 m");
 
 /**
  * POST /api/auth/extension-token
@@ -31,10 +34,12 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check rate limit (use user ID as identifier)
-    const rateLimitResult = await checkAuthRateLimit(user.id, "extension_token");
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response!;
+    // Check rate limit
+    if (rateLimiter) {
+      const result = await rateLimiter.limit(user.id);
+      if (!result.success) {
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      }
     }
 
     if (!user.email) {

@@ -170,3 +170,11 @@ export function sanitizeAnalysisContext(data: any): any {
     // Ensure no additional fields are passed through
   };
 }
+
+/**
+ * Escape ILIKE/LIKE special characters to prevent wildcard injection
+ * PostgreSQL ILIKE treats % and _ as wildcards
+ */
+export function escapeIlike(str: string): string {
+  return str.replace(/[%_\\]/g, (char) => `\\${char}`);
+}

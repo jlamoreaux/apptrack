@@ -4,9 +4,12 @@ import {
   signExtensionToken,
   isInRefreshWindow,
 } from "@/lib/auth/extension-auth";
-import { checkAuthRateLimit } from "@/lib/auth/auth-rate-limit";
+import { createRateLimiter } from "@/lib/redis/client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+
+// Rate limiter: 20 token refreshes per minute per user
+const rateLimiter = createRateLimiter(20, "1 m");
 
 /**
  * Extract token from Authorization header or request body
@@ -74,13 +77,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check rate limit (use user ID as identifier)
-    const rateLimitResult = await checkAuthRateLimit(
-      verified.userId,
-      "extension_refresh"
-    );
-    if (!rateLimitResult.allowed) {
-      return rateLimitResult.response!;
+    // Check rate limit
+    if (rateLimiter) {
+      const result = await rateLimiter.limit(verified.userId);
+      if (!result.success) {
+        return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+      }
     }
 
     // Calculate days until expiry for logging

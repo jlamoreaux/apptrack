@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { createClient } from "@/lib/supabase/server-client";
+import { escapeIlike } from "@/lib/security/data-sanitizer";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -76,10 +77,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Escape ILIKE special characters to prevent wildcard injection
-    // % and _ are wildcards in ILIKE - escape them with backslash
-    const escapeIlike = (str: string) =>
-      str.replace(/[%_\\]/g, (char) => `\\${char}`);
-
     const sanitizedCompany = escapeIlike(company);
     const sanitizedRole = escapeIlike(role);
 
