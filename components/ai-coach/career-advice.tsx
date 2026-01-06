@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useChat } from "@ai-sdk/react";
-import { TextStreamChatTransport, type UIMessage } from "ai";
+import { DefaultChatTransport, type UIMessage } from "ai";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +71,7 @@ export function CareerAdvice() {
   const pendingConversationIdRef = useRef<string | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
   const hasLoadedFromUrlRef = useRef(false);
+  const isProcessingFinishRef = useRef(false);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -97,7 +98,7 @@ export function CareerAdvice() {
 
   // Memoize the transport (no dependencies since we use refs for dynamic values)
   const transport = useMemo(() => {
-    return new TextStreamChatTransport({
+    return new DefaultChatTransport({
       api: "/api/ai-coach/career-advice",
       credentials: "include",
       body: (messages: UIMessage[]) => ({
@@ -130,28 +131,41 @@ export function CareerAdvice() {
   } = useChat({
     transport,
     onFinish: async ({ message }) => {
-      // Update conversation ID if we got a new one
-      if (pendingConversationIdRef.current) {
-        const newConvId = pendingConversationIdRef.current;
-        setActiveConversationId(newConvId);
-        pendingConversationIdRef.current = null;
+      // Prevent multiple rapid onFinish calls
+      if (isProcessingFinishRef.current) return;
+      isProcessingFinishRef.current = true;
 
-        // Update URL with new conversation ID
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("conversation", newConvId);
-        router.push(`?${params.toString()}`, { scroll: false });
-      }
-      // Refresh conversations to update the title and order
-      await fetchConversations();
+      try {
+        // Update conversation ID if we got a new one
+        if (pendingConversationIdRef.current) {
+          const newConvId = pendingConversationIdRef.current;
+          setActiveConversationId(newConvId);
+          pendingConversationIdRef.current = null;
 
-      // Generate contextual follow-up suggestions
-      const messageContent = message.parts
-        ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
-        .map((part) => part.text)
-        .join("") || "";
+          // Update URL with new conversation ID
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("conversation", newConvId);
+          router.push(`?${params.toString()}`, { scroll: false });
+        }
+        // Refresh conversations to update the title and order
+        await fetchConversations();
 
-      if (messageContent) {
-        generateSuggestedPrompts(messageContent);
+        // Generate contextual follow-up suggestions
+        const messageContent = message.parts
+          ?.filter((part): part is { type: "text"; text: string } => part.type === "text")
+          .map((part) => part.text)
+          .join("") || "";
+
+        if (messageContent) {
+          generateSuggestedPrompts(messageContent);
+        }
+      } catch (err) {
+        console.error("Failed in onFinish:", err);
+      } finally {
+        // Reset after a short delay to allow for legitimate new messages
+        setTimeout(() => {
+          isProcessingFinishRef.current = false;
+        }, 500);
       }
     },
     onError: (err) => {
@@ -275,10 +289,13 @@ export function CareerAdvice() {
     setChatInput(e.target.value);
   };
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom when messages change (debounced to avoid excessive calls)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const timeoutId = setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timeoutId);
+  }, [messages.length]); // Only trigger on length change, not content
 
   // Load conversations on mount
   useEffect(() => {
