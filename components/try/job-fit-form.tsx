@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,23 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
   );
   const [errors, setErrors] = useState<Partial<Record<keyof JobFitFormData, string>>>({});
 
+  // Refs for scrolling to errors
+  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const userBackgroundRef = useRef<HTMLDivElement>(null);
+
+  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof JobFitFormData, string>>) => {
+    // Determine which field has the first error and scroll to it
+    if (newErrors.jobDescription && jobDescriptionRef.current) {
+      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jobDescriptionRef.current.focus();
+    } else if (newErrors.userBackground && userBackgroundRef.current) {
+      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Focus the textarea inside the ResumeUploadField
+      const textarea = userBackgroundRef.current.querySelector('textarea');
+      textarea?.focus();
+    }
+  }, []);
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof JobFitFormData, string>> = {};
 
@@ -49,6 +66,12 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
     }
 
     setErrors(newErrors);
+
+    // Scroll to first error if validation fails
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => scrollToFirstError(newErrors), 100);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -92,21 +115,13 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
           Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
+          ref={jobDescriptionRef}
           id="jobDescription"
-          placeholder="Paste the job posting you're considering...
-
-Example:
-We're looking for a Senior Software Engineer to join our team. You'll work on building scalable web applications using React and Node.js.
-
-Requirements:
-- 5+ years of experience with JavaScript
-- Strong knowledge of React and TypeScript
-- Experience with Node.js and Express
-..."
+          placeholder="Paste the full job description here..."
           value={formData.jobDescription}
           onChange={(e) => handleChange("jobDescription", e.target.value)}
           rows={10}
-          className={errors.jobDescription ? "border-destructive" : ""}
+          className={errors.jobDescription ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
           disabled={isLoading}
         />
         {errors.jobDescription && (
@@ -118,12 +133,15 @@ Requirements:
       </div>
 
       {/* User Background */}
-      <ResumeUploadField
-        value={formData.userBackground}
-        onChange={(value) => handleChange("userBackground", value)}
-        error={errors.userBackground}
-        disabled={isLoading}
-      />
+      <div ref={userBackgroundRef}>
+        <ResumeUploadField
+          value={formData.userBackground}
+          onChange={(value) => handleChange("userBackground", value)}
+          error={errors.userBackground}
+          disabled={isLoading}
+          highlightError={!!errors.userBackground}
+        />
+      </div>
 
       {/* Target Role (Optional) */}
       <div className="space-y-2">
@@ -132,7 +150,7 @@ Requirements:
         </Label>
         <Input
           id="targetRole"
-          placeholder="e.g., Senior Software Engineer, Product Manager, Marketing Director"
+          placeholder="e.g., Senior Software Engineer"
           value={formData.targetRole}
           onChange={(e) => handleChange("targetRole", e.target.value)}
           disabled={isLoading}

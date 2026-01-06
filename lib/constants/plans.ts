@@ -102,18 +102,11 @@ export const YEARLY_SAVINGS = {
 // Helper functions for plan access
 export const hasFeatureAccess = (
   userPlan: string,
-  feature:
-    | keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
-    | keyof typeof FEATURE_ACCESS.PRO_FEATURES
+  feature: keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
 ): boolean => {
   if (feature in FEATURE_ACCESS.AI_COACH_FEATURES) {
     return FEATURE_ACCESS.AI_COACH_FEATURES[
       feature as keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
-    ].includes(userPlan as any);
-  }
-  if (feature in FEATURE_ACCESS.PRO_FEATURES) {
-    return FEATURE_ACCESS.PRO_FEATURES[
-      feature as keyof typeof FEATURE_ACCESS.PRO_FEATURES
     ].includes(userPlan as any);
   }
   return false;
@@ -121,8 +114,4 @@ export const hasFeatureAccess = (
 
 export const isAICoachFeature = (feature: string): boolean => {
   return Object.keys(FEATURE_ACCESS.AI_COACH_FEATURES).includes(feature);
-};
-
-export const isProFeature = (feature: string): boolean => {
-  return Object.keys(FEATURE_ACCESS.PRO_FEATURES).includes(feature);
 };

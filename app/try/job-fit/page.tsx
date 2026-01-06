@@ -166,6 +166,18 @@ export default function TryJobFitPage() {
         </Alert>
       )}
 
+      {/* Quick Tips - Mobile Only */}
+      {!results && (
+        <div className="sm:hidden mb-6 p-4 bg-muted/50 rounded-lg border">
+          <p className="text-sm font-medium mb-2">Quick tips:</p>
+          <ul className="text-sm text-muted-foreground space-y-1">
+            <li>1. Paste the full job description below</li>
+            <li>2. Add your resume or background summary</li>
+            <li>3. Get your fit analysis in 30 seconds</li>
+          </ul>
+        </div>
+      )}
+
       {/* Form or Results */}
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
@@ -205,9 +217,9 @@ export default function TryJobFitPage() {
         </div>
       )}
 
-      {/* How It Works */}
+      {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
       {!results && (
-        <div className="mt-12 p-6 bg-muted rounded-lg">
+        <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,21 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
   );
   const [errors, setErrors] = useState<Partial<Record<keyof InterviewPrepFormData, string>>>({});
 
+  // Refs for scrolling to errors
+  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const userBackgroundRef = useRef<HTMLDivElement>(null);
+
+  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof InterviewPrepFormData, string>>) => {
+    if (newErrors.jobDescription && jobDescriptionRef.current) {
+      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jobDescriptionRef.current.focus();
+    } else if (newErrors.userBackground && userBackgroundRef.current) {
+      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const textarea = userBackgroundRef.current.querySelector('textarea');
+      textarea?.focus();
+    }
+  }, []);
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof InterviewPrepFormData, string>> = {};
     if (formData.jobDescription.length < 100) {
@@ -42,6 +57,11 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
       newErrors.userBackground = "Background must be at least 50 characters";
     }
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => scrollToFirstError(newErrors), 100);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -89,13 +109,14 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
           Job Description <span className="text-red-500">*</span>
         </Label>
         <Textarea
+          ref={jobDescriptionRef}
           id="jobDescription"
           value={formData.jobDescription}
           onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
           placeholder="Paste the full job description here..."
           rows={8}
           disabled={isLoading}
-          className={errors.jobDescription ? "border-red-500" : ""}
+          className={errors.jobDescription ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         />
         <div className="flex justify-between text-sm">
           {errors.jobDescription ? (
@@ -109,13 +130,16 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
         </div>
       </div>
 
-      <ResumeUploadField
-        value={formData.userBackground}
-        onChange={(value) => setFormData({ ...formData, userBackground: value })}
-        error={errors.userBackground}
-        disabled={isLoading}
-        label="Your Background / Resume"
-      />
+      <div ref={userBackgroundRef}>
+        <ResumeUploadField
+          value={formData.userBackground}
+          onChange={(value) => setFormData({ ...formData, userBackground: value })}
+          error={errors.userBackground}
+          disabled={isLoading}
+          label="Your Background / Resume"
+          highlightError={!!errors.userBackground}
+        />
+      </div>
 
       <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
         {isLoading ? (

@@ -238,12 +238,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user's existing Stripe customer ID from profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
+
     // Update or create user subscription
     const subscriptionData = {
       plan_id: targetPlan.id,
       status: "active",
       stripe_subscription_id: null,
-      stripe_customer_id: null,
+      stripe_customer_id: profile?.stripe_customer_id || null, // Preserve existing customer ID
       current_period_end: periodEnd, // This field already exists in the schema
     };
 

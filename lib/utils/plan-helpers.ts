@@ -31,7 +31,7 @@ export function getPlanFeatures(plan: SubscriptionPlan): string[] {
       break;
 
     case PLAN_NAMES.AI_COACH:
-      features.unshift("Everything in Pro");
+      features.unshift("Everything in Free");
       features.push(...PLAN_FEATURES.AI_COACH);
       break;
   }
@@ -108,18 +108,11 @@ export function getHomePlanData(dbPlan: SubscriptionPlan, config: any) {
  */
 export const hasFeatureAccess = (
   userPlan: string,
-  feature:
-    | keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
-    | keyof typeof FEATURE_ACCESS.PRO_FEATURES
+  feature: keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
 ): boolean => {
   if (feature in FEATURE_ACCESS.AI_COACH_FEATURES) {
     return FEATURE_ACCESS.AI_COACH_FEATURES[
       feature as keyof typeof FEATURE_ACCESS.AI_COACH_FEATURES
-    ].includes(userPlan as any);
-  }
-  if (feature in FEATURE_ACCESS.PRO_FEATURES) {
-    return FEATURE_ACCESS.PRO_FEATURES[
-      feature as keyof typeof FEATURE_ACCESS.PRO_FEATURES
     ].includes(userPlan as any);
   }
   return false;
@@ -130,13 +123,6 @@ export const hasFeatureAccess = (
  */
 export const isAICoachFeature = (feature: string): boolean => {
   return Object.keys(FEATURE_ACCESS.AI_COACH_FEATURES).includes(feature);
-};
-
-/**
- * Check if a feature is available to Pro users
- */
-export const isProFeature = (feature: string): boolean => {
-  return Object.keys(FEATURE_ACCESS.PRO_FEATURES).includes(feature);
 };
 
 /**
@@ -194,14 +180,9 @@ export const getPlanFeaturesByName = (planName: string): string[] => {
   features.push(...FEATURE_ACCESS.CORE.INTERVIEW_NOTES);
   features.push(...FEATURE_ACCESS.CORE.CONTACT_MANAGEMENT);
 
-  // Add Pro features for Pro and AI Coach
-  if (isOnProOrHigher(planName)) {
-    features.push(...FEATURE_ACCESS.PRO_FEATURES.UNLIMITED_APPLICATIONS);
-    features.push(...FEATURE_ACCESS.PRO_FEATURES.PRIORITY_SUPPORT);
-  }
-
-  // Add AI Coach features only for AI Coach
-  if (isOnAICoachPlan(planName)) {
+  // Add AI Coach features (includes unlimited applications)
+  if (isOnAICoachPlan(planName) || planName === PLAN_NAMES.PRO) {
+    features.push(...FEATURE_ACCESS.AI_COACH_FEATURES.UNLIMITED_APPLICATIONS);
     features.push(...FEATURE_ACCESS.AI_COACH_FEATURES.RESUME_ANALYSIS);
     features.push(...FEATURE_ACCESS.AI_COACH_FEATURES.INTERVIEW_PREP);
     features.push(...FEATURE_ACCESS.AI_COACH_FEATURES.CAREER_ADVICE);
@@ -223,10 +204,6 @@ export const getUpgradeMessage = (
     return "This feature requires an AI Coach subscription";
   }
 
-  if (isProFeature(feature) && isOnFreePlan(currentPlan)) {
-    return "This feature requires a Pro or AI Coach subscription";
-  }
-
   return "This feature is not available on your current plan";
 };
 
@@ -236,10 +213,6 @@ export const getUpgradeMessage = (
 export const getRequiredPlan = (feature: string): string => {
   if (isAICoachFeature(feature)) {
     return PLAN_NAMES.AI_COACH;
-  }
-
-  if (isProFeature(feature)) {
-    return PLAN_NAMES.PRO;
   }
 
   return PLAN_NAMES.FREE;
@@ -264,9 +237,9 @@ export const canAccessAIFeatures = (userPlan: string): boolean => {
  */
 export const getApplicationLimit = (userPlan: string): number | null => {
   if (isOnFreePlan(userPlan)) {
-    return 5; // Free plan limit
+    return PLAN_LIMITS.FREE_MAX_APPLICATIONS;
   }
-  return null; // Unlimited for Pro and AI Coach
+  return null; // Unlimited for paid plans
 };
 
 /**

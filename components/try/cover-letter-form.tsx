@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -36,8 +36,31 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
 
   const [errors, setErrors] = useState<Partial<Record<keyof CoverLetterFormData, string>>>({});
 
+  // Refs for scrolling to errors
+  const companyNameRef = useRef<HTMLInputElement>(null);
+  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
+  const userBackgroundRef = useRef<HTMLDivElement>(null);
+
+  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof CoverLetterFormData, string>>) => {
+    if (newErrors.companyName && companyNameRef.current) {
+      companyNameRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      companyNameRef.current.focus();
+    } else if (newErrors.jobDescription && jobDescriptionRef.current) {
+      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      jobDescriptionRef.current.focus();
+    } else if (newErrors.userBackground && userBackgroundRef.current) {
+      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const textarea = userBackgroundRef.current.querySelector('textarea');
+      textarea?.focus();
+    }
+  }, []);
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof CoverLetterFormData, string>> = {};
+
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = "Company name is required";
+    }
 
     if (formData.jobDescription.length < 100) {
       newErrors.jobDescription = "Job description must be at least 100 characters";
@@ -47,11 +70,12 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       newErrors.userBackground = "Background must be at least 50 characters";
     }
 
-    if (!formData.companyName.trim()) {
-      newErrors.companyName = "Company name is required";
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => scrollToFirstError(newErrors), 100);
     }
 
-    setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -90,12 +114,13 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
           Company Name <span className="text-red-500">*</span>
         </Label>
         <Input
+          ref={companyNameRef}
           id="companyName"
           value={formData.companyName}
           onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
           placeholder="e.g., Google, Microsoft, Acme Corp"
           disabled={isLoading}
-          className={errors.companyName ? "border-red-500" : ""}
+          className={errors.companyName ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         />
         {errors.companyName && (
           <p className="text-sm text-red-600">{errors.companyName}</p>
@@ -122,13 +147,14 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
           Job Description <span className="text-red-500">*</span>
         </Label>
         <Textarea
+          ref={jobDescriptionRef}
           id="jobDescription"
           value={formData.jobDescription}
           onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
           placeholder="Paste the full job description here..."
           rows={8}
           disabled={isLoading}
-          className={errors.jobDescription ? "border-red-500" : ""}
+          className={errors.jobDescription ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         />
         <div className="flex justify-between text-sm">
           {errors.jobDescription ? (
@@ -149,13 +175,16 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       </div>
 
       {/* User Background */}
-      <ResumeUploadField
-        value={formData.userBackground}
-        onChange={(value) => setFormData({ ...formData, userBackground: value })}
-        error={errors.userBackground}
-        disabled={isLoading}
-        label="Your Background / Resume"
-      />
+      <div ref={userBackgroundRef}>
+        <ResumeUploadField
+          value={formData.userBackground}
+          onChange={(value) => setFormData({ ...formData, userBackground: value })}
+          error={errors.userBackground}
+          disabled={isLoading}
+          label="Your Background / Resume"
+          highlightError={!!errors.userBackground}
+        />
+      </div>
 
       {/* Submit Button */}
       <Button

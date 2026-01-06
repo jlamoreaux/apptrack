@@ -164,6 +164,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user's existing Stripe customer ID from profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("id", user.id)
+      .single();
+
     // Calculate dates using promo code configuration
     const startDate = new Date();
     const endDate = new Date();
@@ -172,8 +179,8 @@ export async function POST(request: NextRequest) {
     // Determine subscription status based on code type
     const isTrialCode = promoCodeData.code_type === "trial";
     const isPremiumFree = promoCodeData.code_type === "premium_free";
-    
-    // Create subscription (no Stripe involved for trials or premium_free)
+
+    // Create subscription (no Stripe subscription, but preserve customer ID for future upgrades)
     const subscription = await subscriptionService.create({
       user_id: user.id,
       plan_id: targetPlan.id,
@@ -182,8 +189,8 @@ export async function POST(request: NextRequest) {
       current_period_start: startDate.toISOString(),
       current_period_end: endDate.toISOString(),
       cancel_at_period_end: true, // Auto-cancel after period ends for both types
-      stripe_subscription_id: null, // No Stripe subscription
-      stripe_customer_id: null,
+      stripe_subscription_id: null, // No Stripe subscription for trials
+      stripe_customer_id: profile?.stripe_customer_id || null, // Preserve existing customer ID
     });
 
     // Record trial/premium_free usage

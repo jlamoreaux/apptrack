@@ -54,9 +54,9 @@ export default async function UsagePage() {
                 <div>
                   <p className="text-lg font-semibold">{planName} Plan</p>
                   <p className="text-sm text-muted-foreground">
-                    {hasAIAccess 
+                    {hasAIAccess
                       ? "You have access to AI-powered features"
-                      : "Upgrade to Pro or AI Coach to access AI features"}
+                      : "Upgrade to AI Coach to access AI features"}
                   </p>
                 </div>
                 {!hasAIAccess && (
