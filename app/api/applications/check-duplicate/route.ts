@@ -57,14 +57,40 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Validate input length (prevent excessively long queries)
+    const MAX_INPUT_LENGTH = 200;
+    if (company.length > MAX_INPUT_LENGTH || role.length > MAX_INPUT_LENGTH) {
+      loggerService.warn("Duplicate check input too long", {
+        category: LogCategory.API,
+        userId: user.id,
+        action: "duplicate_check_input_too_long",
+        metadata: {
+          companyLength: company.length,
+          roleLength: role.length,
+        },
+      });
+      return NextResponse.json(
+        { error: "company and role must be less than 200 characters" },
+        { status: 400 }
+      );
+    }
+
+    // Escape ILIKE special characters to prevent wildcard injection
+    // % and _ are wildcards in ILIKE - escape them with backslash
+    const escapeIlike = (str: string) =>
+      str.replace(/[%_\\]/g, (char) => `\\${char}`);
+
+    const sanitizedCompany = escapeIlike(company);
+    const sanitizedRole = escapeIlike(role);
+
     // Query for existing application with case-insensitive match
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("applications")
       .select("id, company, role, status, date_applied")
       .eq("user_id", user.id)
-      .ilike("company", company)
-      .ilike("role", role)
+      .ilike("company", sanitizedCompany)
+      .ilike("role", sanitizedRole)
       .eq("archived", false)
       .limit(1)
       .maybeSingle();

@@ -7,6 +7,26 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 
+/**
+ * Get the target origin for postMessage communication with the extension.
+ *
+ * Browser extensions don't have traditional web origins, so we need special handling:
+ * - If NEXT_PUBLIC_EXTENSION_ID is set, use chrome-extension://ID as the target
+ * - Otherwise, use '*' as a fallback (the extension must verify message origin)
+ *
+ * Security note: The extension should always verify the message source origin
+ * matches the expected web app origin (e.g., https://apptrack.app) regardless
+ * of what target origin we use here.
+ */
+function getExtensionOrigin(): string {
+  const extensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
+  if (extensionId) {
+    return `chrome-extension://${extensionId}`;
+  }
+  // Fallback: Extension must verify message origin on its side
+  return "*";
+}
+
 type PageState = "loading" | "success" | "error" | "not-from-extension";
 
 interface TokenResponse {
@@ -71,6 +91,7 @@ export default function ExtensionCallbackPage() {
 
       // Send token to extension via postMessage
       if (window.opener) {
+        const targetOrigin = getExtensionOrigin();
         window.opener.postMessage(
           {
             type: "APPTRACK_AUTH_SUCCESS",
@@ -78,7 +99,7 @@ export default function ExtensionCallbackPage() {
             expiresAt: tokenData.expiresAt,
             user: tokenData.user,
           },
-          "*" // Extensions don't have traditional origins
+          targetOrigin
         );
 
         setState("success");

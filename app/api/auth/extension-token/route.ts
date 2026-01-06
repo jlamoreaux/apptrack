@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { signExtensionToken } from "@/lib/auth/extension-auth";
+import { checkAuthRateLimit } from "@/lib/auth/auth-rate-limit";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -28,6 +29,12 @@ export async function POST() {
         action: "extension_token_no_session",
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check rate limit (use user ID as identifier)
+    const rateLimitResult = await checkAuthRateLimit(user.id, "extension_token");
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response!;
     }
 
     if (!user.email) {

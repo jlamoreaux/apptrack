@@ -4,6 +4,7 @@ import {
   signExtensionToken,
   isInRefreshWindow,
 } from "@/lib/auth/extension-auth";
+import { checkAuthRateLimit } from "@/lib/auth/auth-rate-limit";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -71,6 +72,15 @@ export async function POST(request: NextRequest) {
         { error: "Invalid or expired token" },
         { status: 401 }
       );
+    }
+
+    // Check rate limit (use user ID as identifier)
+    const rateLimitResult = await checkAuthRateLimit(
+      verified.userId,
+      "extension_refresh"
+    );
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response!;
     }
 
     // Calculate days until expiry for logging

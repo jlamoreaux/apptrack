@@ -156,13 +156,23 @@ export async function verifyExtensionToken(
     }
 
     const userId = payload.sub;
-    const email = payload.email as string;
-    const tokenVersion = payload.v as number;
+    const email = payload.email;
+    const tokenVersion = payload.v;
 
-    if (!userId || !email) {
+    // Validate required claims with proper type checking
+    if (
+      !userId ||
+      typeof email !== "string" ||
+      typeof tokenVersion !== "number"
+    ) {
       loggerService.warn("Extension token missing required claims", {
         category: LogCategory.SECURITY,
         action: "extension_token_missing_claims",
+        metadata: {
+          hasUserId: !!userId,
+          hasEmail: typeof email === "string",
+          hasVersion: typeof tokenVersion === "number",
+        },
       });
       return null;
     }
@@ -182,11 +192,21 @@ export async function verifyExtensionToken(
       return null;
     }
 
+    // Validate exp claim - jose should have already validated this but double-check
+    const exp = payload.exp;
+    if (typeof exp !== "number") {
+      loggerService.warn("Extension token missing exp claim", {
+        category: LogCategory.SECURITY,
+        action: "extension_token_missing_exp",
+      });
+      return null;
+    }
+
     return {
       userId,
       email,
       tokenVersion,
-      expiresAt: new Date((payload.exp as number) * 1000),
+      expiresAt: new Date(exp * 1000),
     };
   } catch (error) {
     // Token is invalid or expired
