@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { JobFitForm, type JobFitFormData } from "@/components/try/job-fit-form";
 import { JobFitResults } from "@/components/try/job-fit-results";
+import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -166,6 +167,16 @@ export default function TryJobFitPage() {
         </Alert>
       )}
 
+      {/* Quick Tips - Mobile Only */}
+      <QuickTips
+        show={!results}
+        tips={[
+          "Paste the full job description below",
+          "Add your resume or background summary",
+          "Get your fit analysis in 30 seconds",
+        ]}
+      />
+
       {/* Form or Results */}
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
@@ -205,9 +216,9 @@ export default function TryJobFitPage() {
         </div>
       )}
 
-      {/* How It Works */}
+      {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
       {!results && (
-        <div className="mt-12 p-6 bg-muted rounded-lg">
+        <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="text-center">

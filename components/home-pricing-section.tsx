@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { COPY, getPlanCopy } from "@/lib/content/copy"
 import { PLAN_NAMES } from "@/lib/constants/plans"
 import { PlanCard } from "@/components/shared/plan-card"
@@ -73,18 +72,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
       {/* Ethical Promise */}
       <div className="text-center mt-8 p-4 bg-primary/5 rounded-lg max-w-2xl mx-auto">
         <p className="text-sm font-medium text-foreground">
-          🎯 {COPY.pricing.ethicalPromise}
-        </p>
-      </div>
-
-      {/* Additional info */}
-      <div className="text-center mt-4">
-        <p className="text-sm text-muted-foreground">
-          {COPY.pricing.footer}{" "}
-          <Link href="/signup" className="text-blue-600 hover:text-blue-700 underline font-medium">
-            Compare all features
-          </Link>{" "}
-          to find the perfect fit.
+          {COPY.pricing.ethicalPromise}
         </p>
       </div>
     </section>

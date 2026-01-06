@@ -186,41 +186,40 @@ export function SignUpForm() {
           console.warn("Could not save to localStorage:", e);
         }
 
-        // Create Stripe customer if email is already verified
+        // Run post-signup setup (Stripe customer, Resend audience) if email is already verified
         if (!result.requiresEmailConfirmation) {
           try {
-            // Wait for customer creation to complete before proceeding
-            const customerResponse = await fetch(
-              "/api/stripe/create-customer",
+            const setupResponse = await fetch(
+              "/api/user/on-signup",
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
               }
             );
 
-            if (!customerResponse.ok) {
+            if (!setupResponse.ok) {
               // Log error details but don't block user flow
-              const errorData = await customerResponse.json().catch(() => ({}));
-              console.error("Stripe customer creation failed:", {
-                status: customerResponse.status,
+              const errorData = await setupResponse.json().catch(() => ({}));
+              console.error("Post-signup setup failed:", {
+                status: setupResponse.status,
                 error: errorData.error || "Unknown error",
               });
 
               // Show warning toast but allow user to continue
               toast({
-                title: "Payment setup incomplete",
+                title: "Setup incomplete",
                 description:
-                  "You can complete payment setup later from your account settings.",
-                variant: "default", // Use default, not destructive, since it's not blocking
+                  "Some account setup tasks will be completed later.",
+                variant: "default",
               });
             }
           } catch (err) {
             // Network error - log but don't block user flow
-            console.error("Failed to create Stripe customer:", err);
+            console.error("Failed to complete post-signup setup:", err);
             toast({
               title: "Connection issue",
               description:
-                "Payment setup will be completed when you first upgrade.",
+                "Account setup will be completed when you next sign in.",
               variant: "default",
             });
           }

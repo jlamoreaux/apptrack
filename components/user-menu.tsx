@@ -85,7 +85,7 @@ export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserM
         <Link href="/dashboard/upgrade">
           <DropdownMenuItem>
             <Crown className="h-4 w-4 mr-2" />
-            {isOnFreePlan ? "Upgrade to Pro" : "Manage Subscription"}
+            {isOnFreePlan ? "Upgrade to AI Coach" : "Manage Subscription"}
           </DropdownMenuItem>
         </Link>
 

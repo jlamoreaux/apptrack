@@ -166,7 +166,7 @@ export function MobileNavigation({
               className="flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors"
             >
               <Crown className="h-4 w-4 text-secondary" />
-              <span>Upgrade to Pro</span>
+              <span>Upgrade to AI Coach</span>
             </Link>
           )}
 

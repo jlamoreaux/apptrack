@@ -67,10 +67,13 @@ export default function UpgradeSuccessPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-green-900 mb-2">What's included in your Pro plan:</h3>
+                <h3 className="font-semibold text-green-900 mb-2">What's included in your AI Coach plan:</h3>
                 <ul className="text-sm text-green-700 space-y-1 text-left">
                   <li>• Unlimited job applications</li>
-                  <li>• All features from the free plan</li>
+                  <li>• AI-powered resume analysis</li>
+                  <li>• Interview preparation</li>
+                  <li>• Job fit analysis</li>
+                  <li>• Custom cover letter generation</li>
                   <li>• Cancel anytime</li>
                 </ul>
               </div>
