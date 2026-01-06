@@ -69,12 +69,15 @@ apptrack-extension/
 │   │   ├── components/
 │   │   └── index.tsx
 │   ├── options/              # Settings page
-│   ├── shared/               # Shared utilities
+│   ├── lib/                  # Shared utilities
 │   │   ├── api.ts            # AppTrack API client
 │   │   ├── auth.ts           # Auth state management
-│   │   ├── storage.ts        # chrome.storage wrapper
+│   │   ├── storage.ts        # Browser storage wrapper (webextension-polyfill)
 │   │   └── types.ts          # Shared TypeScript types
-│   └── manifest.json
+│   └── manifest/             # Browser-specific manifests
+│       ├── base.json         # Shared manifest properties
+│       ├── chrome.json       # Chrome-specific overrides
+│       └── firefox.json      # Firefox-specific overrides
 ├── tests/
 ├── scripts/
 └── package.json
@@ -85,8 +88,9 @@ apptrack-extension/
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
 | Build | Vite + CRXJS | Fast builds, HMR for development |
-| UI | React 18 + Tailwind | Consistent with AppTrack web |
-| State | Zustand | Lightweight, works across contexts |
+| UI | React 19 + Tailwind | Consistent with AppTrack web |
+| State | React built-in (useState/useContext) | Simple state needs, minimal bundle |
+| Storage | webextension-polyfill | Cross-browser storage API compatibility |
 | API Client | Fetch + custom wrapper | No heavy deps needed |
 | Testing | Vitest + Playwright | Unit + E2E extension testing |
 | Types | TypeScript | Type safety, API contract validation |
@@ -99,6 +103,47 @@ apptrack-extension/
 | Firefox | P1 | Manifest V3 (with polyfills) |
 | Edge | P2 | Chromium-based, same as Chrome |
 | Safari | P3 | Future consideration |
+
+### Cross-Browser Architecture
+
+The extension uses [webextension-polyfill](https://github.com/mozilla/webextension-polyfill) to normalize browser APIs:
+
+```typescript
+// src/lib/storage.ts - Works on Chrome, Firefox, Edge, Safari
+import browser from 'webextension-polyfill'
+
+export const storage = {
+  async getToken(): Promise<string | null> {
+    const { token } = await browser.storage.local.get('token')
+    return token ?? null
+  },
+  async setToken(token: string): Promise<void> {
+    await browser.storage.local.set({ token })
+  },
+  async clear(): Promise<void> {
+    await browser.storage.local.clear()
+  }
+}
+```
+
+**Manifest Differences by Browser:**
+
+| Feature | Chrome | Firefox |
+|---------|--------|---------|
+| Background | `service_worker: "bg.js"` | `scripts: ["bg.js"]` |
+| Browser ID | Not required | `browser_specific_settings.gecko.id` |
+| Min version | Not required | `strict_min_version: "109.0"` |
+
+Build tooling merges `base.json` with browser-specific overrides to produce final manifests.
+
+### Validation Strategy
+
+| Layer | Validation | Tool |
+|-------|------------|------|
+| Extension (client) | Basic type guards | TypeScript + runtime checks |
+| API (server) | Full schema validation | Zod (existing) |
+
+**Rationale:** Skip Zod in extension to reduce bundle size (~12KB). Extraction is best-effort with user editing. API already validates all input server-side.
 
 ---
 
@@ -700,4 +745,154 @@ Response: { applications: Application[], total: number }
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2024-01-XX | - | Initial PRD |
+| 1.0 | 2025-01-06 | - | Initial PRD |
+| 1.1 | 2025-01-06 | - | Updated React 18→19, removed Zustand, added cross-browser architecture |
+
+---
+
+## Architectural Review
+
+### Critical Assessment
+
+This section provides an honest technical review of the proposed architecture, identifying risks, gaps, and areas that need further consideration.
+
+#### Strengths
+
+1. **Appropriate Separation of Concerns**
+   - Separate repo is the right call for independent release cycles
+   - Content scripts / background worker / popup separation follows best practices
+
+2. **Minimal Bundle Size Focus**
+   - Avoiding Zustand and Zod in extension is correct
+   - webextension-polyfill is lightweight (~20KB)
+
+3. **Security Model**
+   - OAuth flow avoids storing passwords in extension
+   - Token-based auth with refresh is industry standard
+
+#### Concerns & Risks
+
+**HIGH PRIORITY**
+
+| Risk | Severity | Mitigation |
+|------|----------|------------|
+| **Extractor Maintenance Burden** | High | Job sites change DOM frequently. LinkedIn alone updates ~monthly. Each extractor is technical debt that requires ongoing maintenance. Consider: start with fewer sites (3-4), invest heavily in generic JSON-LD fallback. |
+| **90% Extraction Accuracy Target** | High | Unrealistic for DOM-based extraction. LinkedIn obfuscates class names. Workday uses iframes. Recommend: lower to 80% for "supported sites" and rely on user editing. |
+| **Token Security in chrome.storage** | Medium | While browser-encrypted, tokens are accessible to any code running in extension context. If a malicious dependency is introduced, tokens could be exfiltrated. Recommend: token rotation on each use, shorter expiry (7 days not 30). |
+| **Service Worker Lifecycle (MV3)** | Medium | Chrome MV3 service workers can be terminated at any time. Pending API calls may be lost. The offline queue helps but doesn't fully solve this. Recommend: investigate using `chrome.alarms` for persistence. |
+
+**MEDIUM PRIORITY**
+
+| Risk | Severity | Notes |
+|------|----------|-------|
+| **LinkedIn ToS Compliance** | Medium | Scraping LinkedIn DOM may violate their ToS. They actively block automation. Extension could get users banned. Consider: clearly document this risk to users, or skip LinkedIn extraction entirely. |
+| **Store Review Delays** | Medium | Chrome Web Store reviews can take 1-4 weeks. Firefox is faster. Plan for this in release cycles. |
+| **Duplicate Detection by company+role** | Low | Too simplistic. Same company may have multiple "Software Engineer" roles. Recommend: include location or job URL in duplicate check. |
+
+#### Missing from PRD
+
+1. **Versioning & Backwards Compatibility**
+   - What happens when API changes? Extension users may have old versions.
+   - Need: API versioning strategy, minimum extension version enforcement
+
+2. **Telemetry & Error Reporting**
+   - PRD mentions Sentry but doesn't specify what to track
+   - Need: specific error boundaries, extraction failure logging, API error categorization
+
+3. **Update Mechanism**
+   - How do users get updates? Auto-update is browser-controlled.
+   - Need: in-extension notification for major updates, force-upgrade for security fixes
+
+4. **Uninstall Behavior**
+   - What happens to pending queue on uninstall?
+   - Need: define data cleanup behavior
+
+5. **Multi-Account Support**
+   - Users may have multiple AppTrack accounts (personal + work)
+   - Need: decide if supporting or explicitly not supporting
+
+6. **Internationalization**
+   - Job sites have localized versions (indeed.co.uk, linkedin.com/jobs in French)
+   - Need: define i18n scope for MVP
+
+#### Over-Engineering Concerns
+
+| Feature | Concern | Recommendation |
+|---------|---------|----------------|
+| Offline Queue | Complex for MVP, edge case | Defer to Phase 2. Show error if offline. |
+| 7 Site-Specific Extractors | High maintenance | Launch with 3: LinkedIn, Indeed, Generic. Add others based on user requests. |
+| Keyboard Shortcuts | Nice-to-have | Defer to Phase 2 |
+| Notification Integration | Requires additional permissions | Defer to Phase 3 |
+
+#### Under-Engineering Concerns
+
+| Area | Concern | Recommendation |
+|------|---------|----------------|
+| Error UX | PRD doesn't detail error states | Add: network error, auth error, rate limit, server error UI mocks |
+| Loading States | No loading indicators specified | Add: skeleton states, progress indicators for save |
+| Accessibility | Mentioned but no specifics | Add: WCAG 2.1 AA compliance checklist, screen reader testing plan |
+
+#### Alternative Approaches to Consider
+
+1. **Bookmarklet Instead of Extension**
+   - Pros: No store review, instant updates, simpler distribution
+   - Cons: No persistent state, no background processing, less polished UX
+   - Verdict: Extension is correct choice for this use case
+
+2. **Web App "Clip" Feature**
+   - Add a browser bookmarklet that opens AppTrack in a sidebar/modal
+   - User pastes URL, we fetch and parse server-side
+   - Pros: No extension maintenance, server-side parsing can be more robust
+   - Cons: Extra steps for user, can't read page content directly
+   - Verdict: Consider as fallback for unsupported sites
+
+3. **Native Platform Integration**
+   - Chrome side panel API (newer, more prominent)
+   - Pros: Richer UI, always visible
+   - Cons: Chrome-only, not all users want persistent UI
+   - Verdict: Consider for Phase 3
+
+#### Recommended MVP Scope Reduction
+
+To reduce risk and ship faster, consider this reduced MVP:
+
+```
+MVP (3-4 weeks):
+├── Auth flow (token-based)
+├── Manual job entry via popup
+├── 3 extractors only: Indeed, Greenhouse, Generic (JSON-LD)
+├── Chrome only
+└── No offline queue (show error if offline)
+
+Fast-Follow (2 weeks after stable):
+├── LinkedIn extractor (with ToS warning)
+├── Firefox support
+├── Duplicate detection
+
+Phase 2:
+├── Offline queue
+├── Quick status updates
+├── Additional extractors based on user feedback
+```
+
+#### Questions for Product/Business
+
+1. Is this extension free for all users or premium-only?
+2. What's the acceptable extraction accuracy threshold?
+3. Are we comfortable with LinkedIn ToS risk?
+4. What's the support burden expectation for extractor bugs?
+5. Do we need analytics on which job sites users save from?
+
+---
+
+### Conclusion
+
+The PRD is solid for a first draft but needs refinement before implementation:
+
+1. **Reduce MVP scope** - fewer extractors, Chrome-only, no offline queue
+2. **Add error/loading UX specs** - critical for user experience
+3. **Address LinkedIn risk** - legal review recommended
+4. **Plan for extractor maintenance** - this is the long-term cost center
+5. **Define API versioning** - essential for independent release cycles
+
+The separate repo decision is correct. The tech stack (React 19, Vite, webextension-polyfill) is appropriate. The authentication flow is secure. With scope reduction and the gaps addressed above, this is ready for implementation planning.
