@@ -56,21 +56,16 @@ apptrack-extension/
 │   ├── background/           # Service worker (auth, API calls)
 │   │   └── index.ts
 │   ├── content/              # Content scripts (page parsing)
-│   │   ├── extractors/       # Site-specific extractors
-│   │   │   ├── linkedin.ts
-│   │   │   ├── indeed.ts
-│   │   │   ├── greenhouse.ts
-│   │   │   ├── lever.ts
-│   │   │   ├── workday.ts
-│   │   │   └── generic.ts    # Fallback JSON-LD/meta parser
+│   │   ├── extractor.ts      # Generic extractor (JSON-LD, meta, heuristics)
 │   │   └── index.ts
 │   ├── popup/                # Extension popup UI
 │   │   ├── App.tsx
 │   │   ├── components/
 │   │   └── index.tsx
-│   ├── options/              # Settings page
+│   ├── options/              # Settings page (analytics opt-out, etc.)
 │   ├── lib/                  # Shared utilities
 │   │   ├── api.ts            # AppTrack API client
+│   │   ├── analytics.ts      # PostHog wrapper
 │   │   ├── auth.ts           # Auth state management
 │   │   ├── storage.ts        # Browser storage wrapper (webextension-polyfill)
 │   │   └── types.ts          # Shared TypeScript types
@@ -563,15 +558,12 @@ background.addEventListener('online', syncPendingApplications);
     "alarms"            // Token refresh scheduling
   ],
   "host_permissions": [
-    "https://apptrack.app/*",           // API calls
-    "https://*.linkedin.com/*",         // Job extraction
-    "https://*.indeed.com/*",
-    "https://*.greenhouse.io/*",
-    "https://*.lever.co/*",
-    "https://*.myworkdayjobs.com/*"
+    "https://apptrack.app/*"  // API calls only
   ]
 }
 ```
+
+**Note:** Using `activeTab` instead of broad host permissions. The extension only reads pages when user clicks the icon, avoiding the scary "can read all your data" permission warning. This is better for store approval and user trust.
 
 ### Security Measures
 - [ ] No inline scripts (CSP compliant)
@@ -583,28 +575,113 @@ background.addEventListener('online', syncPendingApplications);
 
 ---
 
-## Success Metrics
+## Analytics & Metrics (PostHog)
 
-### Primary KPIs
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| Daily Active Users | 1,000+ | Extension analytics |
-| Applications saved via extension | 40% of all new apps | API tracking |
-| Extraction accuracy | 90%+ | User corrections tracked |
-| Save completion rate | 95%+ | Started vs completed saves |
+The extension will use PostHog for comprehensive analytics, matching AppTrack web's existing setup.
 
-### Secondary KPIs
-| Metric | Target |
-|--------|--------|
-| Chrome Web Store rating | 4.5+ stars |
-| Weekly retention | 60%+ |
-| Time to save (avg) | < 3 seconds |
-| Auth success rate | 99%+ |
+### Implementation
 
-### Tracking Implementation
-- Anonymous usage analytics (opt-in)
-- Error tracking via Sentry
-- API-side tracking for saves via extension
+```typescript
+// src/lib/analytics.ts
+import posthog from 'posthog-js'
+
+const POSTHOG_KEY = process.env.POSTHOG_KEY
+const POSTHOG_HOST = 'https://app.posthog.com'
+
+export const analytics = {
+  init(userId?: string) {
+    posthog.init(POSTHOG_KEY, {
+      api_host: POSTHOG_HOST,
+      persistence: 'localStorage',
+      autocapture: false,  // Manual events only for extensions
+    })
+    if (userId) posthog.identify(userId)
+  },
+
+  track(event: string, properties?: Record<string, unknown>) {
+    posthog.capture(event, {
+      source: 'extension',
+      extension_version: chrome.runtime.getManifest().version,
+      ...properties
+    })
+  }
+}
+```
+
+### Key Events to Track
+
+#### Authentication Events
+| Event | Properties | Purpose |
+|-------|------------|---------|
+| `extension_installed` | `browser`, `version` | Track installs |
+| `extension_auth_started` | - | Funnel: auth initiated |
+| `extension_auth_completed` | `time_to_complete` | Funnel: auth success |
+| `extension_auth_failed` | `error_type` | Debug auth issues |
+| `extension_logged_out` | `session_duration` | Churn signal |
+
+#### Core Usage Events
+| Event | Properties | Purpose |
+|-------|------------|---------|
+| `extension_popup_opened` | `page_url`, `page_domain` | Engagement tracking |
+| `extension_job_detected` | `domain`, `extraction_method`, `fields_extracted` | Extraction success rate |
+| `extension_job_not_detected` | `domain`, `page_title` | Identify sites needing support |
+| `extension_save_started` | `domain`, `has_job_description`, `fields_edited` | Save funnel start |
+| `extension_save_completed` | `domain`, `time_to_save`, `fields_edited` | Save funnel completion |
+| `extension_save_failed` | `error_type`, `domain` | Debug save failures |
+
+#### Extraction Quality Events
+| Event | Properties | Purpose |
+|-------|------------|---------|
+| `extension_field_edited` | `field_name`, `was_empty`, `domain` | Measure extraction accuracy |
+| `extension_extraction_method` | `method` (json-ld, meta, heuristic, manual) | Track which methods work |
+| `extension_manual_entry` | `domain` | Sites where auto-extraction fails |
+
+#### Error Events
+| Event | Properties | Purpose |
+|-------|------------|---------|
+| `extension_error` | `error_type`, `error_message`, `stack` | Debug errors |
+| `extension_api_error` | `status_code`, `endpoint` | API reliability |
+| `extension_offline_save_queued` | - | Offline usage patterns |
+
+### Key Metrics & Dashboards
+
+#### Primary KPIs
+| Metric | Calculation | Target |
+|--------|-------------|--------|
+| **Weekly Active Users** | Unique users with `extension_popup_opened` in 7 days | Growth indicator |
+| **Save Conversion Rate** | `save_completed` / `popup_opened` | > 60% |
+| **Extraction Success Rate** | `job_detected` / `popup_opened` on job sites | > 70% |
+| **Field Edit Rate** | Saves with `fields_edited > 0` / total saves | < 40% (lower = better extraction) |
+| **Auth Completion Rate** | `auth_completed` / `auth_started` | > 95% |
+
+#### Funnel: Install → First Save
+```
+extension_installed
+    ↓ (Target: 80%)
+extension_auth_completed
+    ↓ (Target: 70%)
+extension_popup_opened (on job page)
+    ↓ (Target: 90%)
+extension_save_completed
+```
+
+#### Domain Analysis Dashboard
+Track which job sites users save from most:
+- Top 10 domains by save volume
+- Extraction success rate by domain
+- Field edit rate by domain (identifies extraction quality)
+- "Job not detected" frequency by domain (prioritize new extractors)
+
+#### Cohort Analysis
+- Retention by install week
+- Saves per user over time
+- Time between installs and first save
+
+### Privacy Considerations
+- No PII in event properties (no job titles, company names)
+- Domain tracking only (not full URLs)
+- User can opt-out via extension settings
+- PostHog data retention: 12 months
 
 ---
 
@@ -638,39 +715,73 @@ background.addEventListener('online', syncPendingApplications);
 
 ---
 
-## Open Questions
+## Decisions Log
 
-1. **Premium Gating:** Should extension features be gated for free vs paid users?
-   - Recommendation: Free for core save functionality, premium for advanced features
-
-2. **Job Description Storage:** Store full JD or truncate?
-   - Recommendation: Truncate to 10,000 chars to match web app limits
-
-3. **Firefox Priority:** Ship Firefox simultaneously or after Chrome stable?
-   - Recommendation: Chrome first, Firefox 2 weeks after stable Chrome release
-
-4. **Automatic Saving:** Should we offer auto-save option (no click needed)?
-   - Recommendation: No - too aggressive, could create unwanted applications
-
-5. **Integration with "Apply" buttons:** Detect when user clicks apply?
-   - Recommendation: Phase 2 feature, complex and site-specific
+| Question | Decision | Rationale |
+|----------|----------|-----------|
+| **Premium Gating** | Free for all users | Only 2 paying users currently. Extension drives core product engagement and acquisition. Gate advanced features (bulk save, AI) in future. |
+| **LinkedIn Support** | Skip for MVP | ToS compliance risk + high maintenance burden. Let analytics show if users need it. |
+| **Extractor Strategy** | Generic JSON-LD first | Lower maintenance. One good generic extractor > 7 brittle site-specific ones. Add site-specific only when analytics show need. |
+| **Job Description Storage** | Truncate to 10,000 chars | Match web app limits |
+| **Firefox Priority** | Chrome first, Firefox 2 weeks after stable | Reduce MVP scope |
+| **Automatic Saving** | No | Too aggressive, could create unwanted applications |
+| **Apply Button Detection** | Phase 2+ | Complex and site-specific |
 
 ---
 
 ## Appendix
 
-### A. Supported Job Sites (MVP)
+### A. Extraction Strategy (MVP)
 
-| Site | URL Pattern | Extractor Type |
-|------|-------------|----------------|
-| LinkedIn | linkedin.com/jobs/* | Custom DOM |
-| Indeed | indeed.com/viewjob* | JSON-LD |
-| Greenhouse | boards.greenhouse.io/* | JSON-LD |
-| Lever | jobs.lever.co/* | DOM |
-| Workday | *.myworkdayjobs.com/* | DOM |
-| Glassdoor | glassdoor.com/job-listing/* | JSON-LD |
-| ZipRecruiter | ziprecruiter.com/jobs/* | DOM |
-| Generic | * | JSON-LD + meta fallback |
+**Philosophy:** One excellent generic extractor beats many brittle site-specific ones.
+
+#### Generic Extractor (Primary)
+
+The generic extractor attempts extraction in this priority order:
+
+| Method | Description | Expected Success |
+|--------|-------------|------------------|
+| 1. JSON-LD | Parse `<script type="application/ld+json">` for `schema.org/JobPosting` | High - standard format |
+| 2. Meta Tags | `og:title`, `og:description`, meta description | Medium |
+| 3. Heuristics | First `<h1>`, title tag parsing, common class patterns | Low-Medium |
+| 4. Manual | User enters all fields | Fallback |
+
+#### Sites with JSON-LD Support (auto-works)
+
+These sites use `schema.org/JobPosting` and should work with generic extractor:
+- Greenhouse (`boards.greenhouse.io/*`)
+- Lever (`jobs.lever.co/*`)
+- Many Indeed listings
+- Glassdoor
+- Most modern ATS platforms
+
+#### Sites Requiring Future Work (based on analytics)
+
+Monitor `extension_job_not_detected` events by domain. Add site-specific extractors only when:
+1. Domain appears in top 10 by volume
+2. Generic extraction fails > 50% on that domain
+3. User feedback requests it
+
+| Potential Future Sites | Complexity | Notes |
+|------------------------|------------|-------|
+| LinkedIn | High | ToS risk, obfuscated DOM, monthly changes |
+| Workday | High | Iframes, company-customized, dynamic loading |
+| Indeed (enhanced) | Medium | If JSON-LD coverage insufficient |
+
+#### Extraction Output
+
+```typescript
+interface ExtractedJob {
+  company: string | null
+  role: string | null
+  jobUrl: string           // Always available (current page)
+  jobDescription: string | null
+  location: string | null  // Nice to have
+  salary: string | null    // Nice to have
+  extractionMethod: 'json-ld' | 'meta' | 'heuristic' | 'manual'
+  confidence: 'high' | 'medium' | 'low'
+}
+```
 
 ### B. Manifest V3 Template
 
@@ -747,6 +858,7 @@ Response: { applications: Application[], total: number }
 |---------|------|--------|---------|
 | 1.0 | 2026-01-06 | - | Initial PRD |
 | 1.1 | 2026-01-06 | - | Updated React 18→19, removed Zustand, added cross-browser architecture |
+| 1.2 | 2026-01-06 | - | Decisions: free tier, skip LinkedIn, generic extractor strategy, comprehensive PostHog analytics |
 
 ---
 
@@ -772,22 +884,16 @@ This section provides an honest technical review of the proposed architecture, i
 
 #### Concerns & Risks
 
-**HIGH PRIORITY**
+**MEDIUM PRIORITY** (High-priority risks mitigated by decisions above)
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| **Extractor Maintenance Burden** | High | Job sites change DOM frequently. LinkedIn alone updates ~monthly. Each extractor is technical debt that requires ongoing maintenance. Consider: start with fewer sites (3-4), invest heavily in generic JSON-LD fallback. |
-| **90% Extraction Accuracy Target** | High | Unrealistic for DOM-based extraction. LinkedIn obfuscates class names. Workday uses iframes. Recommend: lower to 80% for "supported sites" and rely on user editing. |
-| **Token Security in chrome.storage** | Medium | While browser-encrypted, tokens are accessible to any code running in extension context. If a malicious dependency is introduced, tokens could be exfiltrated. Recommend: token rotation on each use, shorter expiry (7 days not 30). |
-| **Service Worker Lifecycle (MV3)** | Medium | Chrome MV3 service workers can be terminated at any time. Pending API calls may be lost. The offline queue helps but doesn't fully solve this. Recommend: investigate using `chrome.alarms` for persistence. |
-
-**MEDIUM PRIORITY**
-
-| Risk | Severity | Notes |
-|------|----------|-------|
-| **LinkedIn ToS Compliance** | Medium | Scraping LinkedIn DOM may violate their ToS. They actively block automation. Extension could get users banned. Consider: clearly document this risk to users, or skip LinkedIn extraction entirely. |
-| **Store Review Delays** | Medium | Chrome Web Store reviews can take 1-4 weeks. Firefox is faster. Plan for this in release cycles. |
-| **Duplicate Detection by company+role** | Low | Too simplistic. Same company may have multiple "Software Engineer" roles. Recommend: include location or job URL in duplicate check. |
+| Risk | Severity | Status |
+|------|----------|--------|
+| **Extractor Maintenance Burden** | Low | ✅ Mitigated: Generic-only strategy reduces to single extractor. Analytics-driven expansion. |
+| **Extraction Accuracy Target** | Low | ✅ Mitigated: 70% target with user editing. Track via `extension_field_edited` events. |
+| **Token Security in chrome.storage** | Medium | Open: Consider shorter expiry (7 days not 30) and token rotation. |
+| **Service Worker Lifecycle (MV3)** | Medium | Open: Service workers can terminate mid-request. Use `chrome.alarms` for reliability. |
+| **Store Review Delays** | Medium | Open: Chrome Web Store reviews take 1-4 weeks. Plan for this in release cycles. |
+| **Duplicate Detection** | Low | Open: company+role may be too simplistic. Consider including job URL in check. |
 
 #### Missing from PRD
 
@@ -817,10 +923,10 @@ This section provides an honest technical review of the proposed architecture, i
 
 #### Over-Engineering Concerns
 
-| Feature | Concern | Recommendation |
-|---------|---------|----------------|
-| Offline Queue | Complex for MVP, edge case | Defer to Phase 2. Show error if offline. |
-| 7 Site-Specific Extractors | High maintenance | Launch with 3: LinkedIn, Indeed, Generic. Add others based on user requests. |
+| Feature | Concern | Decision |
+|---------|---------|----------|
+| Offline Queue | Complex for MVP, edge case | ✅ Deferred to Phase 2. Show error if offline. |
+| Site-Specific Extractors | High maintenance | ✅ Resolved: Generic-only for MVP. Data-driven expansion. |
 | Keyboard Shortcuts | Nice-to-have | Defer to Phase 2 |
 | Notification Integration | Requires additional permissions | Defer to Phase 3 |
 
@@ -852,47 +958,63 @@ This section provides an honest technical review of the proposed architecture, i
    - Cons: Chrome-only, not all users want persistent UI
    - Verdict: Consider for Phase 3
 
-#### Recommended MVP Scope Reduction
-
-To reduce risk and ship faster, consider this reduced MVP:
+#### Final MVP Scope
 
 ```
 MVP (3-4 weeks):
 ├── Auth flow (token-based)
-├── Manual job entry via popup
-├── 3 extractors only: Indeed, Greenhouse, Generic (JSON-LD)
+├── Generic extractor (JSON-LD → meta → heuristics → manual)
 ├── Chrome only
+├── PostHog analytics (all events from analytics section)
+├── Free for all users
 └── No offline queue (show error if offline)
 
-Fast-Follow (2 weeks after stable):
-├── LinkedIn extractor (with ToS warning)
+Fast-Follow (2 weeks post-stable):
 ├── Firefox support
 ├── Duplicate detection
+├── Analytics dashboard review → identify top failing domains
 
-Phase 2:
+Phase 2 (data-driven):
+├── Site-specific extractors ONLY for domains with:
+│   └── High volume + low extraction success (from analytics)
 ├── Offline queue
-├── Quick status updates
-├── Additional extractors based on user feedback
+├── Quick status updates from extension
+└── Keyboard shortcuts
 ```
 
-#### Questions for Product/Business
+#### Resolved Questions
 
-1. Is this extension free for all users or premium-only?
-2. What's the acceptable extraction accuracy threshold?
-3. Are we comfortable with LinkedIn ToS risk?
-4. What's the support burden expectation for extractor bugs?
-5. Do we need analytics on which job sites users save from?
+| Question | Answer |
+|----------|--------|
+| Free or premium? | ✅ Free for all users |
+| LinkedIn support? | ✅ Skip for MVP (ToS + maintenance) |
+| Extraction accuracy target? | ✅ 70% with user editing |
+| Support burden for extractors? | ✅ Minimal - single generic extractor, data-driven expansion |
+| Analytics on job sites? | ✅ Yes - comprehensive PostHog tracking by domain |
 
 ---
 
 ### Conclusion
 
-The PRD is solid for a first draft but needs refinement before implementation:
+This PRD is ready for implementation with the following key decisions locked in:
 
-1. **Reduce MVP scope** - fewer extractors, Chrome-only, no offline queue
-2. **Add error/loading UX specs** - critical for user experience
-3. **Address LinkedIn risk** - legal review recommended
-4. **Plan for extractor maintenance** - this is the long-term cost center
-5. **Define API versioning** - essential for independent release cycles
+| Decision | Rationale |
+|----------|-----------|
+| **Free for all users** | Drive adoption, only 2 paying users currently |
+| **Generic extractor only** | Minimal maintenance, data-driven expansion |
+| **Skip LinkedIn** | ToS risk + high maintenance burden |
+| **Heavy PostHog analytics** | Make data-driven decisions on future extractors |
+| **Chrome-only MVP** | Reduce scope, Firefox in fast-follow |
 
-The separate repo decision is correct. The tech stack (React 19, Vite, webextension-polyfill) is appropriate. The authentication flow is secure. With scope reduction and the gaps addressed above, this is ready for implementation planning.
+**Remaining items before implementation:**
+1. Add error/loading UX specs
+2. Define API versioning strategy
+3. Finalize token expiry (7 vs 30 days)
+
+**Architecture is sound:**
+- Separate repo: ✅ Correct
+- Tech stack (React 19, Vite, webextension-polyfill): ✅ Appropriate
+- Auth flow: ✅ Secure
+- Analytics: ✅ Comprehensive
+
+**Ready for implementation planning.**
