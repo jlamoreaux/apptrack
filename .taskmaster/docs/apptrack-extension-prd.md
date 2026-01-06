@@ -745,8 +745,8 @@ Response: { applications: Application[], total: number }
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2025-01-06 | - | Initial PRD |
-| 1.1 | 2025-01-06 | - | Updated React 18→19, removed Zustand, added cross-browser architecture |
+| 1.0 | 2026-01-06 | - | Initial PRD |
+| 1.1 | 2026-01-06 | - | Updated React 18→19, removed Zustand, added cross-browser architecture |
 
 ---
 
