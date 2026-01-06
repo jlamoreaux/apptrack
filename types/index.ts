@@ -11,8 +11,37 @@ export interface Profile {
   user_id: string;
   full_name?: string;
   avatar_url?: string;
+  extension_token_version?: number;
   created_at: string;
   updated_at: string;
+}
+
+// Extension auth types
+export interface ExtensionTokenResponse {
+  token: string;
+  expiresAt: string;
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+  };
+}
+
+export interface ExtensionTokenRefreshResponse {
+  token: string;
+  expiresAt: string;
+  message?: string;
+}
+
+export interface DuplicateCheckResponse {
+  exists: boolean;
+  application?: {
+    id: string;
+    company: string;
+    role: string;
+    status: string;
+    date_applied: string;
+  };
 }
 
 export interface Subscription {
