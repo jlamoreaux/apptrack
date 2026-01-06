@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
 import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
+import { useScrollToError } from "@/lib/hooks/use-scroll-to-error";
 
 export interface CoverLetterFormData {
   jobDescription: string;
@@ -36,24 +37,11 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
 
   const [errors, setErrors] = useState<Partial<Record<keyof CoverLetterFormData, string>>>({});
 
-  // Refs for scrolling to errors
-  const companyNameRef = useRef<HTMLInputElement>(null);
-  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
-  const userBackgroundRef = useRef<HTMLDivElement>(null);
-
-  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof CoverLetterFormData, string>>) => {
-    if (newErrors.companyName && companyNameRef.current) {
-      companyNameRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      companyNameRef.current.focus();
-    } else if (newErrors.jobDescription && jobDescriptionRef.current) {
-      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      jobDescriptionRef.current.focus();
-    } else if (newErrors.userBackground && userBackgroundRef.current) {
-      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const textarea = userBackgroundRef.current.querySelector('textarea');
-      textarea?.focus();
-    }
-  }, []);
+  const { refs, scrollToFirstError } = useScrollToError<keyof CoverLetterFormData>([
+    'companyName',
+    'jobDescription',
+    'userBackground',
+  ]);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof CoverLetterFormData, string>> = {};
@@ -73,7 +61,7 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      setTimeout(() => scrollToFirstError(newErrors), 100);
+      scrollToFirstError(newErrors);
     }
 
     return Object.keys(newErrors).length === 0;
@@ -111,10 +99,10 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       {/* Company Name */}
       <div className="space-y-2">
         <Label htmlFor="companyName">
-          Company Name <span className="text-red-500">*</span>
+          Company Name <span className="text-destructive">*</span>
         </Label>
         <Input
-          ref={companyNameRef}
+          ref={refs.companyName as React.RefObject<HTMLInputElement>}
           id="companyName"
           value={formData.companyName}
           onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
@@ -123,7 +111,7 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
           className={errors.companyName ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         />
         {errors.companyName && (
-          <p className="text-sm text-red-600">{errors.companyName}</p>
+          <p className="text-sm text-destructive">{errors.companyName}</p>
         )}
       </div>
 
@@ -144,10 +132,10 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       {/* Job Description */}
       <div className="space-y-2">
         <Label htmlFor="jobDescription">
-          Job Description <span className="text-red-500">*</span>
+          Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
-          ref={jobDescriptionRef}
+          ref={refs.jobDescription as React.RefObject<HTMLTextAreaElement>}
           id="jobDescription"
           value={formData.jobDescription}
           onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
@@ -158,7 +146,7 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
         />
         <div className="flex justify-between text-sm">
           {errors.jobDescription ? (
-            <p className="text-red-600">{errors.jobDescription}</p>
+            <p className="text-destructive">{errors.jobDescription}</p>
           ) : (
             <p className="text-muted-foreground">
               Minimum 100 characters
@@ -175,7 +163,7 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       </div>
 
       {/* User Background */}
-      <div ref={userBackgroundRef}>
+      <div ref={refs.userBackground as React.RefObject<HTMLDivElement>}>
         <ResumeUploadField
           value={formData.userBackground}
           onChange={(value) => setFormData({ ...formData, userBackground: value })}

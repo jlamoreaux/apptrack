@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
 import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
+import { useScrollToError } from "@/lib/hooks/use-scroll-to-error";
 
 export interface InterviewPrepFormData {
   jobDescription: string;
@@ -33,20 +34,10 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
   );
   const [errors, setErrors] = useState<Partial<Record<keyof InterviewPrepFormData, string>>>({});
 
-  // Refs for scrolling to errors
-  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
-  const userBackgroundRef = useRef<HTMLDivElement>(null);
-
-  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof InterviewPrepFormData, string>>) => {
-    if (newErrors.jobDescription && jobDescriptionRef.current) {
-      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      jobDescriptionRef.current.focus();
-    } else if (newErrors.userBackground && userBackgroundRef.current) {
-      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      const textarea = userBackgroundRef.current.querySelector('textarea');
-      textarea?.focus();
-    }
-  }, []);
+  const { refs, scrollToFirstError } = useScrollToError<keyof InterviewPrepFormData>([
+    'jobDescription',
+    'userBackground',
+  ]);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof InterviewPrepFormData, string>> = {};
@@ -59,7 +50,7 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
     setErrors(newErrors);
 
     if (Object.keys(newErrors).length > 0) {
-      setTimeout(() => scrollToFirstError(newErrors), 100);
+      scrollToFirstError(newErrors);
     }
 
     return Object.keys(newErrors).length === 0;
@@ -106,10 +97,10 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
 
       <div className="space-y-2">
         <Label htmlFor="jobDescription">
-          Job Description <span className="text-red-500">*</span>
+          Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
-          ref={jobDescriptionRef}
+          ref={refs.jobDescription as React.RefObject<HTMLTextAreaElement>}
           id="jobDescription"
           value={formData.jobDescription}
           onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
@@ -120,7 +111,7 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
         />
         <div className="flex justify-between text-sm">
           {errors.jobDescription ? (
-            <p className="text-red-600">{errors.jobDescription}</p>
+            <p className="text-destructive">{errors.jobDescription}</p>
           ) : (
             <p className="text-muted-foreground">Minimum 100 characters</p>
           )}
@@ -130,7 +121,7 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
         </div>
       </div>
 
-      <div ref={userBackgroundRef}>
+      <div ref={refs.userBackground as React.RefObject<HTMLDivElement>}>
         <ResumeUploadField
           value={formData.userBackground}
           onChange={(value) => setFormData({ ...formData, userBackground: value })}

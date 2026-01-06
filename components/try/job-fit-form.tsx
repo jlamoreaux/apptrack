@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
 import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
+import { useScrollToError } from "@/lib/hooks/use-scroll-to-error";
 
 export interface JobFitFormData {
   jobDescription: string;
@@ -31,22 +32,10 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
   );
   const [errors, setErrors] = useState<Partial<Record<keyof JobFitFormData, string>>>({});
 
-  // Refs for scrolling to errors
-  const jobDescriptionRef = useRef<HTMLTextAreaElement>(null);
-  const userBackgroundRef = useRef<HTMLDivElement>(null);
-
-  const scrollToFirstError = useCallback((newErrors: Partial<Record<keyof JobFitFormData, string>>) => {
-    // Determine which field has the first error and scroll to it
-    if (newErrors.jobDescription && jobDescriptionRef.current) {
-      jobDescriptionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      jobDescriptionRef.current.focus();
-    } else if (newErrors.userBackground && userBackgroundRef.current) {
-      userBackgroundRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      // Focus the textarea inside the ResumeUploadField
-      const textarea = userBackgroundRef.current.querySelector('textarea');
-      textarea?.focus();
-    }
-  }, []);
+  const { refs, scrollToFirstError } = useScrollToError<keyof JobFitFormData>([
+    'jobDescription',
+    'userBackground',
+  ]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof JobFitFormData, string>> = {};
@@ -67,9 +56,8 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
 
     setErrors(newErrors);
 
-    // Scroll to first error if validation fails
     if (Object.keys(newErrors).length > 0) {
-      setTimeout(() => scrollToFirstError(newErrors), 100);
+      scrollToFirstError(newErrors);
     }
 
     return Object.keys(newErrors).length === 0;
@@ -115,7 +103,7 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
           Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
-          ref={jobDescriptionRef}
+          ref={refs.jobDescription as React.RefObject<HTMLTextAreaElement>}
           id="jobDescription"
           placeholder="Paste the full job description here..."
           value={formData.jobDescription}
@@ -133,7 +121,7 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
       </div>
 
       {/* User Background */}
-      <div ref={userBackgroundRef}>
+      <div ref={refs.userBackground as React.RefObject<HTMLDivElement>}>
         <ResumeUploadField
           value={formData.userBackground}
           onChange={(value) => handleChange("userBackground", value)}

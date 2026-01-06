@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { InterviewPrepForm, type InterviewPrepFormData } from "@/components/try/interview-prep-form";
 import { InterviewPrepResults } from "@/components/try/interview-prep-results";
+import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -143,16 +144,14 @@ export default function TryInterviewPrepPage() {
       )}
 
       {/* Quick Tips - Mobile Only */}
-      {!results && (
-        <div className="sm:hidden mb-6 p-4 bg-muted/50 rounded-lg border">
-          <p className="text-sm font-medium mb-2">Quick tips:</p>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>1. Paste the job description below</li>
-            <li>2. Add your resume or background summary</li>
-            <li>3. Get tailored interview questions in 30 seconds</li>
-          </ul>
-        </div>
-      )}
+      <QuickTips
+        show={!results}
+        tips={[
+          "Paste the job description below",
+          "Add your resume or background summary",
+          "Get tailored interview questions in 30 seconds",
+        ]}
+      />
 
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">

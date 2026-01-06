@@ -14,7 +14,7 @@ import { transitionAudience, scheduleDripSequence } from "@/lib/email/drip-sched
  * This endpoint is idempotent - safe to call multiple times.
  * All operations are non-blocking to avoid disrupting the user flow.
  */
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
   const startTime = Date.now();
 
   try {
@@ -29,6 +29,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    if (!user.email) {
+      loggerService.warn('User missing email in on-signup', {
+        category: LogCategory.AUTH,
+        action: 'on_signup_missing_email',
+        userId: user.id
+      });
+
+      return NextResponse.json(
+        { error: "User email is required" },
+        { status: 400 }
       );
     }
 
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest) {
       } else {
         // Check if customer exists in Stripe by email
         const customers = await stripe.customers.list({
-          email: user.email!,
+          email: user.email,
           limit: 1,
         });
 
@@ -69,8 +82,8 @@ export async function POST(request: NextRequest) {
         } else {
           // Create new customer
           const customer = await stripe.customers.create({
-            email: user.email!,
-            name: user.user_metadata?.full_name || user.email!,
+            email: user.email,
+            name: user.user_metadata?.full_name || user.email,
             metadata: {
               userId: user.id,
             },
@@ -123,76 +136,74 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Handle Resend audience membership
-    if (user.email) {
-      try {
-        const existingMember = await getAudienceMember(user.email);
-        const firstName = user.user_metadata?.full_name?.split(' ')[0];
+    try {
+      const existingMember = await getAudienceMember(user.email);
+      const firstName = user.user_metadata?.full_name?.split(' ')[0];
 
-        if (existingMember && existingMember.current_audience === 'leads') {
-          // User was captured as a lead (e.g., resume roast) - transition to free-users
-          await transitionAudience(user.email, 'leads', 'free-users', {
-            userId: user.id,
-            firstName,
-          });
-
-          results.resend = {
-            success: true,
-            message: 'Transitioned from leads to free-users'
-          };
-
-          loggerService.logBusinessMetric(
-            'audience_member_transitioned',
-            1,
-            'count',
-            { userId: user.id, metadata: { fromAudience: 'leads', toAudience: 'free-users' } }
-          );
-        } else if (existingMember) {
-          // Already in free-users, trial-users, or paid-users - no action needed
-          results.resend = {
-            success: true,
-            message: `Already in audience: ${existingMember.current_audience}`
-          };
-        } else {
-          // New user - add to free-users
-          await scheduleDripSequence({
-            email: user.email,
-            audience: 'free-users',
-            userId: user.id,
-            firstName,
-            metadata: { source: 'signup' },
-          });
-
-          results.resend = {
-            success: true,
-            message: 'Added to free-users audience'
-          };
-
-          loggerService.logBusinessMetric(
-            'audience_member_added',
-            1,
-            'count',
-            { userId: user.id, metadata: { audience: 'free-users' } }
-          );
-        }
-
-        loggerService.info('Resend audience setup complete', {
-          category: LogCategory.EMAIL,
+      if (existingMember && existingMember.current_audience === 'leads') {
+        // User was captured as a lead (e.g., resume roast) - transition to free-users
+        await transitionAudience(user.email, 'leads', 'free-users', {
           userId: user.id,
-          action: 'on_signup_resend_complete',
-          metadata: { message: results.resend.message }
+          firstName,
         });
 
-      } catch (resendError) {
-        loggerService.error('Resend audience setup failed', resendError as Error, {
-          category: LogCategory.EMAIL,
-          userId: user.id,
-          action: 'on_signup_resend_error'
-        });
         results.resend = {
-          success: false,
-          message: 'Failed to setup Resend audience'
+          success: true,
+          message: 'Transitioned from leads to free-users'
         };
+
+        loggerService.logBusinessMetric(
+          'audience_member_transitioned',
+          1,
+          'count',
+          { userId: user.id, metadata: { fromAudience: 'leads', toAudience: 'free-users' } }
+        );
+      } else if (existingMember) {
+        // Already in free-users, trial-users, or paid-users - no action needed
+        results.resend = {
+          success: true,
+          message: `Already in audience: ${existingMember.current_audience}`
+        };
+      } else {
+        // New user - add to free-users
+        await scheduleDripSequence({
+          email: user.email,
+          audience: 'free-users',
+          userId: user.id,
+          firstName,
+          metadata: { source: 'signup' },
+        });
+
+        results.resend = {
+          success: true,
+          message: 'Added to free-users audience'
+        };
+
+        loggerService.logBusinessMetric(
+          'audience_member_added',
+          1,
+          'count',
+          { userId: user.id, metadata: { audience: 'free-users' } }
+        );
       }
+
+      loggerService.info('Resend audience setup complete', {
+        category: LogCategory.EMAIL,
+        userId: user.id,
+        action: 'on_signup_resend_complete',
+        metadata: { message: results.resend.message }
+      });
+
+    } catch (resendError) {
+      loggerService.error('Resend audience setup failed', resendError as Error, {
+        category: LogCategory.EMAIL,
+        userId: user.id,
+        action: 'on_signup_resend_error'
+      });
+      results.resend = {
+        success: false,
+        message: 'Failed to setup Resend audience'
+      };
     }
 
     loggerService.info('On-signup processing complete', {

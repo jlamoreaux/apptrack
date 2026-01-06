@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { CoverLetterForm, type CoverLetterFormData } from "@/components/try/cover-letter-form";
 import { CoverLetterResults } from "@/components/try/cover-letter-results";
+import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -158,16 +159,14 @@ export default function TryCoverLetterPage() {
       )}
 
       {/* Quick Tips - Mobile Only */}
-      {!results && (
-        <div className="sm:hidden mb-6 p-4 bg-muted/50 rounded-lg border">
-          <p className="text-sm font-medium mb-2">Quick tips:</p>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>1. Enter the company name and job details</li>
-            <li>2. Add your resume or background summary</li>
-            <li>3. Get your personalized cover letter in 30 seconds</li>
-          </ul>
-        </div>
-      )}
+      <QuickTips
+        show={!results}
+        tips={[
+          "Enter the company name and job details",
+          "Add your resume or background summary",
+          "Get your personalized cover letter in 30 seconds",
+        ]}
+      />
 
       {/* Form or Results */}
       {!results ? (
