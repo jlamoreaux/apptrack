@@ -9,23 +9,54 @@ import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import type { ExtensionTokenResponse } from "@/types";
 
 /**
- * Get the target origin for postMessage communication with the extension.
- *
- * Browser extensions don't have traditional web origins, so we need special handling:
- * - If NEXT_PUBLIC_EXTENSION_ID is set, use chrome-extension://ID as the target
- * - Otherwise, use '*' as a fallback (the extension must verify message origin)
- *
- * Security note: The extension should always verify the message source origin
- * matches the expected web app origin (e.g., https://apptrack.app) regardless
- * of what target origin we use here.
+ * Get the extension ID for chrome.runtime.sendMessage communication.
+ * Returns null if not configured (will try to detect from URL params).
  */
-function getExtensionOrigin(): string {
-  const extensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
-  if (extensionId) {
-    return `chrome-extension://${extensionId}`;
+function getExtensionId(): string | null {
+  // Check environment variable first
+  const envExtensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
+  if (envExtensionId) {
+    return envExtensionId;
   }
-  // Fallback: Extension must verify message origin on its side
-  return "*";
+
+  // Check URL params (extension can pass its ID when opening the page)
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const paramExtensionId = params.get("extensionId");
+    if (paramExtensionId) {
+      return paramExtensionId;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Send message to extension using chrome.runtime.sendMessage.
+ * This is the proper way to communicate with extensions from web pages.
+ */
+async function sendMessageToExtension(
+  extensionId: string,
+  message: Record<string, unknown>
+): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    // Check if chrome.runtime is available
+    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
+      resolve({ success: false, error: "Chrome runtime not available" });
+      return;
+    }
+
+    chrome.runtime.sendMessage(extensionId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve({
+          success: false,
+          error: chrome.runtime.lastError.message || "Failed to send message to extension"
+        });
+        return;
+      }
+      resolve(response || { success: false, error: "No response from extension" });
+    });
+  });
 }
 
 type PageState = "loading" | "success" | "error" | "not-from-extension";
@@ -40,28 +71,26 @@ export default function ExtensionCallbackPage() {
     // Don't do anything while auth is loading
     if (authLoading) return;
 
-    // Check if this page was opened from extension (has opener window)
-    const hasOpener = typeof window !== "undefined" && window.opener !== null;
-
     // If user is not authenticated, redirect to login
     if (!user) {
-      const redirectUrl = encodeURIComponent("/auth/extension-callback");
+      const redirectUrl = encodeURIComponent("/auth/extension-callback" + window.location.search);
       router.push(`/login?redirect=${redirectUrl}`);
       return;
     }
 
-    // If no opener window, show explanation
-    if (!hasOpener) {
+    // Check if we have an extension ID to communicate with
+    const extensionId = getExtensionId();
+    if (!extensionId) {
       setState("not-from-extension");
       return;
     }
 
-    // User is authenticated and page was opened from extension
+    // User is authenticated and we have extension ID
     // Generate token and send to extension
-    generateAndSendToken();
+    generateAndSendToken(extensionId);
   }, [user, authLoading, router]);
 
-  async function generateAndSendToken() {
+  async function generateAndSendToken(extensionId: string) {
     try {
       setState("loading");
 
@@ -80,29 +109,27 @@ export default function ExtensionCallbackPage() {
 
       const tokenData: ExtensionTokenResponse = await response.json();
 
-      // Send token to extension via postMessage
-      if (window.opener) {
-        const targetOrigin = getExtensionOrigin();
-        window.opener.postMessage(
-          {
-            type: "APPTRACK_AUTH_SUCCESS",
-            token: tokenData.token,
-            expiresAt: tokenData.expiresAt,
-            user: tokenData.user,
-          },
-          targetOrigin
-        );
+      // Send token to extension via chrome.runtime.sendMessage
+      const result = await sendMessageToExtension(extensionId, {
+        type: "AUTH_CALLBACK",
+        payload: {
+          token: tokenData.token,
+          expiresAt: tokenData.expiresAt,
+          userId: tokenData.user.id,
+          email: tokenData.user.email,
+        },
+      });
 
-        setState("success");
-
-        // Auto-close after 2 seconds
-        setTimeout(() => {
-          window.close();
-        }, 2000);
-      } else {
-        // Opener closed unexpectedly
-        throw new Error("Extension window was closed");
+      if (!result.success) {
+        throw new Error(result.error || "Failed to send token to extension");
       }
+
+      setState("success");
+
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        window.close();
+      }, 2000);
     } catch (error) {
       setState("error");
       setErrorMessage(
@@ -112,8 +139,9 @@ export default function ExtensionCallbackPage() {
   }
 
   function handleRetry() {
-    if (window.opener) {
-      generateAndSendToken();
+    const extensionId = getExtensionId();
+    if (extensionId) {
+      generateAndSendToken(extensionId);
     } else {
       setState("not-from-extension");
     }
