@@ -91,14 +91,6 @@ export const canAccessFeature = (
       ];
     return allowedPlans.includes(userPlan as any);
   }
-  // Check Pro features
-  if (feature in FEATURE_ACCESS.PRO_FEATURES) {
-    const allowedPlans =
-      FEATURE_ACCESS.PRO_FEATURES[
-        feature as keyof typeof FEATURE_ACCESS.PRO_FEATURES
-      ];
-    return allowedPlans.includes(userPlan as any);
-  }
   return false;
 };
 

@@ -283,15 +283,15 @@ const freeUsersTemplates: DripTemplate[] = [
         You've been using AppTrack for a week now. How's the job search going?
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        If you're finding the AI features helpful, you might want to check out our Pro plan for unlimited access to:
+        If you're finding the AI features helpful, you might want to check out our AI Coach plan for unlimited access to:
       </p>
       <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
         <li style="margin-bottom: 8px;">Unlimited AI analyses</li>
-        <li style="margin-bottom: 8px;">Priority support</li>
         <li style="margin-bottom: 8px;">Advanced interview prep</li>
         <li style="margin-bottom: 8px;">Custom cover letters</li>
+        <li style="margin-bottom: 8px;">Job fit analysis</li>
       </ul>
-      ${ctaButton('See Pro Features', `${APP_URL}/dashboard/upgrade`)}
+      ${ctaButton('See AI Coach Features', `${APP_URL}/dashboard/upgrade`)}
       <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
         Reply to this email if you have any questions. We're here to help!
       </p>

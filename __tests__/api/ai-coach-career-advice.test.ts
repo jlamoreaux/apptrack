@@ -182,7 +182,7 @@ Remember, career transitions take time and patience. Focus on consistent progres
     it('should return 403 when user lacks permission', async () => {
       ((mockPermissionMiddleware as any).checkApiPermission as jest.Mock).mockResolvedValue({
         allowed: false,
-        message: 'Upgrade to Pro plan for career advice',
+        message: 'Upgrade to AI Coach plan for career advice',
       });
 
       const request = createMockRequest('/api/ai-coach/career-advice', {
@@ -196,7 +196,7 @@ Remember, career transitions take time and patience. Focus on consistent progres
       const data = await response.json();
 
       expect(response.status).toBe(403);
-      expect(data.error).toBe('Upgrade to Pro plan for career advice');
+      expect(data.error).toBe('Upgrade to AI Coach plan for career advice');
       expect(mockAICoach.askCareerQuestion).not.toHaveBeenCalled();
     });
 

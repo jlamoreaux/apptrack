@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
 import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
+import { useScrollToError } from "@/lib/hooks/use-scroll-to-error";
 
 export interface InterviewPrepFormData {
   jobDescription: string;
@@ -33,6 +34,11 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
   );
   const [errors, setErrors] = useState<Partial<Record<keyof InterviewPrepFormData, string>>>({});
 
+  const { refs, scrollToFirstError } = useScrollToError<keyof InterviewPrepFormData>([
+    'jobDescription',
+    'userBackground',
+  ]);
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof InterviewPrepFormData, string>> = {};
     if (formData.jobDescription.length < 100) {
@@ -42,6 +48,11 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
       newErrors.userBackground = "Background must be at least 50 characters";
     }
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstError(newErrors);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -86,20 +97,21 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
 
       <div className="space-y-2">
         <Label htmlFor="jobDescription">
-          Job Description <span className="text-red-500">*</span>
+          Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
+          ref={refs.jobDescription as React.RefObject<HTMLTextAreaElement>}
           id="jobDescription"
           value={formData.jobDescription}
           onChange={(e) => setFormData({ ...formData, jobDescription: e.target.value })}
           placeholder="Paste the full job description here..."
           rows={8}
           disabled={isLoading}
-          className={errors.jobDescription ? "border-red-500" : ""}
+          className={errors.jobDescription ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         />
         <div className="flex justify-between text-sm">
           {errors.jobDescription ? (
-            <p className="text-red-600">{errors.jobDescription}</p>
+            <p className="text-destructive">{errors.jobDescription}</p>
           ) : (
             <p className="text-muted-foreground">Minimum 100 characters</p>
           )}
@@ -109,13 +121,16 @@ export function InterviewPrepForm({ onSubmit, isLoading = false }: InterviewPrep
         </div>
       </div>
 
-      <ResumeUploadField
-        value={formData.userBackground}
-        onChange={(value) => setFormData({ ...formData, userBackground: value })}
-        error={errors.userBackground}
-        disabled={isLoading}
-        label="Your Background / Resume"
-      />
+      <div ref={refs.userBackground as React.RefObject<HTMLDivElement>}>
+        <ResumeUploadField
+          value={formData.userBackground}
+          onChange={(value) => setFormData({ ...formData, userBackground: value })}
+          error={errors.userBackground}
+          disabled={isLoading}
+          label="Your Background / Resume"
+          highlightError={!!errors.userBackground}
+        />
+      </div>
 
       <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
         {isLoading ? (

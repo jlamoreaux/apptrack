@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { InterviewPrepForm, type InterviewPrepFormData } from "@/components/try/interview-prep-form";
 import { InterviewPrepResults } from "@/components/try/interview-prep-results";
+import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -142,6 +143,16 @@ export default function TryInterviewPrepPage() {
         </Alert>
       )}
 
+      {/* Quick Tips - Mobile Only */}
+      <QuickTips
+        show={!results}
+        tips={[
+          "Paste the job description below",
+          "Add your resume or background summary",
+          "Get tailored interview questions in 30 seconds",
+        ]}
+      />
+
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
           <InterviewPrepForm onSubmit={handleSubmit} isLoading={isLoading} />
@@ -179,8 +190,9 @@ export default function TryInterviewPrepPage() {
         </div>
       )}
 
+      {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
       {!results && (
-        <div className="mt-12 p-6 bg-muted rounded-lg">
+        <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="text-center">

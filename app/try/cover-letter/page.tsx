@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { CoverLetterForm, type CoverLetterFormData } from "@/components/try/cover-letter-form";
 import { CoverLetterResults } from "@/components/try/cover-letter-results";
+import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -157,6 +158,16 @@ export default function TryCoverLetterPage() {
         </Alert>
       )}
 
+      {/* Quick Tips - Mobile Only */}
+      <QuickTips
+        show={!results}
+        tips={[
+          "Enter the company name and job details",
+          "Add your resume or background summary",
+          "Get your personalized cover letter in 30 seconds",
+        ]}
+      />
+
       {/* Form or Results */}
       {!results ? (
         <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
@@ -204,9 +215,9 @@ export default function TryCoverLetterPage() {
         </div>
       )}
 
-      {/* How It Works */}
+      {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
       {!results && (
-        <div className="mt-12 p-6 bg-muted rounded-lg">
+        <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
           <h3 className="font-semibold mb-4 text-center">How It Works</h3>
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="text-center">

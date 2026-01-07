@@ -6,7 +6,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+
   try {
     const user = await getUser();
 
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
         category: LogCategory.PAYMENT,
         action: 'create_customer_unauthorized'
       });
-      
+
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         .update({ stripe_customer_id: customers.data[0].id })
         .eq("id", user.id);
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         customerId: customers.data[0].id,
         message: "Customer already exists"
@@ -88,19 +88,19 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
       customerId: customer.id,
       message: "Customer created successfully"
     });
-    
+
   } catch (error) {
     loggerService.error('Error creating Stripe customer', error as Error, {
       category: LogCategory.PAYMENT,
       action: 'create_customer_error',
       duration: Date.now() - startTime
     });
-    
+
     return NextResponse.json(
       { error: "Failed to create customer" },
       { status: 500 }

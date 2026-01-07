@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { ResumeUploadField } from "./resume-upload-field";
 import { useFormPersistence } from "@/lib/hooks/use-form-persistence";
+import { useScrollToError } from "@/lib/hooks/use-scroll-to-error";
 
 export interface JobFitFormData {
   jobDescription: string;
@@ -31,6 +32,11 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
   );
   const [errors, setErrors] = useState<Partial<Record<keyof JobFitFormData, string>>>({});
 
+  const { refs, scrollToFirstError } = useScrollToError<keyof JobFitFormData>([
+    'jobDescription',
+    'userBackground',
+  ]);
+
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof JobFitFormData, string>> = {};
 
@@ -49,6 +55,11 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
     }
 
     setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      scrollToFirstError(newErrors);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -92,21 +103,13 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
           Job Description <span className="text-destructive">*</span>
         </Label>
         <Textarea
+          ref={refs.jobDescription as React.RefObject<HTMLTextAreaElement>}
           id="jobDescription"
-          placeholder="Paste the job posting you're considering...
-
-Example:
-We're looking for a Senior Software Engineer to join our team. You'll work on building scalable web applications using React and Node.js.
-
-Requirements:
-- 5+ years of experience with JavaScript
-- Strong knowledge of React and TypeScript
-- Experience with Node.js and Express
-..."
+          placeholder="Paste the full job description here..."
           value={formData.jobDescription}
           onChange={(e) => handleChange("jobDescription", e.target.value)}
           rows={10}
-          className={errors.jobDescription ? "border-destructive" : ""}
+          className={errors.jobDescription ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
           disabled={isLoading}
         />
         {errors.jobDescription && (
@@ -118,12 +121,15 @@ Requirements:
       </div>
 
       {/* User Background */}
-      <ResumeUploadField
-        value={formData.userBackground}
-        onChange={(value) => handleChange("userBackground", value)}
-        error={errors.userBackground}
-        disabled={isLoading}
-      />
+      <div ref={refs.userBackground as React.RefObject<HTMLDivElement>}>
+        <ResumeUploadField
+          value={formData.userBackground}
+          onChange={(value) => handleChange("userBackground", value)}
+          error={errors.userBackground}
+          disabled={isLoading}
+          highlightError={!!errors.userBackground}
+        />
+      </div>
 
       {/* Target Role (Optional) */}
       <div className="space-y-2">
@@ -132,7 +138,7 @@ Requirements:
         </Label>
         <Input
           id="targetRole"
-          placeholder="e.g., Senior Software Engineer, Product Manager, Marketing Director"
+          placeholder="e.g., Senior Software Engineer"
           value={formData.targetRole}
           onChange={(e) => handleChange("targetRole", e.target.value)}
           disabled={isLoading}

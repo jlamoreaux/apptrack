@@ -14,6 +14,7 @@ interface ResumeUploadFieldProps {
   label?: string;
   placeholder?: string;
   minLength?: number;
+  highlightError?: boolean;
 }
 
 export function ResumeUploadField({
@@ -22,13 +23,9 @@ export function ResumeUploadField({
   error,
   disabled = false,
   label = "Your Background",
-  placeholder = `Paste your resume or write a brief summary of your experience...
-
-Example:
-I'm a software engineer with 4 years of experience building web applications. I've worked extensively with React, TypeScript, and Node.js at two startups.
-
-Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS`,
+  placeholder = "Paste your resume or summarize your experience...",
   minLength = 50,
+  highlightError = false,
 }: ResumeUploadFieldProps) {
   const {
     uploadedFile,
@@ -124,7 +121,7 @@ Skills: JavaScript, React, TypeScript, Node.js, PostgreSQL, AWS`,
         value={value}
         onChange={(e) => handleTextChange(e.target.value)}
         rows={6}
-        className={error ? "border-destructive" : ""}
+        className={error || highlightError ? "border-destructive ring-2 ring-destructive ring-offset-2" : ""}
         disabled={isDisabled}
       />
       {error && <p className="text-sm text-destructive">{error}</p>}
