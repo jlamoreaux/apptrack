@@ -14,6 +14,7 @@ export async function hasPaidSubscription(
     .select("subscription_plans(name)")
     .eq("user_id", userId)
     .in("status", ["active", "trialing"])
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
