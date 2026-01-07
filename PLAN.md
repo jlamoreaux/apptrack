@@ -140,7 +140,7 @@ This page bridges web authentication and the browser extension.
 6. Show success UI
 
 **Token Delivery Method:** URL fragment approach (safer than postMessage)
-```
+```text
 // After getting token, redirect to:
 chrome-extension://EXTENSION_ID/callback.html#token=...&expiresAt=...
 
@@ -273,7 +273,7 @@ Both need to accept `Authorization: Bearer <token>` in addition to session cooki
 
 ## Database Migration
 
-**File:** `schemas/migrations/010_extension_support.sql`
+**File:** `schemas/migrations/022_extension_support.sql`
 
 ```sql
 -- Add token version for revocation support
@@ -326,7 +326,7 @@ EXTENSION_TOKEN_EXPIRY_DAYS=7
 - `app/auth/extension-callback/page.tsx`
 - `app/api/applications/check-duplicate/route.ts`
 - `lib/auth/extension-auth.ts`
-- `schemas/migrations/010_extension_support.sql`
+- `schemas/migrations/022_extension_support.sql`
 
 **Modified Files:**
 - `app/api/applications/route.ts` - Add Bearer auth support

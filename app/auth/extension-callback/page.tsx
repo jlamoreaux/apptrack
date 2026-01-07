@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
+import type { ExtensionTokenResponse } from "@/types";
 
 /**
  * Get the target origin for postMessage communication with the extension.
@@ -28,16 +29,6 @@ function getExtensionOrigin(): string {
 }
 
 type PageState = "loading" | "success" | "error" | "not-from-extension";
-
-interface TokenResponse {
-  token: string;
-  expiresAt: string;
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
-  };
-}
 
 export default function ExtensionCallbackPage() {
   const router = useRouter();
@@ -87,7 +78,7 @@ export default function ExtensionCallbackPage() {
         throw new Error(data.error || "Failed to generate token");
       }
 
-      const tokenData: TokenResponse = await response.json();
+      const tokenData: ExtensionTokenResponse = await response.json();
 
       // Send token to extension via postMessage
       if (window.opener) {

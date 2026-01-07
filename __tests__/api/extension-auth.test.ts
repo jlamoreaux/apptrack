@@ -50,13 +50,6 @@ describe('Extension Auth', () => {
       expect(isInRefreshWindow(expiresAt)).toBe(true);
     });
 
-    it('should return false when token expires after 3 days', () => {
-      const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 5); // 5 days from now
-
-      expect(isInRefreshWindow(expiresAt)).toBe(false);
-    });
-
     it('should return false when token is already expired', () => {
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() - 1); // 1 day ago

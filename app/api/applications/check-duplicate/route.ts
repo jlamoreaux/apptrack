@@ -5,6 +5,9 @@ import { escapeIlike } from "@/lib/security/data-sanitizer";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
+/** Maximum length for company/role input */
+const MAX_INPUT_LENGTH = 200;
+
 /**
  * GET /api/applications/check-duplicate
  *
@@ -59,7 +62,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Validate input length (prevent excessively long queries)
-    const MAX_INPUT_LENGTH = 200;
     if (company.length > MAX_INPUT_LENGTH || role.length > MAX_INPUT_LENGTH) {
       loggerService.warn("Duplicate check input too long", {
         category: LogCategory.API,
