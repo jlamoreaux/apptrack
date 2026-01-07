@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { PLAN_NAMES } from "@/lib/constants/plans";
+import { hasPaidSubscription } from "@/lib/utils/subscription-helpers";
 
 export async function isNewUser(userId: string): Promise<boolean> {
   try {
@@ -18,18 +18,8 @@ export async function isNewUser(userId: string): Promise<boolean> {
     if (profile.onboarding_completed === true) return false;
 
     // Check if user has a paid subscription - if so, skip onboarding
-    const { data: subscription } = await supabase
-      .from("user_subscriptions")
-      .select("subscription_plans(name)")
-      .eq("user_id", userId)
-      .in("status", ["active", "trialing"])
-      .limit(1)
-      .maybeSingle();
-
-    const subscriptionPlans = subscription?.subscription_plans as { name: string } | { name: string }[] | null;
-    const planName = Array.isArray(subscriptionPlans) ? subscriptionPlans[0]?.name : subscriptionPlans?.name;
-    if (planName && planName !== PLAN_NAMES.FREE) {
-      return false; // Has paid subscription, not new
+    if (await hasPaidSubscription(supabase, userId)) {
+      return false;
     }
 
     // Check if they have any applications (existing user)
