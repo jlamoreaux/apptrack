@@ -52,6 +52,7 @@
     "framer-motion": "^12.23.16",
     "html2canvas": "^1.4.1",
     "isomorphic-dompurify": "^2.25.0",
+    "jose": "^6.1.3",
     "jspdf": "^3.0.1",
     "lucide-react": "^0.454.0",
     "mammoth": "^1.9.1",

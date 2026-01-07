@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUser } from "@/lib/supabase/server";
+import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { ApplicationDAL, type CreateApplicationInput } from "@/dal/applications";
 import type { ApplicationQueryOptions } from "@/dal/applications";
 import { APPLICATION_STATUS } from "@/lib/constants/application-status";
@@ -8,10 +8,12 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
-  
+  let userId: string | undefined;
+
   try {
-    const user = await getUser();
-    
+    // Supports both session cookie auth (web app) and Bearer token auth (extension)
+    const user = await getAuthenticatedUser(request);
+
     if (!user) {
       loggerService.warn('Unauthorized applications access attempt', {
         category: LogCategory.SECURITY,
@@ -19,6 +21,8 @@ export async function GET(request: NextRequest) {
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    userId = user.id;
 
     // Parse query parameters
     const { searchParams } = new URL(request.url);
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
     const includeArchived = searchParams.get("includeArchived") === "true";
 
     const applicationDAL = new ApplicationDAL();
-    
+
     const result = await applicationDAL.queryApplications(user.id, {
       page,
       pageSize,
@@ -57,7 +61,8 @@ export async function GET(request: NextRequest) {
         includeArchived,
         totalApplications: result.total,
         returnedCount: result.applications.length,
-        statusCounts
+        statusCounts,
+        authSource: user.source
       }
     });
 
@@ -68,7 +73,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     loggerService.error('Error fetching applications', error, {
       category: LogCategory.API,
-      userId: user?.id,
+      userId,
       action: 'applications_list_error',
       duration: Date.now() - startTime
     });
@@ -81,10 +86,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  let userId: string | undefined;
+
   try {
-    const user = await getUser();
-    
+    // Supports both session cookie auth (web app) and Bearer token auth (extension)
+    const user = await getAuthenticatedUser(request);
+
     if (!user) {
       loggerService.warn('Unauthorized application creation attempt', {
         category: LogCategory.SECURITY,
@@ -92,6 +99,8 @@ export async function POST(request: NextRequest) {
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    userId = user.id;
 
     const body = await request.json();
     const { company, role, role_link, job_description, date_applied, status, notes } = body;
@@ -140,7 +149,8 @@ export async function POST(request: NextRequest) {
         role,
         status: newApplication.status,
         hasJobDescription: !!job_description,
-        hasRoleLink: !!role_link
+        hasRoleLink: !!role_link,
+        authSource: user.source
       }
     });
 
@@ -148,7 +158,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     loggerService.error('Error creating application', error, {
       category: LogCategory.API,
-      userId: user?.id,
+      userId,
       action: 'application_create_error',
       duration: Date.now() - startTime
     });
