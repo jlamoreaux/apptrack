@@ -287,14 +287,11 @@ export async function revokeExtensionTokens(userId: string): Promise<boolean> {
   try {
     const supabase = await createClient();
 
-    // Get current version
-    const currentVersion = await getTokenVersion(userId);
-
-    // Increment version
-    const { error } = await supabase
-      .from("profiles")
-      .update({ extension_token_version: currentVersion + 1 })
-      .eq("id", userId);
+    // Use atomic increment via RPC to avoid race conditions
+    const { data: newVersion, error } = await supabase.rpc(
+      "increment_extension_token_version",
+      { user_id: userId }
+    );
 
     if (error) {
       loggerService.error("Failed to revoke extension tokens", error, {
@@ -310,7 +307,7 @@ export async function revokeExtensionTokens(userId: string): Promise<boolean> {
       action: "extension_tokens_revoked",
       userId,
       metadata: {
-        newVersion: currentVersion + 1,
+        newVersion,
       },
     });
 
