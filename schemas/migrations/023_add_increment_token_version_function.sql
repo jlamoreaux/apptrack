@@ -15,7 +15,11 @@ BEGIN
   WHERE id = user_id
   RETURNING extension_token_version INTO new_version;
 
-  RETURN COALESCE(new_version, 1);
+  IF new_version IS NULL THEN
+    RAISE EXCEPTION 'User % not found in profiles', user_id;
+  END IF;
+
+  RETURN new_version;
 END;
 $$;
 
