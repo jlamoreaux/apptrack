@@ -22,10 +22,6 @@ export async function hasPaidSubscription(
     return false;
   }
 
-  const plans = data?.subscription_plans as
-    | { name: string }
-    | { name: string }[]
-    | null;
-  const planName = Array.isArray(plans) ? plans[0]?.name : plans?.name;
+  const planName = (data?.subscription_plans as { name: string } | null)?.name;
   return !!(planName && planName !== PLAN_NAMES.FREE);
 }
