@@ -18,15 +18,15 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Check if user has completed onboarding and has Stripe customer ID
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("onboarding_completed, stripe_customer_id")
-          .eq("id", user.id)
-          .single();
-
-        // Check if user has a paid subscription
-        const userHasPaidSubscription = await hasPaidSubscription(supabase, user.id);
+        // Check profile and paid subscription status in parallel
+        const [{ data: profile }, userHasPaidSubscription] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("onboarding_completed, stripe_customer_id")
+            .eq("id", user.id)
+            .single(),
+          hasPaidSubscription(supabase, user.id),
+        ]);
         
         // Run post-signup setup (Stripe customer, Resend audience) - non-blocking
         // The on-signup endpoint is idempotent, safe to call even if partially set up
