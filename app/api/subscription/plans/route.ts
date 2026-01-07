@@ -25,6 +25,7 @@ export async function GET() {
     const { data: plans, error } = await supabase
       .from("subscription_plans")
       .select("*")
+      .eq("is_active", true)
       .order("price_monthly", { ascending: true });
 
     if (error) {

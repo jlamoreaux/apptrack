@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server";
+import { hasPaidSubscription } from "@/lib/utils/subscription-helpers";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -17,12 +18,15 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Check if user has completed onboarding and has Stripe customer ID
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("onboarding_completed, stripe_customer_id")
-          .eq("id", user.id)
-          .single();
+        // Check profile and paid subscription status in parallel
+        const [{ data: profile }, userHasPaidSubscription] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select("onboarding_completed, stripe_customer_id")
+            .eq("id", user.id)
+            .single(),
+          hasPaidSubscription(supabase, user.id),
+        ]);
         
         // Run post-signup setup (Stripe customer, Resend audience) - non-blocking
         // The on-signup endpoint is idempotent, safe to call even if partially set up
@@ -45,7 +49,8 @@ export async function GET(request: NextRequest) {
         }
 
         // If email confirmation (signup flow) and onboarding not completed
-        if (type === "signup" || !profile?.onboarding_completed) {
+        // Skip onboarding for users with paid subscriptions
+        if ((type === "signup" || !profile?.onboarding_completed) && !userHasPaidSubscription) {
           // Check if user has a traffic source trial in their metadata
           if (user.user_metadata?.traffic_source_trial?.type === "ai_coach_trial") {
             return NextResponse.redirect(new URL("/onboarding/welcome?auto_select=ai_coach", requestUrl.origin));
