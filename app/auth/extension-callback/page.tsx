@@ -8,6 +8,16 @@ import { CheckCircle, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import type { ExtensionTokenResponse } from "@/types";
 
+// Chrome extension IDs are exactly 32 lowercase characters from [a-p]
+const EXTENSION_ID_REGEX = /^[a-p]{32}$/;
+
+/**
+ * Validate that a string is a valid Chrome extension ID format.
+ */
+function isValidExtensionId(id: string): boolean {
+  return EXTENSION_ID_REGEX.test(id);
+}
+
 /**
  * Get the extension ID for chrome.runtime.sendMessage communication.
  * In production, requires NEXT_PUBLIC_EXTENSION_ID environment variable.
@@ -17,6 +27,10 @@ function getExtensionId(): string | null {
   // Check environment variable first (required in production)
   const envExtensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
   if (envExtensionId) {
+    if (!isValidExtensionId(envExtensionId)) {
+      console.error("[AppTrack] Invalid extension ID format in NEXT_PUBLIC_EXTENSION_ID");
+      return null;
+    }
     return envExtensionId;
   }
 
@@ -26,6 +40,10 @@ function getExtensionId(): string | null {
     const params = new URLSearchParams(window.location.search);
     const paramExtensionId = params.get("extensionId");
     if (paramExtensionId) {
+      if (!isValidExtensionId(paramExtensionId)) {
+        console.error("[AppTrack] Invalid extension ID format in URL parameter");
+        return null;
+      }
       console.warn("[AppTrack] Using extension ID from URL parameter - development mode only");
       return paramExtensionId;
     }
