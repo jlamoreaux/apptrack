@@ -10,20 +10,23 @@ import type { ExtensionTokenResponse } from "@/types";
 
 /**
  * Get the extension ID for chrome.runtime.sendMessage communication.
- * Checks environment variable first, then URL params (for local dev).
+ * In production, requires NEXT_PUBLIC_EXTENSION_ID environment variable.
+ * In development, also accepts extensionId from URL params for local testing.
  */
 function getExtensionId(): string | null {
-  // Check environment variable first
+  // Check environment variable first (required in production)
   const envExtensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
   if (envExtensionId) {
     return envExtensionId;
   }
 
-  // Check URL params (extension passes its ID when opening the page)
-  if (typeof window !== "undefined") {
+  // Only allow URL params in development mode to prevent token interception attacks
+  // In production, NEXT_PUBLIC_EXTENSION_ID must be set
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
     const params = new URLSearchParams(window.location.search);
     const paramExtensionId = params.get("extensionId");
     if (paramExtensionId) {
+      console.warn("[AppTrack] Using extension ID from URL parameter - development mode only");
       return paramExtensionId;
     }
   }
