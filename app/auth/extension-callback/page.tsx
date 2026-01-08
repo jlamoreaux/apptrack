@@ -37,29 +37,36 @@ function getExtensionId(): string | null {
 /**
  * Send message to extension using chrome.runtime.sendMessage.
  * This is the proper way to communicate with extensions from web pages.
+ * Includes a timeout to prevent indefinite hangs if extension doesn't respond.
  */
 async function sendMessageToExtension(
   extensionId: string,
-  message: Record<string, unknown>
+  message: Record<string, unknown>,
+  timeoutMs = 10000
 ): Promise<{ success: boolean; error?: string }> {
-  return new Promise((resolve) => {
-    // Check if chrome.runtime is available
-    if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
-      resolve({ success: false, error: "Chrome runtime not available" });
-      return;
-    }
-
-    chrome.runtime.sendMessage(extensionId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({
-          success: false,
-          error: chrome.runtime.lastError.message || "Failed to send message to extension"
-        });
+  return Promise.race([
+    new Promise<{ success: boolean; error?: string }>((resolve) => {
+      // Check if chrome.runtime is available
+      if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
+        resolve({ success: false, error: "Chrome runtime not available" });
         return;
       }
-      resolve(response || { success: false, error: "No response from extension" });
-    });
-  });
+
+      chrome.runtime.sendMessage(extensionId, message, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve({
+            success: false,
+            error: chrome.runtime.lastError.message || "Failed to send message to extension"
+          });
+          return;
+        }
+        resolve(response || { success: false, error: "No response from extension" });
+      });
+    }),
+    new Promise<{ success: boolean; error: string }>((resolve) =>
+      setTimeout(() => resolve({ success: false, error: "Extension did not respond in time" }), timeoutMs)
+    ),
+  ]);
 }
 
 type PageState = "loading" | "success" | "error" | "not-from-extension";
@@ -76,7 +83,7 @@ export default function ExtensionCallbackPage() {
 
     // If user is not authenticated, redirect to login
     if (!user) {
-      const redirectUrl = encodeURIComponent("/auth/extension-callback" + window.location.search);
+      const redirectUrl = encodeURIComponent(`${window.location.pathname}${window.location.search}`);
       router.push(`/login?redirect=${redirectUrl}`);
       return;
     }
