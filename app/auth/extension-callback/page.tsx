@@ -11,6 +11,26 @@ import type { ExtensionTokenResponse } from "@/types";
 // Chrome extension IDs are exactly 32 lowercase characters from [a-p]
 const EXTENSION_ID_REGEX = /^[a-p]{32}$/;
 
+// Timing constants
+const EXTENSION_MESSAGE_TIMEOUT_MS = 10000;
+const AUTO_CLOSE_DELAY_MS = 2000;
+
+// Type definitions for extension messaging
+type ExtensionAuthMessage = {
+  type: "AUTH_CALLBACK";
+  payload: {
+    token: string;
+    expiresAt: string;
+    userId: string;
+    email: string;
+  };
+};
+
+type ExtensionResponse = {
+  success: boolean;
+  error?: string;
+};
+
 /**
  * Validate that a string is a valid Chrome extension ID format.
  */
@@ -59,11 +79,11 @@ function getExtensionId(): string | null {
  */
 async function sendMessageToExtension(
   extensionId: string,
-  message: Record<string, unknown>,
-  timeoutMs = 10000
-): Promise<{ success: boolean; error?: string }> {
+  message: ExtensionAuthMessage,
+  timeoutMs = EXTENSION_MESSAGE_TIMEOUT_MS
+): Promise<ExtensionResponse> {
   return Promise.race([
-    new Promise<{ success: boolean; error?: string }>((resolve) => {
+    new Promise<ExtensionResponse>((resolve) => {
       // Check if chrome.runtime is available
       if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
         resolve({ success: false, error: "Chrome runtime not available" });
@@ -81,7 +101,7 @@ async function sendMessageToExtension(
         resolve(response || { success: false, error: "No response from extension" });
       });
     }),
-    new Promise<{ success: boolean; error: string }>((resolve) =>
+    new Promise<ExtensionResponse>((resolve) =>
       setTimeout(() => resolve({ success: false, error: "Extension did not respond in time" }), timeoutMs)
     ),
   ]);
@@ -154,10 +174,10 @@ export default function ExtensionCallbackPage() {
 
       setState("success");
 
-      // Auto-close after 2 seconds
+      // Auto-close after delay
       setTimeout(() => {
         window.close();
-      }, 2000);
+      }, AUTO_CLOSE_DELAY_MS);
     } catch (error) {
       setState("error");
       setErrorMessage(
