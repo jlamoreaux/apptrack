@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server";
 import { handleOnSignup } from "@/lib/services/on-signup.service";
 
+/**
+ * Handles the auth callback after email confirmation.
+ *
+ * Exchanges the confirmation code for a session, triggers post-signup
+ * setup (Stripe customer, Resend audience), and redirects to dashboard.
+ *
+ * @param request - The incoming request containing the auth code
+ * @returns Redirect to dashboard or error page
+ */
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
