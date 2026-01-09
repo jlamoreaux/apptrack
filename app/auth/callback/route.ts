@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server";
 import { hasPaidSubscription } from "@/lib/utils/subscription-helpers";
+import { handleOnSignup } from "@/lib/services/on-signup.service";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -29,15 +30,9 @@ export async function GET(request: NextRequest) {
         ]);
         
         // Run post-signup setup (Stripe customer, Resend audience) - non-blocking
-        // The on-signup endpoint is idempotent, safe to call even if partially set up
-        fetch(new URL("/api/user/on-signup", requestUrl.origin).toString(), {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            // Pass the auth cookie for the internal request
-            "Cookie": request.headers.get("cookie") || ""
-          },
-        }).catch(err => {
+        // Call the service directly with the user object to avoid cookie-based auth issues
+        // The handleOnSignup function is idempotent, safe to call even if partially set up
+        handleOnSignup(user).catch(err => {
           console.error("Failed to complete post-signup setup:", err);
           // Don't block the user flow, continue with redirect
         });
