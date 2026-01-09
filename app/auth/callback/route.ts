@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user) {
         // Run post-signup setup (Stripe customer, Resend audience) - non-blocking
         // Call the service directly with the user object to avoid cookie-based auth issues
@@ -32,8 +32,17 @@ export async function GET(request: NextRequest) {
           // Don't block the user flow, continue with redirect
         });
 
-        // Redirect to the specified next page, or dashboard by default
-        return NextResponse.redirect(new URL(next ?? "/dashboard", requestUrl.origin));
+        // Validate next param to prevent open redirect attacks
+        const isValidInternalPath = (path: string | null): boolean => {
+          if (!path || typeof path !== "string") return false;
+          if (!path.startsWith("/")) return false;
+          if (path.startsWith("//")) return false;
+          if (path.includes("://")) return false;
+          return true;
+        };
+
+        const redirectPath = isValidInternalPath(next) ? next : "/dashboard";
+        return NextResponse.redirect(new URL(requestUrl.origin + redirectPath));
       }
     }
   }
