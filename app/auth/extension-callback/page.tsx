@@ -84,9 +84,11 @@ async function sendMessageToExtension(
 ): Promise<ExtensionResponse> {
   return Promise.race([
     new Promise<ExtensionResponse>((resolve) => {
-      // Check if chrome.runtime is available
+      // chrome.runtime API is only available in Chrome/Chromium-based browsers (Edge, Brave, etc.)
+      // Firefox uses browser.runtime and Safari has limited extension support
+      // The extension must also declare externally_connectable in its manifest
       if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
-        resolve({ success: false, error: "Chrome runtime not available" });
+        resolve({ success: false, error: "Chrome runtime not available. Please use Chrome or a Chromium-based browser." });
         return;
       }
 
