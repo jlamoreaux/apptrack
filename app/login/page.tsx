@@ -1,8 +1,17 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { NavigationStatic } from "@/components/navigation-static"
 import { SignInForm } from "@/components/forms/sign-in-form"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
+
+export const metadata: Metadata = {
+  title: "Login | AppTrack",
+  robots: {
+    index: false,
+    follow: false,
+  },
+}
 
 export default function LoginPage() {
   return (

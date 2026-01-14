@@ -7,24 +7,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const currentDate = new Date()
 
   // Core marketing pages - highest priority
+  // Note: Login/signup pages excluded - auth pages shouldn't be indexed
   const corePages: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: currentDate,
       changeFrequency: 'weekly',
       priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/signup`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/login`,
-      lastModified: currentDate,
-      changeFrequency: 'monthly',
-      priority: 0.8,
     },
   ]
 
