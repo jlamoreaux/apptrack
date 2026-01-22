@@ -6,11 +6,11 @@ export async function middleware(request: NextRequest) {
 
   // Redirect www to non-www for canonical URL consistency
   // NOTE: Ensure Vercel domain settings use non-www as primary to avoid redirect loops
-  if (hostname.startsWith("www.")) {
-    const url = request.nextUrl.clone()
-    url.hostname = hostname.replace(/^www\./, "")
-    return NextResponse.redirect(url, 301)
-  }
+  // if (hostname.startsWith("www.")) {
+  //   const url = request.nextUrl.clone()
+  //   url.hostname = hostname.replace(/^www\./, "")
+  //   return NextResponse.redirect(url, 301)
+  // }
 
   let supabaseResponse = NextResponse.next({
     request,
