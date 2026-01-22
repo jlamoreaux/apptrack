@@ -11,6 +11,8 @@ import type { ExtensionTokenResponse } from "@/types";
 // Chrome extension IDs are exactly 32 lowercase characters from [a-p]
 const EXTENSION_ID_REGEX = /^[a-p]{32}$/;
 
+const isDev = process.env.NODE_ENV === "development";
+
 // Timing constants
 const EXTENSION_MESSAGE_TIMEOUT_MS = 10000;
 const AUTO_CLOSE_DELAY_MS = 2000;
@@ -58,7 +60,7 @@ function getExtensionId(): string | null {
   const envExtensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
   if (envExtensionId) {
     if (!isValidExtensionId(envExtensionId)) {
-      console.error("[AppTrack] Invalid extension ID format in NEXT_PUBLIC_EXTENSION_ID");
+      if (isDev) console.error("[AppTrack] Invalid extension ID format in NEXT_PUBLIC_EXTENSION_ID");
       return null;
     }
     return envExtensionId;
@@ -66,7 +68,7 @@ function getExtensionId(): string | null {
 
   // Only allow URL params in development mode to prevent token interception attacks
   // In production, NEXT_PUBLIC_EXTENSION_ID must be set
-  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  if (typeof window !== "undefined" && isDev) {
     const params = new URLSearchParams(window.location.search);
     const paramExtensionId = params.get("extensionId");
     if (paramExtensionId) {
@@ -173,14 +175,88 @@ export default function ExtensionCallbackPage() {
 
     // User is authenticated and we have extension ID
     // Generate token and send to extension
+    const abortController = new AbortController();
+    let autoCloseTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    async function generateAndSendToken(extId: string) {
+      try {
+        setState("loading");
+
+        // Call the extension token API
+        const response = await fetch("/api/auth/extension-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          signal: abortController.signal,
+        });
+
+        if (!response.ok) {
+          let errorMsg = "Failed to generate token";
+          try {
+            const data = await response.json();
+            errorMsg = data.error || errorMsg;
+          } catch {
+            // Response wasn't JSON, use default message
+          }
+          throw new Error(errorMsg);
+        }
+
+        const tokenData: ExtensionTokenResponse = await response.json();
+
+        // Send token to extension via chrome.runtime.sendMessage
+        const result = await sendMessageToExtension(extId, {
+          type: "AUTH_CALLBACK",
+          payload: {
+            token: tokenData.token,
+            expiresAt: tokenData.expiresAt,
+            userId: tokenData.user.id,
+            email: tokenData.user.email,
+          },
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Failed to send token to extension");
+        }
+
+        setState("success");
+
+        // Auto-close after delay
+        autoCloseTimeout = setTimeout(() => {
+          window.close();
+        }, AUTO_CLOSE_DELAY_MS);
+      } catch (error) {
+        // Ignore abort errors
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        setState("error");
+        setErrorMessage(
+          error instanceof Error ? error.message : "An unexpected error occurred"
+        );
+      }
+    }
+
     generateAndSendToken(extensionId);
+
+    return () => {
+      abortController.abort();
+      if (autoCloseTimeout) {
+        clearTimeout(autoCloseTimeout);
+      }
+    };
   }, [user, authLoading, router]);
 
-  async function generateAndSendToken(extensionId: string) {
+  async function handleRetry() {
+    const extensionId = getExtensionId();
+    if (!extensionId) {
+      setState("not-from-extension");
+      return;
+    }
+
     try {
       setState("loading");
 
-      // Call the extension token API
       const response = await fetch("/api/auth/extension-token", {
         method: "POST",
         headers: {
@@ -189,13 +265,18 @@ export default function ExtensionCallbackPage() {
       });
 
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to generate token");
+        let errorMsg = "Failed to generate token";
+        try {
+          const data = await response.json();
+          errorMsg = data.error || errorMsg;
+        } catch {
+          // Response wasn't JSON, use default message
+        }
+        throw new Error(errorMsg);
       }
 
       const tokenData: ExtensionTokenResponse = await response.json();
 
-      // Send token to extension via chrome.runtime.sendMessage
       const result = await sendMessageToExtension(extensionId, {
         type: "AUTH_CALLBACK",
         payload: {
@@ -212,7 +293,6 @@ export default function ExtensionCallbackPage() {
 
       setState("success");
 
-      // Auto-close after delay
       setTimeout(() => {
         window.close();
       }, AUTO_CLOSE_DELAY_MS);
@@ -221,15 +301,6 @@ export default function ExtensionCallbackPage() {
       setErrorMessage(
         error instanceof Error ? error.message : "An unexpected error occurred"
       );
-    }
-  }
-
-  function handleRetry() {
-    const extensionId = getExtensionId();
-    if (extensionId) {
-      generateAndSendToken(extensionId);
-    } else {
-      setState("not-from-extension");
     }
   }
 
