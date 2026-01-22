@@ -31,6 +31,16 @@ type ExtensionResponse = {
   error?: string;
 };
 
+// Type for Chrome runtime API (subset we actually use)
+type ChromeRuntime = {
+  sendMessage?: (
+    extensionId: string,
+    message: unknown,
+    callback: (response: unknown) => void
+  ) => void;
+  lastError?: { message?: string };
+};
+
 /**
  * Validate that a string is a valid Chrome extension ID format.
  */
@@ -73,6 +83,20 @@ function getExtensionId(): string | null {
 }
 
 /**
+ * Type guard to validate response matches ExtensionResponse shape.
+ */
+function isExtensionResponse(response: unknown): response is ExtensionResponse {
+  if (typeof response !== "object" || response === null) {
+    return false;
+  }
+  const obj = response as Record<string, unknown>;
+  return (
+    typeof obj.success === "boolean" &&
+    (obj.error === undefined || typeof obj.error === "string")
+  );
+}
+
+/**
  * Send message to extension using chrome.runtime.sendMessage.
  * This is the proper way to communicate with extensions from web pages.
  * Includes a timeout to prevent indefinite hangs if extension doesn't respond.
@@ -87,20 +111,32 @@ async function sendMessageToExtension(
       // chrome.runtime API is only available in Chrome/Chromium-based browsers (Edge, Brave, etc.)
       // Firefox uses browser.runtime and Safari has limited extension support
       // The extension must also declare externally_connectable in its manifest
-      if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
+      const chromeRuntime = (globalThis as unknown as { chrome?: { runtime?: ChromeRuntime } }).chrome?.runtime;
+
+      if (!chromeRuntime?.sendMessage) {
         resolve({ success: false, error: "Chrome runtime not available. Please use Chrome or a Chromium-based browser." });
         return;
       }
 
-      chrome.runtime.sendMessage(extensionId, message, (response) => {
-        if (chrome.runtime.lastError) {
+      chromeRuntime.sendMessage(extensionId, message, (response: unknown) => {
+        if (chromeRuntime.lastError) {
           resolve({
             success: false,
-            error: chrome.runtime.lastError.message || "Failed to send message to extension"
+            error: chromeRuntime.lastError.message || "Failed to send message to extension"
           });
           return;
         }
-        resolve(response || { success: false, error: "No response from extension" });
+
+        if (!response) {
+          resolve({ success: false, error: "No response from extension" });
+          return;
+        }
+
+        if (isExtensionResponse(response)) {
+          resolve(response);
+        } else {
+          resolve({ success: false, error: "Invalid response from extension" });
+        }
       });
     }),
     new Promise<ExtensionResponse>((resolve) =>
