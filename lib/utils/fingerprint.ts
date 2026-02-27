@@ -27,19 +27,24 @@ export async function getFingerprint(): Promise<string> {
   const apiKey = process.env.NEXT_PUBLIC_FINGERPRINT_API_KEY;
 
   if (apiKey) {
-    // Use FingerprintJS Pro (full implementation)
+    // Use FingerprintJS Pro with a hard 3-second timeout.
+    // fp.apptrack.ing custom endpoint may be slow or unreachable — if it times out
+    // we fall back to the simple fingerprint immediately rather than hanging the UI.
     try {
-      const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
+      const fingerprintProPromise = (async () => {
+        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
+        const fp = await FingerprintJS.load({ apiKey });
+        const result = await fp.get();
+        return result.visitorId;
+      })();
 
-      const fp = await FingerprintJS.load({
-        apiKey,
-        endpoint: "https://fp.apptrack.ing", // Custom endpoint if needed
-      });
+      const timeoutPromise = new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("FingerprintJS timeout")), 3000)
+      );
 
-      const result = await fp.get();
-      return result.visitorId;
+      return await Promise.race([fingerprintProPromise, timeoutPromise]);
     } catch (error) {
-      console.error("FingerprintJS error, falling back to simple fingerprint:", error);
+      // Timeout or load failure — fall back silently
       return getSimpleFingerprint();
     }
   } else {
