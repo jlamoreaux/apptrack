@@ -23,34 +23,7 @@ export async function getFingerprint(): Promise<string> {
     return "server-side-render";
   }
 
-  // Check if FingerprintJS API key is configured
-  const apiKey = process.env.NEXT_PUBLIC_FINGERPRINT_API_KEY;
-
-  if (apiKey) {
-    // Use FingerprintJS Pro with a hard 3-second timeout.
-    // fp.apptrack.ing custom endpoint may be slow or unreachable — if it times out
-    // we fall back to the simple fingerprint immediately rather than hanging the UI.
-    try {
-      const fingerprintProPromise = (async () => {
-        const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
-        const fp = await FingerprintJS.load({ apiKey });
-        const result = await fp.get();
-        return result.visitorId;
-      })();
-
-      const timeoutPromise = new Promise<string>((_, reject) =>
-        setTimeout(() => reject(new Error("FingerprintJS timeout")), 3000)
-      );
-
-      return await Promise.race([fingerprintProPromise, timeoutPromise]);
-    } catch (error) {
-      // Timeout or load failure — fall back silently
-      return getSimpleFingerprint();
-    }
-  } else {
-    // Development fallback - simple fingerprint
-    return getSimpleFingerprint();
-  }
+  return getSimpleFingerprint();
 }
 
 /**
