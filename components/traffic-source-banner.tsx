@@ -43,7 +43,7 @@ export function TrafficSourceBanner({ source }: TrafficSourceBannerProps) {
     if (source && SOURCE_CONFIG[source]) {
       // Check if user has already dismissed this banner
       const dismissedKey = `traffic_banner_dismissed_${source}`;
-      const isDismissed = localStorage.getItem(dismissedKey) === "true";
+      const isDismissed = localStorage?.getItem(dismissedKey) === "true";
       
       if (!isDismissed) {
         setIsVisible(true);
@@ -63,7 +63,7 @@ export function TrafficSourceBanner({ source }: TrafficSourceBannerProps) {
 
   const handleDismiss = () => {
     if (source) {
-      localStorage.setItem(`traffic_banner_dismissed_${source}`, "true");
+      try { localStorage?.setItem(`traffic_banner_dismissed_${source}`, "true") } catch {}
       setDismissed(true);
       
       clientLogger.info("Traffic source banner dismissed", {

@@ -229,6 +229,10 @@ export class ErrorTrackingService {
 
     // Handle unhandled errors
     window.addEventListener('error', (event) => {
+      // Filter cross-origin script errors (e.g. LinkedIn/Twitter tracking pixels) — these
+      // show as "Script error." with no useful info and pollute error logs
+      if (event.message === 'Script error.' || event.message === 'Script error') return;
+
       this.trackError(new Error(event.message), {
         url: window.location.href,
         userAgent: navigator.userAgent,

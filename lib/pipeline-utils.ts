@@ -77,8 +77,9 @@ export function buildStatusPath(
   
   if (app.status === "Rejected") {
     // Rejections can happen at any stage, estimate based on common patterns
-    // For demo purposes, assume different rejection points
-    const randomStage = Math.floor(Math.random() * 3);
+    // Use deterministic hash of app.id to avoid hydration mismatch (Math.random causes React error #418)
+    const idHash = app.id ? app.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) : 0;
+    const randomStage = idHash % 3;
     if (randomStage === 0) {
       // Rejected after application
       path.push("Rejected");

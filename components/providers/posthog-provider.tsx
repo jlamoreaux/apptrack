@@ -6,40 +6,39 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 
 if (typeof window !== "undefined") {
-  // Use development key if available and in development mode
-  const isDevelopment = process.env.NODE_ENV === "development";
-  const posthogKey =
-    isDevelopment && process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
-      ? process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
-      : process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  // Never initialize PostHog on localhost — keeps dev events out of production data
+  const isLocalhost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1" ||
+    window.location.hostname.startsWith("192.168.");
 
-  // Only initialize PostHog if we have a valid key
-  if (posthogKey && process.env.NEXT_PUBLIC_POSTHOG_DISABLED !== "true") {
-    posthog.init(posthogKey, {
-    api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-    person_profiles: "identified_only",
-    capture_pageview: false, // Disable automatic pageview capture, as we capture manually
-    // Development settings
-    debug: isDevelopment,
-    // Use separate project/environment for development if available
-    loaded: () => {
-      if (process.env.NEXT_PUBLIC_POSTHOG_DISABLED === "true") {
-        return;
-      }
-      if (isDevelopment) {
-        // Tag development events
-        posthog.setPersonProperties({
-          environment: "development",
-          localhost: true,
-          hostname: window.location.hostname,
-        });
-      } else {
-        posthog.setPersonProperties({
-          environment: "production",
-        });
-      }
-    },
-  });
+  if (!isLocalhost) {
+    // Use development key if available and in development mode
+    const isDevelopment = process.env.NODE_ENV === "development";
+    const posthogKey =
+      isDevelopment && process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
+        ? process.env.NEXT_PUBLIC_POSTHOG_DEV_KEY
+        : process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+    // Only initialize PostHog if we have a valid key
+    if (posthogKey && process.env.NEXT_PUBLIC_POSTHOG_DISABLED !== "true") {
+      posthog.init(posthogKey, {
+        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+        person_profiles: "identified_only",
+        capture_pageview: false, // Disable automatic pageview capture, as we capture manually
+        capture_exceptions: true, // Capture JS exceptions with full stack traces
+        debug: isDevelopment,
+        loaded: () => {
+          if (process.env.NEXT_PUBLIC_POSTHOG_DISABLED === "true") {
+            return;
+          }
+          posthog.setPersonProperties({
+            environment: "production",
+            hostname: window.location.hostname,
+          });
+        },
+      });
+    }
   }
 }
 
