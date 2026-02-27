@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
-import { PLAN_NAMES, PLAN_LIMITS } from "@/lib/constants/plans";
+import { PLAN_NAMES, PLAN_LIMITS, ACTIVE_PLANS } from "@/lib/constants/plans";
 import { clientLogger } from "@/lib/utils/client-logger";
 import { LogCategory } from "@/lib/services/logger.types";
 import type { PromoCode, WelcomeOffer, TrafficSourceTrial } from "@/types/promo-codes";
@@ -140,22 +140,26 @@ export default function OnboardingWelcomePage() {
   // Get the active discount (either applied promo or welcome offer)
   const activeDiscount = appliedPromo || welcomeOffer;
 
+  // Only show active plans (Free and AI Coach) - Pro is legacy/grandfathered
+  const activePlanNames = Object.values(ACTIVE_PLANS) as string[];
+
   // Map database plans to display format, or use fallback if not loaded
-  const plans = dbPlans?.length ? dbPlans.map(plan => ({
-    name: plan.name,
-    title: plan.name,
-    monthlyPrice: plan.price_monthly || 0,
-    yearlyPrice: plan.price_yearly || 0,
-    description: 
-      plan.name === PLAN_NAMES.FREE ? "Perfect for trying out AppTrack" :
-      plan.name === PLAN_NAMES.PRO ? "For serious job seekers" :
-      "Your AI-powered career assistant",
-    features: plan.features || [],
-    buttonText: plan.name === PLAN_NAMES.FREE ? "Start Free" : `Start with ${plan.name}`,
-    buttonVariant: plan.name === PLAN_NAMES.FREE ? "outline" as const : "default" as const,
-    popular: plan.name === PLAN_NAMES.AI_COACH,
-    gradient: plan.name === PLAN_NAMES.AI_COACH,
-  })) : [
+  const plans = dbPlans?.length ? dbPlans
+    .filter(plan => activePlanNames.includes(plan.name))
+    .map(plan => ({
+      name: plan.name,
+      title: plan.name,
+      monthlyPrice: plan.price_monthly || 0,
+      yearlyPrice: plan.price_yearly || 0,
+      description:
+        plan.name === PLAN_NAMES.FREE ? "Perfect for trying out AppTrack" :
+        "Your AI-powered career assistant",
+      features: plan.features || [],
+      buttonText: plan.name === PLAN_NAMES.FREE ? "Start Free" : `Start with ${plan.name}`,
+      buttonVariant: plan.name === PLAN_NAMES.FREE ? "outline" as const : "default" as const,
+      popular: plan.name === PLAN_NAMES.AI_COACH,
+      gradient: plan.name === PLAN_NAMES.AI_COACH,
+    })) : [
     // Fallback plans if database plans not loaded
     {
       name: PLAN_NAMES.FREE,
@@ -173,28 +177,13 @@ export default function OnboardingWelcomePage() {
       popular: false,
     },
     {
-      name: PLAN_NAMES.PRO,
-      title: "Pro",
-      monthlyPrice: 2,
-      yearlyPrice: 16,
-      description: "For serious job seekers",
-      features: [
-        "Unlimited applications",
-        "All Free features",
-        "Priority support",
-      ],
-      buttonText: "Start with Pro",
-      buttonVariant: "default" as const,
-      popular: false,
-    },
-    {
       name: PLAN_NAMES.AI_COACH,
       title: "AI Coach",
       monthlyPrice: 9,
       yearlyPrice: 80,
       description: "Your AI-powered career assistant",
       features: [
-        "Everything in Pro",
+        "Everything in Free",
         "AI Resume Analysis",
         "Interview Preparation",
         "Job Fit Analysis",
@@ -269,7 +258,7 @@ export default function OnboardingWelcomePage() {
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-            Welcome to AppTrack, {user?.user_metadata?.name || "there"}! 🎉
+            Welcome to AppTrack{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ""}!
           </h1>
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4 sm:px-0">
             You're one step away from supercharging your job search. Choose the
@@ -300,7 +289,7 @@ export default function OnboardingWelcomePage() {
         />
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-12 px-4 md:px-0">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 px-4 md:px-0">
           {plans.map((plan) => (
             <PlanCard
               key={plan.name}
