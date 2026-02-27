@@ -10,6 +10,18 @@ interface UseTrialManagementProps {
   onTrialDetected?: (trial: TrafficSourceTrial) => void;
 }
 
+/**
+ * Resolves trial days from traffic source trials with fallback to promo code trials.
+ * Traffic source trials take precedence over promo code trials.
+ */
+export function resolveTrialDays(
+  trafficTrialDays: number,
+  appliedPromo?: PromoCode | null
+): number {
+  return trafficTrialDays ||
+    (appliedPromo?.code_type === 'trial' ? (appliedPromo.trial_days ?? 0) : 0);
+}
+
 export function useTrialManagement({ user, onTrialDetected }: UseTrialManagementProps) {
   const [trafficTrial, setTrafficTrial] = useState<TrafficSourceTrial | null>(null);
   const [shouldAutoSelectPlan, setShouldAutoSelectPlan] = useState(false);
