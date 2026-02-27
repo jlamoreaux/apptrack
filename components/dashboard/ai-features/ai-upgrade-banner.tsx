@@ -40,7 +40,7 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
 
   useEffect(() => {
     // Check if banner was dismissed recently
-    const dismissedAt = localStorage.getItem("ai-banner-dismissed");
+    const dismissedAt = localStorage?.getItem("ai-banner-dismissed");
     if (dismissedAt) {
       const dismissTime = new Date(dismissedAt).getTime();
       const now = new Date().getTime();

@@ -35,7 +35,7 @@ export function ActiveAnnouncements() {
       setAnnouncements(data);
       
       // Load dismissed announcements from localStorage
-      const dismissed = localStorage.getItem('dismissedAnnouncements');
+      const dismissed = localStorage?.getItem('dismissedAnnouncements');
       if (dismissed) {
         setDismissedIds(new Set(JSON.parse(dismissed)));
       }

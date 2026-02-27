@@ -28,7 +28,7 @@ export function useFormPersistence<T extends object>(
     }
 
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage?.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as T;
         // Merge with initial data to handle schema changes
@@ -48,7 +48,7 @@ export function useFormPersistence<T extends object>(
     isInitialized.current = true;
 
     try {
-      const saved = localStorage.getItem(storageKey);
+      const saved = localStorage?.getItem(storageKey);
       if (saved) {
         const parsed = JSON.parse(saved) as T;
         // Check if any field has meaningful content

@@ -22,7 +22,7 @@ export default function ConfirmEmailPage() {
 
   useEffect(() => {
     // Get email from localStorage (set during signup)
-    const storedEmail = localStorage.getItem("pendingEmailConfirmation");
+    const storedEmail = localStorage?.getItem("pendingEmailConfirmation");
     if (storedEmail) {
       setEmail(storedEmail);
     }
@@ -63,7 +63,7 @@ export default function ConfirmEmailPage() {
     if (!targetUserId) return;
 
     // Check if there's a pending preview session to unlock
-    const previewSessionId = localStorage.getItem("pendingPreviewSession");
+    const previewSessionId = localStorage?.getItem("pendingPreviewSession");
     if (previewSessionId) {
       localStorage.removeItem("pendingPreviewSession");
       router.push(`/try/unlock?session=${previewSessionId}`);
