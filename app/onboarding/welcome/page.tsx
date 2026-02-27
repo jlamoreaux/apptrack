@@ -14,7 +14,7 @@ import { OfferBanner } from "@/components/onboarding/offer-banner";
 import { PlanCard } from "@/components/onboarding/plan-card";
 import { BenefitsSection } from "@/components/onboarding/benefits-section";
 import { BillingToggle } from "@/components/onboarding/billing-toggle";
-import { useTrialManagement } from "@/hooks/use-trial-management";
+import { useTrialManagement, resolveTrialDays } from "@/hooks/use-trial-management";
 import { usePromoCodes } from "@/hooks/use-promo-codes";
 import { createCheckoutSession, buildCheckoutFallbackUrl } from "@/lib/checkout/create-checkout";
 import { UI_DELAYS } from "@/lib/constants/timeouts";
@@ -220,8 +220,8 @@ export default function OnboardingWelcomePage() {
       const dbPlan = dbPlans?.find(p => p.name === planName);
       const planId = dbPlan?.id || planName.toLowerCase().replace(" ", "-");
       
-      // Get trial days for this plan
-      const trialDays = getTrialDays(planName);
+      // Get trial days: prefer traffic source trials, fall back to promo code trials
+      const trialDays = resolveTrialDays(getTrialDays(planName), appliedPromo);
       
       // Create checkout session using the utility
       const checkoutUrl = await createCheckoutSession({
