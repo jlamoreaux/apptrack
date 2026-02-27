@@ -139,10 +139,19 @@ export function SignUpForm() {
       }
     }
 
-    // Check if user came with trial intent or preview session
+    // Check if user came with trial intent, layoff offer, or preview session
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get("intent") === "ai-coach-trial") {
       setHasTrialIntent(true);
+    }
+
+    // Store promo code for layoff-offer intent (survives email confirmation flow)
+    if (urlParams.get("intent") === "layoff-offer") {
+      try {
+        localStorage.setItem("pendingPromoCode", "NEWSTART");
+      } catch (e) {
+        console.warn("Could not save pendingPromoCode to localStorage:", e);
+      }
     }
 
     // Check for preview session ID (from try-before-signup flow)
@@ -233,6 +242,10 @@ export function SignUpForm() {
           // If user came from preview session, redirect to unlock page
           if (previewSessionId) {
             router.push(`/try/unlock?session=${previewSessionId}`);
+          }
+          // If user came from layoff-offer, redirect with promo code
+          else if (new URLSearchParams(window.location.search).get("intent") === "layoff-offer") {
+            router.push("/onboarding/welcome?promo=NEWSTART");
           }
           // If user has trial intent, add parameter to auto-select AI Coach
           else if (hasTrialIntent && trafficSourceTrial) {
