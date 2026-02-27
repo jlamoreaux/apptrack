@@ -23,29 +23,7 @@ export async function getFingerprint(): Promise<string> {
     return "server-side-render";
   }
 
-  // Check if FingerprintJS API key is configured
-  const apiKey = process.env.NEXT_PUBLIC_FINGERPRINT_API_KEY;
-
-  if (apiKey) {
-    // Use FingerprintJS Pro (full implementation)
-    try {
-      const FingerprintJS = (await import("@fingerprintjs/fingerprintjs-pro")).default;
-
-      const fp = await FingerprintJS.load({
-        apiKey,
-        endpoint: "https://fp.apptrack.ing", // Custom endpoint if needed
-      });
-
-      const result = await fp.get();
-      return result.visitorId;
-    } catch (error) {
-      console.error("FingerprintJS error, falling back to simple fingerprint:", error);
-      return getSimpleFingerprint();
-    }
-  } else {
-    // Development fallback - simple fingerprint
-    return getSimpleFingerprint();
-  }
+  return getSimpleFingerprint();
 }
 
 /**

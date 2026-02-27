@@ -16,8 +16,8 @@ export function CookieBanner() {
   })
 
   useEffect(() => {
-    // Check if user has already made a choice
-    const cookieConsent = localStorage.getItem('cookie-consent')
+    // Check if user has already made a choice (use optional chaining for LinkedIn in-app browser where localStorage can be null)
+    const cookieConsent = localStorage?.getItem('cookie-consent')
     if (!cookieConsent) {
       setIsVisible(true)
     } else {
@@ -31,17 +31,15 @@ export function CookieBanner() {
   }, [])
 
   const savePreferences = (prefs: typeof preferences) => {
-    localStorage.setItem('cookie-consent', JSON.stringify(prefs))
+    try { localStorage?.setItem('cookie-consent', JSON.stringify(prefs)) } catch {}
     setIsVisible(false)
     
     // Apply preferences to actual services
     if (!prefs.analytics) {
       // Disable analytics tracking
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('disable-analytics', 'true')
-      }
+      try { localStorage?.setItem('disable-analytics', 'true') } catch {}
     } else {
-      localStorage.removeItem('disable-analytics')
+      try { localStorage?.removeItem('disable-analytics') } catch {}
     }
   }
 

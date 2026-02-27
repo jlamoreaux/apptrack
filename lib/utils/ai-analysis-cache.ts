@@ -274,7 +274,7 @@ class PersistentCacheManager {
    */
   private getStorageCache(): AnalysisCache {
     try {
-      const stored = localStorage.getItem(this.storageKey)
+      const stored = localStorage?.getItem(this.storageKey)
       return stored ? JSON.parse(stored) : {}
     } catch (error) {
       localStorage.removeItem(this.storageKey)
