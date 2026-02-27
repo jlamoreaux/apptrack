@@ -14,13 +14,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { NavigationStatic } from "@/components/navigation-static";
 import { SignUpForm } from "@/components/forms/sign-up-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
-import { Gift, Sparkles } from "lucide-react";
+import { Gift, Sparkles, HeartHandshake } from "lucide-react";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
   const intent = searchParams.get("intent");
   const sessionId = searchParams.get("session");
   const isAICoachTrial = intent === "ai-coach-trial";
+  const isLayoffOffer = intent === "layoff-offer";
   const hasPreviewSession = !!sessionId;
 
   useEffect(() => {
@@ -59,18 +60,34 @@ export default function SignUpPageClient() {
             </Alert>
           )}
 
+          {isLayoffOffer && !hasPreviewSession && (
+            <Alert className="border-secondary bg-secondary/10">
+              <HeartHandshake className="h-4 w-4 text-secondary" />
+              <AlertDescription className="text-sm">
+                <strong>Free 30-Day AI Coach Access</strong> — We&apos;re here to help
+                you land your next role.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Card>
             <CardHeader className="text-center">
               <div className="flex justify-center mb-2">
-                {(isAICoachTrial || hasPreviewSession) && (
+                {(isAICoachTrial || isLayoffOffer || hasPreviewSession) && (
                   <div className="p-2 bg-secondary/10 rounded-full">
-                    <Sparkles className="h-6 w-6 text-secondary" />
+                    {isLayoffOffer ? (
+                      <HeartHandshake className="h-6 w-6 text-secondary" />
+                    ) : (
+                      <Sparkles className="h-6 w-6 text-secondary" />
+                    )}
                   </div>
                 )}
               </div>
               <CardTitle>
                 {hasPreviewSession
                   ? "Unlock Your Full Analysis"
+                  : isLayoffOffer
+                  ? "Claim Your Free Month"
                   : isAICoachTrial
                   ? "Start Your Free Trial"
                   : "Join AppTrack"}
@@ -78,6 +95,8 @@ export default function SignUpPageClient() {
               <CardDescription>
                 {hasPreviewSession
                   ? "Create your account to see the complete results + get 1 free try of each AI feature"
+                  : isLayoffOffer
+                  ? "Create your account to activate 30 days of AI Coach — free"
                   : isAICoachTrial
                   ? "Create your account to begin your 7-day AI Coach trial"
                   : "Create your account to start tracking job applications"}
@@ -86,7 +105,13 @@ export default function SignUpPageClient() {
             <CardContent>
               <GoogleSignInButton
                 context="signup"
-                redirectTo={sessionId ? `/try/unlock?session=${sessionId}` : undefined}
+                redirectTo={
+                  sessionId
+                    ? `/try/unlock?session=${sessionId}`
+                    : isLayoffOffer
+                    ? "/onboarding/welcome?promo=NEWSTART"
+                    : undefined
+                }
                 className="mb-4"
               />
 

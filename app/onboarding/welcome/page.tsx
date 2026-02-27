@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Sparkles } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
@@ -46,6 +46,34 @@ export default function OnboardingWelcomePage() {
     setShowPromoDialog,
     handleApplyPromo,
   } = usePromoCodes();
+
+  const searchParams = useSearchParams();
+
+  // Auto-apply promo code from URL param or localStorage (layoff-offer flow)
+  const autoPromoAppliedRef = useRef(false);
+  useEffect(() => {
+    if (autoPromoAppliedRef.current || loading || !user) return;
+
+    const urlPromo = searchParams.get("promo");
+    let pendingPromo: string | null = null;
+    try {
+      pendingPromo = localStorage.getItem("pendingPromoCode");
+    } catch (e) {
+      // Private browsing or storage unavailable
+    }
+
+    const codeToApply = urlPromo || pendingPromo;
+    if (codeToApply) {
+      autoPromoAppliedRef.current = true;
+      // Clean up localStorage
+      try {
+        localStorage.removeItem("pendingPromoCode");
+      } catch (e) {
+        // Ignore
+      }
+      handleApplyPromo(codeToApply);
+    }
+  }, [loading, user, searchParams, handleApplyPromo]);
 
   useEffect(() => {
     if (!loading && !user) {
