@@ -15,14 +15,12 @@ export interface FingerprintResult {
 
 /**
  * Generate a browser fingerprint
- * Uses FingerprintJS Pro if API key is available, otherwise generates simple fallback
+ * Uses simple fingerprint based on user agent and browser characteristics
  */
 export async function getFingerprint(): Promise<string> {
-  // Check if we're in browser environment
   if (typeof window === "undefined") {
     return "server-side-render";
   }
-
   return getSimpleFingerprint();
 }
 
