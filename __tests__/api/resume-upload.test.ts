@@ -23,6 +23,19 @@ import { extractTextFromBuffer, isSupportedFileType } from '@/lib/utils/text-ext
 jest.mock('@/lib/supabase/server');
 jest.mock('@/services/resumes');
 jest.mock('@/lib/utils/text-extraction-server');
+jest.mock('pdf-parse', () => jest.fn());
+jest.mock('@/lib/utils/file-type-validation', () => ({
+  validateFileType: jest.fn().mockResolvedValue({ valid: true, mimeType: 'application/pdf', error: null }),
+  isAllowedMimeType: jest.fn().mockReturnValue(true),
+  validatePDFStructure: jest.fn().mockReturnValue(true),
+}));
+jest.mock('@/lib/middleware/rate-limit.middleware', () => ({
+  withRateLimit: async (handler: any, options: any) => handler(options.request),
+  getUserSubscriptionTier: jest.fn().mockResolvedValue('free'),
+}));
+jest.mock('@/lib/supabase/queries', () => ({
+  getSubscription: jest.fn().mockResolvedValue(null),
+}));
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 const mockResumeService = ResumeService as jest.MockedClass<typeof ResumeService>;

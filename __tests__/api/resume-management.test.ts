@@ -12,17 +12,26 @@ jest.mock('@/lib/supabase/server-client', () => ({
   createClient: jest.fn(),
 }));
 
-jest.mock('@/services/resumes', () => ({
-  ResumeService: jest.fn().mockImplementation(() => ({
+// Use a singleton so every `new ResumeService()` — both in tests and in the route —
+// returns the same mock instance. Without this, test lines like
+// `(new ResumeService() as any).method = jest.fn()...` set methods on a different
+// instance than the one the route actually uses.
+jest.mock('@/services/resumes', () => {
+  const instance = {
     canAddResume: jest.fn(),
     getAllResumes: jest.fn(),
+    count: jest.fn().mockResolvedValue(0),
+    getMaxDisplayOrder: jest.fn().mockResolvedValue(0),
     create: jest.fn(),
     findById: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
     setDefaultResume: jest.fn(),
-  })),
-}));
+  };
+  return {
+    ResumeService: jest.fn().mockImplementation(() => instance),
+  };
+});
 
 // Mock text extraction to avoid pdf-parse loading issues
 jest.mock('@/lib/utils/text-extraction-server', () => ({
@@ -33,6 +42,22 @@ jest.mock('@/lib/utils/text-extraction-server', () => ({
 // Mock pdf-parse to prevent it from running debug code
 jest.mock('pdf-parse', () => jest.fn());
 
+// Mock file-type-validation to avoid missing 'file-type' ESM package
+jest.mock('@/lib/utils/file-type-validation', () => ({
+  validateFileType: jest.fn().mockResolvedValue({ valid: true, mimeType: 'application/pdf', error: null }),
+  isAllowedMimeType: jest.fn().mockReturnValue(true),
+  validatePDFStructure: jest.fn().mockReturnValue(true),
+}));
+
+jest.mock('@/lib/middleware/rate-limit.middleware', () => ({
+  withRateLimit: async (handler: any, options: any) => handler(options.request),
+  getUserSubscriptionTier: jest.fn().mockResolvedValue('free'),
+}));
+
+jest.mock('@/lib/supabase/queries', () => ({
+  getSubscription: jest.fn(),
+}));
+
 // Now import after mocks are set up
 import { POST } from '@/app/api/resume/upload/route';
 import { GET as CheckLimitGET } from '@/app/api/resume/check-limit/route';
@@ -42,6 +67,7 @@ import { PATCH as SetDefaultPATCH } from '@/app/api/resume/[id]/default/route';
 import { createClient } from '@/lib/supabase/server';
 import { ResumeService } from '@/services/resumes';
 import { extractTextFromBuffer } from '@/lib/utils/text-extraction-server';
+import { getSubscription } from '@/lib/supabase/queries';
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 const mockExtractText = extractTextFromBuffer as jest.MockedFunction<typeof extractTextFromBuffer>;
@@ -92,11 +118,15 @@ describe('Resume Management API Routes', () => {
       storage: {
         from: jest.fn().mockReturnValue({
           upload: jest.fn().mockResolvedValue({ data: { path: 'resumes/test.pdf' }, error: null }),
+          // download() is called by the route to verify the uploaded file exists
+          download: jest.fn().mockResolvedValue({ data: new Blob(['resume content']), error: null }),
           getPublicUrl: jest.fn().mockReturnValue({
             data: { publicUrl: 'https://example.com/resume.pdf' },
           }),
+          remove: jest.fn().mockResolvedValue({ data: null, error: null }),
         }),
       },
+      rpc: jest.fn().mockResolvedValue({ data: 1, error: null }),
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
@@ -108,6 +138,7 @@ describe('Resume Management API Routes', () => {
     };
 
     mockCreateClient.mockResolvedValue(mockSupabase);
+    (getSubscription as jest.MockedFunction<typeof getSubscription>).mockResolvedValue(null);
   });
 
   describe('POST /api/resume/upload - Multi-resume support', () => {
@@ -327,7 +358,13 @@ describe('Resume Management API Routes', () => {
         { ...mockResume, display_order: 3 },
       ];
       (new ResumeService() as any).getAllResumes = jest.fn().mockResolvedValue(existingResumes);
+      // Route uses supabase.rpc('get_next_display_order') for display_order; if rpc fails,
+      // it falls back to getMaxDisplayOrder() + 1. Force fallback here to test that path.
+      (new ResumeService() as any).count = jest.fn().mockResolvedValue(3);
+      (new ResumeService() as any).getMaxDisplayOrder = jest.fn().mockResolvedValue(3);
       (new ResumeService() as any).create = jest.fn().mockResolvedValue(mockResume);
+      // Override rpc to fail so the fallback (getMaxDisplayOrder) is used
+      mockSupabase.rpc = jest.fn().mockResolvedValue({ data: null, error: { message: 'rpc error' } });
 
       const formData = createFormData();
       const request = new Request('http://localhost:3000/api/resume/upload', {
@@ -396,20 +433,20 @@ describe('Resume Management API Routes', () => {
       ];
 
       (new ResumeService() as any).getAllResumes = jest.fn().mockResolvedValue(resumes);
-      (new ResumeService() as any).canAddResume = jest.fn().mockResolvedValue({
-        allowed: true,
-        limit: 100,
-        current: 3,
-        plan: 'AI Coach',
-      });
+      // canAddResume is not used by list route; it uses getSubscription for plan/limit
+      (getSubscription as jest.MockedFunction<typeof getSubscription>).mockResolvedValue({
+        subscription_plans: { name: 'AI Coach' },
+      } as any);
 
       const response = await ListGET();
       const data = await response.json();
 
       expect(data.resumes).toHaveLength(3);
       expect(data.resumes[0].display_order).toBe(1);
-      expect(data.limit).toEqual({
-        allowed: true,
+      // Route returns limit info in meta (not top-level limit)
+      expect(data.meta).toEqual({
+        total: 3,
+        canAdd: true,
         limit: 100,
         current: 3,
         plan: 'AI Coach',
@@ -429,7 +466,7 @@ describe('Resume Management API Routes', () => {
       const data = await response.json();
 
       expect(data.resumes).toEqual([]);
-      expect(data.limit.current).toBe(0);
+      expect(data.meta.current).toBe(0);
     });
   });
 
@@ -473,6 +510,8 @@ describe('Resume Management API Routes', () => {
 
   describe('PATCH /api/resume/[id] - Update metadata', () => {
     it('should update resume name and description', async () => {
+      // Route checks findById before updating; provide the existing resume
+      (new ResumeService() as any).findById = jest.fn().mockResolvedValue(mockResume);
       (new ResumeService() as any).update = jest.fn().mockResolvedValue({
         ...mockResume,
         name: 'Updated Name',
@@ -497,6 +536,8 @@ describe('Resume Management API Routes', () => {
     });
 
     it('should update display_order', async () => {
+      // Route checks findById before updating
+      (new ResumeService() as any).findById = jest.fn().mockResolvedValue(mockResume);
       (new ResumeService() as any).update = jest.fn().mockResolvedValue({
         ...mockResume,
         display_order: 5,
@@ -536,6 +577,8 @@ describe('Resume Management API Routes', () => {
         is_default: true,
       });
       (new ResumeService() as any).getAllResumes = jest.fn().mockResolvedValue([mockResume]);
+      // Route uses count() (not getAllResumes) to check if this is the only resume
+      (new ResumeService() as any).count = jest.fn().mockResolvedValue(1);
 
       const params = { params: Promise.resolve({ id: resumeId }) };
       const response = await DELETE(new Request('http://localhost'), params);
@@ -553,6 +596,8 @@ describe('Resume Management API Routes', () => {
         mockResume,
         otherResume,
       ]);
+      // Route uses count() to determine if this is the last resume; 2 means deletion is allowed
+      (new ResumeService() as any).count = jest.fn().mockResolvedValue(2);
       (new ResumeService() as any).delete = jest.fn().mockResolvedValue(true);
 
       const params = { params: Promise.resolve({ id: resumeId }) };
@@ -640,6 +685,10 @@ describe('Resume Management API Routes', () => {
         method: 'POST',
         body: formData,
       });
+
+      // Override isSupportedFileType to return false for this test
+      const { isSupportedFileType } = jest.requireMock('@/lib/utils/text-extraction-server');
+      isSupportedFileType.mockReturnValueOnce(false);
 
       (new ResumeService() as any).canAddResume = jest.fn().mockResolvedValue({
         allowed: true,
