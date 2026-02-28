@@ -4,6 +4,7 @@ import { generateInterviewPrep } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
 import { loggerService, LogCategory } from "@/lib/services/logger.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,6 +97,11 @@ export async function POST(request: NextRequest) {
         practiceAreas: [],
       };
     }
+
+    captureServerEvent('anonymous', 'free_tool_used', {
+      tool: 'interview_prep',
+      authenticated: false,
+    });
 
     const fullAnalysis = {
       questions: parsedAnalysis.questions || [],

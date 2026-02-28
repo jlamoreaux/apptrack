@@ -5,6 +5,7 @@ import type { ApplicationQueryOptions } from "@/dal/applications";
 import { APPLICATION_STATUS } from "@/lib/constants/application-status";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -152,6 +153,11 @@ export async function POST(request: NextRequest) {
         hasRoleLink: !!role_link,
         authSource: user.source
       }
+    });
+
+    captureServerEvent(user.id, 'application_added', {
+      status: newApplication.status,
+      has_role_link: !!role_link,
     });
 
     return NextResponse.json(newApplication, { status: 201 });

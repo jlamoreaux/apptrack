@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -283,6 +284,12 @@ async function handleCheckoutCompleted(
     console.log(`Status: ${subscription.status}`);
     console.log(`Period start: ${currentPeriodStart}`);
     console.log(`Period end: ${currentPeriodEnd}`);
+
+    captureServerEvent(userId, 'upgrade_completed', {
+      plan: planName,
+      billing_cycle: billingCycle,
+      amount: session.amount_total,
+    });
 
     // Transition user to paid-users audience (non-blocking)
     // Get user email from Stripe customer

@@ -8,6 +8,7 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function handler(request: NextRequest) {
   const startTime = Date.now();
@@ -194,6 +195,11 @@ async function handler(request: NextRequest) {
         }
       });
 
+      captureServerEvent(user.id, 'job_fit_analyzed', {
+        overall_score: analysis.overallScore,
+        has_application_id: !!applicationId,
+      });
+
       return NextResponse.json({
         ...analysis,
         usedFreeTier: permissionResult.usedFreeTier,
@@ -331,6 +337,12 @@ async function handler(request: NextRequest) {
           overallScore: mockAnalysis.overallScore,
           usedFreeTier: permissionResult.usedFreeTier || false
         }
+      });
+
+      captureServerEvent(user.id, 'job_fit_analyzed', {
+        overall_score: mockAnalysis.overallScore,
+        has_application_id: !!applicationId,
+        fallback: true,
       });
 
       return NextResponse.json({

@@ -20,6 +20,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 import { serverAnalyticsService } from "@/lib/services/analytics-server.service";
 import { validateEmail } from "@/lib/email/validate";
 import { scheduleDripSequence } from "@/lib/email/drip-scheduler";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // 30 seconds timeout
@@ -297,6 +298,11 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    captureServerEvent(user?.id ?? 'anonymous', 'roast_submitted', {
+      authenticated: !!user,
+      file_type: file.type,
+    });
+
     // Set cookies to track usage and ownership
     const cookieStore = await cookies();
     cookieStore.set("roast_used", "true", {
