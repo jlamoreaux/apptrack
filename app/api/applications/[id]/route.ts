@@ -4,6 +4,7 @@ import { ApplicationDAL } from "@/dal/applications";
 import { z } from "zod";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 const ApplicationUpdateSchema = z.object({
   company: z.string().min(1).optional(),
@@ -148,6 +149,11 @@ export async function PUT(
         newStatus: validatedData.status,
         archived: validatedData.archived
       }
+    });
+
+    captureServerEvent(user.id, 'application_updated', {
+      field_updated: Object.keys(validatedData).join(','),
+      new_status: validatedData.status,
     });
 
     return NextResponse.json({ application: updatedApp });

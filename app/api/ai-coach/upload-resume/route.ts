@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -157,6 +158,10 @@ export async function POST(request: NextRequest) {
         fileSize: file.size,
         textLength: extractedText.length
       }
+    });
+
+    captureServerEvent(user.id, 'resume_uploaded', {
+      file_type: file.type,
     });
 
     return NextResponse.json({ text: extractedText });

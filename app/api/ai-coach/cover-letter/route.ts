@@ -9,6 +9,7 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
 import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function coverLetterHandler(request: NextRequest) {
   const startTime = Date.now();
@@ -268,6 +269,11 @@ async function coverLetterHandler(request: NextRequest) {
         tone: tone || 'professional',
         usedFreeTier: permissionResult.usedFreeTier || false
       }
+    });
+
+    captureServerEvent(user.id, 'cover_letter_generated', {
+      has_job_description: !!finalJobDescription,
+      has_application_id: !!applicationId,
     });
 
     return NextResponse.json({

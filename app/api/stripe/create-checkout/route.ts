@@ -7,6 +7,7 @@ import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { BILLING_CYCLES } from "@/lib/constants/plans";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -306,6 +307,11 @@ export async function POST(request: NextRequest) {
         amount: session.amount_total,
         currency: session.currency
       }
+    });
+
+    captureServerEvent(user.id, 'checkout_started', {
+      plan: plan.name,
+      billing_cycle: billingCycle,
     });
 
     return NextResponse.json({ url: session.url });

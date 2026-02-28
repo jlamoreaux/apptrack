@@ -4,6 +4,7 @@ import { generateCoverLetter } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
 import { loggerService, LogCategory } from "@/lib/services/logger.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 /**
  * POST /api/try/cover-letter
@@ -90,6 +91,11 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    captureServerEvent('anonymous', 'free_tool_used', {
+      tool: 'cover_letter',
+      authenticated: false,
+    });
 
     // Create preview version (first ~300 characters)
     const previewLength = 300;

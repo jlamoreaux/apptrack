@@ -12,6 +12,7 @@ import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -328,6 +329,11 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         transformationTime: transformResult.transformationTime,
         aiGenerationTime: aiGenerationDuration
       }
+    });
+
+    captureServerEvent(user.id, 'interview_prep_generated', {
+      has_job_description: !!effectiveJobDescription,
+      has_application_id: !!applicationId,
     });
 
     return NextResponse.json({ 

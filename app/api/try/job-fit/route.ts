@@ -4,6 +4,7 @@ import { generateJobFitAnalysis } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
 import { encryptContent } from "@/lib/utils/encryption";
 import { loggerService, LogCategory } from "@/lib/services/logger.service";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 /**
  * POST /api/try/job-fit
@@ -123,6 +124,11 @@ export async function POST(request: NextRequest) {
         recommendations: [],
       };
     }
+
+    captureServerEvent('anonymous', 'free_tool_used', {
+      tool: 'job_fit',
+      authenticated: false,
+    });
 
     // Map to component's expected structure
     const fullAnalysis = {
