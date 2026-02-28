@@ -41,3 +41,14 @@ jobs:
         run: pnpm test -- --ci --forceExit --no-coverage
         env:
           NODE_ENV: test
+          # Dummy values for packages that throw on missing env vars at import time
+          # (real secrets are never stored in CI — these are test-only stubs)
+          NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key-for-jest
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-for-jest
+          EXTENSION_JWT_SECRET: test-jwt-secret-for-jest
+          OPENAI_API_KEY: test-openai-key
+          UPSTASH_REDIS_REST_URL: https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: test-upstash-token
+          STRIPE_SECRET_KEY: sk_test_fake
+          STRIPE_WEBHOOK_SECRET: whsec_test_fake
