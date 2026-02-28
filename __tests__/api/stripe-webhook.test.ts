@@ -20,7 +20,10 @@ import { SubscriptionService } from '@/services/subscriptions';
 import { createClient } from '@/lib/supabase/server';
 import type Stripe from 'stripe';
 
-// Mock dependencies
+// Mock dependencies - mock client first to prevent STRIPE_SECRET_KEY throw at import time
+jest.mock('@/lib/stripe/client', () => ({
+  stripe: {},
+}));
 jest.mock('@/lib/stripe');
 jest.mock('@/services/subscriptions');
 jest.mock('@/lib/supabase/server');

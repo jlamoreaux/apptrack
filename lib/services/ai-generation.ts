@@ -14,7 +14,7 @@ import type {
 // Configuration for AI providers
 const AI_CONFIG = {
   provider: process.env.AI_PROVIDER || 'openai', // openai, anthropic, local
-  apiKey: process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY,
+  get apiKey() { return process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY },
   model: process.env.AI_MODEL || 'gpt-4o-mini',
   maxTokens: 2000,
   temperature: 0.7,
