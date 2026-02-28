@@ -1,6 +1,38 @@
 import '@testing-library/jest-dom'
 import { toHaveNoViolations } from 'jest-axe'
 
+// Polyfill TextEncoder/TextDecoder for jose and other Web API packages
+// that rely on them but aren't provided by jsdom in older versions.
+import { TextEncoder, TextDecoder } from 'util'
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
+
+// Polyfill File.prototype.arrayBuffer and text() for jsdom.
+// jsdom's File class doesn't implement these Web APIs, causing route tests that
+// call file.arrayBuffer() to fail with "not a function". We patch the prototype
+// directly so all File instances (test-created or otherwise) work correctly.
+if (typeof File !== 'undefined' && typeof File.prototype.arrayBuffer !== 'function') {
+  File.prototype.arrayBuffer = async function() {
+    const buf = Buffer.from(this.name + '_content', 'utf-8');
+    return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  };
+  File.prototype.text = async function() {
+    return this.name + '_content';
+  };
+}
+
+// Polyfill Web Streams API for packages like the `ai` SDK that use TransformStream
+import { TransformStream, ReadableStream, WritableStream } from 'stream/web'
+if (typeof global.TransformStream === 'undefined') {
+  global.TransformStream = TransformStream
+}
+if (typeof global.ReadableStream === 'undefined') {
+  global.ReadableStream = ReadableStream
+}
+if (typeof global.WritableStream === 'undefined') {
+  global.WritableStream = WritableStream
+}
+
 // Extend Jest matchers with jest-axe custom matchers
 expect.extend(toHaveNoViolations)
 
@@ -117,6 +149,10 @@ jest.mock('next/link', () => {
 process.env = {
   ...process.env,
   NODE_ENV: 'test',
+  // Fake Supabase credentials so browser-client.ts can initialize without throwing
+  NEXT_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
+  SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 }
 
 // Mock Lucide React icons to avoid SVG rendering issues in tests

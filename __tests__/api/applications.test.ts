@@ -5,7 +5,7 @@
 
 import { GET } from '@/app/api/applications/route';
 import { ApplicationDAL } from '@/dal/applications';
-import { getUser } from '@/lib/supabase/server';
+import { getAuthenticatedUser } from '@/lib/auth/extension-auth';
 
 // Helper to create mock requests
 function createMockRequest(path: string, options?: any) {
@@ -19,10 +19,23 @@ function createMockRequest(path: string, options?: any) {
 }
 
 // Mock dependencies
+jest.mock('@/lib/auth/extension-auth', () => ({
+  getAuthenticatedUser: jest.fn(),
+}));
 jest.mock('@/lib/supabase/server');
 jest.mock('@/dal/applications');
+jest.mock('@/lib/services/logger.service', () => ({
+  loggerService: {
+    warn: jest.fn(),
+    info: jest.fn(),
+    debug: jest.fn(),
+    error: jest.fn(),
+    logSecurityEvent: jest.fn(),
+    logApiCall: jest.fn(),
+  },
+}));
 
-const mockGetUser = getUser as jest.MockedFunction<typeof getUser>;
+const mockGetAuthenticatedUser = getAuthenticatedUser as jest.MockedFunction<typeof getAuthenticatedUser>;
 const mockApplicationDAL = ApplicationDAL as jest.MockedClass<typeof ApplicationDAL>;
 
 describe('Applications API', () => {
@@ -81,7 +94,7 @@ describe('Applications API', () => {
     mockApplicationDAL.prototype.queryApplications = mockQueryApplications;
     mockApplicationDAL.prototype.getStatusCounts = mockGetStatusCounts;
     
-    mockGetUser.mockResolvedValue(mockUser as any);
+    mockGetAuthenticatedUser.mockResolvedValue(mockUser as any);
   });
 
   describe('GET /api/applications', () => {
@@ -170,7 +183,7 @@ describe('Applications API', () => {
     });
 
     it('should return 401 for unauthenticated user', async () => {
-      mockGetUser.mockResolvedValue(null);
+      mockGetAuthenticatedUser.mockResolvedValue(null);
       
       const request = createMockRequest('/api/applications');
       const response = await GET(request);

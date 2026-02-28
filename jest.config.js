@@ -17,7 +17,7 @@ const customJestConfig = {
     '<rootDir>/__tests__/utils/test-helpers',
   ],
   transform: {
-    '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
+    '^.+\\.(js|jsx|ts|tsx|mjs)$': ['babel-jest', { presets: ['next/babel'] }],
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
@@ -46,4 +46,18 @@ const customJestConfig = {
 }
 
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-module.exports = createJestConfig(customJestConfig)
+// We override transformIgnorePatterns after resolution because next/jest prepends its own patterns
+// that would match jose/@upstash packages before our exceptions can take effect.
+const jestConfig = createJestConfig(customJestConfig)
+module.exports = async () => {
+  const config = await jestConfig()
+  // Override: transform ESM-only packages that babel-jest needs to process.
+  // Pattern explanation: skip .pnpm outer paths (handled separately); at the inner
+  // /node_modules/ level, transform jose, uncrypto, @upstash/redis, @upstash/ratelimit.
+  config.transformIgnorePatterns = [
+    '/node_modules/(?!\\.pnpm)(?!(?:jose|uncrypto|@upstash\\/redis|@upstash\\/ratelimit)[\\/])',
+    '/node_modules/\\.pnpm/(?!(?:jose|uncrypto|@upstash\\+redis|@upstash\\+ratelimit)@)',
+    '^.+\\.module\\.(css|sass|scss)$',
+  ]
+  return config
+}
