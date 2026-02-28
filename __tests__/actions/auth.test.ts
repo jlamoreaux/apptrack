@@ -63,7 +63,7 @@ describe("signUpWithPassword", () => {
     );
   });
 
-  it("uses NEXT_PUBLIC_APP_URL env var when set", async () => {
+  it("uses NEXT_PUBLIC_APP_URL when set", async () => {
     process.env.NEXT_PUBLIC_APP_URL = "https://staging.apptrack.ing";
     mockSignUp.mockResolvedValue({
       data: { user: { id: "u1" }, session: null },
@@ -82,7 +82,28 @@ describe("signUpWithPassword", () => {
     );
   });
 
-  it("falls back to apptrack.ing when env var is not set", async () => {
+  it("uses VERCEL_URL for preview deployments when NEXT_PUBLIC_APP_URL is not set", async () => {
+    process.env.VERCEL_URL = "apptrack-git-my-branch-jlmx.vercel.app";
+    mockSignUp.mockResolvedValue({
+      data: { user: { id: "u1" }, session: null },
+      error: null,
+    });
+
+    await signUpWithPassword("test@example.com", "Password1!", "Test User");
+
+    expect(mockSignUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          emailRedirectTo:
+            "https://apptrack-git-my-branch-jlmx.vercel.app/auth/callback?next=/onboarding/welcome",
+        }),
+      })
+    );
+
+    delete process.env.VERCEL_URL;
+  });
+
+  it("falls back to apptrack.ing when no env vars are set", async () => {
     mockSignUp.mockResolvedValue({
       data: { user: { id: "u1" }, session: null },
       error: null,
