@@ -27,6 +27,7 @@ export async function signUpAction(formData: FormData) {
     const { name, email, password } = result.data;
     const supabase = await createClient();
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apptrack.ing";
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -34,6 +35,7 @@ export async function signUpAction(formData: FormData) {
         data: {
           full_name: name,
         },
+        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
       },
     });
 
@@ -125,6 +127,7 @@ export async function signUpWithPassword(
   try {
     const supabase = await createClient();
 
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://apptrack.ing";
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -134,6 +137,7 @@ export async function signUpWithPassword(
           traffic_source: trafficSource,
           traffic_source_trial: trafficSourceTrial,
         },
+        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
       },
     });
 
