@@ -46,7 +46,7 @@ export async function signUpAction(formData: FormData) {
         data: {
           full_name: name,
         },
-        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 
@@ -148,7 +148,7 @@ export async function signUpWithPassword(
           traffic_source: trafficSource,
           traffic_source_trial: trafficSourceTrial,
         },
-        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 

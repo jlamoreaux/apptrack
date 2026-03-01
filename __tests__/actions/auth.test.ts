@@ -56,7 +56,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo: expect.stringContaining(
-            "/auth/callback?next=/onboarding/welcome"
+            "/auth/callback"
           ),
         }),
       })
@@ -76,7 +76,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://staging.apptrack.ing/auth/callback?next=/onboarding/welcome",
+            "https://staging.apptrack.ing/auth/callback",
         }),
       })
     );
@@ -95,7 +95,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://apptrack-git-my-branch-jlmx.vercel.app/auth/callback?next=/onboarding/welcome",
+            "https://apptrack-git-my-branch-jlmx.vercel.app/auth/callback",
         }),
       })
     );
@@ -115,7 +115,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://www.apptrack.ing/auth/callback?next=/onboarding/welcome",
+            "https://www.apptrack.ing/auth/callback",
         }),
       })
     );
