@@ -9,7 +9,9 @@ global.Request = class MockRequest {
   constructor(url, init) {
     this.url = url;
     this.method = init?.method || 'GET';
-    this.headers = new Map(Object.entries(init?.headers || {}));
+    this.headers = new Map(
+      Object.entries(init?.headers || {}).map(([k, v]) => [k.toLowerCase(), v])
+    );
     this.body = init?.body;
   }
   

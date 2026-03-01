@@ -12,13 +12,17 @@ import { ResumeResolutionService } from "@/lib/services/resume-resolution.servic
 
 async function coverLetterHandler(request: NextRequest) {
   const startTime = Date.now();
-  
+  let user: { id: string; email?: string } | null = null;
+  let companyName: string | undefined;
+  let applicationId: string | undefined;
+
   try {
     const supabase = await createClient();
 
     const {
-      data: { user },
+      data: { user: authUser },
     } = await supabase.auth.getUser();
+    user = authUser;
 
     if (!user) {
       loggerService.warn('Unauthorized cover letter request', {
@@ -63,13 +67,15 @@ async function coverLetterHandler(request: NextRequest) {
     const {
       jobDescription,
       userBackground,
-      companyName,
+      companyName: reqCompanyName,
       roleName,
-      applicationId,
+      applicationId: reqApplicationId,
       resumeId,
       tone,
       additionalInfo
     } = await request.json();
+    companyName = reqCompanyName;
+    applicationId = reqApplicationId;
 
     // Fetch saved data if applicationId provided
     let finalJobDescription = jobDescription;

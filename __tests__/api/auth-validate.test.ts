@@ -38,7 +38,13 @@ jest.mock('@/lib/supabase/browser-client', () => ({
 jest.mock('@/lib/supabase/queries', () => ({
   getUser: jest.fn(),
 }));
-jest.mock('@/lib/auth/extension-auth');
+jest.mock('@/lib/auth/extension-auth', () => ({
+  verifyExtensionToken: jest.fn(),
+  signExtensionToken: jest.fn(),
+  isInRefreshWindow: jest.fn(),
+  getAuthenticatedUser: jest.fn(),
+  revokeExtensionTokens: jest.fn(),
+}));
 jest.mock('@/lib/services/logger.service', () => ({
   loggerService: {
     info: jest.fn(),
