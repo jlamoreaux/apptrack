@@ -84,11 +84,15 @@ function cleanAIResponse(content: string): string | InterviewPreparationResult {
 async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<InterviewPrepResponse | InterviewPrepErrorResponse>> {
   const startTime = Date.now();
   const transformer = new InterviewPrepTransformerService();
-  
+  let user: { id: string; email?: string } | null = null;
+  let applicationId: string | undefined;
+  let structured = false;
+
   try {
     // 1. Authentication
     const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const { data: { user: authUser }, error } = await supabase.auth.getUser();
+    user = authUser;
 
     if (!user) {
       loggerService.warn('Unauthorized interview prep request', {
@@ -132,9 +136,11 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       interviewContext,
       userResumeId,
       resumeText,
-      structured = false,
-      applicationId,
+      structured: reqStructured = false,
+      applicationId: reqApplicationId,
     } = body;
+    structured = reqStructured;
+    applicationId = reqApplicationId;
 
     // 3a. Fetch data from application if provided
     let finalJobDescription = jobDescription;

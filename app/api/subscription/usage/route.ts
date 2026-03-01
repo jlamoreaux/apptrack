@@ -6,9 +6,10 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
   const startTime = Date.now();
-  
+  let user: Awaited<ReturnType<typeof getUser>> = null;
+
   try {
-    const user = await getUser();
+    user = await getUser();
     
     if (!user) {
       loggerService.warn('Unauthorized usage tracking access', {

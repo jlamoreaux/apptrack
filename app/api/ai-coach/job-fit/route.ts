@@ -12,10 +12,13 @@ import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function handler(request: NextRequest) {
   const startTime = Date.now();
-  
+  let user: { id: string; email?: string } | null = null;
+  let applicationId: string | undefined;
+
   try {
     const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+    user = authUser;
     
     if (!user) {
       loggerService.warn('Unauthorized job fit analysis attempt', {
@@ -54,7 +57,8 @@ async function handler(request: NextRequest) {
       );
     }
 
-    const { jobDescription, applicationId, resumeId } = await request.json();
+    const { jobDescription, applicationId: reqApplicationId, resumeId } = await request.json();
+    applicationId = reqApplicationId;
 
     // Try to get job description from saved data if not provided
     let finalJobDescription = jobDescription;
