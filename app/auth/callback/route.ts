@@ -43,7 +43,19 @@ export async function GET(request: NextRequest) {
           return true;
         };
 
-        const redirectPath = isValidInternalPath(next) ? next : "/dashboard";
+        // Route new signups (email confirmation) to the welcome page.
+        // A user is "new" if their account was created in the last 5 minutes —
+        // confirming an email that quickly means this is their first login.
+        const isNewUser = (() => {
+          const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0;
+          return Date.now() - createdAt < 5 * 60 * 1000;
+        })();
+
+        const redirectPath = isValidInternalPath(next)
+          ? next
+          : isNewUser
+            ? "/onboarding/welcome"
+            : "/dashboard";
         return NextResponse.redirect(new URL(requestUrl.origin + redirectPath));
       }
     }

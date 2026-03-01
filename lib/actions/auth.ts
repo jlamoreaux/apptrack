@@ -12,6 +12,10 @@ import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
  * VERCEL_URL has no protocol, so we prefix https://.
  */
 function getAppUrl(): string {
+  // APP_URL is a server-only env var read at runtime (no build-time baking).
+  // NEXT_PUBLIC_APP_URL is baked at build time and may be undefined if not
+  // set when the build ran — so we check APP_URL first.
+  if (process.env.APP_URL) return process.env.APP_URL;
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "https://www.apptrack.ing";
@@ -46,7 +50,7 @@ export async function signUpAction(formData: FormData) {
         data: {
           full_name: name,
         },
-        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 
@@ -148,7 +152,7 @@ export async function signUpWithPassword(
           traffic_source: trafficSource,
           traffic_source_trial: trafficSourceTrial,
         },
-        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
+        emailRedirectTo: `${appUrl}/auth/callback`,
       },
     });
 
