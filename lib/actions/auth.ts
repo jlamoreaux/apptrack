@@ -6,6 +6,17 @@ import { revalidatePath } from "next/cache";
 import { signUpSchema, signInSchema, profileUpdateSchema } from "./schemas";
 import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 
+/**
+ * Returns the canonical app URL for the current environment.
+ * Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL (auto-set on preview) > production fallback.
+ * VERCEL_URL has no protocol, so we prefix https://.
+ */
+function getAppUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://apptrack.ing";
+}
+
 // Form-based auth actions
 export async function signUpAction(formData: FormData) {
   try {
@@ -27,6 +38,7 @@ export async function signUpAction(formData: FormData) {
     const { name, email, password } = result.data;
     const supabase = await createClient();
 
+    const appUrl = getAppUrl();
     const { error } = await supabase.auth.signUp({
       email,
       password,
@@ -34,6 +46,7 @@ export async function signUpAction(formData: FormData) {
         data: {
           full_name: name,
         },
+        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
       },
     });
 
@@ -125,6 +138,7 @@ export async function signUpWithPassword(
   try {
     const supabase = await createClient();
 
+    const appUrl = getAppUrl();
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -134,6 +148,7 @@ export async function signUpWithPassword(
           traffic_source: trafficSource,
           traffic_source_trial: trafficSourceTrial,
         },
+        emailRedirectTo: `${appUrl}/auth/callback?next=/onboarding/welcome`,
       },
     });
 
