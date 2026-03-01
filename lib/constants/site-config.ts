@@ -6,8 +6,8 @@ export const SITE_CONFIG = {
   shortDescription:
     "The smart job application tracker with AI-powered career coaching",
   tagline: "Never lose track of your dream job again",
-  url: "https://apptrack.ing",
-  ogImage: "https://apptrack.ing/opengraph-image",
+  url: "https://www.apptrack.ing",
+  ogImage: "https://www.apptrack.ing/opengraph-image",
 
   // Brand colors (from your logo)
   brand: {

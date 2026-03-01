@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: "Free AI Cover Letter Generator | AppTrack",
     description:
       "Generate a professional cover letter in 30 seconds. AI-powered, personalized to each job.",
-    url: "https://apptrack.ing/try/cover-letter",
+    url: "https://www.apptrack.ing/try/cover-letter",
     siteName: "AppTrack",
     type: "website",
   },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Generate a professional cover letter in 30 seconds with AI.",
   },
   alternates: {
-    canonical: "https://apptrack.ing/try/cover-letter",
+    canonical: "https://www.apptrack.ing/try/cover-letter",
   },
 }
 

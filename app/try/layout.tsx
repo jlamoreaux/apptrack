@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     title: "Try AI Job Search Tools Free | AppTrack",
     description:
       "Try our AI-powered job search tools with one free trial daily. Get instant insights.",
-    url: "https://apptrack.ing/try",
+    url: "https://www.apptrack.ing/try",
     siteName: "AppTrack",
     type: "website",
   },

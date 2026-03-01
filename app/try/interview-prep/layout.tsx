@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: "Free AI Interview Questions Generator | AppTrack",
     description:
       "Get personalized interview questions for any job. Practice with AI-generated prompts.",
-    url: "https://apptrack.ing/try/interview-prep",
+    url: "https://www.apptrack.ing/try/interview-prep",
     siteName: "AppTrack",
     type: "website",
   },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Get personalized interview questions for any job.",
   },
   alternates: {
-    canonical: "https://apptrack.ing/try/interview-prep",
+    canonical: "https://www.apptrack.ing/try/interview-prep",
   },
 }
 

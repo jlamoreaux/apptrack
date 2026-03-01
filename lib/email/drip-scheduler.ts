@@ -13,7 +13,7 @@ import {
 import { getTemplatesForAudience, getTemplateById } from './templates/drip';
 import { sendEmail } from './client';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
 export type ScheduleDripOptions = {
   email: string;
