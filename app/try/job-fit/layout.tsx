@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: "Free Job Fit Analysis | AppTrack",
     description:
       "Check how well your resume matches a job. Get fit score and improvement tips.",
-    url: "https://apptrack.ing/try/job-fit",
+    url: "https://www.apptrack.ing/try/job-fit",
     siteName: "AppTrack",
     type: "website",
   },
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Check how well your resume matches a job description.",
   },
   alternates: {
-    canonical: "https://apptrack.ing/try/job-fit",
+    canonical: "https://www.apptrack.ing/try/job-fit",
   },
 }
 

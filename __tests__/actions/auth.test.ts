@@ -115,7 +115,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://apptrack.ing/auth/callback?next=/onboarding/welcome",
+            "https://www.apptrack.ing/auth/callback?next=/onboarding/welcome",
         }),
       })
     );

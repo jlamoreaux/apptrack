@@ -5,7 +5,7 @@ import { cancelPendingDrips } from '@/lib/email/drip-scheduler';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || 'fallback-secret-change-me';
 
 /**

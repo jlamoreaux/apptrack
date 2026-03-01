@@ -10,7 +10,7 @@
 
 import type { AudienceId } from '../audiences';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
 export type DripTemplate = {
   templateId: string;

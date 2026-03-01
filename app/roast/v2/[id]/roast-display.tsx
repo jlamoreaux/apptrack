@@ -56,7 +56,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
 
   const shareUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/roast/${roastId}`
-    : `https://apptrack.ing/roast/${roastId}`;
+    : `https://www.apptrack.ing/roast/${roastId}`;
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);

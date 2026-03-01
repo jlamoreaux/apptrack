@@ -12,7 +12,7 @@ import { getAudienceMember } from '@/lib/email/audiences';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
 /**
  * Drip Emails Cron Job
