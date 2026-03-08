@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { ButtonLink } from "@/components/ui/button-link";
 import { NavigationStatic } from "@/components/navigation-static";
 import { CheckList } from "@/components/ui/check-list";
@@ -13,6 +14,9 @@ export const metadata: Metadata = {
     title: "Free Month of AppTrack.ing for Laid-Off Workers",
     description:
       "Getting laid off is hard. The job search doesn't have to be chaos. Free 30-day access, no credit card.",
+  },
+  alternates: {
+    canonical: `${SITE_CONFIG.url}/layoffs`,
   },
 };
 

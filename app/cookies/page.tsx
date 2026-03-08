@@ -1,4 +1,13 @@
 import './cookie-styles.css';
+import type { Metadata } from 'next';
+import { SITE_CONFIG } from "@/lib/constants/site-config";
+
+export const metadata: Metadata = {
+  title: 'Cookie Policy | AppTrack',
+  alternates: {
+    canonical: `${SITE_CONFIG.url}/cookies`,
+  },
+};
 
 export default function CookiePolicy() {
   return (
