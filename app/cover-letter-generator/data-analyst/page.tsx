@@ -50,9 +50,9 @@ const faqs = [
 
 // Only link to pages that exist - update as more are added
 const relatedRoles = [
-  { name: "UX Designer", slug: "ux-designer" },
-  { name: "Marketing Manager", slug: "marketing-manager" },
   { name: "Business Analyst", slug: "business-analyst" },
+  { name: "Financial Analyst", slug: "financial-analyst" },
+  { name: "Data Scientist", slug: "data-scientist" },
 ]
 
 export default function DataAnalystCoverLetterPage() {
