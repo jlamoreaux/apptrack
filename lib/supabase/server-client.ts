@@ -25,6 +25,31 @@ export async function createClient() {
   })
 }
 
+// Client for auth callback route: reads cookies from request, collects
+// cookie writes into an array so the caller can apply them to the redirect response.
+export function createCallbackClient(request: NextRequest) {
+  const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(incoming) {
+          incoming.forEach(({ name, value, options }) => {
+            cookiesToSet.push({ name, value, options: options || {} });
+          });
+        },
+      },
+    }
+  );
+
+  return { supabase, cookiesToSet };
+}
+
 // Alternative client for middleware
 export function createMiddlewareClient(request: NextRequest, response: NextResponse) {
   return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
