@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server"
-import { createClient } from "@/lib/supabase/server";
+import { createCallbackClient } from "@/lib/supabase/server-client";
 import { handleOnSignup } from "@/lib/services/on-signup.service";
 
 /**
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const next = requestUrl.searchParams.get("next");
 
   if (code) {
-    const supabase = await createClient();
+    const { supabase, cookiesToSet } = createCallbackClient(request);
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
@@ -56,7 +56,13 @@ export async function GET(request: NextRequest) {
           : isNewUser
             ? "/onboarding/welcome"
             : "/dashboard";
-        return NextResponse.redirect(new URL(requestUrl.origin + redirectPath));
+        const response = NextResponse.redirect(new URL(requestUrl.origin + redirectPath));
+        // Apply session cookies to the redirect response so the browser
+        // receives Set-Cookie headers alongside the 302.
+        cookiesToSet.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
+        return response;
       }
     }
   }
