@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PromoTrialBanner } from "@/components/promo-trial-banner";
 import Link from "next/link";
 import { NavigationClient } from "@/components/navigation-client";
 import { Button } from "@/components/ui/button";
@@ -110,38 +109,58 @@ export default function UpgradePage() {
         return;
       }
 
+      const promo = data.promoCode;
+      const isPremiumFree = promo?.code_type === "premium_free" || promo?.code_type === "free_forever";
+
+      // For premium_free/free_forever codes, activate immediately
+      if (isPremiumFree) {
+        const activateResponse = await fetch("/api/promo/activate-trial", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ promoCode: promoCode.toUpperCase() }),
+        });
+
+        const activateData = await activateResponse.json();
+
+        if (!activateResponse.ok) {
+          setPromoError(activateData.error || "Failed to activate promo code");
+          setPromoSuccess(false);
+          setAppliedPromo(null);
+          return;
+        }
+
+        // Success - redirect to dashboard
+        setShowPromoDialog(false);
+        router.push("/dashboard?premium_activated=true");
+        return;
+      }
+
+      // For discount/trial codes, store and redirect to checkout
       setPromoSuccess(true);
-      setAppliedPromo(data.promoCode);
+      setAppliedPromo(promo);
       setShowPromoDialog(false);
-      
-      // Clear any previous error
       setPromoError(null);
-      
-      // Auto-redirect to checkout for non-premium_free codes
-      const isPremiumFree = data.promoCode?.code_type === "premium_free" || data.promoCode?.code_type === "free_forever";
-      if (!isPremiumFree && data.promoCode) {
-        // Determine which plan to apply the promo to
-        // If promo has specific applicable plans, use the first one; otherwise default to AI Coach
-        let targetPlanId = aiCoachPlan?.id;
-        if (data.promoCode.applicable_plans && data.promoCode.applicable_plans.length > 0) {
-          const applicablePlan = plans.find(p => data.promoCode.applicable_plans.includes(p.name));
-          if (applicablePlan) {
-            targetPlanId = applicablePlan.id;
-          }
+
+      // Determine which plan to apply the promo to
+      let targetPlanId = aiCoachPlan?.id;
+      if (promo.applicable_plans && promo.applicable_plans.length > 0) {
+        const applicablePlan = plans.find((p: any) => promo.applicable_plans.includes(p.name));
+        if (applicablePlan) {
+          targetPlanId = applicablePlan.id;
         }
-        
-        if (targetPlanId) {
-          // Build checkout URL with promo code
-          let checkoutUrl = `/dashboard/upgrade/checkout?planId=${targetPlanId}&billingCycle=${selectedBilling}`;
-          if (data.promoCode.stripe_promo_code_id || data.promoCode.stripe_promotion_code_id) {
-            checkoutUrl += `&promoCode=${data.promoCode.stripe_promo_code_id || data.promoCode.stripe_promotion_code_id}`;
-          } else if (data.promoCode.stripe_coupon_id) {
-            checkoutUrl += `&couponId=${data.promoCode.stripe_coupon_id}`;
-          }
-          
-          // Redirect to checkout
-          router.push(checkoutUrl);
+      }
+
+      if (targetPlanId) {
+        let checkoutUrl = `/dashboard/upgrade/checkout?planId=${targetPlanId}&billingCycle=${selectedBilling}`;
+        if (promo.stripe_promo_code_id) {
+          checkoutUrl += `&promoCode=${promo.stripe_promo_code_id}`;
+        } else if (promo.stripe_coupon_id) {
+          checkoutUrl += `&couponId=${promo.stripe_coupon_id}`;
         }
+        if (promo.discount_percent) {
+          checkoutUrl += `&discountPercent=${promo.discount_percent}`;
+        }
+        router.push(checkoutUrl);
       }
     } catch (error) {
       setPromoError("Failed to apply promo code");
@@ -293,13 +312,6 @@ export default function UpgradePage() {
               plan.
             </p>
           </div>
-
-          {/* Show promo banner after title if user is on free tier */}
-          {(!currentPlanName || currentPlanName === PLAN_NAMES.FREE) && (
-            <div className="max-w-4xl mx-auto">
-              <PromoTrialBanner onActivate={() => window.location.reload()} />
-            </div>
-          )}
 
           {/* Billing Toggle and Promo Code */}
           <div className="flex flex-col items-center gap-4 max-w-4xl mx-auto">

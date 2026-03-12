@@ -9,9 +9,11 @@ import { transitionAudience } from "@/lib/email/drip-scheduler";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  let userId: string | undefined;
+
   try {
     const user = await getUser();
+    userId = user?.id;
     if (!user) {
       loggerService.warn('Unauthorized promo activation attempt', {
         category: LogCategory.SECURITY,
@@ -249,7 +251,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     loggerService.error('Error activating trial', error, {
       category: LogCategory.PAYMENT,
-      userId: user?.id,
+      userId,
       action: 'promo_activate_trial_error',
       duration: Date.now() - startTime
     });

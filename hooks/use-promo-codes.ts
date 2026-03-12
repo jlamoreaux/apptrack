@@ -12,8 +12,9 @@ export function usePromoCodes() {
   const [appliedPromo, setAppliedPromo] = useState<PromoCode | null>(null);
   const [showPromoDialog, setShowPromoDialog] = useState(false);
 
-  const handleApplyPromo = async (codeToApply?: string) => {
-    const code = codeToApply || promoCode.trim();
+  const handleApplyPromo = async (codeToApply?: string | unknown) => {
+    // Guard against React event objects being passed when used as onClick handler
+    const code = (typeof codeToApply === "string" ? codeToApply : null) || promoCode.trim();
     
     if (!code) {
       setPromoError("Please enter a promo code");
@@ -49,12 +50,12 @@ export function usePromoCodes() {
       });
       
       // If we auto-applied, update the input
-      if (codeToApply) {
+      if (typeof codeToApply === "string") {
         setPromoCode(codeToApply);
       }
 
-      // If it's a premium free code, apply it immediately without payment
-      if (checkData.promoCode.code_type === "premium_free") {
+      // If it's a premium free or free forever code, apply it immediately without payment
+      if (checkData.promoCode.code_type === "premium_free" || checkData.promoCode.code_type === "free_forever") {
         const response = await fetch("/api/promo/activate-trial", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
