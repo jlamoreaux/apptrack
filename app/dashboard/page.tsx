@@ -1,35 +1,15 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Plus,
-  ExternalLink,
-  Calendar,
-  Building2,
-  TrendingUp,
-} from "lucide-react";
 import { ApplicationPipelineChart } from "@/components/application-pipeline-chart";
 import { NavigationServer } from "@/components/navigation-server";
 import { SubscriptionUsageBannerServer } from "@/components/subscription-usage-banner-server";
 import {
   getUser,
-  getProfile,
   getSubscription,
-  getUsage,
   getApplications,
   getApplicationHistory,
 } from "@/lib/supabase/server";
-import { ApplicationList } from "@/components/application-list";
 import { AICoachDashboardIntegration } from "@/components/ai-coach-navigation";
-import { AnalyticsProvider } from "@/components/analytics-provider";
 import {
   NavigationErrorBoundary,
   AICoachFallback,
@@ -41,6 +21,9 @@ import { DashboardApplicationsList } from "@/components/dashboard-applications-l
 import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
+import { DashboardStats } from "@/components/dashboard-stats";
+import { HiredSubscriptionBanner } from "@/components/hired-subscription-banner";
+import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -88,17 +71,6 @@ export default async function DashboardPage() {
     const planName = subscription?.subscription_plans?.name;
     const userPlan = getPermissionLevelFromPlan(planName);
 
-    const stats = {
-      total: applications.length,
-      applied: applications.filter((app) => app.status === "Applied").length,
-      interviews: applications.filter(
-        (app) =>
-          app.status === "Interview Scheduled" || app.status === "Interviewed"
-      ).length,
-      offers: applications.filter((app) => app.status === "Offer").length,
-      hired: applications.filter((app) => app.status === "Hired").length,
-    };
-
     return (
       <DashboardWithOnboarding>
         <div className="min-h-screen bg-background">
@@ -122,80 +94,16 @@ export default async function DashboardPage() {
             {/* Subscription Usage Banner */}
             <SubscriptionUsageBannerServer userId={user.id} />
 
-            {/* Stats Cards - Progressive responsive grid */}
-            <section
-              aria-labelledby="stats-heading"
-              className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6"
-            >
-              <h2 id="stats-heading" className="sr-only">
-                Application Statistics
-              </h2>
-              <Card className="border-primary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    Total
-                  </CardTitle>
-                  <Building2 className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stats.total}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-primary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    Applied
-                  </CardTitle>
-                  <Calendar className="h-4 w-4 text-primary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stats.applied}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-secondary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    Interviews
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-secondary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stats.interviews}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-secondary/20">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    Offers
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-secondary" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stats.offers}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="border-green-500/20 col-span-full sm:col-span-1 lg:col-span-1">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-xs sm:text-sm font-medium">
-                    Hired
-                  </CardTitle>
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-xl sm:text-2xl font-bold">
-                    {stats.hired}
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
+            {/* Hired Subscription Cancellation Banner */}
+            <HiredSubscriptionBanner
+              hasHiredApplication={applications.some(
+                (a) => a.status === "Hired"
+              )}
+              isPaidSubscriber={isOnProOrHigher(planName || "Free")}
+            />
+
+            {/* Stats Cards - Client-side for live data */}
+            <DashboardStats userId={user.id} />
 
             {/* AI Coach Integration */}
             <NavigationErrorBoundary fallback={<AICoachFallback />}>

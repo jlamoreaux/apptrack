@@ -19,6 +19,7 @@ interface OfferReceivedModalProps {
   roleName: string;
   isSubscribed: boolean;
   userId: string;
+  status?: "Offer" | "Hired";
 }
 
 export function OfferReceivedModal({
@@ -28,7 +29,10 @@ export function OfferReceivedModal({
   roleName,
   isSubscribed,
   userId,
+  status = "Offer",
 }: OfferReceivedModalProps) {
+  const isHired = status === "Hired";
+  const statusLabel = isHired ? "hired" : "received an offer";
   const [showCancelOption, setShowCancelOption] = useState(false);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -98,14 +102,14 @@ export function OfferReceivedModal({
                   <span className="font-semibold">{roleName}</span>
                   {" at "}
                   <span className="font-semibold">{companyName}</span>
-                  {" as received an offer!"}
+                  {` as ${statusLabel}!`}
                 </DialogDescription>
               </DialogHeader>
               <div className="text-center py-4">
                 <p className="text-sm text-muted-foreground mb-4">
-                  {
-                    "We're so excited for your success! This is a huge milestone in your job search journey."
-                  }
+                  {isHired
+                    ? "Amazing news! Time to celebrate this incredible achievement."
+                    : "We're so excited for your success! This is a huge milestone in your job search journey."}
                 </p>
                 {isSubscribed && (
                   <div className="bg-blue-50 p-4 rounded-lg">
@@ -137,9 +141,9 @@ export function OfferReceivedModal({
                 </div>
                 <DialogTitle>Manage Your Subscription</DialogTitle>
                 <DialogDescription className="text-center">
-                  {
-                    "Since you've received an offer, you might not need to track applications anymore. We want to make sure you're not paying for something you don't need."
-                  }
+                  {isHired
+                    ? "Now that you've been hired, you likely don't need to track applications anymore. We want to make sure you're not paying for something you don't need."
+                    : "Since you've received an offer, you might not need to track applications anymore. We want to make sure you're not paying for something you don't need."}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">

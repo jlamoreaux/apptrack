@@ -50,6 +50,7 @@ export default function ApplicationDetailPage() {
   const router = useRouter()
   const params = useParams()
   const [showOfferModal, setShowOfferModal] = useState(false)
+  const [offerModalStatus, setOfferModalStatus] = useState<"Offer" | "Hired">("Offer")
   const { isOnFreePlan } = useSubscription(user?.id || null)
   const [showEditModal, setShowEditModal] = useState(false)
   const [isArchiving, setIsArchiving] = useState(false)
@@ -89,8 +90,12 @@ export default function ApplicationDetailPage() {
       if (result.success) {
         setApplication(result.application!)
 
-        // Show congratulations modal if status changed to "Offer"
-        if (updates.status === "Offer" && application.status !== "Offer") {
+        // Show congratulations modal if status changed to "Offer" or "Hired"
+        if (
+          (updates.status === "Offer" || updates.status === "Hired") &&
+          application.status !== updates.status
+        ) {
+          setOfferModalStatus(updates.status)
           setShowOfferModal(true)
         }
       }
@@ -485,6 +490,7 @@ export default function ApplicationDetailPage() {
         roleName={application.role}
         isSubscribed={!isOnFreePlan()}
         userId={user.id}
+        status={offerModalStatus}
       />
       <EditApplicationModal
         application={application}
