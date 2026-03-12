@@ -5,10 +5,12 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
-  
+  let userId: string | undefined;
+
   try {
     // Get authenticated user
     const user = await getUser();
+    userId = user?.id;
     if (!user) {
       loggerService.warn('Unauthorized promo code check', {
         category: LogCategory.SECURITY,
@@ -101,7 +103,7 @@ export async function POST(request: Request) {
     const { data: existingUsage } = await supabase
       .from("promo_code_usage")
       .select("*")
-      .eq("promo_code_id", promoCode.id)
+      .eq("code", promoCode.code)
       .eq("user_id", user.id)
       .single();
 
@@ -121,19 +123,6 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
-      success: true,
-      promoCode: {
-        id: promoCode.id,
-        code: promoCode.code,
-        code_type: promoCode.code_type,
-        discount_percent: promoCode.discount_percent,
-        stripe_promo_code_id: promoCode.stripe_promo_code_id,
-        trial_days: promoCode.trial_days,
-        plan_names: promoCode.plan_names,
-      },
-    });
-    
     loggerService.info('Promo code validated successfully', {
       category: LogCategory.PAYMENT,
       userId: user.id,
@@ -146,10 +135,25 @@ export async function POST(request: Request) {
         trialDays: promoCode.trial_days
       }
     });
+
+    return NextResponse.json({
+      success: true,
+      promoCode: {
+        id: promoCode.id,
+        code: promoCode.code,
+        code_type: promoCode.code_type,
+        discount_percent: promoCode.discount_percent,
+        stripe_promo_code_id: promoCode.stripe_promo_code_id,
+        stripe_coupon_id: promoCode.stripe_coupon_id,
+        trial_days: promoCode.trial_days,
+        plan_name: promoCode.plan_name,
+        applicable_plans: promoCode.plan_names || (promoCode.plan_name ? [promoCode.plan_name] : []),
+      },
+    });
   } catch (error) {
     loggerService.error('Error checking promo code', error, {
       category: LogCategory.PAYMENT,
-      userId: user?.id,
+      userId,
       action: 'promo_code_check_error',
       duration: Date.now() - startTime
     });
