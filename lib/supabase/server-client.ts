@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr"
+import { createServerClient, type CookieOptions } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import type { NextRequest, NextResponse } from "next/server"
 
@@ -28,7 +28,7 @@ export async function createClient() {
 // Client for auth callback route: reads cookies from request, collects
 // cookie writes into an array so the caller can apply them to the redirect response.
 export function createCallbackClient(request: NextRequest) {
-  const cookiesToSet: Array<{ name: string; value: string; options: Record<string, unknown> }> = [];
+  const cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
