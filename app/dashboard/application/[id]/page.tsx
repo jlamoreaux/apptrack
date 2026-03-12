@@ -489,7 +489,6 @@ export default function ApplicationDetailPage() {
         companyName={application.company}
         roleName={application.role}
         isSubscribed={!isOnFreePlan()}
-        userId={user.id}
         status={offerModalStatus}
       />
       <EditApplicationModal

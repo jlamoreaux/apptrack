@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ interface OfferReceivedModalProps {
   companyName: string;
   roleName: string;
   isSubscribed: boolean;
-  userId: string;
   status?: "Offer" | "Hired";
 }
 
@@ -28,16 +27,21 @@ export function OfferReceivedModal({
   companyName,
   roleName,
   isSubscribed,
-  userId,
   status = "Offer",
 }: OfferReceivedModalProps) {
   const isHired = status === "Hired";
-  const statusLabel = isHired ? "hired" : "received an offer";
   const [showCancelOption, setShowCancelOption] = useState(false);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [modalTitle, setModalTitle] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setShowCancelOption(false);
+    }
+  }, [isOpen, status]);
 
   const handleContinue = () => {
     if (isSubscribed) {
@@ -52,21 +56,19 @@ export function OfferReceivedModal({
     try {
       const response = await fetch("/api/stripe/cancel-subscription", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        setCancelSuccess(true);
         setModalTitle("Subscription Canceled");
         setModalMessage(
           "Your subscription has been canceled. You'll continue to have access until the end of your billing period."
         );
         setModalOpen(true);
       } else {
+        setCancelSuccess(false);
         setModalTitle("Error");
         setModalMessage(
           "Failed to cancel subscription. Please contact support."
@@ -74,6 +76,7 @@ export function OfferReceivedModal({
         setModalOpen(true);
       }
     } catch (error) {
+      setCancelSuccess(false);
       setModalTitle("Error");
       setModalMessage(
         "Something went wrong. Please try again or contact support."
@@ -95,14 +98,12 @@ export function OfferReceivedModal({
                   <CheckCircle className="h-8 w-8 text-green-600" />
                 </div>
                 <DialogTitle className="text-xl">
-                  Congratulations! 🎉
+                  Congratulations!
                 </DialogTitle>
                 <DialogDescription className="text-center">
-                  {"You've marked your application for "}
-                  <span className="font-semibold">{roleName}</span>
-                  {" at "}
-                  <span className="font-semibold">{companyName}</span>
-                  {` as ${statusLabel}!`}
+                  {isHired
+                    ? <>You've been hired as <span className="font-semibold">{roleName}</span> at <span className="font-semibold">{companyName}</span>!</>
+                    : <>You've received an offer for <span className="font-semibold">{roleName}</span> at <span className="font-semibold">{companyName}</span>!</>}
                 </DialogDescription>
               </DialogHeader>
               <div className="text-center py-4">
@@ -152,9 +153,9 @@ export function OfferReceivedModal({
                     Keep Your Subscription If:
                   </h4>
                   <ul className="text-sm text-green-700 space-y-1">
-                    <li>• {"You're still considering other offers"}</li>
-                    <li>• You want to keep your application history</li>
-                    <li>• {"You might job search again soon"}</li>
+                    <li>{"You're still considering other offers"}</li>
+                    <li>You want to keep your application history</li>
+                    <li>{"You might job search again soon"}</li>
                   </ul>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-lg">
@@ -162,9 +163,9 @@ export function OfferReceivedModal({
                     Cancel Your Subscription If:
                   </h4>
                   <ul className="text-sm text-orange-700 space-y-1">
-                    <li>• {"You've accepted the offer"}</li>
-                    <li>• {"You won't be job searching for a while"}</li>
-                    <li>• You want to avoid unnecessary charges</li>
+                    <li>{"You've accepted the offer"}</li>
+                    <li>{"You won't be job searching for a while"}</li>
+                    <li>You want to avoid unnecessary charges</li>
                   </ul>
                 </div>
               </div>
@@ -202,7 +203,7 @@ export function OfferReceivedModal({
             <Button
               onClick={() => {
                 setModalOpen(false);
-                if (modalTitle === "Subscription Canceled") onClose();
+                if (cancelSuccess) onClose();
               }}
               autoFocus
             >

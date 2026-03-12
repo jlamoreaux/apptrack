@@ -100,6 +100,7 @@ export default async function DashboardPage() {
                 (a) => a.status === "Hired"
               )}
               isPaidSubscriber={isOnProOrHigher(planName || "Free")}
+              userId={user.id}
             />
 
             {/* Stats Cards - Client-side for live data */}
