@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
-    const currentVersion = version || "v1";
+    const currentVersion = version || "v2";
     
     // Check rate limiting
     if (user) {
@@ -240,11 +240,11 @@ export async function POST(req: NextRequest) {
     // Generate the roast with error handling
     let roast;
     try {
-      // Use v2 generator if version parameter is set
-      if (version === "v2") {
-        roast = await generateRoastV2(filteredText, firstName);
-      } else {
+      // Use v1 generator only if explicitly requested
+      if (version === "v1") {
         roast = await generateRoast(filteredText, firstName);
+      } else {
+        roast = await generateRoastV2(filteredText, firstName);
       }
     } catch (error) {
       loggerService.error('Failed to generate roast', error, {
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
           fileType: file.type,
           fileSize: file.size,
           textLength: rawText.length,
-          version: version || "v1",
+          version: version || "v2",
         },
       })
       .select("shareable_id")

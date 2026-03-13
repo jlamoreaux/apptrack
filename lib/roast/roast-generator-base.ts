@@ -66,7 +66,7 @@ export async function generateRoastBase(
         },
       ],
       temperature: 0.9,
-      max_tokens: 500,
+      max_tokens: 800,
       response_format: { type: "json_object" },
     });
 
