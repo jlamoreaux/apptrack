@@ -72,19 +72,19 @@ export function RecentActivity({ userId }: RecentActivityProps) {
   };
 
   const handleActivityClick = (activity: ActivityItem) => {
-    // Map feature_name to analysis type for the history component
-    const typeMap: Record<string, string> = {
-      resume_analysis: "resumeAnalysis",
-      interview_prep: "interviewPrep",
-      cover_letter: "coverLetter",
-      job_fit_analysis: "jobFit",
-      career_advice: "careerAdvice",
+    // Map feature_name to the correct dashboard tab
+    const tabMap: Record<string, string> = {
+      resume_analysis: "resume",
+      interview_prep: "interview",
+      cover_letter: "cover-letter",
+      job_fit_analysis: "job-fit",
+      career_advice: "advice",
     };
 
-    const analysisType = typeMap[activity.feature_name] || activity.feature_name;
+    const tab = tabMap[activity.feature_name] || "resume";
 
-    // Navigate to history tab with the specific analysis selected
-    router.push(`/ai-coach?tab=history&type=${analysisType}&id=${activity.id}`);
+    // Navigate to the correct tab on the AI Coach dashboard
+    router.push(`/dashboard/ai-coach?tab=${tab}&id=${activity.id}`);
   };
 
   if (isLoading) {
