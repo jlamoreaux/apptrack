@@ -185,8 +185,14 @@ export default async function HomePage() {
                   width={800}
                   height={600}
                   className="w-full h-auto"
+<<<<<<< HEAD
                   sizes={IMAGE_SIZES}
                   quality={IMAGE_QUALITY}
+||||||| parent of 04c147c (feat: add Hired status option and optimize homepage images)
+=======
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  quality={75}
+>>>>>>> 04c147c (feat: add Hired status option and optimize homepage images)
                   style={SCREENSHOT_STYLES}
                 />
               </div>
@@ -209,8 +215,14 @@ export default async function HomePage() {
                     width={400}
                     height={800}
                     className="w-full h-auto"
+<<<<<<< HEAD
                     sizes={IMAGE_SIZES_SMALL}
                     quality={IMAGE_QUALITY}
+||||||| parent of 04c147c (feat: add Hired status option and optimize homepage images)
+=======
+                    sizes="(min-width: 1024px) 384px, 100vw"
+                    quality={75}
+>>>>>>> 04c147c (feat: add Hired status option and optimize homepage images)
                   />
                 </div>
               </div>
