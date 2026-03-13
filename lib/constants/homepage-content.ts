@@ -1,5 +1,10 @@
 // Homepage content constants to avoid duplication and improve maintainability
 
+export const IMAGE_SIZES = "(min-width: 1024px) 50vw, 100vw"
+export const IMAGE_SIZES_SMALL = "(min-width: 1024px) 384px, 100vw"
+export const IMAGE_QUALITY = 75
+export const IMAGE_QUALITY_HERO = 80
+
 export const SCREENSHOT_STYLES = {
   background: 'transparent',
   isolation: 'isolate'

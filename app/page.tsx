@@ -14,7 +14,7 @@ import { HomeTryAISection } from "@/components/home-try-ai-section"
 import { COPY } from "@/lib/content/copy"
 import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
-import { SCREENSHOT_STYLES, FEATURE_SECTIONS } from "@/lib/constants/homepage-content"
+import { SCREENSHOT_STYLES, FEATURE_SECTIONS, IMAGE_SIZES, IMAGE_SIZES_SMALL, IMAGE_QUALITY, IMAGE_QUALITY_HERO } from "@/lib/constants/homepage-content"
 import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
 
 async function getPlans() {
@@ -92,8 +92,8 @@ export default async function HomePage() {
                   height={750}
                   className="w-full h-auto"
                   priority
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                  quality={80}
+                  sizes={IMAGE_SIZES}
+                  quality={IMAGE_QUALITY_HERO}
                   style={SCREENSHOT_STYLES}
                 />
                 <p className="text-center text-sm text-muted-foreground mt-4">
@@ -130,8 +130,8 @@ export default async function HomePage() {
                     width={800}
                     height={500}
                     className="w-full h-auto"
-                    sizes="(min-width: 1024px) 50vw, 100vw"
-                    quality={75}
+                    sizes={IMAGE_SIZES}
+                    quality={IMAGE_QUALITY}
                   />
                 </div>
                 <div className="space-y-4 order-1 lg:order-2">
@@ -185,8 +185,8 @@ export default async function HomePage() {
                   width={800}
                   height={600}
                   className="w-full h-auto"
-                  sizes="(min-width: 1024px) 50vw, 100vw"
-                  quality={75}
+                  sizes={IMAGE_SIZES}
+                  quality={IMAGE_QUALITY}
                   style={SCREENSHOT_STYLES}
                 />
               </div>
@@ -209,8 +209,8 @@ export default async function HomePage() {
                     width={400}
                     height={800}
                     className="w-full h-auto"
-                    sizes="(min-width: 1024px) 384px, 100vw"
-                    quality={75}
+                    sizes={IMAGE_SIZES_SMALL}
+                    quality={IMAGE_QUALITY}
                   />
                 </div>
               </div>
