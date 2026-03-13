@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 import { Models } from "@/lib/openai/models";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 // Reuse singleton pattern from lib/openai/client.ts
 let openaiClient: OpenAI | null = null;
@@ -66,7 +68,7 @@ export async function generateRoastBase(
         },
       ],
       temperature: 0.9,
-      max_tokens: 500,
+      max_tokens: 800,
       response_format: { type: "json_object" },
     });
 
@@ -100,7 +102,10 @@ export async function generateRoastBase(
       firstName,
     };
   } catch (error) {
-    console.error("Error generating roast:", error);
+    loggerService.error("Error generating roast", error, {
+      category: LogCategory.AI_SERVICE,
+      action: "roast_generation_fallback",
+    });
     
     // Fallback roast if API fails
     return {
