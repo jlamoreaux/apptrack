@@ -199,7 +199,7 @@ export interface ApplicationFormData {
   role_link?: string;
   job_description?: string;
   date_applied: string;
-  status: "Applied" | "Interview Scheduled" | "Interviewed" | "Offer" | "Rejected";
+  status: Application["status"];
   notes?: string;
 }
 
