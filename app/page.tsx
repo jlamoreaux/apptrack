@@ -1,7 +1,7 @@
 import Image from "next/image"
 import { ButtonLink } from "@/components/ui/button-link"
 import { CheckList } from "@/components/ui/check-list"
-import { NavigationStatic } from "@/components/navigation-static"
+import { NavigationServer } from "@/components/navigation-server"
 import { HomePricingSection } from "@/components/home-pricing-section"
 import { HomeProblemSolution } from "@/components/home-problem-solution"
 import { HomeFaq } from "@/components/home-faq"
@@ -48,7 +48,7 @@ export default async function HomePage() {
       <SoftwareApplicationSchema />
       <FAQSchema faqs={COPY.faq.items} />
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
-        <NavigationStatic />
+        <NavigationServer />
         <main className="flex-1">
         {/* Hero Section */}
         <section className="py-16 px-4">
@@ -92,6 +92,8 @@ export default async function HomePage() {
                   height={750}
                   className="w-full h-auto"
                   priority
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  quality={80}
                   style={SCREENSHOT_STYLES}
                 />
                 <p className="text-center text-sm text-muted-foreground mt-4">
@@ -128,6 +130,8 @@ export default async function HomePage() {
                     width={800}
                     height={500}
                     className="w-full h-auto"
+                    sizes="(min-width: 1024px) 50vw, 100vw"
+                    quality={75}
                   />
                 </div>
                 <div className="space-y-4 order-1 lg:order-2">
@@ -181,6 +185,8 @@ export default async function HomePage() {
                   width={800}
                   height={600}
                   className="w-full h-auto"
+                  sizes="(min-width: 1024px) 50vw, 100vw"
+                  quality={75}
                   style={SCREENSHOT_STYLES}
                 />
               </div>
@@ -203,6 +209,8 @@ export default async function HomePage() {
                     width={400}
                     height={800}
                     className="w-full h-auto"
+                    sizes="(min-width: 1024px) 384px, 100vw"
+                    quality={75}
                   />
                 </div>
               </div>

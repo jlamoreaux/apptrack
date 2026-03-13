@@ -41,6 +41,11 @@ const statusOptions: StatusOption[] = [
     color: "bg-secondary/40 text-secondary-foreground border-secondary/50",
   },
   {
+    value: "Hired",
+    label: "Hired",
+    color: "bg-green-500/20 text-green-700 border-green-500/30",
+  },
+  {
     value: "Rejected",
     label: "Rejected",
     color: "bg-accent/20 text-accent border-accent/30",

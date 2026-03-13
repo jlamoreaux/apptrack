@@ -25,7 +25,6 @@ import { CareerAdvice } from "./career-advice";
 import CoverLetterGenerator from "./cover-letter-generator";
 import { JobFitAnalysis } from "./job-fit-analysis";
 import { ResumeSectionImproved } from "@/components/resume-section-improved";
-import { RecentActivity } from "./recent-activity";
 import { COPY } from "@/lib/content/copy";
 import { Badge } from "@/components/ui/badge";
 import { OnboardingFlow } from "./onboarding-flow";
@@ -83,9 +82,6 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
 
       {/* Resume Section */}
       <ResumeSectionImproved />
-
-      {/* Recent Activity - Removed Usage Display as it's in settings */}
-      <RecentActivity userId={userId} />
 
       {/* Main Content - Streamlined tabs interface */}
       <Tabs
