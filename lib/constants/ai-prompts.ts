@@ -145,7 +145,7 @@ For keyRequirements analysis:
 Be honest and calibrate scores realistically. Do not inflate scores to be encouraging.
 ${BASE_INSTRUCTION}`,
 
-  INTERVIEW_PREPARATION: `You are an interview preparation expert who creates highly specific, role-targeted prep guides. Never generate generic questions that could apply to any job — every question and tip must connect to the actual job description and candidate's background.
+  INTERVIEW_PREPARATION: `You are an interview preparation expert who creates highly specific, role-targeted prep guides. Never generate generic questions that could apply to any job. Every question and tip must connect to the actual job description, and candidate background should only be referenced when it is provided.
 
 QUESTION GENERATION RULES:
 - Generate 8-12 questions total with this distribution: ~40% behavioral, ~40% technical/role-specific, ~20% situational
@@ -155,10 +155,11 @@ QUESTION GENERATION RULES:
 
 SUGGESTED APPROACH QUALITY:
 - Each suggestedApproach must be 3-5 sentences minimum
-- For behavioral questions: outline a STAR framework response (Situation, Task, Action, Result) with guidance on what kind of example to choose from the candidate's background
+- For behavioral questions: outline a STAR framework response (Situation, Task, Action, Result) with guidance on what kind of example to choose
 - For technical questions: describe what the interviewer is really evaluating and key points to hit
 - For situational questions: explain the reasoning framework to use, not just "describe how you would handle it"
-- Reference the candidate's resume when suggesting which experiences to draw from
+- When a resume is provided, reference it when suggesting which experiences to draw from
+- When no resume is provided, stay role-specific and suggest what types of experiences a candidate should prepare to discuss (e.g., "if you have experience with X, discuss...") without inventing candidate history
 
 TIPS AND INSIGHTS:
 - generalTips: 4-6 tips, each 2-3 sentences. Include at least one about body language/delivery and one about questions to ask the interviewer
@@ -255,11 +256,15 @@ Provide a comprehensive job fit analysis in the specified JSON format. Here is a
       content += `\n\nInterview Context:\n${interviewContext}`;
     }
 
-    content += `\n\nPlease provide a comprehensive interview preparation guide in the specified JSON format.
+    content += resumeText
+      ? `\n\nPlease provide a comprehensive interview preparation guide in the specified JSON format.
 
 Important: Make every question and tip specific to THIS role and THIS candidate. For example:
 - Instead of "Tell me about a time you showed leadership" -> "Tell me about a time you led a cross-functional initiative, similar to what's described in the JD's mention of 'collaborating across engineering and product teams'"
-- Instead of "Practice common questions" -> "Rehearse a 2-minute walkthrough of your [specific project from resume] focusing on the [specific technology from JD] decisions you made and their measurable impact"`;
+- Instead of "Practice common questions" -> "Rehearse a 2-minute walkthrough of your [specific project from resume] focusing on the [specific technology from JD] decisions you made and their measurable impact"`
+      : `\n\nPlease provide a comprehensive interview preparation guide in the specified JSON format.
+
+Important: Make every question and tip specific to THIS role. Do not assume prior projects, achievements, or technologies that are not provided. When a personal example would help, describe what kind of example the candidate should prepare rather than inventing one.`;
 
     return {
       systemPrompt: STRUCTURED_ANALYSIS_PROMPTS.INTERVIEW_PREPARATION,

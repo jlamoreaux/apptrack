@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractTextFromResume, filterPII } from "@/lib/roast/resume-parser";
-import { generateRoast } from "@/lib/roast/roast-generator";
-import { generateRoast as generateRoastV2 } from "@/lib/roast/roast-generator-v2";
+import { generateRoast } from "@/lib/roast/roast-generator-v2";
 import { cookies, headers } from "next/headers";
 import * as crypto from "crypto";
 import { checkRoastRateLimit, checkGuestRoastRateLimit } from "@/lib/roast/rate-limiter";
@@ -45,9 +44,9 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
   try {
-    // Check for version parameter
+    // Normalize version for metadata tracking (v1 is deprecated, default is v2)
     const url = new URL(req.url);
-    const version = url.searchParams.get("version");
+    const version = url.searchParams.get("version") === "v1" ? "v1" : "v2";
     // Check if maintenance mode or feature flag
     if (process.env.ROAST_DISABLED === "true") {
       loggerService.warn('Roast service disabled', {
@@ -68,12 +67,10 @@ export async function POST(req: NextRequest) {
     
     // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
-    const currentVersion = version || "v2";
-    
-    // Check rate limiting
+    // Check rate limiting (version-agnostic to prevent bypass on default changes)
     if (user) {
       // Authenticated user rate limiting
-      const rateLimit = await checkRoastRateLimit(user.id, currentVersion);
+      const rateLimit = await checkRoastRateLimit(user.id);
       if (!rateLimit.allowed) {
         loggerService.warn('Roast rate limit exceeded', {
           category: LogCategory.SECURITY,
@@ -90,7 +87,7 @@ export async function POST(req: NextRequest) {
       }
     } else {
       // Guest user rate limiting
-      const guestRateLimit = await checkGuestRoastRateLimit(ipHash, browserFingerprint, currentVersion);
+      const guestRateLimit = await checkGuestRoastRateLimit(ipHash, browserFingerprint);
       if (!guestRateLimit.allowed) {
         loggerService.warn('Guest roast rate limit exceeded', {
           category: LogCategory.SECURITY,
@@ -99,7 +96,7 @@ export async function POST(req: NextRequest) {
           metadata: {
             ipHash,
             browserFingerprint,
-            version: currentVersion,
+            version,
             userTier: user?.id ? 'authenticated' : 'guest',
             limit: guestRateLimit.limit,
             resetAt: guestRateLimit.resetAt
@@ -240,12 +237,7 @@ export async function POST(req: NextRequest) {
     // Generate the roast with error handling
     let roast;
     try {
-      // Use v1 generator only if explicitly requested
-      if (version === "v1") {
-        roast = await generateRoast(filteredText, firstName);
-      } else {
-        roast = await generateRoastV2(filteredText, firstName);
-      }
+      roast = await generateRoast(filteredText, firstName);
     } catch (error) {
       loggerService.error('Failed to generate roast', error, {
         category: LogCategory.AI_SERVICE,
@@ -279,12 +271,12 @@ export async function POST(req: NextRequest) {
           fileType: file.type,
           fileSize: file.size,
           textLength: rawText.length,
-          version: version || "v2",
+          version,
         },
       })
       .select("shareable_id")
       .single();
-    
+
     if (saveError) {
       loggerService.error('Error saving roast', saveError, {
         category: LogCategory.DATABASE,
