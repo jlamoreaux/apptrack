@@ -41,6 +41,11 @@ function hashIP(ip: string): string {
   return crypto.createHash("sha256").update(ip + process.env.IP_SALT || "default-salt").digest("hex");
 }
 
+// Helper to hash email for log metadata — avoids storing PII in logs
+function hashEmail(email: string): string {
+  return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex").slice(0, 12);
+}
+
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
   
@@ -326,14 +331,14 @@ export async function POST(req: NextRequest) {
           category: LogCategory.BUSINESS,
           action: 'roast_ready_email_sent',
           userId: user?.id,
-          metadata: { email, roastId: savedRoast.shareable_id },
+          metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
         });
       } else {
         loggerService.warn('Roast ready email send failed', {
           category: LogCategory.BUSINESS,
           action: 'roast_ready_email_failed',
           userId: user?.id,
-          metadata: { email, roastId: savedRoast.shareable_id },
+          metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
         });
       }
     }).catch((err) => {
@@ -341,7 +346,7 @@ export async function POST(req: NextRequest) {
         category: LogCategory.BUSINESS,
         action: 'roast_ready_email_error',
         userId: user?.id,
-        metadata: { email, roastId: savedRoast.shareable_id },
+        metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
       });
     });
 

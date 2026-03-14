@@ -14,6 +14,32 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   'https://www.apptrack.ing';
 
+/** Escape special HTML characters to prevent XSS via user-controlled strings. */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Validate and return a safe URL for use in href attributes.
+ * Only allows http/https schemes; falls back to '#' for anything else.
+ */
+function safeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+  } catch {
+    // invalid URL
+  }
+  return '#';
+}
+
 function wrapEmail(content: string, unsubscribeUrl: string): string {
   return `
 <!DOCTYPE html>
@@ -57,11 +83,13 @@ function wrapEmail(content: string, unsubscribeUrl: string): string {
 }
 
 function ctaButton(text: string, url: string): string {
+  const safeHref = safeUrl(url);
+  const safeText = escapeHtml(text);
   return `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
   <tr>
     <td align="center">
-      <a href="${url}" style="display: inline-block; padding: 12px 32px; background-color: #18181b; color: #ffffff; text-decoration: none; font-weight: 500; border-radius: 6px;">${text}</a>
+      <a href="${safeHref}" style="display: inline-block; padding: 12px 32px; background-color: #18181b; color: #ffffff; text-decoration: none; font-weight: 500; border-radius: 6px;">${safeText}</a>
     </td>
   </tr>
 </table>`;
@@ -85,10 +113,12 @@ export async function sendRoastReadyEmail({
   const roastUrl = `${APP_URL}/roast/${roastId}`;
   const unsubscribeUrl = getUnsubscribeUrl(email);
 
+  const safeName = firstName ? escapeHtml(firstName) : undefined;
+
   const html = wrapEmail(
     `
     <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-      ${firstName ? `Hi ${firstName},` : 'Hi there,'}
+      ${safeName ? `Hi ${safeName},` : 'Hi there,'}
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
       Your resume roast is ready. See what our AI had to say.
