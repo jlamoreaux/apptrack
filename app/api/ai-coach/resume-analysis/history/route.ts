@@ -46,34 +46,7 @@ export async function GET() {
       }
     });
 
-    // Parse analysis_result from JSON string to object
-    const parsedAnalyses = (analyses || []).map(analysis => {
-      let parsedResult = analysis.analysis_result;
-
-      if (typeof analysis.analysis_result === 'string') {
-        try {
-          parsedResult = JSON.parse(analysis.analysis_result);
-        } catch (error) {
-          loggerService.warn('Failed to parse resume analysis result', {
-            category: LogCategory.API,
-            userId: user.id,
-            action: 'resume_analysis_parse_error',
-            metadata: {
-              analysisId: analysis.id,
-              error: error instanceof Error ? error.message : 'Unknown error'
-            }
-          });
-          parsedResult = { error: 'Failed to parse analysis result', raw: analysis.analysis_result };
-        }
-      }
-
-      return {
-        ...analysis,
-        analysis_result: parsedResult
-      };
-    });
-
-    return NextResponse.json({ analyses: parsedAnalyses });
+    return NextResponse.json({ analyses: analyses || [] });
 
   } catch (error) {
     loggerService.error('Resume analysis history GET error', error, {

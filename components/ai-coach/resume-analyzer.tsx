@@ -176,7 +176,11 @@ export function ResumeAnalyzer({ userId }: ResumeAnalyzerProps) {
                   subtitle={savedAnalysis.job_description ? "With job description" : "General analysis"}
                   timestamp={savedAnalysis.created_at}
                   onSelect={() => {
-                    setAnalysis(savedAnalysis.analysis_result);
+                    const result = savedAnalysis.analysis_result;
+                    const text = typeof result === 'string'
+                      ? result
+                      : result?.raw || result?.content || '';
+                    setAnalysis(text);
                     setShowSavedAnalyses(false);
                   }}
                   onDelete={() => deleteAnalysis(savedAnalysis.id)}
