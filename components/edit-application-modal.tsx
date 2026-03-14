@@ -105,6 +105,7 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
               value={formData.date_applied}
               onChange={(value) => handleInputChange("date_applied", value)}
               showTodayButton={true}
+              compact={true}
             />
           </div>
 

@@ -15,6 +15,7 @@ interface DateInputProps {
   placeholder?: string;
   showTodayButton?: boolean;
   defaultToToday?: boolean;
+  compact?: boolean; // Icon-only button for tight spaces
 }
 
 /**
@@ -22,6 +23,7 @@ interface DateInputProps {
  * 
  * @param showTodayButton - Show the "Today" button (default: true)
  * @param defaultToToday - If value is empty, default to today's date (default: false)
+ * @param compact - Show icon-only button for tight spaces (default: false)
  */
 export function DateInput({
   id,
@@ -33,6 +35,7 @@ export function DateInput({
   placeholder,
   showTodayButton = true,
   defaultToToday = false,
+  compact = false,
 }: DateInputProps) {
   const handleSetToday = () => {
     const today = formatDateAsLocal(new Date());
@@ -66,11 +69,12 @@ export function DateInput({
           variant="outline"
           size="sm"
           onClick={handleSetToday}
-          className="flex-shrink-0 whitespace-nowrap px-3"
+          className={`flex-shrink-0 whitespace-nowrap ${compact ? 'px-2' : 'px-3'}`}
           aria-label="Set date to today"
+          title="Set to today"
         >
-          <Calendar className="h-4 w-4 mr-1.5" />
-          Today
+          <Calendar className={`h-4 w-4 ${!compact ? 'mr-1.5' : ''}`} />
+          {!compact && 'Today'}
         </Button>
       )}
     </div>
