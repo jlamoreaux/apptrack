@@ -19,6 +19,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 import { serverAnalyticsService } from "@/lib/services/analytics-server.service";
 import { validateEmail } from "@/lib/email/validate";
 import { scheduleDripSequence } from "@/lib/email/drip-scheduler";
+import { sendRoastReadyEmail } from "@/lib/email/transactional";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 export const runtime = "nodejs";
@@ -38,6 +39,11 @@ async function generateBrowserFingerprint(req: NextRequest): Promise<string> {
 // Helper to hash IP address for privacy
 function hashIP(ip: string): string {
   return crypto.createHash("sha256").update(ip + process.env.IP_SALT || "default-salt").digest("hex");
+}
+
+// Helper to hash email for log metadata — avoids storing PII in logs
+function hashEmail(email: string): string {
+  return crypto.createHash("sha256").update(email.toLowerCase().trim()).digest("hex").slice(0, 12);
 }
 
 export async function POST(req: NextRequest) {
@@ -314,7 +320,37 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
-    // Schedule drip emails for lead (non-blocking)
+    // Send "Your Roast is Ready" email — transactional, fires once per roast (non-blocking)
+    sendRoastReadyEmail({
+      email,
+      firstName: firstName || undefined,
+      roastId: savedRoast.shareable_id,
+    }).then((result) => {
+      if (result.success) {
+        loggerService.info('Roast ready email sent', {
+          category: LogCategory.BUSINESS,
+          action: 'roast_ready_email_sent',
+          userId: user?.id,
+          metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
+        });
+      } else {
+        loggerService.warn('Roast ready email send failed', {
+          category: LogCategory.BUSINESS,
+          action: 'roast_ready_email_failed',
+          userId: user?.id,
+          metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
+        });
+      }
+    }).catch((err) => {
+      loggerService.error('Roast ready email threw unexpectedly', err, {
+        category: LogCategory.BUSINESS,
+        action: 'roast_ready_email_error',
+        userId: user?.id,
+        metadata: { emailHash: hashEmail(email), roastId: savedRoast.shareable_id },
+      });
+    });
+
+    // Schedule nurture drip (Day 2, Day 5) — deduplicated per email address (non-blocking)
     scheduleDripSequence({
       email,
       audience: 'leads',
