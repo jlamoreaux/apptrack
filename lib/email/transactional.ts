@@ -41,6 +41,7 @@ function safeUrl(url: string): string {
 }
 
 function wrapEmail(content: string, unsubscribeUrl: string): string {
+  const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
   return `
 <!DOCTYPE html>
 <html>
@@ -70,7 +71,7 @@ function wrapEmail(content: string, unsubscribeUrl: string): string {
                 You're receiving this because you used Resume Roast on AppTrack.
               </p>
               <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
-                <a href="${unsubscribeUrl}" style="color: #71717a;">Unsubscribe</a>
+                <a href="${safeUnsubscribeUrl}" style="color: #71717a;">Unsubscribe</a>
               </p>
             </td>
           </tr>
