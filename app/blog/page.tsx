@@ -42,7 +42,7 @@ export default function BlogPage() {
                 <p className="text-muted-foreground">{post.description}</p>
                 <Link
                   href={`/blog/${post.slug}`}
-                  className="text-sm text-primary hover:underline mt-2 inline-block"
+                  className="mt-2 inline-flex min-h-[44px] items-center text-sm text-primary hover:underline"
                 >
                   Read more
                 </Link>

@@ -38,18 +38,23 @@ export default async function BlogPostPage({ params }: Props) {
       <main className="container mx-auto px-4 py-16 max-w-2xl">
         <Link
           href="/blog"
-          className="text-sm text-muted-foreground hover:text-foreground mb-8 inline-block"
+          className="mb-8 inline-flex min-h-[44px] items-center text-sm text-muted-foreground hover:text-foreground"
         >
           ← Back to blog
         </Link>
 
         <article>
           <p className="text-sm text-muted-foreground mb-2">
-            {new Date(post.date).toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
+            {(() => {
+              const parsed = Date.parse(post.date);
+              return Number.isNaN(parsed)
+                ? post.date
+                : new Date(parsed).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "long",
+                    day: "numeric",
+                  });
+            })()}
           </p>
           <h1 className="text-3xl font-bold mb-8">{post.title}</h1>
 
