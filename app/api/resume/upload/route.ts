@@ -12,6 +12,7 @@ import { RESUME_CONSTRAINTS, RESUME_ERROR_MESSAGES } from "@/lib/constants/resum
 import { validateResumeName, validateResumeDescription } from "@/lib/validation/resume.schema";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { validateFileType } from "@/lib/utils/file-type-validation";
+import { sanitizeFilename } from "@/lib/utils/sanitize-filename";
 
 async function handleUpload(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
@@ -198,7 +199,9 @@ async function handleUpload(request: NextRequest): Promise<NextResponse> {
     }
 
     // Upload file to Supabase Storage
-    const fileName = `resumes/${user.id}/${Date.now()}-${file.name}`;
+    // Sanitize filename to handle special characters
+    const sanitizedName = sanitizeFilename(file.name);
+    const fileName = `resumes/${user.id}/${Date.now()}-${sanitizedName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("resumes")
