@@ -91,30 +91,6 @@ function ctaButton(text: string, url: string): string {
 
 const leadsTemplates: DripTemplate[] = [
   {
-    templateId: 'lead_day_0',
-    subject: 'Your Resume Roast is Ready',
-    preheader: 'See what our AI found in your resume',
-    dayOffset: 0,
-    getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
-      </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        Thanks for using Resume Roast! Your personalized feedback is ready.
-      </p>
-      ${params.roastUrl ? ctaButton('View Your Roast', params.roastUrl) : ''}
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-        Want to take your job search to the next level? AppTrack helps you:
-      </p>
-      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
-        <li style="margin-bottom: 8px;">Track applications in one place</li>
-        <li style="margin-bottom: 8px;">Get AI-powered interview prep</li>
-        <li style="margin-bottom: 8px;">Analyze job fit before applying</li>
-      </ul>
-      ${ctaButton('Try AppTrack Free', `${APP_URL}/signup`)}
-    `, params),
-  },
-  {
     templateId: 'lead_day_2',
     subject: '3 Tips to Improve Your Job Search',
     preheader: 'Stand out from other applicants',
