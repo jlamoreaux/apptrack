@@ -17,6 +17,7 @@ import { JobFitAnalysisResult as JobFitAnalysisDisplay } from "@/components/ai-c
 import { copyAnalysisToClipboard, downloadAnalysisPDF } from "@/lib/utils/analysis-export";
 import { isJobFitAnalysisResult } from "@/types/ai-analysis";
 import type { Application } from "@/types";
+import { formatLocalDate } from "@/lib/utils/date";
 
 interface JobFitHistorySectionProps {
   application: Application;
@@ -148,11 +149,9 @@ export function JobFitHistorySection({
                   </div>
                   <span 
                     className="text-xs text-muted-foreground"
-                    aria-label={`Generated on ${new Date(jobFitHistory[0].created_at).toLocaleDateString()}`}
+                    aria-label={`Generated on ${formatLocalDate(jobFitHistory[0].created_at)}`}
                   >
-                    {new Date(
-                      jobFitHistory[0].created_at
-                    ).toLocaleDateString()}
+                    {formatLocalDate(jobFitHistory[0].created_at)}
                   </span>
                 </div>
 

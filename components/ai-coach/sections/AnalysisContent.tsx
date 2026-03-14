@@ -23,6 +23,7 @@ import {
   isCoverLetterResult,
 } from "@/types/ai-analysis";
 import { copyAnalysisToClipboard, downloadAnalysisPDF } from "@/lib/utils/analysis-export";
+import { formatLocalDate } from "@/lib/utils/date";
 import type { 
   AIAnalysisTab, 
   AnalysisError, 
@@ -160,9 +161,7 @@ export function AnalysisContent({
                 <Clock className="h-4 w-4" aria-hidden="true" />
                 <span>
                   Viewing analysis from{" "}
-                  {new Date(
-                    selectedHistoryItem.created_at
-                  ).toLocaleDateString()}
+                  {formatLocalDate(selectedHistoryItem.created_at)}
                 </span>
                 <Button
                   variant="ghost"

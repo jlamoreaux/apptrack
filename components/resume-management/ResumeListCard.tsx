@@ -28,6 +28,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { formatLocalDate } from "@/lib/utils/date";
 import { ResumeLimitIndicator } from "./ResumeLimitIndicator";
 import type { UserResume } from "@/types";
 
@@ -303,7 +304,7 @@ function ResumeCard({
   onDelete,
   onDownload,
 }: ResumeCardProps) {
-  const uploadDate = new Date(resume.uploaded_at).toLocaleDateString();
+  const uploadDate = formatLocalDate(resume.uploaded_at);
   const fileType = resume.file_type.split("/").pop()?.toUpperCase() || "FILE";
 
   return (

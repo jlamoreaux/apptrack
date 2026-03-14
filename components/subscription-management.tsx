@@ -22,6 +22,7 @@ import {
   AlertDialogDescription,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
+import { formatLocalDate } from "@/lib/utils/date";
 
 interface SubscriptionManagementProps {
   userId: string;
@@ -140,8 +141,7 @@ export function SubscriptionManagement({
           </p>
           {!isOnFreePlan && subscription?.current_period_end && (
             <p className="text-xs text-muted-foreground">
-              Renews{" "}
-              {new Date(subscription.current_period_end).toLocaleDateString()}
+              Renews {formatLocalDate(subscription.current_period_end)}
             </p>
           )}
         </div>
@@ -246,7 +246,7 @@ export function SubscriptionManagement({
           <div className="p-3 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md">
             Your subscription will end on{" "}
             {subscription.current_period_end
-              ? new Date(subscription.current_period_end).toLocaleDateString()
+              ? formatLocalDate(subscription.current_period_end)
               : "the end of your billing period"}
             . You will retain access until then. You can reactivate your
             subscription at any time before this date.
@@ -257,7 +257,7 @@ export function SubscriptionManagement({
         subscription?.current_period_end && (
           <div className="p-3 text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-md">
             Your subscription is canceled and will end on{" "}
-            {new Date(subscription.current_period_end).toLocaleDateString()}.
+            {formatLocalDate(subscription.current_period_end)}.
             You can still upgrade to reactivate your subscription.
           </div>
         )}

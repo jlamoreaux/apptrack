@@ -13,6 +13,7 @@ import Link from "next/link";
 import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
+import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
@@ -125,9 +126,8 @@ export default function TryJobFitPage() {
 
           {resetAt && (
             <p className="text-sm text-muted-foreground">
-              Your free analysis resets{" "}
-              {new Date(resetAt).toLocaleDateString()} at{" "}
-              {new Date(resetAt).toLocaleTimeString()}
+              Your free analysis resets {formatLocalDate(resetAt)} at{" "}
+              {formatLocalTime(resetAt)}
             </p>
           )}
 

@@ -39,6 +39,7 @@ import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
 import { Sparkles } from "lucide-react"
 import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
+import { formatLocalDate, formatLocalDateTime } from "@/lib/utils/date"
 
 export default function ApplicationDetailPage() {
   const { user, loading: authLoading } = useSupabaseAuth()
@@ -115,7 +116,7 @@ export default function ApplicationDetailPage() {
     if (!newNote.trim() || !application) return
 
     const updatedNotes =
-      application.notes + (application.notes ? "\n\n" : "") + `[${new Date().toLocaleDateString()}] ${newNote}`
+      application.notes + (application.notes ? "\n\n" : "") + `[${formatLocalDateTime(new Date())}] ${newNote}`
     handleUpdateNotes(updatedNotes)
     setNewNote("")
   }
@@ -282,7 +283,7 @@ export default function ApplicationDetailPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Date Applied</Label>
-                  <p className="text-sm">{new Date(application.date_applied).toLocaleDateString()}</p>
+                  <p className="text-sm">{formatLocalDate(application.date_applied)}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">Job Posting</Label>
