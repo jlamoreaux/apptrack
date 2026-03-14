@@ -27,6 +27,8 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
+import { parseDateAsLocal } from "@/lib/utils/date";
+import { DateInput } from "@/components/ui/date-input";
 
 export default function AddApplicationPage() {
   const { user, loading: authLoading } = useSupabaseAuth();
@@ -54,7 +56,14 @@ export default function AddApplicationPage() {
     setError("");
     setLoading(true);
 
-    const result = await addApplication(formData);
+    // Convert date_applied from YYYY-MM-DD to ISO string in local timezone
+    const dateToSave = parseDateAsLocal(formData.date_applied);
+    const applicationData = {
+      ...formData,
+      date_applied: dateToSave ? dateToSave.toISOString() : formData.date_applied,
+    };
+
+    const result = await addApplication(applicationData);
 
     if (result.success) {
       router.push("/dashboard");
@@ -189,18 +198,19 @@ export default function AddApplicationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date_applied">Date Applied</Label>
-                    <Input
+                    <DateInput
                       id="date_applied"
-                      type="date"
                       value={formData.date_applied}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setFormData({
                           ...formData,
-                          date_applied: e.target.value,
+                          date_applied: value,
                         })
                       }
                       required
                       disabled={loading}
+                      defaultToToday={true}
+                      showTodayButton={true}
                     />
                   </div>
                   <div className="space-y-2">

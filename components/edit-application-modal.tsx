@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Application } from "@/lib/supabase"
+import { formatDateAsLocal, parseDateAsLocal } from "@/lib/utils/date"
+import { DateInput } from "@/components/ui/date-input"
 
 interface EditApplicationModalProps {
   application: Application
@@ -29,7 +31,7 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
     role: application.role,
     role_link: application.role_link || "",
     job_description: application.job_description || "",
-    date_applied: application.date_applied,
+    date_applied: formatDateAsLocal(new Date(application.date_applied)),
     status: application.status,
     notes: application.notes || "",
   })
@@ -38,7 +40,13 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await onSave(formData)
+      // Convert date_applied from YYYY-MM-DD to ISO string for database
+      const dateToSave = parseDateAsLocal(formData.date_applied);
+      const updatedFormData = {
+        ...formData,
+        date_applied: dateToSave ? dateToSave.toISOString() : formData.date_applied,
+      };
+      await onSave(updatedFormData)
       onClose()
     } catch (error) {
     } finally {
@@ -92,11 +100,11 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
 
           <div className="grid gap-2">
             <Label htmlFor="date_applied">Date Applied</Label>
-            <Input
+            <DateInput
               id="date_applied"
-              type="date"
               value={formData.date_applied}
-              onChange={(e) => handleInputChange("date_applied", e.target.value)}
+              onChange={(value) => handleInputChange("date_applied", value)}
+              showTodayButton={true}
             />
           </div>
 
