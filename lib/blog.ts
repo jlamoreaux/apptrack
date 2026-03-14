@@ -37,6 +37,11 @@ export function getAllPosts(): Omit<BlogPost, "content">[] {
 }
 
 export function getPostBySlug(slug: string): BlogPost | null {
+  // Prevent path traversal
+  if (slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
+    return null;
+  }
+
   const filePath = path.join(BLOG_DIR, `${slug}.mdx`);
   if (!fs.existsSync(filePath)) return null;
 
