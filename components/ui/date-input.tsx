@@ -47,27 +47,29 @@ export function DateInput({
   }
 
   return (
-    <div className="flex gap-2">
-      <Input
-        id={id}
-        type="date"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        required={required}
-        disabled={disabled}
-        className={className}
-        placeholder={placeholder}
-      />
+    <div className="flex gap-2 w-full">
+      <div className="flex-1 min-w-0">
+        <Input
+          id={id}
+          type="date"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required={required}
+          disabled={disabled}
+          className={`${className || ''} [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-datetime-edit-fields-wrapper]:p-0`}
+          placeholder={placeholder}
+        />
+      </div>
       {showTodayButton && !disabled && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={handleSetToday}
-          className="flex-shrink-0"
+          className="flex-shrink-0 whitespace-nowrap px-3"
           aria-label="Set date to today"
         >
-          <Calendar className="h-4 w-4 mr-1" />
+          <Calendar className="h-4 w-4 mr-1.5" />
           Today
         </Button>
       )}
