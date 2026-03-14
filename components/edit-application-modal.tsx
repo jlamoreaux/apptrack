@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Application } from "@/lib/supabase"
-import { formatDateAsLocal, parseDateAsLocal } from "@/lib/utils/date"
 import { DateInput } from "@/components/ui/date-input"
 
 interface EditApplicationModalProps {
@@ -31,7 +30,7 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
     role: application.role,
     role_link: application.role_link || "",
     job_description: application.job_description || "",
-    date_applied: formatDateAsLocal(new Date(application.date_applied)),
+    date_applied: application.date_applied,
     status: application.status,
     notes: application.notes || "",
   })
@@ -40,11 +39,9 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Convert date_applied from YYYY-MM-DD to ISO string for database
-      const dateToSave = parseDateAsLocal(formData.date_applied);
       const updatedFormData = {
         ...formData,
-        date_applied: dateToSave ? dateToSave.toISOString() : formData.date_applied,
+        date_applied: formData.date_applied,
       };
       await onSave(updatedFormData)
       onClose()
@@ -105,7 +102,6 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
               value={formData.date_applied}
               onChange={(value) => handleInputChange("date_applied", value)}
               showTodayButton={true}
-              compact={true}
             />
           </div>
 

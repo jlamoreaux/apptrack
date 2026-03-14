@@ -27,7 +27,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
-import { parseDateAsLocal } from "@/lib/utils/date";
+
 import { DateInput } from "@/components/ui/date-input";
 
 export default function AddApplicationPage() {
@@ -56,14 +56,7 @@ export default function AddApplicationPage() {
     setError("");
     setLoading(true);
 
-    // Convert date_applied from YYYY-MM-DD to ISO string in local timezone
-    const dateToSave = parseDateAsLocal(formData.date_applied);
-    const applicationData = {
-      ...formData,
-      date_applied: dateToSave ? dateToSave.toISOString() : formData.date_applied,
-    };
-
-    const result = await addApplication(applicationData);
+    const result = await addApplication(formData);
 
     if (result.success) {
       router.push("/dashboard");
