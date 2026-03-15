@@ -4,6 +4,7 @@ import { AdminService } from "@/lib/services/admin.service";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { AuditService } from "@/lib/services/audit.service";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 export async function PATCH(
   req: Request,
@@ -32,7 +33,12 @@ export async function PATCH(
       .single();
 
     if (fetchError) {
-      console.error("Failed to fetch pricing plan:", fetchError);
+      loggerService.error('Failed to fetch pricing plan', fetchError, {
+        category: LogCategory.API,
+        action: 'admin_pricing_plan_fetch_error',
+        userId: user.id,
+        metadata: { planId: resolvedParams.id },
+      });
       if (fetchError.code === "PGRST116") {
         return NextResponse.json(
           { error: "Pricing plan not found" },
@@ -64,7 +70,12 @@ export async function PATCH(
       .select();
 
     if (error) {
-      console.error("Failed to update pricing plan:", error);
+      loggerService.error('Failed to update pricing plan', error, {
+        category: LogCategory.API,
+        action: 'admin_pricing_plan_update_error',
+        userId: user.id,
+        metadata: { planId: resolvedParams.id },
+      });
       return NextResponse.json(
         { error: "Failed to update pricing plan" },
         { status: 500 }
@@ -106,7 +117,10 @@ export async function PATCH(
 
     return NextResponse.json(updatedPlan);
   } catch (error) {
-    console.error("Error updating pricing plan:", error);
+    loggerService.error('Unhandled error updating pricing plan', error as Error, {
+      category: LogCategory.API,
+      action: 'admin_pricing_plan_unhandled_error',
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

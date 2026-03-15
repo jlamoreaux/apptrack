@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIFeatureUsageService, type AIFeatureType } from "@/lib/services/ai-feature-usage.service";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * GET /api/ai-features/check-allowance?feature=job_fit
@@ -48,7 +49,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(allowance);
   } catch (error) {
-    console.error("Check allowance error:", error);
+    loggerService.error('Check allowance error', error as Error, {
+      category: LogCategory.API,
+      action: 'check_allowance_error',
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

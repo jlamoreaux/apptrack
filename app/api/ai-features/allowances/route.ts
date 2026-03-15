@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
+import { loggerService, LogCategory } from "@/lib/services/logger.service";
 
 /**
  * GET /api/ai-features/allowances
@@ -37,7 +38,10 @@ export async function GET() {
       hasAnyFreeTries: Object.values(allowances).some(a => a.canUse),
     });
   } catch (error) {
-    console.error("Get allowances error:", error);
+    loggerService.error('Get allowances error', error as Error, {
+      category: LogCategory.API,
+      action: 'get_allowances_error',
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
