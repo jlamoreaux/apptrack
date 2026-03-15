@@ -9,16 +9,16 @@ export interface ResumeResolutionOptions {
 export interface ResumeResolutionResult {
   text: string;
   id: string | null;
-  source: 'provided' | 'specified' | 'application' | 'default';
+  source: 'provided' | 'specified' | 'default';
 }
 
 /**
  * Centralized service for resolving resume data across AI features
- * Priority: resumeText > resumeId > applicationId > default resume
+ * Priority: resumeText > resumeId > default resume
  */
 export class ResumeResolutionService {
   /**
-   * Resolves resume text and ID based on provided options
+   * Resolves resume text and ID based on provided options.
    * @param userId - The user ID
    * @param options - Resume resolution options
    * @returns Resolved resume text and ID with source indicator
@@ -28,51 +28,44 @@ export class ResumeResolutionService {
     userId: string,
     options: ResumeResolutionOptions
   ): Promise<ResumeResolutionResult> {
-    const { resumeText, resumeId, applicationId } = options;
+    const { resumeText, resumeId } = options;
 
-    // Priority 1: Use provided resume text
+    // Priority 1: Use provided resume text directly
     if (resumeText) {
       return {
         text: resumeText,
         id: resumeId || null,
-        source: 'provided'
+        source: 'provided',
       };
     }
 
-    // Priority 2: Fetch resume by ID
+    // Priority 2: Fetch resume by explicit ID
     if (resumeId) {
       const resume = await AIDataFetcherService.getUserResumeById(userId, resumeId);
+      if (!resume.text) {
+        throw new Error('Resume not found or has no content. Please upload your resume first.');
+      }
       return {
         text: resume.text,
         id: resumeId,
-        source: 'specified'
+        source: 'specified',
       };
     }
 
-    // Priority 3: Fetch resume from application
-    if (applicationId) {
-      const resume = await AIDataFetcherService.getUserResumeByApplicationId(userId, applicationId);
-      if (resume?.text) {
-        return {
-          text: resume.text,
-          id: resume.id || null,
-          source: 'application'
-        };
-      }
-    }
-
-    // Priority 4: Use default resume
+    // Priority 3: Fall back to the user's default (most recent) resume
     const defaultResume = await AIDataFetcherService.getUserResume(userId);
+    if (!defaultResume.text) {
+      throw new Error('No resume found. Please upload your resume first.');
+    }
     return {
       text: defaultResume.text,
       id: defaultResume.id || null,
-      source: 'default'
+      source: 'default',
     };
   }
 
   /**
-   * Validates that resume text exists and is not empty
-   * @param resumeText - The resume text to validate
+   * Validates that resume text exists and is not empty.
    * @throws Error if resume text is invalid
    */
   static validateResumeText(resumeText: string): void {
