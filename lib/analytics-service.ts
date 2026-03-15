@@ -1,5 +1,6 @@
 import type { PermissionLevel } from "@/types";
 import type { LocationContext } from "@/lib/types/analytics";
+import { daysBetween } from "@/lib/utils/date";
 
 // Analytics service interface for dependency injection
 export interface AnalyticsService {
@@ -45,10 +46,7 @@ export const noOpAnalyticsService: AnalyticsService = {
   trackExternalLinkClick: () => {},
   trackListView: () => {},
   calculateDaysSinceApplied: (dateApplied: string) => {
-    const appliedDate = new Date(dateApplied);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - appliedDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return daysBetween(dateApplied);
   },
 };
 
@@ -78,9 +76,6 @@ export class VercelAnalyticsService implements AnalyticsService {
   }
 
   calculateDaysSinceApplied(dateApplied: string): number {
-    const appliedDate = new Date(dateApplied);
-    const today = new Date();
-    const diffTime = Math.abs(today.getTime() - appliedDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return daysBetween(dateApplied);
   }
 }
