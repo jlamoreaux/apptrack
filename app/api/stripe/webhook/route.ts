@@ -207,19 +207,29 @@ async function handleCheckoutCompleted(
       .single();
 
     if (planError || !plan) {
-      console.error(`Plan not found for planId: ${planId}`, planError);
+      loggerService.error('Plan not found for planId', planError as Error, {
+        category: LogCategory.PAYMENT,
+        action: 'checkout_plan_lookup_error',
+        metadata: { planId },
+      });
       return;
     }
 
     const planName = plan.name;
-    console.log(`Mapped planId ${planId} to plan name: ${planName}`);
+    loggerService.debug('Mapped planId to plan name', {
+      category: LogCategory.PAYMENT,
+      action: 'checkout_plan_mapped',
+      metadata: { planId, planName },
+    });
 
     const subscription = await stripe.subscriptions.retrieve(
       session.subscription as string
     );
-    console.log(
-      `Retrieved Stripe subscription: ${subscription.id} with status: ${subscription.status}`
-    );
+    loggerService.debug('Retrieved Stripe subscription', {
+      category: LogCategory.PAYMENT,
+      action: 'checkout_subscription_retrieved',
+      metadata: { subscriptionId: subscription.id, status: subscription.status },
+    });
 
     const currentPeriodStart =
       subscription.billing_cycle_anchor && subscription.billing_cycle_anchor > 0
@@ -274,16 +284,21 @@ async function handleCheckoutCompleted(
       billingCycle as "monthly" | "yearly"
     );
 
-    console.log(
-      `Successfully processed subscription for user ${userId} with plan: ${planName}`
-    );
-    console.log(`Stripe customer ID: ${session.customer}`);
-    console.log(`Stripe subscription ID: ${subscription.id}`);
-    console.log(`Plan ID: ${planId}`);
-    console.log(`Billing cycle: ${billingCycle}`);
-    console.log(`Status: ${subscription.status}`);
-    console.log(`Period start: ${currentPeriodStart}`);
-    console.log(`Period end: ${currentPeriodEnd}`);
+    loggerService.info('Subscription created from checkout', {
+      category: LogCategory.PAYMENT,
+      action: 'checkout_subscription_created',
+      userId,
+      metadata: {
+        planId,
+        planName,
+        billingCycle,
+        stripeCustomerId: String(session.customer),
+        stripeSubscriptionId: subscription.id,
+        status: subscription.status,
+        periodStart: currentPeriodStart,
+        periodEnd: currentPeriodEnd,
+      },
+    });
 
     captureServerEvent(userId, 'upgrade_completed', {
       plan: planName,
@@ -312,7 +327,11 @@ async function handleCheckoutCompleted(
             subscriptionId: subscription.id,
           },
         }).catch(() => {
-          console.error('Failed to transition to paid-users audience:', err);
+          loggerService.error('Failed to transition to paid-users audience', err, {
+            category: LogCategory.PAYMENT,
+            action: 'drip_audience_transition_error',
+            userId,
+          });
         });
       });
     }
@@ -345,12 +364,19 @@ async function handleSubscriptionUpdated(
     }
     userId = String(userId || "");
     if (!userId) {
-      console.error("Could not find userId for subscription:", subscription.id);
+      loggerService.error('Could not find userId for subscription update', new Error('Missing userId'), {
+        category: LogCategory.PAYMENT,
+        action: 'subscription_update_missing_user',
+        metadata: { subscriptionId: subscription.id },
+      });
       return;
     }
-    console.log(
-      `Updating subscription ${subscription.id} for user ${userId} with status: ${subscription.status}`
-    );
+    loggerService.info('Updating subscription', {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_update_start',
+      userId,
+      metadata: { subscriptionId: subscription.id, status: subscription.status },
+    });
     
     // Get the current price ID from the subscription
     const currentPriceId = subscription.items.data[0]?.price?.id;
@@ -471,17 +497,29 @@ async function handleSubscriptionDeleted(
     }
     userId = String(userId || "");
     if (!userId) {
-      console.error("Could not find userId for subscription:", subscription.id);
+      loggerService.error('Could not find userId for subscription deletion', new Error('Missing userId'), {
+        category: LogCategory.PAYMENT,
+        action: 'subscription_delete_missing_user',
+        metadata: { subscriptionId: subscription.id },
+      });
       return;
     }
-    console.log(`Deleting subscription ${subscription.id} for user ${userId}`);
+    loggerService.info('Deleting subscription', {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_delete_start',
+      userId,
+      metadata: { subscriptionId: subscription.id },
+    });
     await subscriptionService.updateFromStripeWebhook(subscription.id, {
       status: "canceled",
       cancel_at_period_end: true,
     });
-    console.log(
-      `Successfully marked subscription as canceled for user ${userId}`
-    );
+    loggerService.info('Subscription marked as canceled', {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_canceled',
+      userId,
+      metadata: { subscriptionId: subscription.id },
+    });
   } catch (error) {
     loggerService.error('Error in handleSubscriptionDeleted', error as Error, {
       category: LogCategory.PAYMENT,
@@ -566,12 +604,19 @@ async function handleSubscriptionCreated(
     }
     userId = String(userId || "");
     if (!userId) {
-      console.error("Could not find userId for subscription:", subscription.id);
+      loggerService.error('Could not find userId for subscription creation', new Error('Missing userId'), {
+        category: LogCategory.PAYMENT,
+        action: 'subscription_create_missing_user',
+        metadata: { subscriptionId: subscription.id },
+      });
       return;
     }
-    console.log(
-      `Creating subscription ${subscription.id} for user ${userId} with status: ${subscription.status}`
-    );
+    loggerService.info('Creating subscription', {
+      category: LogCategory.PAYMENT,
+      action: 'subscription_create_start',
+      userId,
+      metadata: { subscriptionId: subscription.id, status: subscription.status },
+    });
     const currentPeriodStart =
       subscription.billing_cycle_anchor && subscription.billing_cycle_anchor > 0
         ? new Date(subscription.billing_cycle_anchor * 1000).toISOString()

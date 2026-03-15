@@ -10,6 +10,10 @@ import {
   SecurityLogContext,
   type LogEntry
 } from './logger.types';
+
+// Re-export types so callers can import everything from one place
+export { LogLevel, LogCategory } from './logger.types';
+export type { LogContext, DatabaseLogContext, ApiLogContext, AiServiceLogContext, SecurityLogContext } from './logger.types';
 import { 
   DEFAULT_LOG_LEVEL,
   LOG_SAMPLING_RATES,
@@ -166,8 +170,9 @@ export class LoggerService {
       };
       
       this.logger.log(level, message, logEntry);
-    } catch {
-      // Silent fail - no error handling for logger itself
+    } catch (err) {
+      // Fallback to console so logger failures are visible (e.g. Axiom misconfigured)
+      console.error('[logger] Failed to write log entry:', err);
     }
   }
   
@@ -479,7 +484,7 @@ export class LoggerService {
   
   // Initialize global error handlers
   private initializeGlobalHandlers(): void {
-    if (typeof window === 'undefined' || this.isProduction) return;
+    if (typeof window === 'undefined') return;
     
     try {
       const errorHandler = (event: ErrorEvent) => {

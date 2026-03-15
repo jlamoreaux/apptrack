@@ -142,7 +142,12 @@ export async function POST(request: NextRequest) {
 
       if (customers.data.length > 0) {
         customer = customers.data[0];
-        console.log(`Found existing customer: ${customer.id}`);
+        loggerService.debug('Found existing Stripe customer', {
+          category: LogCategory.PAYMENT,
+          action: 'stripe_customer_found',
+          userId: user.id,
+          metadata: { stripeCustomerId: customer.id },
+        });
       } else {
         customer = await stripe.customers.create({
           email: user.email!,
@@ -150,10 +155,19 @@ export async function POST(request: NextRequest) {
             userId: user.id,
           },
         });
-        console.log(`Created new customer: ${customer.id}`);
+        loggerService.debug('Created new Stripe customer', {
+          category: LogCategory.PAYMENT,
+          action: 'stripe_customer_created',
+          userId: user.id,
+          metadata: { stripeCustomerId: customer.id },
+        });
       }
     } catch (error) {
-      console.error("Error creating/finding customer:", error);
+      loggerService.error('Error creating/finding Stripe customer', error as Error, {
+        category: LogCategory.PAYMENT,
+        action: 'stripe_customer_error',
+        userId: user.id,
+      });
       return NextResponse.json(
         { error: "Error creating customer" },
         { status: 500 }

@@ -48,7 +48,10 @@ export async function GET(request: NextRequest) {
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Error loading onboarding progress:', error);
+      loggerService.error('Error loading onboarding progress', error, {
+        category: LogCategory.API,
+        action: 'onboarding_progress_load_error',
+      });
       return NextResponse.json(
         { error: "Failed to load progress" },
         { status: 500 }
@@ -57,7 +60,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ progress: data });
   } catch (error) {
-    console.error("Error loading onboarding progress:", error);
+    loggerService.error('Unhandled error loading onboarding progress', error as Error, {
+      category: LogCategory.API,
+      action: 'onboarding_progress_load_unhandled',
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -113,7 +119,10 @@ export async function POST(request: NextRequest) {
       .single();
     
     if (error) {
-      console.error('Error saving onboarding progress:', error);
+      loggerService.error('Error saving onboarding progress', error, {
+        category: LogCategory.API,
+        action: 'onboarding_progress_save_error',
+      });
       return NextResponse.json(
         { error: "Failed to save progress" },
         { status: 500 }
@@ -122,7 +131,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ progress: data });
   } catch (error) {
-    console.error("Error saving onboarding progress:", error);
+    loggerService.error('Unhandled error saving onboarding progress', error as Error, {
+      category: LogCategory.API,
+      action: 'onboarding_progress_save_unhandled',
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

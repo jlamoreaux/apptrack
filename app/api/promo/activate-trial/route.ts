@@ -223,7 +223,10 @@ export async function POST(request: NextRequest) {
         codeType: promoCodeData.code_type,
       },
     }).catch((err) => {
-      console.error('Failed to transition to trial-users audience:', err);
+      loggerService.error('Failed to transition to trial-users audience', err, {
+        category: LogCategory.PAYMENT,
+        action: 'drip_audience_transition_error',
+      });
     });
 
     loggerService.info('Promo trial activated successfully', {

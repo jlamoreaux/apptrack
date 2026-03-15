@@ -1,4 +1,5 @@
 import { analyticsService } from './analytics.service';
+import { loggerService, LogCategory } from './logger.service';
 
 export interface ErrorContext {
   userId?: string;
@@ -23,6 +24,12 @@ export class ErrorTrackingService {
    */
   async trackError(error: Error, context?: ErrorContext): Promise<void> {
     try {
+      loggerService.error(error.message, error, {
+        category: LogCategory.UI,
+        action: context?.action || 'javascript_error',
+        userId: context?.userId,
+        metadata: { component: context?.component, url: context?.url, ...context?.metadata },
+      });
       // Flatten the context to avoid nested objects
       const flattenedContext = context ? {
         userId: context.userId,
@@ -66,6 +73,12 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      loggerService.error(`API error: ${method} ${endpoint} ${statusCode}`, new Error(errorMessage), {
+        category: LogCategory.API,
+        action: 'api_error',
+        userId: context?.userId,
+        metadata: { endpoint, method, statusCode, ...context?.metadata },
+      });
       // Flatten the context to avoid nested objects
       const flattenedContext = context ? {
         userId: context.userId,
@@ -108,6 +121,12 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      loggerService.error(`Component error: ${componentName}`, error, {
+        category: LogCategory.UI,
+        action: 'component_error',
+        userId: context?.userId,
+        metadata: { componentName, url: context?.url, ...context?.metadata },
+      });
       // Flatten the context to avoid nested objects
       const flattenedContext = context ? {
         userId: context.userId,
@@ -149,6 +168,12 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      loggerService.error('Unhandled promise rejection', reason instanceof Error ? reason : new Error(String(reason ?? 'Unknown')), {
+        category: LogCategory.UI,
+        action: 'unhandled_rejection',
+        userId: context?.userId,
+        metadata: { url: context?.url, ...context?.metadata },
+      });
       // Flatten the context to avoid nested objects
       const flattenedContext = context ? {
         userId: context.userId,
@@ -189,6 +214,19 @@ export class ErrorTrackingService {
     context?: ErrorContext
   ): Promise<void> {
     try {
+      const ctx = {
+        category: LogCategory.UI,
+        action: 'custom_error',
+        userId: context?.userId,
+        metadata: { errorName, severity, ...context?.metadata },
+      };
+      if (severity === 'critical' || severity === 'high') {
+        loggerService.error(`Custom error [${severity}]: ${errorName} — ${errorMessage}`, new Error(errorMessage), ctx);
+      } else if (severity === 'medium') {
+        loggerService.warn(`Custom error [${severity}]: ${errorName} — ${errorMessage}`, ctx);
+      } else {
+        loggerService.info(`Custom error [${severity}]: ${errorName} — ${errorMessage}`, ctx);
+      }
       // Flatten the context to avoid nested objects
       const flattenedContext = context ? {
         userId: context.userId,
