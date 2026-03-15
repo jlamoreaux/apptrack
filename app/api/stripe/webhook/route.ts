@@ -326,8 +326,8 @@ async function handleCheckoutCompleted(
             planName,
             subscriptionId: subscription.id,
           },
-        }).catch(() => {
-          loggerService.error('Failed to transition to paid-users audience', err, {
+        }).catch((fallbackErr) => {
+          loggerService.error('Failed to transition to paid-users audience', fallbackErr, {
             category: LogCategory.PAYMENT,
             action: 'drip_audience_transition_error',
             userId,
