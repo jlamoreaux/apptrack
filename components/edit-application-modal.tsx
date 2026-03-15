@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Application } from "@/lib/supabase"
+import { DateInput } from "@/components/ui/date-input"
 
 interface EditApplicationModalProps {
   application: Application
@@ -38,7 +39,11 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      await onSave(formData)
+      const updatedFormData = {
+        ...formData,
+        date_applied: formData.date_applied,
+      };
+      await onSave(updatedFormData)
       onClose()
     } catch (error) {
     } finally {
@@ -92,11 +97,11 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
 
           <div className="grid gap-2">
             <Label htmlFor="date_applied">Date Applied</Label>
-            <Input
+            <DateInput
               id="date_applied"
-              type="date"
               value={formData.date_applied}
-              onChange={(e) => handleInputChange("date_applied", e.target.value)}
+              onChange={(value) => handleInputChange("date_applied", value)}
+              showTodayButton={true}
             />
           </div>
 

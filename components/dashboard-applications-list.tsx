@@ -18,6 +18,7 @@ import { StatusFilter } from "@/components/status-filter";
 import { useDashboardState } from "@/hooks/use-dashboard-state";
 import type { Application } from "@/types";
 import type { ApplicationStatus } from "@/lib/constants/application-status";
+import { formatLocalDate } from "@/lib/utils/date";
 
 interface DashboardApplicationsListProps {
   userId: string;
@@ -210,10 +211,7 @@ export function DashboardApplicationsList({
                         {app.company}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Applied:{" "}
-                        {app.date_applied
-                          ? new Date(app.date_applied).toLocaleDateString()
-                          : "Not specified"}
+                        Applied: {formatLocalDate(app.date_applied)}
                       </p>
                     </div>
                   </Link>

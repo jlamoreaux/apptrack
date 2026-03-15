@@ -17,6 +17,7 @@ import { SortDropdown } from "@/components/sort-dropdown";
 import { useDashboardState } from "@/hooks/use-dashboard-state";
 import { unarchiveApplicationAction } from "@/lib/actions";
 import type { Application } from "@/types";
+import { formatLocalDate } from "@/lib/utils/date";
 
 interface ArchivedApplicationsListProps {
   userId: string;
@@ -159,12 +160,8 @@ export function ArchivedApplicationsList({
                       {app.company}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Applied:{" "}
-                      {app.date_applied
-                        ? new Date(app.date_applied).toLocaleDateString()
-                        : "Not specified"} •
-                      Archived:{" "}
-                      {new Date(app.updated_at).toLocaleDateString()}
+                      Applied: {formatLocalDate(app.date_applied)} •
+                      Archived: {formatLocalDate(app.updated_at)}
                     </p>
                   </div>
                   

@@ -17,6 +17,7 @@ import {
 } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
+import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
 
 export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
@@ -108,7 +109,7 @@ export default function TryInterviewPrepPage() {
           </div>
           {resetAt && (
             <p className="text-sm text-muted-foreground">
-              Your free prep resets {new Date(resetAt).toLocaleDateString()} at {new Date(resetAt).toLocaleTimeString()}
+              Your free prep resets {formatLocalDate(resetAt)} at {formatLocalTime(resetAt)}
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">

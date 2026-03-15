@@ -11,6 +11,7 @@ import { updateProfileAction } from "@/lib/actions";
 import { CheckCircle } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/supabase/types";
+import { formatLocalDate } from "@/lib/utils/date";
 
 const profileSchema = z.object({
   full_name: z.string().min(1, "Name is required"),
@@ -108,7 +109,7 @@ export function AccountInfoForm({ user, profile }: AccountInfoFormProps) {
             Account Created
           </Label>
           <p className="text-sm">
-            {new Date(user.created_at).toLocaleDateString()}
+            {formatLocalDate(user.created_at)}
           </p>
         </div>
 

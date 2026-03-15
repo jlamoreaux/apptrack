@@ -17,6 +17,7 @@ import { Briefcase, FileText, Link, AlertCircle } from "lucide-react";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { getAIContextAction } from "@/lib/actions/ai-data";
+import { formatLocalDate } from "@/lib/utils/date";
 
 interface JobDescriptionInputProps {
   jobDescription: string;
@@ -166,7 +167,7 @@ export function JobDescriptionInput({
                 applications?.map((app) => (
                   <SelectItem key={app.id} value={app.id}>
                     {app.company} - {app.role}
-                    {app.date_applied && ` (${new Date(app.date_applied).toLocaleDateString()})`}
+                    {app.date_applied && ` (${formatLocalDate(app.date_applied)})`}
                   </SelectItem>
                 ))
               )}

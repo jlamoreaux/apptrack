@@ -28,6 +28,8 @@ import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
 
+import { DateInput } from "@/components/ui/date-input";
+
 export default function AddApplicationPage() {
   const { user, loading: authLoading } = useSupabaseAuth();
   const { addApplication } = useSupabaseApplications(user?.id || null);
@@ -189,18 +191,19 @@ export default function AddApplicationPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="date_applied">Date Applied</Label>
-                    <Input
+                    <DateInput
                       id="date_applied"
-                      type="date"
                       value={formData.date_applied}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setFormData({
                           ...formData,
-                          date_applied: e.target.value,
+                          date_applied: value,
                         })
                       }
                       required
                       disabled={loading}
+                      defaultToToday={true}
+                      showTodayButton={true}
                     />
                   </div>
                   <div className="space-y-2">

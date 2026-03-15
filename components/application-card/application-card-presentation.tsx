@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExternalLink, FileText, MessagesSquare, BrainCircuit, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { Application, ApplicationWithAnalyses } from "@/types";
+import { formatLocalDate } from "@/lib/utils/date";
 
 /**
  * Props for the presentation component
@@ -149,9 +150,7 @@ function ApplicationCardContent({
         className="text-xs text-muted-foreground"
         aria-label={`Application date: ${formattedDate}`}
       >
-        Applied: {application.date_applied
-          ? new Date(application.date_applied).toLocaleDateString()
-          : "Not specified"}
+        Applied: {formatLocalDate(application.date_applied)}
       </p>
 
       {/* AI Analysis Badges */}
