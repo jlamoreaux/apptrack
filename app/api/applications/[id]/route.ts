@@ -10,7 +10,7 @@ const ApplicationUpdateSchema = z.object({
   company: z.string().min(1).optional(),
   role: z.string().min(1).optional(),
   status: z.enum(['Applied', 'Interview Scheduled', 'Interviewed', 'Offer', 'Hired', 'Rejected']).optional(),
-  date_applied: z.string().transform((str) => new Date(str)).optional(),
+  date_applied: z.string().optional(),
   job_url: z.string().url().optional().nullable(),
   job_description: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),

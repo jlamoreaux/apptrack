@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDateAsLocal } from "@/lib/utils/date";
@@ -33,17 +34,20 @@ export function DateInput({
   showTodayButton = true,
   defaultToToday = false,
 }: DateInputProps) {
+  const hasDefaulted = useRef(false);
+
   const handleSetToday = () => {
     const today = formatDateAsLocal(new Date());
     onChange(today);
   };
 
-  // Auto-set to today if defaultToToday is true and value is empty
-  if (defaultToToday && !value && !disabled) {
-    const today = formatDateAsLocal(new Date());
-    // Use setTimeout to avoid state update during render
-    setTimeout(() => onChange(today), 0);
-  }
+  // Auto-set to today if defaultToToday is true and value is empty (once on mount)
+  useEffect(() => {
+    if (defaultToToday && !value && !disabled && !hasDefaulted.current) {
+      hasDefaulted.current = true;
+      onChange(formatDateAsLocal(new Date()));
+    }
+  }, [defaultToToday, value, disabled, onChange]);
 
   return (
     <div className="flex gap-2 w-full items-center">

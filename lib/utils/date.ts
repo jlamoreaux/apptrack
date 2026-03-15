@@ -6,6 +6,14 @@
  */
 
 /**
+ * Safely parse a date string, treating date-only strings (YYYY-MM-DD) as local
+ * timezone to avoid the UTC midnight shift that causes off-by-one day errors.
+ */
+function safeParseDate(dateInput: string): Date {
+  return parseDateAsLocal(dateInput) ?? new Date(dateInput);
+}
+
+/**
  * Format a date string for display using the user's local timezone
  * 
  * @param dateInput - Date string (ISO format) or Date object
@@ -18,18 +26,19 @@ export function formatLocalDate(
 ): string {
   if (!dateInput) return 'Not specified';
   
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-  
+  // For date-only strings (YYYY-MM-DD), parse as local to avoid UTC shift
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
+
   // Check for invalid date
   if (isNaN(date.getTime())) return 'Invalid date';
-  
+
   const defaultOptions: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
     ...options
   };
-  
+
   return date.toLocaleDateString(undefined, defaultOptions);
 }
 
@@ -45,8 +54,8 @@ export function formatLocalDateTime(
   options?: Intl.DateTimeFormatOptions
 ): string {
   if (!dateInput) return 'Not specified';
-  
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
   
   // Check for invalid date
   if (isNaN(date.getTime())) return 'Invalid date';
@@ -75,8 +84,8 @@ export function formatLocalTime(
   options?: Intl.DateTimeFormatOptions
 ): string {
   if (!dateInput) return 'Not specified';
-  
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
   
   // Check for invalid date
   if (isNaN(date.getTime())) return 'Invalid date';
@@ -142,8 +151,8 @@ export function formatDateAsLocal(date: Date | null | undefined): string {
  */
 export function toISOString(dateInput: string | Date | null | undefined): string | null {
   if (!dateInput) return null;
-  
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
   
   if (isNaN(date.getTime())) return null;
   
@@ -178,11 +187,11 @@ export function getEndOfToday(): Date {
  * @returns Number of days between dates
  */
 export function daysBetween(from: string | Date, to: string | Date = new Date()): number {
-  const fromDate = typeof from === 'string' ? new Date(from) : from;
-  const toDate = typeof to === 'string' ? new Date(to) : to;
+  const fromDate = typeof from === 'string' ? safeParseDate(from) : from;
+  const toDate = typeof to === 'string' ? safeParseDate(to) : to;
   
   const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return Math.round(diffTime / (1000 * 60 * 60 * 24));
 }
 
 /**
@@ -192,7 +201,7 @@ export function daysBetween(from: string | Date, to: string | Date = new Date())
  * @returns true if the date is in the past
  */
 export function isInPast(dateInput: string | Date): boolean {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
   return date.getTime() < Date.now();
 }
 
@@ -203,7 +212,7 @@ export function isInPast(dateInput: string | Date): boolean {
  * @returns true if the date is in the future
  */
 export function isInFuture(dateInput: string | Date): boolean {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : dateInput;
   return date.getTime() > Date.now();
 }
 
@@ -215,7 +224,7 @@ export function isInFuture(dateInput: string | Date): boolean {
  * @returns New Date object
  */
 export function addDays(dateInput: string | Date, days: number): Date {
-  const date = typeof dateInput === 'string' ? new Date(dateInput) : new Date(dateInput);
+  const date = typeof dateInput === 'string' ? safeParseDate(dateInput) : new Date(dateInput);
   date.setDate(date.getDate() + days);
   return date;
 }

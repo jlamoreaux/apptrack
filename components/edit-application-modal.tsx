@@ -35,17 +35,16 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
     notes: application.notes || "",
   })
   const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
 
   const handleSave = async () => {
     setIsSaving(true)
+    setSaveError("")
     try {
-      const updatedFormData = {
-        ...formData,
-        date_applied: formData.date_applied,
-      };
-      await onSave(updatedFormData)
+      await onSave(formData)
       onClose()
     } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Failed to save changes")
     } finally {
       setIsSaving(false)
     }
@@ -64,6 +63,11 @@ export function EditApplicationModal({ application, isOpen, onClose, onSave }: E
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          {saveError && (
+            <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+              {saveError}
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="company">Company</Label>
             <Input

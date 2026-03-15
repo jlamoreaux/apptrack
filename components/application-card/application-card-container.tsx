@@ -8,6 +8,7 @@ import { useAnalyticsWithFallback } from "@/components/analytics-provider";
 import { sanitizeApplicationData, clickRateLimiter } from "@/lib/security/data-sanitizer";
 import type { Application, PermissionLevel } from "@/types";
 import type { LocationContext } from "@/lib/types/analytics";
+import { formatLocalDate } from "@/lib/utils/date";
 
 /**
  * Props for the ApplicationCard container component
@@ -56,13 +57,11 @@ export function ApplicationCardContainer({
   }, [application]);
 
   // Format application date for screen readers
-  const formattedDate = application.date_applied 
-    ? new Date(application.date_applied).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long', 
-        day: 'numeric'
-      })
-    : 'Not specified';
+  const formattedDate = formatLocalDate(application.date_applied, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
   const daysSinceApplied = analytics?.calculateDaysSinceApplied(application.date_applied) ?? 0;
 
