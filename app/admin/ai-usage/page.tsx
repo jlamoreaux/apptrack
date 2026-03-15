@@ -4,19 +4,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { 
-  Brain, 
-  FileText, 
-  MessageSquare, 
-  Lightbulb, 
+import {
+  Brain,
+  FileText,
+  MessageSquare,
+  Lightbulb,
   Target,
   Users,
   Clock,
-  TrendingUp,
   RefreshCw,
   AlertCircle,
-  Shield,
   ArrowLeft
 } from "lucide-react";
 import Link from "next/link";
@@ -25,8 +22,10 @@ interface AggregatedUsage {
   feature: string;
   hourlyTotal: number;
   dailyTotal: number;
+  allTimeTotal: number;
   uniqueUsersHourly: number;
   uniqueUsersDaily: number;
+  uniqueUsersAllTime: number;
   successRate: number;
   lastUsed: string | null;
 }
@@ -34,8 +33,10 @@ interface AggregatedUsage {
 interface SystemTotals {
   hourlyTotal: number;
   dailyTotal: number;
+  allTimeTotal: number;
   uniqueUsersHourly: number;
   uniqueUsersDaily: number;
+  uniqueUsersAllTime: number;
 }
 
 interface UsageData {
@@ -74,11 +75,11 @@ export default function AIUsagePage() {
     try {
       setError(null);
       const response = await fetch("/api/admin/ai-usage");
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch AI usage data");
       }
-      
+
       const data = await response.json();
       setUsageData(data);
     } catch (err) {
@@ -91,8 +92,6 @@ export default function AIUsagePage() {
 
   useEffect(() => {
     fetchUsageData();
-    
-    // Auto-refresh every minute
     const interval = setInterval(fetchUsageData, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -107,7 +106,7 @@ export default function AIUsagePage() {
     const now = new Date();
     const diffMs = reset.getTime() - now.getTime();
     const diffMins = Math.ceil(diffMs / 60000);
-    
+
     if (diffMins > 60) {
       const hours = Math.floor(diffMins / 60);
       const mins = diffMins % 60;
@@ -118,12 +117,12 @@ export default function AIUsagePage() {
 
   const formatLastUsed = (lastUsed: string | null) => {
     if (!lastUsed) return "Never";
-    
+
     const date = new Date(lastUsed);
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
@@ -145,7 +144,7 @@ export default function AIUsagePage() {
             <h1 className="text-3xl font-bold">AI Usage Statistics</h1>
           </div>
           <p className="text-muted-foreground ml-12">
-            Aggregated usage across all users • Real-time data from Redis
+            Real-time from Redis, with database totals
           </p>
         </div>
         <Button
@@ -159,183 +158,221 @@ export default function AIUsagePage() {
         </Button>
       </div>
 
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-            {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[1, 2, 3, 4].map(i => (
-                  <Card key={i}>
-                    <CardHeader>
-                      <div className="h-6 bg-gray-200 rounded animate-pulse" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="h-4 bg-gray-200 rounded animate-pulse" />
-                        <div className="h-4 bg-gray-200 rounded animate-pulse w-3/4" />
+      {loading ? (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {["All-Time Usage", "Today", "This Hour"].map(label => (
+              <Card key={label}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-8 w-16 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Usage Breakdown</CardTitle>
+              <CardDescription>Usage statistics for each AI-powered feature</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {Object.entries(featureNames).map(([key, name]) => (
+                  <div key={key} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {featureIcons[key]}
+                        <span className="font-medium">{name}</span>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : usageData && (
-              <>
-                {/* System Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">
-                        Total Hourly Usage
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline justify-between">
-                        <p className="text-2xl font-bold">{usageData.systemTotals.hourlyTotal}</p>
-                        <div className="text-xs text-gray-500">
-                          Resets in {formatTimeUntilReset(usageData.resetTimes.hourly)}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">
-                        Total Daily Usage
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline justify-between">
-                        <p className="text-2xl font-bold">{usageData.systemTotals.dailyTotal}</p>
-                        <div className="text-xs text-gray-500">
-                          Resets in {formatTimeUntilReset(usageData.resetTimes.daily)}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">
-                        Active Users (Hourly)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline">
-                        <Users className="h-4 w-4 mr-2 text-gray-400" />
-                        <p className="text-2xl font-bold">{usageData.systemTotals.uniqueUsersHourly}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium text-gray-500">
-                        Active Users (Daily)
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex items-baseline">
-                        <Users className="h-4 w-4 mr-2 text-gray-400" />
-                        <p className="text-2xl font-bold">{usageData.systemTotals.uniqueUsersDaily}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Feature Breakdown */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Feature Usage Breakdown</CardTitle>
-                    <CardDescription>
-                      Usage statistics for each AI-powered feature
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {usageData.features.map((feature) => (
-                        <div key={feature.feature} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {featureIcons[feature.feature]}
-                              <span className="font-medium">
-                                {featureNames[feature.feature] || feature.feature}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                              <span>Last used: {formatLastUsed(feature.lastUsed)}</span>
-                              <span>{feature.successRate}% success</span>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">Hourly</p>
-                              <p className="text-lg font-semibold">{feature.hourlyTotal}</p>
-                              <p className="text-xs text-gray-400">{feature.uniqueUsersHourly} users</p>
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <p className="text-xs text-gray-500">Daily</p>
-                              <p className="text-lg font-semibold">{feature.dailyTotal}</p>
-                              <p className="text-xs text-gray-400">{feature.uniqueUsersDaily} users</p>
-                            </div>
-                            
-                            <div className="space-y-1 md:col-span-2">
-                              <p className="text-xs text-gray-500">Daily Progress</p>
-                              <Progress 
-                                value={feature.dailyTotal > 0 ? (feature.hourlyTotal / feature.dailyTotal) * 100 : 0} 
-                                className="h-2"
-                              />
-                              <p className="text-xs text-gray-400">
-                                {feature.hourlyTotal} of {feature.dailyTotal} in current hour
-                              </p>
-                            </div>
-                          </div>
+                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      {["All Time", "Today", "This Hour"].map(col => (
+                        <div key={col} className="space-y-1">
+                          <p className="text-xs text-muted-foreground">{col}</p>
+                          <div className="h-6 w-8 bg-muted rounded animate-pulse" />
+                          <div className="h-3 w-14 bg-muted rounded animate-pulse" />
                         </div>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Reset Schedule
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {["Hourly Reset", "Daily Reset"].map(label => (
+                  <div key={label} className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">{label}</p>
+                    <div className="h-6 w-32 bg-muted rounded animate-pulse" />
+                    <div className="h-3 w-24 bg-muted rounded animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : usageData && (
+        <>
+          {/* System Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  All-Time Usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold">{usageData.systemTotals.allTimeTotal}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {usageData.systemTotals.uniqueUsersAllTime} unique users
+                </p>
+              </CardContent>
+            </Card>
 
-                {/* Reset Times */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Clock className="h-5 w-5" />
-                      Reset Schedule
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-500">Hourly Reset</p>
-                        <p className="text-lg">
-                          {new Date(usageData.resetTimes.hourly).toLocaleTimeString()}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Resets in {formatTimeUntilReset(usageData.resetTimes.hourly)}
-                        </p>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Today
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline justify-between">
+                  <p className="text-2xl font-bold">{usageData.systemTotals.dailyTotal}</p>
+                  <div className="text-xs text-muted-foreground">
+                    Resets in {formatTimeUntilReset(usageData.resetTimes.daily)}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {usageData.systemTotals.uniqueUsersDaily} unique users
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  This Hour
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline justify-between">
+                  <p className="text-2xl font-bold">{usageData.systemTotals.hourlyTotal}</p>
+                  <div className="text-xs text-muted-foreground">
+                    Resets in {formatTimeUntilReset(usageData.resetTimes.hourly)}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {usageData.systemTotals.uniqueUsersHourly} unique users
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Feature Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Feature Usage Breakdown</CardTitle>
+              <CardDescription>
+                Usage statistics for each AI-powered feature
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {usageData.features.map((feature) => (
+                  <div key={feature.feature} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {featureIcons[feature.feature]}
+                        <span className="font-medium">
+                          {featureNames[feature.feature] || feature.feature}
+                        </span>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium text-gray-500">Daily Reset</p>
-                        <p className="text-lg">
-                          {new Date(usageData.resetTimes.daily).toLocaleString()}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          Resets in {formatTimeUntilReset(usageData.resetTimes.daily)}
-                        </p>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span>Last used: {formatLastUsed(feature.lastUsed)}</span>
+                        {feature.dailyTotal > 0 && (
+                          <span>{feature.successRate}% success</span>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">All Time</p>
+                        <p className="text-lg font-semibold">{feature.allTimeTotal}</p>
+                        <p className="text-xs text-muted-foreground">{feature.uniqueUsersAllTime} users</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Today</p>
+                        <p className="text-lg font-semibold">{feature.dailyTotal}</p>
+                        <p className="text-xs text-muted-foreground">{feature.uniqueUsersDaily} users</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">This Hour</p>
+                        <p className="text-lg font-semibold">{feature.hourlyTotal}</p>
+                        <p className="text-xs text-muted-foreground">{feature.uniqueUsersHourly} users</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Reset Times */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Reset Schedule
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Hourly Reset</p>
+                  <p className="text-lg">
+                    {new Date(usageData.resetTimes.hourly).toLocaleTimeString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Resets in {formatTimeUntilReset(usageData.resetTimes.hourly)}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Daily Reset</p>
+                  <p className="text-lg">
+                    {new Date(usageData.resetTimes.daily).toLocaleString()}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Resets in {formatTimeUntilReset(usageData.resetTimes.daily)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

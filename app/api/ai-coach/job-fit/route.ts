@@ -32,7 +32,7 @@ async function handler(request: NextRequest) {
     const permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
       "JOB_FIT_ANALYSIS",
-      "job_fit"
+      "job_fit_analysis"
     );
 
     if (!permissionResult.allowed) {
@@ -170,7 +170,7 @@ async function handler(request: NextRequest) {
 
       // Track free tier usage if applicable
       if (permissionResult.usedFreeTier) {
-        await AIFeatureUsageService.trackUsage(user.id, "job_fit", {
+        await AIFeatureUsageService.trackUsage(user.id, "job_fit_analysis", {
           applicationId: applicationId || null,
           overallScore: analysis.overallScore,
         });
@@ -324,7 +324,7 @@ async function handler(request: NextRequest) {
 
       // Track free tier usage if applicable (even for fallback)
       if (permissionResult.usedFreeTier) {
-        await AIFeatureUsageService.trackUsage(user.id, "job_fit", {
+        await AIFeatureUsageService.trackUsage(user.id, "job_fit_analysis", {
           applicationId: applicationId || null,
           overallScore: mockAnalysis.overallScore,
           fallback: true

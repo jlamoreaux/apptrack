@@ -31,8 +31,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Validate feature type
-    const validFeatures = ["resume_analysis", "job_fit", "cover_letter", "interview_prep"];
+    // Validate and normalize feature type
+    const validFeatures = ["resume_analysis", "job_fit_analysis", "job_fit", "cover_letter", "interview_prep", "career_advice"];
     if (!validFeatures.includes(featureType)) {
       return NextResponse.json(
         { error: "Invalid feature type" },
@@ -40,8 +40,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Normalize legacy feature names to match DB constraint
+    const normalizedFeature = (featureType === "job_fit" ? "job_fit_analysis" : featureType) as AIFeatureType;
+
     // Check allowance
-    const allowance = await AIFeatureUsageService.checkAllowance(user.id, featureType);
+    const allowance = await AIFeatureUsageService.checkAllowance(user.id, normalizedFeature);
 
     return NextResponse.json(allowance);
   } catch (error) {
