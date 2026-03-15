@@ -3,7 +3,6 @@ import { AIDataFetcherService } from "./ai-data-fetcher.service";
 export interface ResumeResolutionOptions {
   resumeText?: string;
   resumeId?: string;
-  applicationId?: string;
 }
 
 export interface ResumeResolutionResult {
@@ -32,6 +31,7 @@ export class ResumeResolutionService {
 
     // Priority 1: Use provided resume text directly
     if (resumeText) {
+      ResumeResolutionService.validateResumeText(resumeText);
       return {
         text: resumeText,
         id: resumeId || null,
@@ -42,9 +42,10 @@ export class ResumeResolutionService {
     // Priority 2: Fetch resume by explicit ID
     if (resumeId) {
       const resume = await AIDataFetcherService.getUserResumeById(userId, resumeId);
-      if (!resume.text) {
+      if (!resume?.text) {
         throw new Error('Resume not found or has no content. Please upload your resume first.');
       }
+      ResumeResolutionService.validateResumeText(resume.text);
       return {
         text: resume.text,
         id: resumeId,
@@ -54,9 +55,10 @@ export class ResumeResolutionService {
 
     // Priority 3: Fall back to the user's default (most recent) resume
     const defaultResume = await AIDataFetcherService.getUserResume(userId);
-    if (!defaultResume.text) {
+    if (!defaultResume?.text) {
       throw new Error('No resume found. Please upload your resume first.');
     }
+    ResumeResolutionService.validateResumeText(defaultResume.text);
     return {
       text: defaultResume.text,
       id: defaultResume.id || null,

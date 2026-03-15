@@ -169,7 +169,6 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       const resumeResult = await ResumeResolutionService.resolveResume(user.id, {
         resumeText,
         resumeId: userResumeId,
-        applicationId
       });
 
       finalResumeText = resumeResult.text;
