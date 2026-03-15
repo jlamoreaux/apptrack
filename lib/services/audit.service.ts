@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 
 /**
  * Audit log action types
@@ -100,8 +101,9 @@ export class AuditService {
         timestamp: new Date().toISOString(),
       };
       
-      // Insert audit log entry
-      const { error } = await supabase
+      // Insert audit log entry using admin client (audit_logs has no RLS policies)
+      const adminSupabase = createAdminClient();
+      const { error } = await adminSupabase
         .from("audit_logs")
         .insert({
           user_id: userId,
@@ -138,8 +140,10 @@ export class AuditService {
     limit?: number;
   }): Promise<AuditLogRecord[]> {
     try {
-      const supabase = await createClient();
-      
+      // Use admin client — audit_logs has RLS enabled with no policies,
+      // so regular client queries are always denied
+      const supabase = createAdminClient();
+
       let query = supabase
         .from("audit_logs")
         .select("*")

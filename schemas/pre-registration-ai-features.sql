@@ -62,32 +62,26 @@ CREATE TABLE IF NOT EXISTS ai_feature_usage (
 
   -- User and feature
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  feature_type TEXT NOT NULL CHECK (feature_type IN ('resume_analysis', 'job_fit', 'cover_letter', 'interview_prep', 'career_chat')),
+  feature_name TEXT NOT NULL CHECK (feature_name IN ('job_fit_analysis', 'cover_letter', 'resume_analysis', 'interview_prep', 'career_advice')),
 
-  -- Track subscription tier at time of use (for historical data)
-  subscription_tier TEXT NOT NULL DEFAULT 'free',
+  -- Usage tracking (one row per user/feature/day, usage_count increments)
+  usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  usage_count INTEGER NOT NULL DEFAULT 1,
 
-  -- Usage tracking
-  used_at TIMESTAMPTZ DEFAULT NOW(),
-  credits_used INTEGER DEFAULT 1,
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
 
-  -- Link to generated content (optional - for accessing previous generations)
-  content_id UUID,
-
-  -- Metadata
-  ip_address INET,
-  user_agent TEXT
+  -- Unique constraint: one row per user/feature/day
+  CONSTRAINT ai_feature_usage_unique_user_feature_date UNIQUE (user_id, feature_name, usage_date)
 );
 
 -- Indexes for ai_feature_usage
-CREATE INDEX IF NOT EXISTS idx_ai_feature_usage_user
-  ON ai_feature_usage(user_id, feature_type, used_at);
+CREATE INDEX IF NOT EXISTS idx_ai_feature_usage_user_date
+  ON ai_feature_usage(user_id, usage_date DESC);
 
-CREATE INDEX IF NOT EXISTS idx_ai_feature_usage_tier
-  ON ai_feature_usage(subscription_tier, used_at);
-
-CREATE INDEX IF NOT EXISTS idx_ai_feature_usage_date
-  ON ai_feature_usage(used_at);
+CREATE INDEX IF NOT EXISTS idx_ai_feature_usage_feature_date
+  ON ai_feature_usage(feature_name, usage_date DESC);
 
 -- ============================================================================
 -- Table 3: ai_preview_usage

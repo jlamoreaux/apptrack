@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
-export type AIFeatureType = "resume_analysis" | "job_fit" | "cover_letter" | "interview_prep";
+// Feature names must match the DB check constraint on ai_feature_usage.feature_name
+export type AIFeatureType = "resume_analysis" | "job_fit_analysis" | "cover_letter" | "interview_prep" | "career_advice";
 
 export interface AIFeatureAllowance {
   canUse: boolean;
@@ -15,6 +16,9 @@ export interface AIFeatureAllowance {
  *
  * Free tier: 1 free try of each AI feature
  * Premium: Unlimited usage
+ *
+ * The ai_feature_usage table stores one row per user/feature/day
+ * with a usage_count that increments on each use.
  */
 export class AIFeatureUsageService {
   /**
@@ -27,44 +31,56 @@ export class AIFeatureUsageService {
   ): Promise<AIFeatureAllowance> {
     const supabase = await createClient();
 
-    // Call the database function that checks allowance
-    const { data, error } = await supabase.rpc("check_ai_feature_allowance", {
-      p_user_id: userId,
-      p_feature_type: featureType,
-    });
-
-    if (error) {
-      console.error("Error checking AI feature allowance:", error);
-      // On error, deny access to be safe
-      return {
-        canUse: false,
-        usedCount: 0,
-        allowedCount: 1,
-        requiresUpgrade: true,
-      };
-    }
-
-    // The function returns a single row with can_use boolean
-    const canUse = data as boolean;
-
-    // Get usage count to show user
-    const { data: usageData, error: usageError } = await supabase
-      .from("ai_feature_usage")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("feature_type", featureType);
-
-    const usedCount = usageError ? 0 : (usageData?.length || 0);
-
-    // Check user's subscription tier
+    // Get user's subscription tier
     const { data: userData, error: userError } = await supabase
       .from("users")
       .select("subscription_tier")
       .eq("id", userId)
       .single();
 
-    const subscriptionTier = userError ? "free" : (userData?.subscription_tier || "free");
-    const allowedCount = subscriptionTier === "free" ? 1 : 999; // Premium gets "unlimited"
+    if (userError) {
+      // Don't downgrade paid users on transient DB errors — allow access
+      console.error("Error fetching subscription tier:", userError);
+      return {
+        canUse: true,
+        usedCount: 0,
+        allowedCount: 999,
+        requiresUpgrade: false,
+      };
+    }
+
+    const subscriptionTier = userData?.subscription_tier || "free";
+
+    // AI Coach tier gets unlimited access
+    if (subscriptionTier === "ai_coach") {
+      return {
+        canUse: true,
+        usedCount: 0,
+        allowedCount: 999,
+        requiresUpgrade: false,
+      };
+    }
+
+    // Career advice is AI Coach only (no free tier)
+    if (featureType === "career_advice") {
+      return {
+        canUse: false,
+        usedCount: 0,
+        allowedCount: 0,
+        requiresUpgrade: true,
+      };
+    }
+
+    // Check free tier usage count
+    const { data: usageData, error: usageError } = await supabase
+      .from("ai_feature_usage")
+      .select("usage_count")
+      .eq("user_id", userId)
+      .eq("feature_name", featureType);
+
+    const usedCount = usageError ? 0 : (usageData || []).reduce((sum, r) => sum + (r.usage_count || 0), 0);
+    const allowedCount = subscriptionTier === "free" ? 1 : 999;
+    const canUse = usedCount < allowedCount;
 
     return {
       canUse,
@@ -76,7 +92,7 @@ export class AIFeatureUsageService {
 
   /**
    * Track AI feature usage
-   * Records that user has used a feature
+   * Upserts a row per user/feature/day, incrementing usage_count
    */
   static async trackUsage(
     userId: string,
@@ -85,11 +101,9 @@ export class AIFeatureUsageService {
   ): Promise<{ success: boolean; error?: string }> {
     const supabase = await createClient();
 
-    // Insert usage record
-    const { error } = await supabase.from("ai_feature_usage").insert({
-      user_id: userId,
-      feature_type: featureType,
-      metadata: metadata || {},
+    const { error } = await supabase.rpc("track_ai_feature_usage", {
+      p_user_id: userId,
+      p_feature_name: featureType,
     });
 
     if (error) {
@@ -105,7 +119,7 @@ export class AIFeatureUsageService {
    * Useful for showing remaining tries in UI
    */
   static async getAllAllowances(userId: string): Promise<Record<AIFeatureType, AIFeatureAllowance>> {
-    const features: AIFeatureType[] = ["resume_analysis", "job_fit", "cover_letter", "interview_prep"];
+    const features: AIFeatureType[] = ["resume_analysis", "job_fit_analysis", "cover_letter", "interview_prep"];
 
     const allowances = await Promise.all(
       features.map(async (feature) => ({

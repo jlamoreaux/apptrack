@@ -38,7 +38,7 @@ CREATE POLICY "Anyone can view active announcements" ON announcements
 CREATE POLICY "Admins can manage announcements" ON announcements
   FOR ALL USING (
     auth.uid() IN (
-      SELECT user_id FROM admin_users WHERE is_active = TRUE
+      SELECT user_id FROM admin_users
     )
   );
 

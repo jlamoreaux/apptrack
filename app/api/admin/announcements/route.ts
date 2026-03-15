@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import { AdminService } from "@/lib/services/admin.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
@@ -43,7 +44,8 @@ export async function GET() {
       );
     }
 
-    const { data, error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase
       .from('announcements')
       .select('*')
       .order('priority', { ascending: false })
@@ -136,7 +138,8 @@ export async function POST(request: NextRequest) {
       updated_at: new Date().toISOString()
     };
 
-    const { data, error } = await supabase
+    const adminSupabase = createAdminClient();
+    const { data, error } = await adminSupabase
       .from('announcements')
       .insert(announcementData)
       .select()

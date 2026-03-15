@@ -48,12 +48,15 @@ export default async function AuditLogsPage() {
     return 'text-gray-600';
   };
 
-  // Stats
-  const todayLogs = logs.filter(log => 
+  // Separate admin vs user self-service actions for stats
+  const adminActionLogs = logs.filter(log => !log.action.startsWith('user.'));
+
+  // Stats — only count admin actions
+  const todayLogs = adminActionLogs.filter(log =>
     new Date(log.created_at).toDateString() === new Date().toDateString()
   ).length;
-  
-  const uniqueAdmins = new Set(logs.map(log => log.user_id)).size;
+
+  const uniqueAdmins = new Set(adminActionLogs.map(log => log.user_id)).size;
 
   return (
     <>
@@ -150,7 +153,14 @@ export default async function AuditLogsPage() {
                       <div className="text-sm text-muted-foreground space-y-1">
                         <div className="flex items-center gap-2">
                           <User className="h-3 w-3" />
-                          <span>{log.user_name || log.user_email || 'Unknown User'}</span>
+                          <span>
+                            {log.action.startsWith('user.')
+                              ? `User (${log.user_id.slice(0, 8)}...)`
+                              : log.user_name || log.user_email || 'Unknown Admin'}
+                          </span>
+                          {log.action.startsWith('user.') && (
+                            <Badge variant="outline" className="text-xs">self</Badge>
+                          )}
                         </div>
                         
                         <div className="flex items-center gap-2">
