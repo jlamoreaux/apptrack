@@ -110,7 +110,6 @@ async function coverLetterHandler(request: NextRequest) {
         const resumeResult = await ResumeResolutionService.resolveResume(user.id, {
           resumeText: userBackground,
           resumeId,
-          applicationId
         });
 
         finalUserBackground = resumeResult.text;
