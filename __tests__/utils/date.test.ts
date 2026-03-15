@@ -35,7 +35,8 @@ describe("date utilities", () => {
 
     it("returns null for non-date strings", () => {
       expect(parseDateAsLocal("not-a-date")).toBeNull();
-      expect(parseDateAsLocal("2024-13-01")).not.toBeNull(); // does not validate ranges
+      expect(parseDateAsLocal("2024-13-01")).toBeNull();
+      expect(parseDateAsLocal("2024-02-31")).toBeNull();
       expect(parseDateAsLocal("abc-de-fg")).toBeNull();
     });
 
@@ -122,6 +123,11 @@ describe("date utilities", () => {
   });
 
   describe("toISOString", () => {
+    it("preserves timestamp for full ISO datetime strings", () => {
+      const input = "2024-03-14T10:30:00.000Z";
+      expect(toISOString(input)).toBe(input);
+    });
+
     it("converts a YYYY-MM-DD string to ISO format", () => {
       const result = toISOString("2024-03-14");
       expect(result).not.toBeNull();
@@ -188,9 +194,9 @@ describe("date utilities", () => {
       expect(daysBetween(date, date)).toBe(0);
     });
 
-    it("uses Math.round so partial days near midnight don't inflate count", () => {
-      // 3 days and 1 hour — should round to 3, not ceil to 4
-      const from = new Date(2024, 2, 10, 0, 0, 0);
+    it("normalizes to day start so time-of-day does not affect count", () => {
+      // 3 days apart regardless of time
+      const from = new Date(2024, 2, 10, 23, 59, 59);
       const to = new Date(2024, 2, 13, 1, 0, 0);
       expect(daysBetween(from, to)).toBe(3);
     });

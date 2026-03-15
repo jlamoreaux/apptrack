@@ -10,7 +10,10 @@
  * timezone to avoid the UTC midnight shift that causes off-by-one day errors.
  */
 function safeParseDate(dateInput: string): Date {
-  return parseDateAsLocal(dateInput) ?? new Date(dateInput);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return parseDateAsLocal(dateInput) ?? new Date(NaN);
+  }
+  return new Date(dateInput);
 }
 
 /**
@@ -110,18 +113,21 @@ export function formatLocalTime(
 export function parseDateAsLocal(dateString: string | null | undefined): Date | null {
   if (!dateString) return null;
   
-  // Parse date parts to avoid timezone issues
-  const parts = dateString.split('-');
-  if (parts.length !== 3) return null;
-  
-  const year = parseInt(parts[0], 10);
-  const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed
-  const day = parseInt(parts[2], 10);
-  
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateString);
+  if (!match) return null;
+
+  const year = parseInt(match[1], 10);
+  const month = parseInt(match[2], 10) - 1; // Month is 0-indexed
+  const day = parseInt(match[3], 10);
+
   if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
-  
+
   // Create date at midnight in local timezone
-  return new Date(year, month, day);
+  const parsed = new Date(year, month, day);
+  if (parsed.getFullYear() !== year || parsed.getMonth() !== month || parsed.getDate() !== day) {
+    return null;
+  }
+  return parsed;
 }
 
 /**
@@ -189,8 +195,12 @@ export function getEndOfToday(): Date {
 export function daysBetween(from: string | Date, to: string | Date = new Date()): number {
   const fromDate = typeof from === 'string' ? safeParseDate(from) : from;
   const toDate = typeof to === 'string' ? safeParseDate(to) : to;
-  
-  const diffTime = Math.abs(toDate.getTime() - fromDate.getTime());
+
+  if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) return 0;
+
+  const fromStart = new Date(fromDate.getFullYear(), fromDate.getMonth(), fromDate.getDate());
+  const toStart = new Date(toDate.getFullYear(), toDate.getMonth(), toDate.getDate());
+  const diffTime = Math.abs(toStart.getTime() - fromStart.getTime());
   return Math.round(diffTime / (1000 * 60 * 60 * 24));
 }
 
