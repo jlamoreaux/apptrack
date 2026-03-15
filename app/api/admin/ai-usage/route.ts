@@ -81,6 +81,11 @@ export async function GET(request: NextRequest) {
     const dayStart = new Date(now);
     dayStart.setHours(0, 0, 0, 0);
 
+    // Track system-wide unique users across all features
+    const systemHourlyUserIds = new Set<string>();
+    const systemDailyUserIds = new Set<string>();
+    const systemAllTimeUserIds = new Set<string>();
+
     for (const feature of features) {
       let hourlyTotal = 0;
       let dailyTotal = 0;
@@ -109,8 +114,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // DB fallback for hourly/daily if Redis has no data
-      if (hourlyTotal === 0 && dailyTotal === 0) {
+      // DB fallback per metric independently (Redis keys can expire separately)
+      if (hourlyTotal === 0) {
         const { data: hourlyRows } = await adminSupabase
           .from('ai_feature_usage')
           .select('user_id')
@@ -119,9 +124,13 @@ export async function GET(request: NextRequest) {
 
         if (hourlyRows && hourlyRows.length > 0) {
           hourlyTotal = hourlyRows.length;
-          uniqueUsersHourly = new Set(hourlyRows.map(r => r.user_id)).size;
+          const hourlyUserSet = new Set(hourlyRows.map(r => r.user_id));
+          uniqueUsersHourly = hourlyUserSet.size;
+          hourlyUserSet.forEach(id => systemHourlyUserIds.add(id));
         }
+      }
 
+      if (dailyTotal === 0) {
         const { data: dailyRows } = await adminSupabase
           .from('ai_feature_usage')
           .select('user_id')
@@ -130,7 +139,9 @@ export async function GET(request: NextRequest) {
 
         if (dailyRows && dailyRows.length > 0) {
           dailyTotal = dailyRows.length;
-          uniqueUsersDaily = new Set(dailyRows.map(r => r.user_id)).size;
+          const dailyUserSet = new Set(dailyRows.map(r => r.user_id));
+          uniqueUsersDaily = dailyUserSet.size;
+          dailyUserSet.forEach(id => systemDailyUserIds.add(id));
         }
       }
 
@@ -210,6 +221,7 @@ export async function GET(request: NextRequest) {
       }
 
       const uniqueUsersAllTime = allTimeUserIds.size + uniqueAnonymous;
+      allTimeUserIds.forEach(id => systemAllTimeUserIds.add(id));
 
       // If Redis shows current activity, override lastUsed with appropriate time
       if (hourlyTotal > 0) {
@@ -233,24 +245,15 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Calculate system-wide totals
+    // Calculate system-wide totals using unioned user sets for accurate unique counts
     const systemTotals = {
-      hourlyTotal: 0,
-      dailyTotal: 0,
-      allTimeTotal: 0,
-      uniqueUsersHourly: 0,
-      uniqueUsersDaily: 0,
-      uniqueUsersAllTime: 0,
+      hourlyTotal: aggregatedData.reduce((sum, d) => sum + d.hourlyTotal, 0),
+      dailyTotal: aggregatedData.reduce((sum, d) => sum + d.dailyTotal, 0),
+      allTimeTotal: aggregatedData.reduce((sum, d) => sum + d.allTimeTotal, 0),
+      uniqueUsersHourly: systemHourlyUserIds.size,
+      uniqueUsersDaily: systemDailyUserIds.size,
+      uniqueUsersAllTime: systemAllTimeUserIds.size,
     };
-
-    for (const data of aggregatedData) {
-      systemTotals.hourlyTotal += data.hourlyTotal;
-      systemTotals.dailyTotal += data.dailyTotal;
-      systemTotals.allTimeTotal += data.allTimeTotal;
-      systemTotals.uniqueUsersHourly = Math.max(systemTotals.uniqueUsersHourly, data.uniqueUsersHourly);
-      systemTotals.uniqueUsersDaily = Math.max(systemTotals.uniqueUsersDaily, data.uniqueUsersDaily);
-      systemTotals.uniqueUsersAllTime = Math.max(systemTotals.uniqueUsersAllTime, data.uniqueUsersAllTime);
-    }
 
     // Calculate reset times
     const hourlyReset = new Date(now);

@@ -38,7 +38,18 @@ export class AIFeatureUsageService {
       .eq("id", userId)
       .single();
 
-    const subscriptionTier = userError ? "free" : (userData?.subscription_tier || "free");
+    if (userError) {
+      // Don't downgrade paid users on transient DB errors — allow access
+      console.error("Error fetching subscription tier:", userError);
+      return {
+        canUse: true,
+        usedCount: 0,
+        allowedCount: 999,
+        requiresUpgrade: false,
+      };
+    }
+
+    const subscriptionTier = userData?.subscription_tier || "free";
 
     // AI Coach tier gets unlimited access
     if (subscriptionTier === "ai_coach") {
