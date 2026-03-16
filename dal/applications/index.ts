@@ -10,6 +10,7 @@ export interface CreateApplicationInput {
   company: string;
   role: string;
   role_link?: string;
+  job_description?: string;
   date_applied: string;
   status?: ApplicationStatus;
   notes?: string;
@@ -19,6 +20,7 @@ export interface UpdateApplicationInput {
   company?: string;
   role?: string;
   role_link?: string;
+  job_description?: string;
   date_applied?: string;
   status?: ApplicationStatus;
   notes?: string;
