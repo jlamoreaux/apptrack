@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
       company,
       role,
       role_link,
+      job_description,
       date_applied,
       status: status || APPLICATION_STATUS.APPLIED,
       notes,
