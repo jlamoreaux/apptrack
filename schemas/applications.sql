@@ -4,6 +4,7 @@ create table public.applications (
   company text not null,
   role text not null,
   role_link text null,
+  job_description text null,
   date_applied date not null,
   status text null default 'Applied'::text,
   notes text null default ''::text,
