@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { createClient } from "@/lib/supabase/server-client";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { escapeIlike } from "@/lib/security/data-sanitizer";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
@@ -82,8 +83,10 @@ export async function GET(request: NextRequest) {
     const sanitizedCompany = escapeIlike(company);
     const sanitizedRole = escapeIlike(role);
 
-    // Query for existing application with case-insensitive match
-    const supabase = await createClient();
+    // Use service role client for extension requests (no Supabase session cookies)
+    const supabase = user.source === "extension"
+      ? createServiceRoleClient()
+      : await createClient();
     const { data, error } = await supabase
       .from("applications")
       .select("id, company, role, status, date_applied")

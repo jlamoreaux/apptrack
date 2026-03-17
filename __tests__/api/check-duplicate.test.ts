@@ -18,6 +18,7 @@ jest.mock('jose', () => ({
 import { GET } from '@/app/api/applications/check-duplicate/route';
 import * as extensionAuth from '@/lib/auth/extension-auth';
 import { createClient } from '@/lib/supabase/server-client';
+import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
 
 // Helper to create mock NextRequest with query params
 function createMockRequest(queryParams: Record<string, string> = {}, authHeader?: string) {
@@ -42,6 +43,7 @@ function createMockRequest(queryParams: Record<string, string> = {}, authHeader?
 // Mock dependencies
 jest.mock('@/lib/auth/extension-auth');
 jest.mock('@/lib/supabase/server-client');
+jest.mock('@/lib/supabase/service-role-client');
 jest.mock('@/lib/services/logger.service', () => ({
   loggerService: {
     info: jest.fn(),
@@ -55,6 +57,7 @@ const mockGetAuthenticatedUser = extensionAuth.getAuthenticatedUser as jest.Mock
   typeof extensionAuth.getAuthenticatedUser
 >;
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
+const mockCreateServiceRoleClient = createServiceRoleClient as jest.MockedFunction<typeof createServiceRoleClient>;
 
 describe('GET /api/applications/check-duplicate', () => {
   let mockSupabaseClient: any;
@@ -86,6 +89,7 @@ describe('GET /api/applications/check-duplicate', () => {
     };
 
     mockCreateClient.mockResolvedValue(mockSupabaseClient);
+    mockCreateServiceRoleClient.mockReturnValue(mockSupabaseClient);
     mockGetAuthenticatedUser.mockResolvedValue(mockUser);
   });
 
