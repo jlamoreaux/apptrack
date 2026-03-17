@@ -6,6 +6,7 @@ import { APPLICATION_STATUS } from "@/lib/constants/application-status";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
@@ -34,19 +35,70 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get("statusFilter")?.split(",").filter(Boolean) || [];
     const includeArchived = searchParams.get("includeArchived") === "true";
 
-    const applicationDAL = new ApplicationDAL();
+    // For extension requests, use service role client to bypass RLS
+    // (extension Bearer tokens don't carry Supabase session cookies)
+    let result;
+    let statusCounts;
 
-    const result = await applicationDAL.queryApplications(user.id, {
-      page,
-      pageSize,
-      sortField,
-      sortDirection,
-      statusFilter: statusFilter as any[],
-      includeArchived,
-    });
+    if (user.source === "extension") {
+      const supabase = createServiceRoleClient();
 
-    // Also get status counts
-    const statusCounts = await applicationDAL.getStatusCounts(user.id);
+      let query = supabase
+        .from("applications")
+        .select("*", { count: "exact" })
+        .eq("user_id", user.id);
+
+      if (!includeArchived) {
+        query = query.eq("archived", false);
+      }
+      if (statusFilter.length > 0) {
+        query = query.in("status", statusFilter);
+      }
+
+      const ascending = sortDirection === "asc";
+      query = query.order(sortField ?? "updated_at", { ascending });
+
+      const startIndex = (page - 1) * pageSize;
+      query = query.range(startIndex, startIndex + pageSize - 1);
+
+      const { data, count, error } = await query;
+      if (error) throw error;
+
+      const totalCount = count || 0;
+      result = {
+        applications: data || [],
+        totalCount,
+        page,
+        pageSize,
+        totalPages: Math.ceil(totalCount / pageSize),
+      };
+
+      // Status counts
+      const { data: statusData, error: statusError } = await supabase
+        .from("applications")
+        .select("status")
+        .eq("user_id", user.id)
+        .eq("archived", false);
+      if (statusError) throw statusError;
+
+      statusCounts = {} as Record<string, number>;
+      statusData?.forEach((app: { status: string }) => {
+        statusCounts[app.status] = (statusCounts[app.status] || 0) + 1;
+      });
+    } else {
+      const applicationDAL = new ApplicationDAL();
+
+      result = await applicationDAL.queryApplications(user.id, {
+        page,
+        pageSize,
+        sortField,
+        sortDirection,
+        statusFilter: statusFilter as any[],
+        includeArchived,
+      });
+
+      statusCounts = await applicationDAL.getStatusCounts(user.id);
+    }
 
     loggerService.info('Applications retrieved', {
       category: LogCategory.BUSINESS,
@@ -137,8 +189,28 @@ export async function POST(request: NextRequest) {
       notes,
     };
 
-    const applicationDAL = new ApplicationDAL();
-    const newApplication = await applicationDAL.create(applicationData);
+    let newApplication;
+
+    if (user.source === "extension") {
+      // Extension requests use Bearer token auth, not Supabase session cookies.
+      // The anon-key client's RLS check (auth.uid() = user_id) fails because
+      // there is no Supabase session. Use the service role client to bypass RLS
+      // — the user has already been authenticated via getAuthenticatedUser().
+      const supabase = createServiceRoleClient();
+      const { data, error } = await supabase
+        .from("applications")
+        .insert(applicationData)
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to create application: ${error.message}`);
+      }
+      newApplication = data;
+    } else {
+      const applicationDAL = new ApplicationDAL();
+      newApplication = await applicationDAL.create(applicationData);
+    }
 
     loggerService.info('Application created', {
       category: LogCategory.BUSINESS,
