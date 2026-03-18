@@ -10,6 +10,8 @@
 
 import { resend } from './client';
 import { createAdminClient } from '@/lib/supabase/admin-client';
+import { loggerService } from '@/lib/services/logger.service';
+import { LogCategory } from '@/lib/services/logger.types';
 
 // Internal audience types for drip logic (trial-users maps to 'users' in Resend)
 export type AudienceId = 'leads' | 'free-users' | 'trial-users' | 'paid-users';
@@ -40,7 +42,10 @@ function getAudienceId(audienceId: AudienceId): string | null {
   const id = envMap[resendAudience];
 
   if (!id) {
-    console.warn(`[audiences] Missing env var for audience: ${resendAudience}`);
+    loggerService.warn(`Missing Resend env var for audience: ${resendAudience}`, {
+      category: LogCategory.EMAIL,
+      action: 'audience_env_missing',
+    });
     return null;
   }
 
@@ -86,13 +91,21 @@ export async function addToAudience({
       if (error) {
         // Contact might already exist, which is fine
         if (!error.message?.includes('already exists')) {
-          console.error('[audiences] Failed to add contact to Resend:', error);
+          loggerService.error('Failed to add contact to Resend audience', error as Error, {
+            category: LogCategory.EMAIL,
+            action: 'resend_contact_create_failed',
+            metadata: { audienceId, email: normalizedEmail },
+          });
         }
       } else {
         resendContactId = data?.id || null;
       }
     } catch (error) {
-      console.error('[audiences] Error adding to Resend audience:', error);
+      loggerService.error('Unexpected error adding to Resend audience', error as Error, {
+        category: LogCategory.EMAIL,
+        action: 'resend_contact_create_error',
+        metadata: { audienceId, email: normalizedEmail },
+      });
     }
   }
 
@@ -116,7 +129,11 @@ export async function addToAudience({
     );
 
   if (dbError) {
-    console.error('[audiences] Failed to upsert audience member:', dbError);
+    loggerService.error('Failed to upsert audience member to database', dbError as unknown as Error, {
+      category: LogCategory.EMAIL,
+      action: 'audience_member_upsert_failed',
+      metadata: { audienceId, email: normalizedEmail },
+    });
     return { success: false };
   }
 
@@ -150,7 +167,11 @@ export async function removeFromAudience(
           id: member.resend_contact_id,
         });
       } catch (error) {
-        console.error('[audiences] Error removing from Resend audience:', error);
+        loggerService.error('Error removing contact from Resend audience', error as Error, {
+          category: LogCategory.EMAIL,
+          action: 'resend_contact_remove_error',
+          metadata: { audienceId, email: normalizedEmail },
+        });
       }
     }
   }
@@ -195,7 +216,11 @@ export async function transitionAudience(
         });
       } catch (error) {
         // Contact might not exist in old audience, which is fine
-        console.warn('[audiences] Could not remove from old audience:', error);
+        loggerService.warn('Could not remove contact from old Resend audience', {
+          category: LogCategory.EMAIL,
+          action: 'resend_contact_remove_old_audience',
+          metadata: { fromAudience, toAudience, email: normalizedEmail },
+        });
       }
     }
   }
@@ -231,7 +256,11 @@ export async function getAudienceMember(email: string) {
     .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-    console.error('[audiences] Error getting audience member:', error);
+    loggerService.error('Error fetching audience member from database', error as unknown as Error, {
+      category: LogCategory.EMAIL,
+      action: 'audience_member_fetch_failed',
+      metadata: { email: normalizedEmail },
+    });
   }
 
   return data;
@@ -262,7 +291,11 @@ export async function unsubscribeContact(email: string): Promise<{ success: bool
           unsubscribed: true,
         });
       } catch (error) {
-        console.error('[audiences] Error unsubscribing in Resend:', error);
+        loggerService.error('Error updating unsubscribe status in Resend', error as Error, {
+          category: LogCategory.EMAIL,
+          action: 'resend_unsubscribe_error',
+          metadata: { email: normalizedEmail },
+        });
       }
     }
   }
@@ -277,7 +310,11 @@ export async function unsubscribeContact(email: string): Promise<{ success: bool
     .eq('email', normalizedEmail);
 
   if (error) {
-    console.error('[audiences] Error unsubscribing contact:', error);
+    loggerService.error('Error unsubscribing contact in database', error as unknown as Error, {
+      category: LogCategory.EMAIL,
+      action: 'audience_unsubscribe_db_failed',
+      metadata: { email: normalizedEmail },
+    });
     return { success: false };
   }
 
@@ -311,7 +348,11 @@ export async function linkUserToAudienceMember(
     .eq('email', normalizedEmail);
 
   if (error) {
-    console.error('[audiences] Error linking user to audience member:', error);
+    loggerService.error('Error linking user ID to audience member', error as unknown as Error, {
+      category: LogCategory.EMAIL,
+      action: 'audience_link_user_failed',
+      metadata: { email: normalizedEmail, userId },
+    });
     return { success: false };
   }
 
