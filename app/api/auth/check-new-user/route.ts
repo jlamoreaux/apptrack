@@ -8,25 +8,25 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
-    const { userId } = await request.json();
-    
-    if (!userId) {
+    const user = await getUser();
+
+    if (!user) {
       loggerService.warn('Check new user missing user ID', {
         category: LogCategory.API,
         action: 'check_new_user_missing_id',
         duration: Date.now() - startTime
       });
       return NextResponse.json(
-        { error: "User ID is required" },
-        { status: 400 }
+        { error: "Unauthorized" },
+        { status: 401 }
       );
     }
     
-    const needsOnboarding = await isNewUser(userId);
+    const needsOnboarding = await isNewUser(user.id);
     
     loggerService.info('New user status checked', {
       category: LogCategory.BUSINESS,
-      userId,
+      userId: user.id,
       action: 'new_user_status_checked',
       duration: Date.now() - startTime,
       metadata: {
