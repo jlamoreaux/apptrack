@@ -1,33 +1,17 @@
 import { NextResponse } from "next/server";
-import { createClient, getUser } from "@/lib/supabase/server";
-import { AdminService } from "@/lib/services/admin.service";
+import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
   const startTime = Date.now();
-  let user: Awaited<ReturnType<typeof getUser>> = null;
-  
-  try {
-    user = await getUser();
-    
-    if (!user) {
-      loggerService.warn('Unauthorized debug plans access', {
-        category: LogCategory.SECURITY,
-        action: 'debug_plans_unauthorized'
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+  let userId: string | undefined;
 
-    const isAdmin = await AdminService.isAdmin(user.id);
-    if (!isAdmin) {
-      loggerService.warn('Forbidden debug plans access', {
-        category: LogCategory.SECURITY,
-        userId: user.id,
-        action: 'debug_plans_forbidden'
-      });
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+  try {
+    const { user, error: adminError } = await requireAdmin();
+    if (adminError) return adminError;
+    userId = user.id;
 
     const supabase = await createClient();
 
@@ -40,7 +24,7 @@ export async function GET() {
     if (error) {
       loggerService.error('Error fetching subscription plans', error, {
         category: LogCategory.DATABASE,
-        userId: user.id,
+        userId: userId,
         action: 'debug_plans_fetch_error',
         duration: Date.now() - startTime
       });
@@ -62,7 +46,7 @@ export async function GET() {
 
     loggerService.info('Debug plans retrieved', {
       category: LogCategory.BUSINESS,
-      userId: user.id,
+      userId: userId,
       action: 'debug_plans_retrieved',
       duration: Date.now() - startTime,
       metadata: {
@@ -82,7 +66,7 @@ export async function GET() {
   } catch (error) {
     loggerService.error('Debug plans error', error, {
       category: LogCategory.API,
-      userId: user?.id,
+      userId: userId,
       action: 'debug_plans_error',
       duration: Date.now() - startTime
     });

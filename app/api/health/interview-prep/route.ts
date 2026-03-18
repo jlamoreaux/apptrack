@@ -11,8 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getInterviewPrepMonitor, MonitoringUtils } from '@/lib/monitoring/interview-prep-monitor'
-import { getUser } from '@/lib/supabase/server'
-import { AdminService } from '@/lib/services/admin.service'
+import { requireAdmin } from '@/lib/auth/admin-guard'
 import { loggerService } from '@/lib/services/logger.service'
 import { LogCategory } from '@/lib/services/logger.types'
 
@@ -31,14 +30,8 @@ export async function GET(request: NextRequest) {
     
     if (detailed) {
       // Detailed metrics require admin auth
-      const user = await getUser();
-      if (!user) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      const isAdmin = await AdminService.isAdmin(user.id);
-      if (!isAdmin) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-      }
+      const { error: adminError } = await requireAdmin();
+      if (adminError) return adminError;
 
       const report = monitor.generateReport()
       
@@ -120,14 +113,8 @@ export async function POST(request: NextRequest) {
   
   try {
     // All POST actions require admin auth
-    const user = await getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const isAdmin = await AdminService.isAdmin(user.id);
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const { error: adminError } = await requireAdmin();
+    if (adminError) return adminError;
 
     const { action } = await request.json()
     const monitor = getInterviewPrepMonitor()
