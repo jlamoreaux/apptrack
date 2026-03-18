@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getUser } from "@/lib/supabase/server";
+import { AdminService } from "@/lib/services/admin.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
   const startTime = Date.now();
+  let user: Awaited<ReturnType<typeof getUser>> = null;
   
   try {
-    const user = await getUser();
+    user = await getUser();
     
     if (!user) {
       loggerService.warn('Unauthorized debug plans access', {
@@ -16,6 +18,16 @@ export async function GET() {
         action: 'debug_plans_unauthorized'
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const isAdmin = await AdminService.isAdmin(user.id);
+    if (!isAdmin) {
+      loggerService.warn('Forbidden debug plans access', {
+        category: LogCategory.SECURITY,
+        userId: user.id,
+        action: 'debug_plans_forbidden'
+      });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const supabase = await createClient();
@@ -33,7 +45,7 @@ export async function GET() {
         action: 'debug_plans_fetch_error',
         duration: Date.now() - startTime
       });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 
     // Format for easy reading
@@ -76,8 +88,7 @@ export async function GET() {
       duration: Date.now() - startTime
     });
     return NextResponse.json({ 
-      error: "Internal server error",
-      details: error instanceof Error ? error.message : "Unknown error"
+      error: "Internal server error"
     }, { status: 500 });
   }
 }

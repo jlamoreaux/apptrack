@@ -3,10 +3,16 @@
  * 
  * Provides monitoring and health status for the interview preparation
  * transformation and caching system.
+ * 
+ * - Basic GET (no ?detailed): public, returns up/down status only
+ * - GET ?detailed=true: admin only, returns full metrics/alerts
+ * - POST (reset-metrics, export-metrics): admin only
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getInterviewPrepMonitor, MonitoringUtils } from '@/lib/monitoring/interview-prep-monitor'
+import { getUser } from '@/lib/supabase/server'
+import { AdminService } from '@/lib/services/admin.service'
 import { loggerService } from '@/lib/services/logger.service'
 import { LogCategory } from '@/lib/services/logger.types'
 
@@ -24,6 +30,16 @@ export async function GET(request: NextRequest) {
     const detailed = url.searchParams.get('detailed') === 'true'
     
     if (detailed) {
+      // Detailed metrics require admin auth
+      const user = await getUser();
+      if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const isAdmin = await AdminService.isAdmin(user.id);
+      if (!isAdmin) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+
       const report = monitor.generateReport()
       
       loggerService.info('Interview prep health check detailed report generated', {
@@ -56,7 +72,7 @@ export async function GET(request: NextRequest) {
       })
     }
     
-    // Basic health check response
+    // Basic health check response — public, no auth required
     loggerService.info('Interview prep health check completed', {
       category: LogCategory.BUSINESS,
       action: 'health_interview_prep_basic',
@@ -92,8 +108,7 @@ export async function GET(request: NextRequest) {
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
         system: 'interview-prep-transformer',
-        error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
+        error: 'Health check failed'
       },
       { status: 500 }
     )
@@ -104,6 +119,16 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
+    // All POST actions require admin auth
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const isAdmin = await AdminService.isAdmin(user.id);
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { action } = await request.json()
     const monitor = getInterviewPrepMonitor()
     
@@ -162,10 +187,7 @@ export async function POST(request: NextRequest) {
     });
     
     return NextResponse.json(
-      {
-        error: 'Action failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
+      { error: 'Action failed' },
       { status: 500 }
     )
   }
