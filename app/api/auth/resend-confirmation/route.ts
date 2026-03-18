@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/redis/client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+
+// Rate limiter: 3 requests per IP per 15 minutes
+const rateLimiter = createRateLimiter(3, "15 m");
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   
   try {
+    // Check rate limit by IP
+    if (rateLimiter) {
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+      const result = await rateLimiter.limit(ip);
+      if (!result.success) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          { status: 429 }
+        );
+      }
+    }
+
     const { email } = await request.json();
 
     if (!email) {
@@ -35,26 +51,21 @@ export async function POST(request: NextRequest) {
         action: 'resend_confirmation_error',
         duration: Date.now() - startTime,
         metadata: {
-          email,
           errorMessage: error.message
         }
       });
-      return NextResponse.json(
-        { error: error.message || "Failed to resend confirmation email" },
-        { status: 400 }
-      );
+    } else {
+      loggerService.info('Confirmation email resent', {
+        category: LogCategory.AUTH,
+        action: 'confirmation_email_resent',
+        duration: Date.now() - startTime,
+      });
     }
 
-    loggerService.info('Confirmation email resent', {
-      category: LogCategory.AUTH,
-      action: 'confirmation_email_resent',
-      duration: Date.now() - startTime,
-      metadata: {
-        email
-      }
+    // Always return the same response to prevent email enumeration
+    return NextResponse.json({
+      message: "If this email is registered, you'll receive a confirmation link"
     });
-
-    return NextResponse.json({ success: true });
   } catch (error) {
     loggerService.error('Error in resend-confirmation', error, {
       category: LogCategory.API,
