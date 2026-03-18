@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/supabase/server";
+import { createClient, getUser } from "@/lib/supabase/server";
 import { AdminService } from "@/lib/services/admin.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
