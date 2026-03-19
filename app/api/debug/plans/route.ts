@@ -1,22 +1,17 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { getUser } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/admin-guard";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 export async function GET() {
   const startTime = Date.now();
-  
+  let userId: string | undefined;
+
   try {
-    const user = await getUser();
-    
-    if (!user) {
-      loggerService.warn('Unauthorized debug plans access', {
-        category: LogCategory.SECURITY,
-        action: 'debug_plans_unauthorized'
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const { user, error: adminError } = await requireAdmin();
+    if (adminError) return adminError;
+    userId = user.id;
 
     const supabase = await createClient();
 
@@ -29,11 +24,11 @@ export async function GET() {
     if (error) {
       loggerService.error('Error fetching subscription plans', error, {
         category: LogCategory.DATABASE,
-        userId: user.id,
+        userId: userId,
         action: 'debug_plans_fetch_error',
         duration: Date.now() - startTime
       });
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 
     // Format for easy reading
@@ -51,7 +46,7 @@ export async function GET() {
 
     loggerService.info('Debug plans retrieved', {
       category: LogCategory.BUSINESS,
-      userId: user.id,
+      userId: userId,
       action: 'debug_plans_retrieved',
       duration: Date.now() - startTime,
       metadata: {
@@ -71,13 +66,12 @@ export async function GET() {
   } catch (error) {
     loggerService.error('Debug plans error', error, {
       category: LogCategory.API,
-      userId: user?.id,
+      userId: userId,
       action: 'debug_plans_error',
       duration: Date.now() - startTime
     });
     return NextResponse.json({ 
-      error: "Internal server error",
-      details: error instanceof Error ? error.message : "Unknown error"
+      error: "Internal server error"
     }, { status: 500 });
   }
 }
