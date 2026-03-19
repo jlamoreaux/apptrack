@@ -214,8 +214,11 @@ export async function POST(request: NextRequest) {
     // Send welcome email
     await sendWelcomeEmail(user.email!, endDate, promoCodeData.trial_days, promoCodeData.code_type, promoCodeData.plan_name);
 
-    // Transition user to trial-users audience (non-blocking)
-    transitionAudience(user.email!, 'free-users', 'trial-users', {
+    // Transition user to paid-users audience (non-blocking)
+    // Both trial and premium_free codes grant Pro access, so we treat them as
+    // paid for email purposes. Trial users will be moved back to free-users
+    // when their subscription expires (handled by trial-notifications cron).
+    transitionAudience(user.email!, 'free-users', 'paid-users', {
       userId: user.id,
       metadata: {
         source: 'promo-activation',
@@ -223,7 +226,7 @@ export async function POST(request: NextRequest) {
         codeType: promoCodeData.code_type,
       },
     }).catch((err) => {
-      loggerService.error('Failed to transition to trial-users audience', err, {
+      loggerService.error('Failed to transition to paid-users audience', err, {
         category: LogCategory.PAYMENT,
         action: 'drip_audience_transition_error',
       });

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
 import { SubscriptionService } from "@/services/subscriptions";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { PLAN_LIMITS } from "@/lib/constants/plans";
+import { transitionAudience } from "@/lib/email/drip-scheduler";
 
 // This should be called by a cron job (e.g., Vercel Cron or external service)
 // Run daily to process trial notifications and expirations
@@ -52,6 +54,8 @@ export async function GET(request: NextRequest) {
     if (expiredSubscriptions) {
       const subscriptionService = new SubscriptionService();
       
+      const adminClient = createAdminClient();
+
       for (const subscription of expiredSubscriptions) {
         // Cancel the expired subscription
         await subscriptionService.update(subscription.id, {
@@ -59,8 +63,35 @@ export async function GET(request: NextRequest) {
           cancel_at_period_end: false,
         });
 
-        // Log the expiration
         const subType = subscription.status === 'trialing' ? 'Trial' : 'Premium free access';
+
+        // For time-limited trials (trialing status), move back to free-users so
+        // the conversion drip can begin. Premium_free (friends & family) stay in
+        // paid-users — they were gifted access and shouldn't get upgrade emails.
+        if (subscription.status === 'trialing') {
+          try {
+            const { data: member } = await adminClient
+              .from('audience_members')
+              .select('email')
+              .eq('user_id', subscription.user_id)
+              .single();
+
+            if (member?.email) {
+              await transitionAudience(member.email, 'paid-users', 'free-users', {
+                userId: subscription.user_id,
+                metadata: { source: 'trial-expired' },
+              });
+            }
+          } catch (err) {
+            loggerService.error('Failed to transition audience on trial expiry', err as Error, {
+              category: LogCategory.PAYMENT,
+              action: 'drip_audience_transition_error',
+              metadata: { userId: subscription.user_id },
+            });
+          }
+        }
+
+        // Log the expiration
         loggerService.info(`${subType} expired`, {
           category: LogCategory.BUSINESS,
           userId: subscription.user_id,
