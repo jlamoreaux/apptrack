@@ -14,7 +14,7 @@ export default function PrivacyPolicy() {
     <div className="container mx-auto px-4 py-8 max-w-4xl privacy-policy">
       <div data-custom-class="body">
         <div><strong><span style={{fontSize: '26px'}}><span data-custom-class="title"><h1>PRIVACY POLICY</h1></span></span></strong></div>
-        <div><span style={{color: 'rgb(127, 127, 127)'}}><strong><span style={{fontSize: '15px'}}><span data-custom-class="subtitle">Last updated March 18, 2026</span></span></strong></span></div>
+        <div><span style={{color: 'rgb(89, 89, 89)'}}><strong><span style={{fontSize: '15px'}}><span data-custom-class="subtitle">Last updated March 18, 2026</span></span></strong></span></div>
         <div><br /></div>
 
         <div style={{lineHeight: 1.5}}><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}} data-custom-class="body_text">This Privacy Notice for Jordan Lamoreaux (&quot;<strong>we</strong>,&quot; &quot;<strong>us</strong>,&quot; or &quot;<strong>our</strong>&quot;) describes how and why we might access, collect, store, use, and/or share (&quot;<strong>process</strong>&quot;) your personal information when you use our services (&quot;<strong>Services</strong>&quot;), including when you:</span></div>
