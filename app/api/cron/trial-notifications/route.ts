@@ -57,24 +57,19 @@ export async function GET(request: NextRequest) {
       const adminClient = createAdminClient();
 
       for (const subscription of expiredSubscriptions) {
-        // Cancel the expired subscription
-        await subscriptionService.update(subscription.id, {
-          status: "canceled",
-          cancel_at_period_end: false,
-        });
-
         const subType = subscription.status === 'trialing' ? 'Trial' : 'Premium free access';
 
         // For time-limited trials (trialing status), move back to free-users so
-        // the conversion drip can begin. Premium_free (friends & family) stay in
-        // paid-users — they were gifted access and shouldn't get upgrade emails.
+        // the conversion drip can begin. Do this BEFORE canceling the subscription
+        // so failures here are retryable (subscription still shows as trialing on
+        // the next cron run). Premium_free (friends & family) stay in paid-users.
         if (subscription.status === 'trialing') {
           try {
             const { data: member } = await adminClient
               .from('audience_members')
               .select('email')
               .eq('user_id', subscription.user_id)
-              .single();
+              .maybeSingle();
 
             if (member?.email) {
               await transitionAudience(member.email, 'paid-users', 'free-users', {
@@ -90,6 +85,12 @@ export async function GET(request: NextRequest) {
             });
           }
         }
+
+        // Cancel the expired subscription after audience transition succeeds
+        await subscriptionService.update(subscription.id, {
+          status: "canceled",
+          cancel_at_period_end: false,
+        });
 
         // Log the expiration
         loggerService.info(`${subType} expired`, {

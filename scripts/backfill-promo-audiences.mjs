@@ -75,7 +75,22 @@ async function run() {
       continue;
     }
 
-    // Remove from current audience in Resend
+    // 1. Cancel any pending drip emails from the old audience so they don't fire
+    //    after we move the user. Mirrors what transitionAudience/cancelPendingDrips
+    //    does internally.
+    const { error: dripErr } = await supabase
+      .from('drip_emails')
+      .update({ status: 'cancelled' })
+      .eq('email', member.email.toLowerCase().trim())
+      .eq('audience', member.current_audience)
+      .eq('status', 'pending');
+
+    if (dripErr) {
+      console.error(`  ERROR cancelling drip emails for ${member.email}:`, dripErr);
+      // Non-fatal — log and continue; drip emails will just send to old audience
+    }
+
+    // 2. Remove from current audience in Resend
     if (member.resend_contact_id && AUDIENCE_IDS.users) {
       try {
         await resend.contacts.remove({
@@ -87,8 +102,8 @@ async function run() {
       }
     }
 
-    // Add to paid-users in Resend
-    let newResendId = member.resend_contact_id;
+    // 3. Add to paid-users in Resend, using only the fresh contact ID
+    let newResendId = null; // do NOT reuse old ID from a different audience
     if (AUDIENCE_IDS.paid) {
       try {
         const { data, error: resendErr } = await resend.contacts.create({
@@ -96,7 +111,13 @@ async function run() {
           email: member.email,
           unsubscribed: false,
         });
-        if (!resendErr && data?.id) newResendId = data.id;
+        if (!resendErr && data?.id) {
+          newResendId = data.id;
+        } else {
+          console.error(`  ERROR adding ${member.email} to Resend paid audience:`, resendErr);
+          failed++;
+          continue;
+        }
       } catch (e) {
         console.error(`  ERROR adding ${member.email} to Resend paid audience:`, e);
         failed++;
@@ -104,7 +125,7 @@ async function run() {
       }
     }
 
-    // Update audience_members table
+    // 4. Update audience_members table
     const { error: dbErr } = await supabase
       .from('audience_members')
       .update({

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
@@ -214,23 +214,26 @@ export async function POST(request: NextRequest) {
     // Send welcome email
     await sendWelcomeEmail(user.email!, endDate, promoCodeData.trial_days, promoCodeData.code_type, promoCodeData.plan_name);
 
-    // Transition user to paid-users audience (non-blocking)
+    // Transition user to paid-users audience post-response.
     // Both trial and premium_free codes grant Pro access, so we treat them as
     // paid for email purposes. Trial users will be moved back to free-users
     // when their subscription expires (handled by trial-notifications cron).
-    transitionAudience(user.email!, 'free-users', 'paid-users', {
-      userId: user.id,
-      metadata: {
-        source: 'promo-activation',
-        planName: promoCodeData.plan_name,
-        codeType: promoCodeData.code_type,
-      },
-    }).catch((err) => {
-      loggerService.error('Failed to transition to paid-users audience', err, {
-        category: LogCategory.PAYMENT,
-        action: 'drip_audience_transition_error',
-      });
-    });
+    // after() ensures this runs even after the response is sent in serverless.
+    after(() =>
+      transitionAudience(user.email!, 'free-users', 'paid-users', {
+        userId: user.id,
+        metadata: {
+          source: 'promo-activation',
+          planName: promoCodeData.plan_name,
+          codeType: promoCodeData.code_type,
+        },
+      }).catch((err) => {
+        loggerService.error('Failed to transition to paid-users audience', err, {
+          category: LogCategory.PAYMENT,
+          action: 'drip_audience_transition_error',
+        });
+      })
+    );
 
     loggerService.info('Promo trial activated successfully', {
       category: LogCategory.PAYMENT,
