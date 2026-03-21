@@ -1,13 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
-import { PermissionMiddleware } from "@/lib/middleware/permissions";
+import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
+import { TrialBudgetService } from "@/lib/services/trial-budget.service";
 import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
@@ -16,6 +16,7 @@ async function coverLetterHandler(request: NextRequest) {
   let user: { id: string; email?: string } | null = null;
   let companyName: string | undefined;
   let applicationId: string | undefined;
+  let permissionResult: PermissionCheckResult | null = null;
 
   try {
     const supabase = await createClient();
@@ -36,8 +37,8 @@ async function coverLetterHandler(request: NextRequest) {
       );
     }
 
-    // Check permission with free tier support
-    const permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
+    // Check permission with trial budget support
+    permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
       "COVER_LETTER",
       "cover_letter"
@@ -242,25 +243,6 @@ async function coverLetterHandler(request: NextRequest) {
       // Continue anyway - the letter was generated successfully
     }
 
-    // Track free tier usage if applicable
-    if (permissionResult.usedFreeTier) {
-      await AIFeatureUsageService.trackUsage(user.id, "cover_letter", {
-        applicationId: applicationId || null,
-        companyName: finalCompanyName,
-        roleName: finalRoleName || null,
-      });
-
-      loggerService.info('Free tier usage tracked for cover letter', {
-        category: LogCategory.BUSINESS,
-        userId: user.id,
-        action: 'free_tier_usage_tracked',
-        metadata: {
-          feature: 'cover_letter',
-          remainingTries: (permissionResult.remainingFreeTries || 1) - 1
-        }
-      });
-    }
-
     loggerService.info('Cover letter generated successfully', {
       category: LogCategory.BUSINESS,
       userId: user.id,
@@ -284,11 +266,14 @@ async function coverLetterHandler(request: NextRequest) {
     return NextResponse.json({
       coverLetter,
       usedFreeTier: permissionResult.usedFreeTier,
-      remainingFreeTries: permissionResult.usedFreeTier
-        ? (permissionResult.remainingFreeTries || 1) - 1
-        : undefined
+      remainingFreeTries: permissionResult.remainingFreeTries,
     });
   } catch (error) {
+    // Refund the trial budget if a free-tier user hit an unexpected error
+    if (user?.id && permissionResult?.usedFreeTier) {
+      await TrialBudgetService.refundAnalysis(user.id, "cover_letter");
+    }
+
     loggerService.error('Error generating cover letter', error, {
       category: LogCategory.API,
       userId: user?.id,

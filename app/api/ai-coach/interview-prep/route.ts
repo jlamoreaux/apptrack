@@ -1,7 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
-import { PermissionMiddleware } from "@/lib/middleware/permissions";
+import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
+import { TrialBudgetService } from "@/lib/services/trial-budget.service";
 import { AICoachService } from "@/services/ai-coach";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { ResumeDAL } from "@/dal/resumes";
@@ -87,6 +88,7 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
   let user: { id: string; email?: string } | null = null;
   let applicationId: string | undefined;
   let structured = false;
+  let permissionResult: PermissionCheckResult | null = null;
 
   try {
     // 1. Authentication
@@ -105,10 +107,11 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       );
     }
 
-    // 2. Authorization
-    const permissionResult = await PermissionMiddleware.checkApiPermission(
+    // 2. Authorization with trial budget
+    permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
-      "INTERVIEW_PREP"
+      "INTERVIEW_PREP",
+      "interview_prep"
     );
 
     if (!permissionResult.allowed) {
@@ -118,12 +121,17 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         {
           feature: 'interview_prep',
           reason: permissionResult.reason || 'subscription_required',
-          userId: user.id
+          userId: user.id,
+          freeTierExhausted: permissionResult.reason === 'trial_exhausted'
         },
         { userId: user.id }
       );
       return NextResponse.json(
-        { error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED },
+        {
+          error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
+          reason: permissionResult.reason,
+          requiresUpgrade: true
+        },
         { status: 403 }
       );
     }
@@ -348,6 +356,11 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     });
 
   } catch (error) {
+    // Refund the trial budget if a free-tier user hit an unexpected error
+    if (user?.id && permissionResult?.usedFreeTier) {
+      await TrialBudgetService.refundAnalysis(user.id, "interview_prep");
+    }
+
     loggerService.error('Error in interview preparation', error, {
       category: LogCategory.API,
       userId: user?.id,

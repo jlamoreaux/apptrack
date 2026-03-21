@@ -3,17 +3,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
-import { PermissionMiddleware } from "@/lib/middleware/permissions";
+import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import { AIFeatureUsageService } from "@/lib/services/ai-feature-usage.service";
+import { TrialBudgetService } from "@/lib/services/trial-budget.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function handler(request: NextRequest) {
   const startTime = Date.now();
   let user: { id: string; email?: string } | null = null;
   let applicationId: string | undefined;
+  let permissionResult: PermissionCheckResult | null = null;
 
   try {
     const supabase = await createClient();
@@ -28,11 +29,11 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Check permission with free tier support
-    const permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
+    // Check permission with trial budget support
+    permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
       user.id,
       "JOB_FIT_ANALYSIS",
-      "job_fit_analysis"
+      "job_fit"
     );
 
     if (!permissionResult.allowed) {
@@ -168,24 +169,6 @@ async function handler(request: NextRequest) {
         fit_score: analysis.overallScore,
       });
 
-      // Track free tier usage if applicable
-      if (permissionResult.usedFreeTier) {
-        await AIFeatureUsageService.trackUsage(user.id, "job_fit_analysis", {
-          applicationId: applicationId || null,
-          overallScore: analysis.overallScore,
-        });
-
-        loggerService.info('Free tier usage tracked for job fit analysis', {
-          category: LogCategory.BUSINESS,
-          userId: user.id,
-          action: 'free_tier_usage_tracked',
-          metadata: {
-            feature: 'job_fit',
-            remainingTries: (permissionResult.remainingFreeTries || 1) - 1
-          }
-        });
-      }
-
       loggerService.info('Job fit analysis completed', {
         category: LogCategory.BUSINESS,
         userId: user.id,
@@ -207,11 +190,9 @@ async function handler(request: NextRequest) {
       return NextResponse.json({
         ...analysis,
         usedFreeTier: permissionResult.usedFreeTier,
-        remainingFreeTries: permissionResult.usedFreeTier
-          ? (permissionResult.remainingFreeTries || 1) - 1
-          : undefined
+        remainingFreeTries: permissionResult.remainingFreeTries,
       });
-      
+
     } catch (aiError) {
       loggerService.error('AI analysis failed, using fallback', aiError, {
         category: LogCategory.AI_SERVICE,
@@ -322,15 +303,6 @@ async function handler(request: NextRequest) {
         fit_score: mockAnalysis.overallScore,
       });
 
-      // Track free tier usage if applicable (even for fallback)
-      if (permissionResult.usedFreeTier) {
-        await AIFeatureUsageService.trackUsage(user.id, "job_fit_analysis", {
-          applicationId: applicationId || null,
-          overallScore: mockAnalysis.overallScore,
-          fallback: true
-        });
-      }
-
       loggerService.info('Job fit analysis completed with fallback', {
         category: LogCategory.BUSINESS,
         userId: user.id,
@@ -352,12 +324,15 @@ async function handler(request: NextRequest) {
       return NextResponse.json({
         ...mockAnalysis,
         usedFreeTier: permissionResult.usedFreeTier,
-        remainingFreeTries: permissionResult.usedFreeTier
-          ? (permissionResult.remainingFreeTries || 1) - 1
-          : undefined
+        remainingFreeTries: permissionResult.remainingFreeTries,
       });
     }
   } catch (error) {
+    // Refund the trial budget if a free-tier user hit an unexpected error
+    if (user?.id && permissionResult?.usedFreeTier) {
+      await TrialBudgetService.refundAnalysis(user.id, "job_fit");
+    }
+
     loggerService.error('Job fit analysis error', error, {
       category: LogCategory.API,
       userId: user?.id,

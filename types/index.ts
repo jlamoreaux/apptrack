@@ -12,8 +12,27 @@ export interface Profile {
   full_name?: string;
   avatar_url?: string;
   extension_token_version?: number;
+  ai_analyses_used: number;
+  ai_trial_onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Trial budget types
+export type AIToolType = "job_fit" | "interview_prep" | "cover_letter";
+
+export interface TrialBudgetState {
+  analyses_used: number;
+  analyses_limit: number;
+  analyses_remaining: number;
+  is_pro: boolean;
+  onboarding_completed: boolean;
+}
+
+export interface TrialBudgetResponse {
+  allowed: boolean;
+  budget: TrialBudgetState;
+  reason?: "trial_exhausted" | "budget_consumed";
 }
 
 // Extension auth types

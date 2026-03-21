@@ -1,20 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AICoachDataProvider } from "@/contexts/ai-coach-data-context";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   MessageSquare,
   FileText,
-  Upload,
-  Sparkles,
   BarChart3,
   Briefcase,
   Mail,
@@ -26,8 +18,10 @@ import CoverLetterGenerator from "./cover-letter-generator";
 import { JobFitAnalysis } from "./job-fit-analysis";
 import { ResumeSectionImproved } from "@/components/resume-section-improved";
 import { COPY } from "@/lib/content/copy";
-import { Badge } from "@/components/ui/badge";
-import { OnboardingFlow } from "./onboarding-flow";
+import { useTrialBudget } from "@/hooks/use-trial-budget";
+import { TrialOnboarding } from "./trial-onboarding";
+import { TrialBudgetCounter } from "./trial-budget-counter";
+import { TrialBudgetNudge } from "./trial-budget-nudge";
 
 interface AICoachDashboardProps {
   userId: string;
@@ -36,8 +30,9 @@ interface AICoachDashboardProps {
 function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [isNewUser, setIsNewUser] = useState(false);
   const [activeTab, setActiveTab] = useState("resume");
+  const [showNudge, setShowNudge] = useState(false);
+  const { budget, loading, refresh, completeOnboarding } = useTrialBudget();
   const { tabs } = COPY.aiCoach.dashboard;
 
   // Valid tab values
@@ -70,16 +65,21 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
     router.push(`?${params.toString()}`, { scroll: false });
   };
 
-  // Check if user is new (would be determined by checking if they have any AI usage history)
-  // For now, we'll just show onboarding if they haven't dismissed it
+  // Callback for child components to trigger after an analysis completes
+  const handleAnalysisComplete = useCallback(() => {
+    refresh();
+    setShowNudge(true);
+  }, [refresh]);
+
+  // Show required onboarding interstitial for free users who haven't seen it
+  if (!loading && !budget.is_pro && !budget.onboarding_completed) {
+    return (
+      <TrialOnboarding onComplete={completeOnboarding} />
+    );
+  }
 
   return (
     <div className="space-y-8">
-      {/* Onboarding for new users */}
-      {isNewUser && (
-        <OnboardingFlow onComplete={() => setIsNewUser(false)} />
-      )}
-
       {/* Resume Section */}
       <ResumeSectionImproved />
 
@@ -89,7 +89,8 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         onValueChange={handleTabChange}
         className="space-y-6"
       >
-        <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 w-full h-auto p-1 gap-1">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 flex-1 h-auto p-1 gap-1">
           <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <FileText className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Resume</span>
@@ -110,7 +111,9 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
             <MessageSquare className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Advice</span>
           </TabsTrigger>
-        </TabsList>
+          </TabsList>
+          <TrialBudgetCounter budget={budget} loading={loading} />
+        </div>
 
         <TabsContent value="resume" className="space-y-6">
           <ResumeAnalyzer userId={userId} />
@@ -132,6 +135,9 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
           <CareerAdvice />
         </TabsContent>
       </Tabs>
+
+      {/* Post-result nudge (shown after analysis completes) */}
+      {showNudge && <TrialBudgetNudge budget={budget} />}
     </div>
   );
 }
