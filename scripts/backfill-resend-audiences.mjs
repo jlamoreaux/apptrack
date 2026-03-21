@@ -8,22 +8,32 @@
  * Usage:
  *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... RESEND_API_KEY=... node scripts/backfill-resend-audiences.mjs
  *
- * Safe to re-run — skips rows that already have a resend_contact_id.
+ * Safe to re-run — only processes rows where resend_contact_id IS NULL.
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
+// Read audience IDs from env vars — no hardcoding so the script works across environments
 const AUDIENCE_IDS = {
-  'leads':       '00c20980-13e9-4f82-8b54-dda6d52d66e8',
-  'free-users':  '1d504715-561e-47e1-a688-f22742ae9ef3',
-  'trial-users': '1d504715-561e-47e1-a688-f22742ae9ef3', // shares with free-users
-  'paid-users':  '966996e2-80f1-48cd-8c7f-852dad98a5f8',
+  'leads':       process.env.RESEND_AUDIENCE_LEADS,
+  'free-users':  process.env.RESEND_AUDIENCE_USERS,
+  'trial-users': process.env.RESEND_AUDIENCE_USERS, // shares with free-users
+  'paid-users':  process.env.RESEND_AUDIENCE_PAID_USERS,
 };
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !RESEND_API_KEY) {
-  console.error('Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, RESEND_API_KEY');
+const missingEnvVars = [
+  !SUPABASE_URL && 'SUPABASE_URL',
+  !SUPABASE_SERVICE_ROLE_KEY && 'SUPABASE_SERVICE_ROLE_KEY',
+  !RESEND_API_KEY && 'RESEND_API_KEY',
+  !AUDIENCE_IDS['leads'] && 'RESEND_AUDIENCE_LEADS',
+  !AUDIENCE_IDS['free-users'] && 'RESEND_AUDIENCE_USERS',
+  !AUDIENCE_IDS['paid-users'] && 'RESEND_AUDIENCE_PAID_USERS',
+].filter(Boolean);
+
+if (missingEnvVars.length > 0) {
+  console.error(`Missing required env vars: ${missingEnvVars.join(', ')}`);
   process.exit(1);
 }
 
@@ -46,6 +56,20 @@ async function supabaseFetch(path, options = {}) {
     return null;
   }
   return res.json();
+}
+
+/**
+ * Look up an existing Resend contact by email to recover their contact ID.
+ * Used when a create returns 409 (already exists) but no ID in the response.
+ */
+async function getExistingResendContact(audienceId, email) {
+  const res = await fetch(
+    `https://api.resend.com/audiences/${audienceId}/contacts?email=${encodeURIComponent(email)}`,
+    { headers: { 'Authorization': `Bearer ${RESEND_API_KEY}` } }
+  );
+  if (!res.ok) return null;
+  const data = await res.json();
+  return data?.data?.[0]?.id || null;
 }
 
 async function createResendContact(audienceId, email, firstName) {
@@ -76,9 +100,16 @@ async function createResendContact(audienceId, email, firstName) {
   }
 
   if (!res.ok) {
-    // Already exists is fine — Resend returns 409 or an error message
+    // Already exists — try to recover the existing contact ID
     if (data.message?.includes('already exists') || res.status === 409) {
-      return { alreadyExisted: true, id: null };
+      // First check if the response body contains the ID
+      const existingId = data.id || data.contact?.id || null;
+      if (existingId) {
+        return { alreadyExisted: true, id: existingId };
+      }
+      // Fall back to a lookup GET to retrieve the contact ID
+      const lookedUpId = await getExistingResendContact(audienceId, email);
+      return { alreadyExisted: true, id: lookedUpId };
     }
     throw new Error(`Resend ${res.status} for ${email}: ${JSON.stringify(data)}`);
   }
@@ -98,17 +129,19 @@ async function updateContactId(email, contactId) {
 }
 
 async function main() {
-  console.log('Fetching audience_members from Supabase...');
+  console.log('Fetching unsynced audience_members from Supabase...');
 
+  // Only fetch rows where resend_contact_id is null — makes the script idempotent
   const rows = await supabaseFetch(
-    '/audience_members?select=email,current_audience,first_name,subscribed&order=created_at.asc'
+    '/audience_members?select=email,current_audience,first_name,subscribed&resend_contact_id=is.null&order=created_at.asc'
   );
 
   const toSync = rows.filter(r => r.subscribed !== false);
-  console.log(`Found ${rows.length} total rows, ${toSync.length} subscribed to sync.\n`);
+  console.log(`Found ${rows.length} unsynced rows, ${toSync.length} subscribed to sync.\n`);
 
   let synced = 0;
-  let skipped = 0;
+  let skippedUnknownAudience = 0;
+  let skippedAlreadyExisted = 0;
   let failed = 0;
 
   for (const row of toSync) {
@@ -117,7 +150,7 @@ async function main() {
 
     if (!audienceId) {
       console.warn(`  SKIP  ${email} — unknown audience: ${current_audience}`);
-      skipped++;
+      skippedUnknownAudience++;
       continue;
     }
 
@@ -125,8 +158,14 @@ async function main() {
       const { id, alreadyExisted } = await createResendContact(audienceId, email, first_name);
 
       if (alreadyExisted) {
-        console.log(`  EXIST ${email} (${current_audience}) — already in Resend`);
-        skipped++;
+        if (id) {
+          // We have the ID — update the DB so the row is fully synced
+          await updateContactId(email, id);
+          console.log(`  EXIST ${email} (${current_audience}) — recovered ID ${id}`);
+        } else {
+          console.log(`  EXIST ${email} (${current_audience}) — already in Resend, ID not recoverable`);
+        }
+        skippedAlreadyExisted++;
       } else {
         await updateContactId(email, id);
         console.log(`  ADDED ${email} (${current_audience}) → ${id}`);
@@ -141,7 +180,7 @@ async function main() {
     await new Promise(r => setTimeout(r, 300));
   }
 
-  console.log(`\nDone. Added: ${synced} | Already existed: ${skipped} | Failed: ${failed}`);
+  console.log(`\nDone. Added: ${synced} | Already existed: ${skippedAlreadyExisted} | Unknown audience: ${skippedUnknownAudience} | Failed: ${failed}`);
 }
 
 main().catch(err => {

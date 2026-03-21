@@ -87,7 +87,7 @@ export async function scheduleDripSequence({
     });
 
     if (error) {
-      loggerService.error('Failed to schedule future drip emails', error as unknown as Error, {
+      loggerService.error('Failed to schedule future drip emails', error, {
         category: LogCategory.EMAIL,
         action: 'drip_schedule_failed',
         metadata: { audience, email: normalizedEmail },
@@ -160,7 +160,7 @@ export async function scheduleDripSequence({
         });
       }
     } catch (err) {
-      loggerService.error(`Failed to send immediate drip email: ${template.templateId}`, err as Error, {
+      loggerService.error(`Failed to send immediate drip email: ${template.templateId}`, err, {
         category: LogCategory.EMAIL,
         action: 'drip_immediate_send_failed',
         metadata: { templateId: template.templateId, audience, email: normalizedEmail },
@@ -199,7 +199,7 @@ export async function cancelPendingDrips(
   const { data, error } = await query.select('id');
 
   if (error) {
-    loggerService.error('Failed to cancel drip emails', error as unknown as Error, {
+    loggerService.error('Failed to cancel drip emails', error, {
       category: LogCategory.EMAIL,
       action: 'drip_cancel_failed',
       metadata: { audience, email: normalizedEmail },
@@ -262,7 +262,7 @@ export async function getPendingDrips(limit = 100) {
     .limit(limit);
 
   if (error) {
-    loggerService.error('Failed to get pending drip emails', error as unknown as Error, {
+    loggerService.error('Failed to get pending drip emails', error, {
       category: LogCategory.EMAIL,
       action: 'drip_pending_fetch_failed',
     });
@@ -287,7 +287,7 @@ export async function markDripSent(id: string): Promise<boolean> {
     .eq('id', id);
 
   if (error) {
-    loggerService.error('Failed to mark drip email as sent', error as unknown as Error, {
+    loggerService.error('Failed to mark drip email as sent', error, {
       category: LogCategory.EMAIL,
       action: 'drip_mark_sent_failed',
       metadata: { id },
@@ -313,7 +313,7 @@ export async function markDripFailed(id: string, errorMessage: string): Promise<
     .eq('id', id);
 
   if (error) {
-    loggerService.error('Failed to mark drip email as failed', error as unknown as Error, {
+    loggerService.error('Failed to mark drip email as failed', error, {
       category: LogCategory.EMAIL,
       action: 'drip_mark_failed_failed',
       metadata: { id, errorMessage },

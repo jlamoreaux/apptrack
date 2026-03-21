@@ -91,7 +91,7 @@ export async function addToAudience({
       if (error) {
         // Contact might already exist, which is fine
         if (!error.message?.includes('already exists')) {
-          loggerService.error('Failed to add contact to Resend audience', error as Error, {
+          loggerService.error('Failed to add contact to Resend audience', error, {
             category: LogCategory.EMAIL,
             action: 'resend_contact_create_failed',
             metadata: { audienceId, email: normalizedEmail },
@@ -101,7 +101,7 @@ export async function addToAudience({
         resendContactId = data?.id || null;
       }
     } catch (error) {
-      loggerService.error('Unexpected error adding to Resend audience', error as Error, {
+      loggerService.error('Unexpected error adding to Resend audience', error, {
         category: LogCategory.EMAIL,
         action: 'resend_contact_create_error',
         metadata: { audienceId, email: normalizedEmail },
@@ -129,7 +129,7 @@ export async function addToAudience({
     );
 
   if (dbError) {
-    loggerService.error('Failed to upsert audience member to database', dbError as unknown as Error, {
+    loggerService.error('Failed to upsert audience member to database', dbError, {
       category: LogCategory.EMAIL,
       action: 'audience_member_upsert_failed',
       metadata: { audienceId, email: normalizedEmail },
@@ -167,7 +167,7 @@ export async function removeFromAudience(
           id: member.resend_contact_id,
         });
       } catch (error) {
-        loggerService.error('Error removing contact from Resend audience', error as Error, {
+        loggerService.error('Error removing contact from Resend audience', error, {
           category: LogCategory.EMAIL,
           action: 'resend_contact_remove_error',
           metadata: { audienceId, email: normalizedEmail },
@@ -219,7 +219,12 @@ export async function transitionAudience(
         loggerService.warn('Could not remove contact from old Resend audience', {
           category: LogCategory.EMAIL,
           action: 'resend_contact_remove_old_audience',
-          metadata: { fromAudience, toAudience, email: normalizedEmail },
+          metadata: {
+            fromAudience,
+            toAudience,
+            email: normalizedEmail,
+            error: error instanceof Error ? error.message : String(error),
+          },
         });
       }
     }
@@ -256,7 +261,7 @@ export async function getAudienceMember(email: string) {
     .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 = not found
-    loggerService.error('Error fetching audience member from database', error as unknown as Error, {
+    loggerService.error('Error fetching audience member from database', error, {
       category: LogCategory.EMAIL,
       action: 'audience_member_fetch_failed',
       metadata: { email: normalizedEmail },
@@ -291,7 +296,7 @@ export async function unsubscribeContact(email: string): Promise<{ success: bool
           unsubscribed: true,
         });
       } catch (error) {
-        loggerService.error('Error updating unsubscribe status in Resend', error as Error, {
+        loggerService.error('Error updating unsubscribe status in Resend', error, {
           category: LogCategory.EMAIL,
           action: 'resend_unsubscribe_error',
           metadata: { email: normalizedEmail },
@@ -310,7 +315,7 @@ export async function unsubscribeContact(email: string): Promise<{ success: bool
     .eq('email', normalizedEmail);
 
   if (error) {
-    loggerService.error('Error unsubscribing contact in database', error as unknown as Error, {
+    loggerService.error('Error unsubscribing contact in database', error, {
       category: LogCategory.EMAIL,
       action: 'audience_unsubscribe_db_failed',
       metadata: { email: normalizedEmail },
@@ -348,7 +353,7 @@ export async function linkUserToAudienceMember(
     .eq('email', normalizedEmail);
 
   if (error) {
-    loggerService.error('Error linking user ID to audience member', error as unknown as Error, {
+    loggerService.error('Error linking user ID to audience member', error, {
       category: LogCategory.EMAIL,
       action: 'audience_link_user_failed',
       metadata: { email: normalizedEmail, userId },
