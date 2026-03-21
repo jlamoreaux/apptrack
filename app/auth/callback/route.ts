@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse, after } from "next/server"
 import { createCallbackClient } from "@/lib/supabase/server-client";
 import { handleOnSignup } from "@/lib/services/on-signup.service";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 /**
  * Handles the auth callback after email confirmation.
@@ -30,7 +32,11 @@ export async function GET(request: NextRequest) {
           try {
             await handleOnSignup(user);
           } catch (err) {
-            console.error("Failed to complete post-signup setup:", err);
+            loggerService.error('Post-signup setup failed in after() callback', err as Error, {
+              category: LogCategory.AUTH,
+              action: 'on_signup_after_callback_failed',
+              userId: user.id,
+            });
           }
         });
 

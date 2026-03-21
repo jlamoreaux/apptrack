@@ -12,6 +12,8 @@ import {
 } from './audiences';
 import { getTemplatesForAudience, getTemplateById } from './templates/drip';
 import { sendEmail } from './client';
+import { loggerService } from '@/lib/services/logger.service';
+import { LogCategory } from '@/lib/services/logger.types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
@@ -85,7 +87,11 @@ export async function scheduleDripSequence({
     });
 
     if (error) {
-      console.error('[drip-scheduler] Failed to schedule future drip emails:', error);
+      loggerService.error('Failed to schedule future drip emails', error, {
+        category: LogCategory.EMAIL,
+        action: 'drip_schedule_failed',
+        metadata: { audience, email: normalizedEmail },
+      });
     }
   }
 
@@ -147,10 +153,18 @@ export async function scheduleDripSequence({
 
       if (result.success) {
         sentImmediately++;
-        console.log(`[drip-scheduler] Sent immediate email: ${template.templateId} to ${normalizedEmail}`);
+        loggerService.info('Sent immediate drip email', {
+          category: LogCategory.EMAIL,
+          action: 'drip_immediate_sent',
+          metadata: { templateId: template.templateId, audience, email: normalizedEmail },
+        });
       }
     } catch (err) {
-      console.error(`[drip-scheduler] Failed to send immediate email ${template.templateId}:`, err);
+      loggerService.error(`Failed to send immediate drip email: ${template.templateId}`, err, {
+        category: LogCategory.EMAIL,
+        action: 'drip_immediate_send_failed',
+        metadata: { templateId: template.templateId, audience, email: normalizedEmail },
+      });
     }
   }
 
@@ -185,7 +199,11 @@ export async function cancelPendingDrips(
   const { data, error } = await query.select('id');
 
   if (error) {
-    console.error('[drip-scheduler] Failed to cancel drip emails:', error);
+    loggerService.error('Failed to cancel drip emails', error, {
+      category: LogCategory.EMAIL,
+      action: 'drip_cancel_failed',
+      metadata: { audience, email: normalizedEmail },
+    });
     return { success: false, cancelled: 0 };
   }
 
@@ -244,7 +262,10 @@ export async function getPendingDrips(limit = 100) {
     .limit(limit);
 
   if (error) {
-    console.error('[drip-scheduler] Failed to get pending drips:', error);
+    loggerService.error('Failed to get pending drip emails', error, {
+      category: LogCategory.EMAIL,
+      action: 'drip_pending_fetch_failed',
+    });
     return [];
   }
 
@@ -266,7 +287,11 @@ export async function markDripSent(id: string): Promise<boolean> {
     .eq('id', id);
 
   if (error) {
-    console.error('[drip-scheduler] Failed to mark drip as sent:', error);
+    loggerService.error('Failed to mark drip email as sent', error, {
+      category: LogCategory.EMAIL,
+      action: 'drip_mark_sent_failed',
+      metadata: { id },
+    });
     return false;
   }
 
@@ -288,7 +313,11 @@ export async function markDripFailed(id: string, errorMessage: string): Promise<
     .eq('id', id);
 
   if (error) {
-    console.error('[drip-scheduler] Failed to mark drip as failed:', error);
+    loggerService.error('Failed to mark drip email as failed', error, {
+      category: LogCategory.EMAIL,
+      action: 'drip_mark_failed_failed',
+      metadata: { id, errorMessage },
+    });
     return false;
   }
 
