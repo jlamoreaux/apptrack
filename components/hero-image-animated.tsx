@@ -14,12 +14,24 @@ export function HeroImageAnimated() {
         transition={{ duration: 0.6, delay: 0.3 }}
         className="rounded-xl shadow-2xl border border-border overflow-hidden"
       >
+        {/* Light mode image */}
         <Image
-          src="/screenshots/features/sankey-chart.png"
+          src="/screenshots/features/sankey-chart-light.png"
           alt="AppTrack pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
-          width={800}
-          height={500}
-          className="w-full h-auto"
+          width={2698}
+          height={1048}
+          className="w-full h-auto dark:hidden"
+          priority
+          sizes={IMAGE_SIZES}
+          quality={IMAGE_QUALITY_HERO}
+        />
+        {/* Dark mode image */}
+        <Image
+          src="/screenshots/features/sankey-chart-dark.png"
+          alt="AppTrack pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
+          width={2698}
+          height={1048}
+          className="w-full h-auto hidden dark:block"
           priority
           sizes={IMAGE_SIZES}
           quality={IMAGE_QUALITY_HERO}

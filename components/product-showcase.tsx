@@ -43,7 +43,7 @@ const TABS: Tab[] = [
     id: "pipeline",
     label: "Pipeline View",
     icon: BarChart3,
-    screenshot: "/screenshots/features/sankey-chart.png",
+    screenshot: "/screenshots/features/sankey-chart-light.png",
     alt: "Application pipeline Sankey chart",
     ctaHref: "/signup",
     ctaLabel: "Get Started Free",
