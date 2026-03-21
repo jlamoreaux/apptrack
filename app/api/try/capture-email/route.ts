@@ -118,16 +118,27 @@ export async function POST(request: NextRequest) {
 async function sendResultsEmail(email: string, sessionId: string, firstName?: string) {
   const serviceClient = createServiceRoleClient();
 
-  const { data: session } = await serviceClient
+  const { data: session, error } = await serviceClient
     .from('ai_preview_sessions')
     .select('feature_type, full_content_encrypted')
     .eq('id', sessionId)
     .single();
 
+  if (error) {
+    console.error('[capture-email] Failed to fetch session:', error.message);
+    return;
+  }
+
   if (!session?.full_content_encrypted) return;
 
   const decryptedString = decryptContent(session.full_content_encrypted);
-  const fullContent = JSON.parse(decryptedString);
+  let fullContent;
+  try {
+    fullContent = JSON.parse(decryptedString);
+  } catch (parseError) {
+    console.error('[capture-email] Failed to parse decrypted content:', parseError);
+    return;
+  }
 
   await sendTryResultsEmail({
     email,

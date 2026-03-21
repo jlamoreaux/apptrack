@@ -3,7 +3,7 @@ import { ButtonLink } from "@/components/ui/button-link";
 
 export function FinalCtaSection() {
   return (
-    <section className="py-20 px-4 bg-section-cta text-section-cta-foreground">
+    <section className="py-16 px-4 bg-section-cta text-section-cta-foreground">
       <div className="container mx-auto text-center max-w-2xl">
         <ScrollReveal>
           <h2 className="text-3xl lg:text-4xl font-bold font-display mb-4">

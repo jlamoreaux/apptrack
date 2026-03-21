@@ -65,9 +65,11 @@ export default function TryInterviewPrepPage() {
       if (!response.ok) {
         if (response.status === 429) {
           setError(data.message || "You've already used your free interview prep.");
+          setShowEmailGate(false);
           trackRateLimitReached({ feature_type: "interview_prep", had_previous_session: true });
         } else {
           setError(data.error || "Failed to generate questions. Please try again.");
+          setShowEmailGate(false);
         }
         return;
       }
@@ -84,6 +86,7 @@ export default function TryInterviewPrepPage() {
     } catch (err) {
       console.error("Error:", err);
       setError("An unexpected error occurred. Please try again.");
+      setShowEmailGate(false);
     } finally {
       setIsLoading(false);
     }

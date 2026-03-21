@@ -48,7 +48,6 @@ export async function POST(request: NextRequest) {
       .from("audience_members")
       .select("id")
       .eq("email", email)
-      .limit(1)
       .single();
 
     if (audienceError || !audienceMember) {

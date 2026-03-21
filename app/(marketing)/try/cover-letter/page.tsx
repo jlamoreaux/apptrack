@@ -68,9 +68,11 @@ export default function TryCoverLetterPage() {
       if (!response.ok) {
         if (response.status === 429) {
           setError(responseData.message || "You've already used your free cover letter generator.");
+          setShowEmailGate(false);
           trackRateLimitReached({ feature_type: "cover_letter", had_previous_session: true });
         } else {
           setError(responseData.error || "Failed to generate cover letter. Please try again.");
+          setShowEmailGate(false);
         }
         return;
       }
@@ -87,6 +89,7 @@ export default function TryCoverLetterPage() {
     } catch (err) {
       console.error("Error:", err);
       setError("An unexpected error occurred. Please try again.");
+      setShowEmailGate(false);
     } finally {
       setIsLoading(false);
     }

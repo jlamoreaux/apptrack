@@ -72,7 +72,7 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {error && (
-        <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+        <div role="alert" className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
           {error}
         </div>
       )}
@@ -86,9 +86,11 @@ export function ForgotPasswordForm() {
           placeholder="you@example.com"
           {...register("email")}
           disabled={loading}
+          aria-invalid={!!errors.email}
+          aria-describedby={errors.email ? "email-error" : undefined}
         />
         {errors.email && (
-          <p className="text-sm text-red-600">{errors.email.message}</p>
+          <p id="email-error" className="text-sm text-red-600">{errors.email.message}</p>
         )}
       </div>
 

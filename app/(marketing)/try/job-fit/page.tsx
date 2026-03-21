@@ -71,12 +71,14 @@ export default function TryJobFitPage() {
       if (!response.ok) {
         if (response.status === 429) {
           setError(data.message || "You've already used your free analysis.");
+          setShowEmailGate(false);
           trackRateLimitReached({
             feature_type: "job_fit",
             had_previous_session: true,
           });
         } else {
           setError(data.error || "Failed to generate analysis. Please try again.");
+          setShowEmailGate(false);
         }
         return;
       }
@@ -96,6 +98,7 @@ export default function TryJobFitPage() {
     } catch (err) {
       console.error("Error:", err);
       setError("An unexpected error occurred. Please try again.");
+      setShowEmailGate(false);
     } finally {
       setIsLoading(false);
     }

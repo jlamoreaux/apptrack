@@ -39,13 +39,14 @@ export function ScrollReveal({
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
       const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
-      // Only enable scroll animation for elements that start below the viewport.
-      // Elements already visible skip animation to avoid a flash of invisible content.
-      if (!inViewport) {
+      // When once is false, always animate so re-entry animations work.
+      // When once is true, only animate elements that start below the viewport
+      // to avoid a flash of invisible content for already-visible elements.
+      if (!inViewport || !once) {
         setShouldAnimate(true);
       }
     }
-  }, []);
+  }, [once]);
 
   const dir = directionMap[direction];
   const hiddenState: Record<string, number> = { opacity: 0 };
@@ -96,11 +97,11 @@ export function StaggerContainer({
     if (ref.current) {
       const rect = ref.current.getBoundingClientRect();
       const inViewport = rect.top < window.innerHeight && rect.bottom > 0;
-      if (!inViewport) {
+      if (!inViewport || !once) {
         setShouldAnimate(true);
       }
     }
-  }, []);
+  }, [once]);
 
   return (
     <motion.div

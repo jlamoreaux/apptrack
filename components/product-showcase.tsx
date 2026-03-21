@@ -161,13 +161,17 @@ export function ProductShowcase() {
   return (
     <div>
       {/* Tab buttons */}
-      <div className="inline-flex overflow-x-auto gap-1 mb-8 p-1 rounded-xl bg-muted border border-border scrollbar-hide">
+      <div role="tablist" className="inline-flex overflow-x-auto gap-1 mb-8 p-1 rounded-xl bg-muted border border-border scrollbar-hide">
         {TABS.map((tab, index) => {
           const Icon = tab.icon
           const isActive = index === activeTab
           return (
             <button
               key={tab.id}
+              id={`tab-${tab.id}`}
+              role="tab"
+              aria-selected={isActive}
+              aria-controls={`panel-${tab.id}`}
               onClick={() => handleTabChange(index)}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 min-h-[44px] ${
                 isActive
@@ -186,6 +190,9 @@ export function ProductShowcase() {
       <AnimatePresence mode="wait" custom={direction}>
         <motion.div
           key={currentTab.id}
+          role="tabpanel"
+          id={`panel-${currentTab.id}`}
+          aria-labelledby={`tab-${currentTab.id}`}
           custom={direction}
           variants={prefersReducedMotion ? undefined : tabContentVariants}
           initial={prefersReducedMotion ? false : "enter"}
@@ -235,7 +242,7 @@ export function ProductShowcase() {
 
             <Link
               href={currentTab.ctaHref}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-2"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary/80 transition-colors mt-2 min-h-[44px] py-2"
             >
               {currentTab.ctaLabel}
               <ArrowRight className="h-4 w-4" />

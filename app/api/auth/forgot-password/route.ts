@@ -6,6 +6,17 @@ import { LogCategory } from "@/lib/services/logger.types";
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    loggerService.error("NEXT_PUBLIC_APP_URL is not configured", null, {
+      category: LogCategory.API,
+      action: "forgot_password_missing_env",
+    });
+    return NextResponse.json(
+      { error: "Server configuration error" },
+      { status: 500 }
+    );
+  }
+
   try {
     const { email } = await request.json();
 
@@ -28,7 +39,7 @@ export async function POST(request: NextRequest) {
         action: "forgot_password_error",
         duration: Date.now() - startTime,
         metadata: {
-          email,
+          emailDomain: email.split("@")[1] || "unknown",
           errorMessage: error.message,
         },
       });
@@ -41,7 +52,7 @@ export async function POST(request: NextRequest) {
       category: LogCategory.AUTH,
       action: "forgot_password_sent",
       duration: Date.now() - startTime,
-      metadata: { email },
+      metadata: { emailDomain: email.split("@")[1] || "unknown" },
     });
 
     return NextResponse.json({ success: true });

@@ -10,7 +10,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
     <div className="min-h-screen flex flex-col lg:flex-row">
       {/* Mobile header */}
       <div className="lg:hidden bg-primary/5 border-b border-border px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 min-h-11">
           <Image
             src="/logo_square.png"
             alt="AppTrack Logo"
@@ -25,7 +25,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       {/* Left brand panel — hidden on mobile */}
       <div className="hidden lg:flex lg:w-[45%] bg-section-cta text-section-cta-foreground flex-col justify-between p-10">
         <div>
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 min-h-11">
             <Image
               src="/logo_square.png"
               alt="AppTrack Logo"

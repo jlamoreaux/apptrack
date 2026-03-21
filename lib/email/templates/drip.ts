@@ -108,9 +108,6 @@ const leadsTemplates: DripTemplate[] = [
         <li style="margin-bottom: 8px;">Visualize your application pipeline at a glance</li>
       </ul>
       ${ctaButton('Create Free Account', `${APP_URL}/signup`)}
-      <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
-        <a href="${params.unsubscribeUrl}" style="color: #71717a;">Unsubscribe</a>
-      </p>
     `, params),
   },
   {

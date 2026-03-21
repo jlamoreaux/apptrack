@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Building2, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 interface DashboardStatsProps {
   userId: string;
@@ -84,12 +85,12 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
             <p className="text-muted-foreground mb-4 max-w-md mx-auto">
               Add your first application to start tracking your job search progress.
             </p>
-            <a
+            <Link
               href="/dashboard/add"
               className="inline-flex items-center justify-center px-6 py-2.5 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground font-medium transition-colors min-h-[44px]"
             >
               Add Your First Application
-            </a>
+            </Link>
           </CardContent>
         </Card>
       </section>

@@ -105,7 +105,7 @@ export default function SignUpPageClient() {
               context="signup"
               redirectTo={
                 sessionId
-                  ? `/try/unlock?session=${sessionId}`
+                  ? `/try/unlock?session=${encodeURIComponent(sessionId)}`
                   : isLayoffOffer
                   ? "/onboarding/welcome?promo=NEWSTART"
                   : undefined
