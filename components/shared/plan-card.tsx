@@ -54,6 +54,7 @@ interface PlanCardProps {
     href: string;
   };
   isCurrentPlan?: boolean;
+  highlighted?: boolean;
   variant?: "home" | "upgrade";
   className?: string;
 }
@@ -84,6 +85,7 @@ export function PlanCard({
   features,
   cta,
   isCurrentPlan = false,
+  highlighted = false,
   variant = "home",
   className = "",
 }: PlanCardProps) {
@@ -221,14 +223,14 @@ export function PlanCard({
   return (
     <div
       className={`
-        relative h-full flex flex-col p-6 rounded-lg border-2 transition-all duration-200
+        relative h-full flex flex-col p-6 rounded-lg transition-all duration-200 ease-out hover:shadow-card-hover hover:-translate-y-0.5
+        ${highlighted ? "border-2 border-accent shadow-lg" : `border-2 ${theme.colors.border}`}
         ${theme.colors.background}
-        ${theme.colors.border}
         ${
-          isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg" : "hover:shadow-md"
+          !highlighted && (isPro || isAI) ? "ring-2 ring-opacity-50 shadow-lg" : ""
         }
-        ${isPro ? "ring-indigo-500" : ""}
-        ${isAI ? "ring-indigo-400" : ""}
+        ${!highlighted && isPro ? "ring-primary" : ""}
+        ${!highlighted && isAI ? "ring-primary/80" : ""}
         ${className}
       `}
     >
@@ -247,6 +249,8 @@ export function PlanCard({
           </div>
         </div>
       )}
+
+      {/* Highlighted plans rely on border-accent + shadow-lg to stand out visually */}
 
       {/* Plan header */}
       <div className="text-center mb-6">
@@ -308,7 +312,7 @@ export function PlanCard({
         {isCurrentPlan ? (
           <Button
             className={`w-full transition-all duration-200 ${
-              isFree ? "border-stone-300" : isAI ? "bg-accent hover:bg-accent/90 text-white" : theme.colors.button
+              isFree ? "border-border" : isAI ? "bg-accent hover:bg-accent/90 text-accent-foreground" : theme.colors.button
             }`}
             variant={isFree ? "outline" : "default"}
             size="lg"
@@ -320,7 +324,7 @@ export function PlanCard({
           <Link href={cta.href} className="block">
             <Button
               className={`w-full transition-all duration-200 ${
-                isFree ? "border-stone-300" : isAI ? "bg-accent hover:bg-accent/90 text-white" : theme.colors.button
+                isFree ? "border-border" : isAI ? "bg-accent hover:bg-accent/90 text-accent-foreground" : theme.colors.button
               }`}
               variant={isFree ? "outline" : "default"}
               size="lg"

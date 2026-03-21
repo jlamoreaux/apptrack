@@ -10,7 +10,7 @@ import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posth
 import { AuthTracker } from "@/components/analytics/auth-tracker";
 import { GlobalErrorTracker } from "@/components/analytics/global-error-tracker";
 import { LinkedInInsight } from "@/components/analytics/linkedin-insight";
-import { Footer } from "@/components/footer";
+
 import { CookieBanner } from "@/components/cookie-banner";
 import { siteMetadata } from "@/lib/metadata";
 
@@ -62,7 +62,6 @@ export default function RootLayout({
               <GlobalErrorTracker />
               <LinkedInInsight />
               {children}
-              <Footer />
               <CookieBanner />
               <Analytics />
               <SpeedInsights />

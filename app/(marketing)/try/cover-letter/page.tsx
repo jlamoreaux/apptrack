@@ -7,8 +7,10 @@ import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { SampleResultPreview } from "@/components/try/sample-result-preview";
 import Link from "next/link";
 import {
   trackPreviewStarted,
@@ -85,20 +87,8 @@ export default function TryCoverLetterPage() {
     }
   };
 
-  // Loading state while checking auth or rate limit
-  if (isRedirecting || checkingLimit) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Rate limit reached
-  if (!canUse) {
+  // Rate limit reached — separate full-page state
+  if (!checkingLimit && !canUse) {
     return (
       <div className="max-w-2xl mx-auto p-8 min-h-screen flex flex-col justify-center">
         <div className="text-center space-y-6">
@@ -108,7 +98,7 @@ export default function TryCoverLetterPage() {
 
           <div>
             <h1 className="text-3xl font-bold mb-2">
-              You've Used Your Free Cover Letter
+              You&apos;ve Used Your Free Cover Letter
             </h1>
             <p className="text-lg text-muted-foreground">
               Sign up free to access all AI tools and track your job search!
@@ -137,7 +127,7 @@ export default function TryCoverLetterPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
-      {/* Header */}
+      {/* Header — always visible immediately */}
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           AI Cover Letter Generator
@@ -150,30 +140,44 @@ export default function TryCoverLetterPage() {
         </p>
       </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Quick Tips - Mobile Only */}
-      <QuickTips
-        show={!results}
-        tips={[
-          "Enter the company name and job details",
-          "Add your resume or background summary",
-          "Get your personalized cover letter in 30 seconds",
-        ]}
-      />
-
-      {/* Form or Results */}
-      {!results ? (
-        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-          <CoverLetterForm onSubmit={handleSubmit} isLoading={isLoading} />
+      {/* Skeleton loading while auth / rate-limit resolves */}
+      {(isRedirecting || checkingLimit) ? (
+        <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
+          <Skeleton className="h-5 w-36" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-5 w-44" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-10 w-32" />
         </div>
       ) : (
+        <>
+          {/* Error Alert */}
+          {error && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Quick Tips - Mobile Only */}
+          <QuickTips
+            show={!results}
+            tips={[
+              "Enter the company name and job details",
+              "Add your resume or background summary",
+              "Get your personalized cover letter in 30 seconds",
+            ]}
+          />
+
+          {/* Form or Results */}
+          {!results ? (
+            <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
+              <SampleResultPreview variant="cover-letter" />
+              <CoverLetterForm onSubmit={handleSubmit} isLoading={isLoading} />
+            </div>
+          ) : (
         <div className="space-y-8">
           {/* Results */}
           <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
@@ -215,40 +219,42 @@ export default function TryCoverLetterPage() {
         </div>
       )}
 
-      {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
-      {!results && (
-        <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-4 text-center">How It Works</h3>
-          <div className="grid sm:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
-                1
+          {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
+          {!results && (
+            <div className="hidden sm:block mt-12 p-6 bg-muted rounded-lg">
+              <h3 className="font-semibold mb-4 text-center">How It Works</h3>
+              <div className="grid sm:grid-cols-3 gap-6">
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+                    1
+                  </div>
+                  <h4 className="font-medium mb-2">Enter Job Details</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Paste the job description and company name
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+                    2
+                  </div>
+                  <h4 className="font-medium mb-2">Share Your Background</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Paste your resume or describe your experience
+                  </p>
+                </div>
+                <div className="text-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+                    3
+                  </div>
+                  <h4 className="font-medium mb-2">Get Your Cover Letter</h4>
+                  <p className="text-sm text-muted-foreground">
+                    AI writes a personalized cover letter instantly
+                  </p>
+                </div>
               </div>
-              <h4 className="font-medium mb-2">Enter Job Details</h4>
-              <p className="text-sm text-muted-foreground">
-                Paste the job description and company name
-              </p>
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
-                2
-              </div>
-              <h4 className="font-medium mb-2">Share Your Background</h4>
-              <p className="text-sm text-muted-foreground">
-                Paste your resume or describe your experience
-              </p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mx-auto mb-3 font-bold text-lg">
-                3
-              </div>
-              <h4 className="font-medium mb-2">Get Your Cover Letter</h4>
-              <p className="text-sm text-muted-foreground">
-                AI writes a personalized cover letter instantly
-              </p>
-            </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
     </div>
   );

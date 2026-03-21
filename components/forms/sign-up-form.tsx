@@ -325,7 +325,7 @@ export function SignUpForm() {
 
       <Button
         type="submit"
-        className="w-full bg-primary hover:bg-primary/90"
+        className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
         disabled={loading}
       >
         {loading ? "Creating Account..." : "Create Account"}

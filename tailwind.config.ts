@@ -74,8 +74,14 @@ const config = {
         "badge-neutral": { DEFAULT: "hsl(var(--badge-neutral))", fg: "hsl(var(--badge-neutral-fg))" },
 
         // ─── Section backgrounds ───
-        "section-muted": "hsl(var(--section-muted))",
-        "section-dark": "hsl(var(--section-dark))",
+        "section-hero": "hsl(var(--section-hero))",
+        "section-ai-tools": "hsl(var(--section-ai-tools))",
+        "section-pricing": "hsl(var(--section-pricing))",
+        "section-cta": {
+          DEFAULT: "hsl(var(--section-cta))",
+          foreground: "hsl(var(--section-cta-foreground))",
+          muted: "hsl(var(--section-cta-muted))",
+        },
 
         // ─── Interactive ───
         "interactive-hover": "hsl(var(--interactive-hover))",
@@ -119,6 +125,11 @@ const config = {
         "card-hover": "0 4px 12px 0 rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.06)",
         dropdown: "0 4px 16px 0 rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.06)",
         modal: "0 20px 60px -12px rgb(0 0 0 / 0.15), 0 8px 20px -8px rgb(0 0 0 / 0.1)",
+      },
+      transitionDuration: {
+        fast: "150ms",
+        normal: "200ms",
+        slow: "300ms",
       },
       borderRadius: {
         lg: "var(--radius)",

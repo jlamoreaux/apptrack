@@ -152,7 +152,7 @@ export function JobFitForm({ onSubmit, isLoading }: JobFitFormProps) {
       <Button
         type="submit"
         size="lg"
-        className="w-full"
+        className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
         disabled={isLoading}
       >
         {isLoading ? (

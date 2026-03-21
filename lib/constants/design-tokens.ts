@@ -51,10 +51,14 @@ export const TOKENS = {
   },
 
   // ─── SECTIONS ─────────────────────────────────────────────
+  // Each section gets a distinct accent tint for visual rhythm
   sections: {
-    default: "",                            // Transparent (inherits background)
-    muted: "bg-section-muted",             // Alternating sections (pricing, AI tools)
-    dark: "bg-section-dark text-white",    // Dark sections (final CTA)
+    default: "",                                                          // Transparent (inherits background)
+    hero: "bg-section-hero",                                              // Indigo-tinted hero
+    aiTools: "bg-section-ai-tools",                                       // Violet-tinted AI section
+    pricing: "bg-section-pricing",                                        // Coral-tinted pricing
+    cta: "bg-section-cta text-section-cta-foreground",                    // Dark final CTA
+    ctaMuted: "text-section-cta-muted",                                   // Subdued text on CTA
   },
 
   // ─── INTERACTIVE ──────────────────────────────────────────

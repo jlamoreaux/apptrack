@@ -54,9 +54,13 @@
     --badge-neutral: 30 6% 94%;       /* Stone-100 */
     --badge-neutral-fg: 20 5% 35%;    /* Stone-700 */
 
-    /* ─── Sections ─── */
-    --section-muted: 226 40% 97%;     /* Subtle indigo tint */
-    --section-dark: 244 47% 15%;      /* Indigo-950 */
+    /* ─── Section backgrounds ─── */
+    --section-hero: 226 40% 97%;           /* Indigo-tinted hero */
+    --section-ai-tools: 270 30% 97%;       /* Violet-tinted AI section */
+    --section-pricing: 24 40% 97%;         /* Coral-tinted pricing */
+    --section-cta: 244 47% 15%;            /* Dark indigo final CTA */
+    --section-cta-foreground: 0 0% 100%;   /* White text on CTA */
+    --section-cta-muted: 0 0% 100% / 0.7; /* Subdued text on CTA */
 
     /* ─── Interactive ─── */
     --interactive-hover: 226 40% 97%;
@@ -125,9 +129,13 @@
     --badge-neutral: 220 14% 22%;
     --badge-neutral-fg: 220 10% 65%;
 
-    /* ─── Sections ─── */
-    --section-muted: 220 16% 10%;     /* Subtle lift from bg */
-    --section-dark: 220 20% 6%;       /* Even darker (for contrast) */
+    /* ─── Section backgrounds ─── */
+    --section-hero: 239 30% 10%;           /* Indigo-tinted */
+    --section-ai-tools: 263 25% 10%;       /* Violet-tinted */
+    --section-pricing: 24 20% 9%;          /* Coral-tinted */
+    --section-cta: 244 47% 8%;             /* Darkest CTA bg */
+    --section-cta-foreground: 0 0% 100%;
+    --section-cta-muted: 0 0% 100% / 0.7;
 
     /* ─── Interactive ─── */
     --interactive-hover: 220 16% 16%;

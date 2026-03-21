@@ -36,14 +36,15 @@ export function StatusBadge({
   }
 
   const statusConfig = getStatusColors(status)
-  const { container } = getStatusClasses(status)
-  
+  const { container, style } = getStatusClasses(status)
+
   // Generate accessible label
   const accessibleLabel = ariaLabel || `Application status: ${statusConfig.label}`
-  
+
   return (
-    <Badge 
+    <Badge
       className={`${container} ${className}`}
+      style={style}
       role="status"
       aria-label={accessibleLabel}
       data-status={status}

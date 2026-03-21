@@ -3,6 +3,7 @@
 import { TestimonialCard } from "./testimonial-card";
 import { Badge } from "@/components/ui/badge";
 import { COPY } from "@/lib/content/copy";
+import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
 
 export function TestimonialSection() {
   // const showTestimonials = useFeatureFlag(FEATURE_FLAGS.SHOW_TESTIMONIALS);
@@ -34,27 +35,32 @@ export function TestimonialSection() {
     <section className="py-16 px-4">
       <div className="container mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-12">
-          <Badge className="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 mb-4">
-            {testimonialCopy.badge}
-          </Badge>
-          <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
-            {testimonialCopy.title}
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            {testimonialCopy.subtitle}
-          </p>
-        </div>
+        <ScrollReveal>
+          <div className="text-center mb-12">
+            <Badge className="bg-badge-indigo text-badge-indigo-fg border-badge-indigo mb-4">
+              {testimonialCopy.badge}
+            </Badge>
+            <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
+              {testimonialCopy.title}
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              {testimonialCopy.subtitle}
+            </p>
+          </div>
+        </ScrollReveal>
 
         {/* Testimonial Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {testimonials.map((testimonial) => (
-            <TestimonialCard
-              key={testimonial.id}
-              {...testimonial}
-            />
-          ))}
-        </div>
+        <StaggerContainer staggerDelay={0.1}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {testimonials.map((testimonial) => (
+              <StaggerItem key={testimonial.id}>
+                <TestimonialCard
+                  {...testimonial}
+                />
+              </StaggerItem>
+            ))}
+          </div>
+        </StaggerContainer>
       </div>
     </section>
   );

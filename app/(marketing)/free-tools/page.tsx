@@ -49,7 +49,7 @@ export default function FreeToolsPage() {
       />
       <NavigationStatic />
 
-      <main className="container mx-auto px-4 py-12 max-w-5xl">
+      <main id="main-content" className="container mx-auto px-4 py-12 max-w-5xl">
         {/* Hero */}
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold mb-4">
