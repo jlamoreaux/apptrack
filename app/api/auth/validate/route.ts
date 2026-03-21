@@ -1,7 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { verifyExtensionToken } from "@/lib/auth/extension-auth";
+import { createRateLimiter } from "@/lib/redis/client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+
+// Rate limiter: 30 requests per IP per minute
+const rateLimiter = createRateLimiter(30, "1 m");
 
 /**
  * GET /api/auth/validate
@@ -16,10 +20,22 @@ import { LogCategory } from "@/lib/services/logger.types";
  * - 200: { userId, email }
  * - 401: Invalid or expired token
  */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
+    // Check rate limit by IP
+    if (rateLimiter) {
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+      const result = await rateLimiter.limit(ip);
+      if (!result.success) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          { status: 429 }
+        );
+      }
+    }
+
     // Extract Bearer token from Authorization header
     const authHeader = request.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
