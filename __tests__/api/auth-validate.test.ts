@@ -53,6 +53,12 @@ jest.mock('@/lib/services/logger.service', () => ({
     debug: jest.fn(),
   },
 }));
+// Mock Redis so rate limiting is a no-op in tests (no Redis in CI)
+jest.mock('@/lib/redis/client', () => ({
+  createRateLimiter: jest.fn().mockReturnValue(null),
+  isRedisAvailable: jest.fn().mockReturnValue(false),
+  redis: null,
+}));
 
 import { GET } from '@/app/api/auth/validate/route';
 import * as extensionAuth from '@/lib/auth/extension-auth';
