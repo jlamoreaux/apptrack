@@ -228,6 +228,11 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
     });
 
     if (existing) {
+      // Refund the trial budget — cached results should not consume a free analysis
+      if (permissionResult?.usedFreeTier) {
+        await TrialBudgetService.refundAnalysis(user.id, "interview_prep");
+      }
+
       // Transform existing content using service
       const transformResult = await transformer.transform({
         content: existing.prep_content as DatabasePrepContent,
@@ -250,9 +255,9 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         }
       });
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         preparation: transformResult.content,
-        cached: transformResult.fromCache 
+        cached: transformResult.fromCache
       });
     }
 

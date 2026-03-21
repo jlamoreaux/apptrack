@@ -32,7 +32,7 @@ export interface TrialBudgetState {
 export interface TrialBudgetResponse {
   allowed: boolean;
   budget: TrialBudgetState;
-  reason?: "trial_exhausted" | "budget_consumed";
+  reason?: "trial_exhausted";
 }
 
 // Extension auth types

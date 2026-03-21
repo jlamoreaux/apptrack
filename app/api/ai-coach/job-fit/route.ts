@@ -44,7 +44,7 @@ async function handler(request: NextRequest) {
           feature: 'job_fit_analysis',
           reason: permissionResult.reason || 'subscription_required',
           userId: user.id,
-          freeTierExhausted: permissionResult.reason === 'free_tier_exhausted'
+          freeTierExhausted: permissionResult.reason === 'trial_exhausted'
         },
         { userId: user.id }
       );
@@ -194,6 +194,11 @@ async function handler(request: NextRequest) {
       });
 
     } catch (aiError) {
+      // Refund the trial budget — fallback mock data is not a real analysis
+      if (permissionResult?.usedFreeTier) {
+        await TrialBudgetService.refundAnalysis(user.id, "job_fit");
+      }
+
       loggerService.error('AI analysis failed, using fallback', aiError, {
         category: LogCategory.AI_SERVICE,
         userId: user.id,

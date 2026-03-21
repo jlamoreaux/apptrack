@@ -52,7 +52,7 @@ async function coverLetterHandler(request: NextRequest) {
           feature: 'cover_letter',
           reason: permissionResult.reason || 'subscription_required',
           userId: user.id,
-          freeTierExhausted: permissionResult.reason === 'free_tier_exhausted'
+          freeTierExhausted: permissionResult.reason === 'trial_exhausted'
         },
         { userId: user.id }
       );

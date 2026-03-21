@@ -15,6 +15,7 @@ import { getSubscription } from "@/lib/supabase/queries";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { TrialBudgetService } from "@/lib/services/trial-budget.service";
+import { TRIAL_BUDGET } from "@/lib/constants/ai-limits";
 import type { AIToolType } from "@/types";
 
 export interface PermissionCheckResult {
@@ -386,7 +387,7 @@ export class PermissionMiddleware {
         userPlan,
         requiredPlan: PLAN_NAMES.AI_COACH,
         reason: 'trial_exhausted',
-        message: "You've used all 5 free analyses. Upgrade to Pro for unlimited access.",
+        message: `You've used all ${TRIAL_BUDGET.LIMIT} free analyses. Upgrade to Pro for unlimited access.`,
         usedFreeTier: false,
         remainingFreeTries: 0,
       };

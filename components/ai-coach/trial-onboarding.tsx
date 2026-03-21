@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Briefcase, Mail } from "lucide-react";
+import { TRIAL_BUDGET } from "@/lib/constants/ai-limits";
 
 interface TrialOnboardingProps {
   onComplete: () => void;
@@ -48,7 +49,7 @@ export function TrialOnboarding({ onComplete }: TrialOnboardingProps) {
           Your AI career tools
         </CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
-          You have 5 free analyses to use across any combination of tools.
+          You have {TRIAL_BUDGET.LIMIT} free analyses to use across any combination of tools.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">

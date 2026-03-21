@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,11 +31,20 @@ interface TrialBudgetNudgeProps {
 export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(true);
-
-  if (budget.is_pro || dismissed) return null;
+  const modalShownRef = useRef(false);
 
   const remaining = budget.analyses_remaining;
   const used = budget.analyses_used;
+
+  // Fire modal-shown event exactly once
+  useEffect(() => {
+    if (remaining <= 0 && used > 0 && !budget.is_pro && !modalShownRef.current) {
+      modalShownRef.current = true;
+      capturePostHogEvent("ai_trial_upgrade_modal_shown");
+    }
+  }, [remaining, used, budget.is_pro]);
+
+  if (budget.is_pro || dismissed) return null;
 
   // No nudge needed if budget hasn't been touched
   if (used === 0) return null;
@@ -46,16 +55,14 @@ export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
 
   // Last-use modal (all 5 used)
   if (remaining <= 0) {
-    capturePostHogEvent("ai_trial_upgrade_modal_shown");
-
     return (
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>That was your last free analysis.</DialogTitle>
             <DialogDescription>
-              You&apos;ve seen what AppTrack can do. Pro gives you unlimited Job
-              Fit, Interview Prep, and Cover Letter — for $10/month.
+              You&apos;ve used Job Fit, Interview Prep, and Cover Letter. Pro
+              gives you unlimited access to all three — for $10/month.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
