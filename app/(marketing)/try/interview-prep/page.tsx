@@ -27,6 +27,8 @@ export default function TryInterviewPrepPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [emailCaptured, setEmailCaptured] = useState(false);
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [emailSkipped, setEmailSkipped] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect logged-in users to dashboard
@@ -45,6 +47,7 @@ export default function TryInterviewPrepPage() {
 
   const handleSubmit = async (formData: InterviewPrepFormData) => {
     setIsLoading(true);
+    setShowEmailGate(true);
     setError(null);
     const submitStartTime = Date.now();
 
@@ -125,10 +128,9 @@ export default function TryInterviewPrepPage() {
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           Ace Your Next Interview
         </h1>
-        <p className="text-xl text-muted-foreground mb-2">
+        <p className="text-lg text-muted-foreground">
           AI generates personalized interview questions in 30 seconds
         </p>
-        <p className="text-sm text-muted-foreground">Get personalized questions in 30 seconds</p>
       </div>
 
       {/* Skeleton loading while auth / rate-limit resolves */}
@@ -159,12 +161,12 @@ export default function TryInterviewPrepPage() {
             ]}
           />
 
-          {isLoading ? (
+          {showEmailGate && !emailCaptured && !emailSkipped ? (
             <EmailCaptureGate
               source="interview-prep"
               isProcessing={isLoading}
-              onEmailCaptured={() => setEmailCaptured(true)}
-              onSkip={() => {}}
+              onEmailCaptured={() => { setEmailCaptured(true); setShowEmailGate(false); }}
+              onSkip={() => { setEmailSkipped(true); setShowEmailGate(false); }}
             />
           ) : !results ? (
             <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
@@ -183,6 +185,8 @@ export default function TryInterviewPrepPage() {
                     setResults(null);
                     setSessionId(null);
                     setEmailCaptured(false);
+                    setEmailSkipped(false);
+                    setShowEmailGate(false);
                     setError(null);
                   }}
                 >

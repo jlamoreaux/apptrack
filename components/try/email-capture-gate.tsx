@@ -27,17 +27,12 @@ export function EmailCaptureGate({
   const [submitError, setSubmitError] = useState("");
   const [captured, setCaptured] = useState(false);
 
-  // Hide component when processing is done and no email was captured
-  if (!isProcessing && !captured) {
-    return null;
-  }
-
   // Success state
   if (captured) {
     return (
       <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
         <div className="flex flex-col items-center gap-2">
-          <CheckCircle2 className="h-8 w-8 text-green-500" />
+          <CheckCircle2 className="h-8 w-8 text-secondary" />
           <p className="text-sm font-medium text-foreground">
             Email saved! Your full results will appear shortly.
           </p>
@@ -93,10 +88,18 @@ export function EmailCaptureGate({
     <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
       {/* Processing indicator */}
       <div className="flex flex-col items-center gap-3 mb-6">
-        <Spinner size="lg" className="text-primary" />
-        <p className="text-sm font-medium text-muted-foreground animate-pulse">
-          Generating your results...
-        </p>
+        {isProcessing ? (
+          <>
+            <Spinner size="lg" className="text-primary" />
+            <p className="text-sm font-medium text-muted-foreground animate-pulse">
+              Generating your results...
+            </p>
+          </>
+        ) : (
+          <p className="text-sm font-medium text-foreground">
+            Your results are ready — enter your email to view them
+          </p>
+        )}
       </div>
 
       {/* Email capture form */}
@@ -123,15 +126,15 @@ export function EmailCaptureGate({
               if (email) validateEmail(email);
             }}
             disabled={isSubmitting}
-            className={emailError ? "border-red-500 focus-visible:ring-red-500" : ""}
+            className={emailError ? "border-destructive focus-visible:ring-destructive" : ""}
           />
           {emailError && (
-            <p className="text-sm text-red-500">{emailError}</p>
+            <p className="text-sm text-destructive">{emailError}</p>
           )}
         </div>
 
         {submitError && (
-          <p className="text-sm text-red-500">{submitError}</p>
+          <p className="text-sm text-destructive">{submitError}</p>
         )}
 
         <Button

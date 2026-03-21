@@ -23,6 +23,8 @@ export default function TryJobFitPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [emailCaptured, setEmailCaptured] = useState(false);
+  const [showEmailGate, setShowEmailGate] = useState(false);
+  const [emailSkipped, setEmailSkipped] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
 
@@ -45,6 +47,7 @@ export default function TryJobFitPage() {
 
   const handleSubmit = async (formData: JobFitFormData) => {
     setIsLoading(true);
+    setShowEmailGate(true);
     setError(null);
     const submitStartTime = Date.now();
     setStartTime(submitStartTime);
@@ -143,11 +146,8 @@ export default function TryJobFitPage() {
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           Find Out If You&apos;re a Good Fit
         </h1>
-        <p className="text-xl text-muted-foreground mb-2">
+        <p className="text-lg text-muted-foreground">
           AI analyzes the job description against your background in 30 seconds
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Get your job fit analysis in 30 seconds
         </p>
       </div>
 
@@ -180,13 +180,13 @@ export default function TryJobFitPage() {
             ]}
           />
 
-          {/* Form, Processing, or Results */}
-          {isLoading ? (
+          {/* Form, Email Gate, or Results */}
+          {showEmailGate && !emailCaptured && !emailSkipped ? (
             <EmailCaptureGate
               source="job-fit"
               isProcessing={isLoading}
-              onEmailCaptured={() => setEmailCaptured(true)}
-              onSkip={() => {}}
+              onEmailCaptured={() => { setEmailCaptured(true); setShowEmailGate(false); }}
+              onSkip={() => { setEmailSkipped(true); setShowEmailGate(false); }}
             />
           ) : !results ? (
             <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
@@ -203,6 +203,8 @@ export default function TryJobFitPage() {
                   setResults(null);
                   setSessionId(null);
                   setEmailCaptured(false);
+                  setEmailSkipped(false);
+                  setShowEmailGate(false);
                   setError(null);
                 }}>
                   Analyze Another Job
