@@ -13,9 +13,9 @@ const AI_COACH_PRICE = copyData.pricing.plans.ai_coach.price;
  */
 export const HERO_VARIANTS = {
   control: {
-    title: "Never lose track of your dream job again",
-    subtitle: "The smart job application tracker with AI-powered career coaching. Organize applications, visualize your pipeline, and get expert help with resumes, cover letters, and interview prep.",
-    stats: "Start organizing your job search today",
+    title: "See exactly where your job search wins and loses",
+    subtitle: "Track every application, visualize your pipeline, and get AI coaching for resumes, cover letters, and interviews.",
+    stats: "Free forever • No credit card required",
   },
   outcome_focused: {
     title: "Turn applications into interviews with AI coaching",
@@ -60,13 +60,13 @@ export function HeroContent() {
 
   return (
     <>
-      <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight text-foreground mb-6">
+      <h1 className="text-4xl sm:text-5xl lg:text-7xl font-extrabold tracking-tight text-foreground font-display leading-[1.1]">
         {copy.title}
       </h1>
-      <p className="text-base sm:text-lg lg:text-xl text-foreground">
+      <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-2xl">
         {copy.subtitle}
       </p>
-      <p className="text-sm font-medium text-primary">
+      <p className="text-sm font-medium text-muted-foreground">
         {copy.stats}
       </p>
     </>

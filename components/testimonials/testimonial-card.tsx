@@ -10,6 +10,7 @@ interface TestimonialCardProps {
   rating?: number;
   avatarUrl?: string;
   highlight?: string;
+  avatarGradient?: string;
 }
 
 export function TestimonialCard({
@@ -20,6 +21,7 @@ export function TestimonialCard({
   rating = 5,
   avatarUrl,
   highlight,
+  avatarGradient = "from-indigo-500 to-violet-500",
 }: TestimonialCardProps) {
   const initials = name
     .split(" ")
@@ -48,7 +50,7 @@ export function TestimonialCard({
         {/* Testimonial Content */}
         <div className="flex-1">
           {highlight && (
-            <p className="font-semibold text-lg mb-2 text-primary">"{highlight}"</p>
+            <p className="font-semibold font-display text-lg mb-2 text-primary">{highlight}</p>
           )}
           {content && (
             <p className="text-muted-foreground leading-relaxed">{content}</p>
@@ -57,9 +59,9 @@ export function TestimonialCard({
 
         {/* Author Info */}
         <div className="flex items-center gap-3 mt-6">
-          <Avatar className="h-10 w-10">
+          <Avatar className="h-12 w-12 ring-2 ring-white dark:ring-gray-800 shadow-sm">
             {avatarUrl && <AvatarImage src={avatarUrl} alt={name} />}
-            <AvatarFallback className="bg-primary/10 text-primary">
+            <AvatarFallback className={`bg-gradient-to-br ${avatarGradient} text-white text-sm font-semibold`}>
               {initials}
             </AvatarFallback>
           </Avatar>

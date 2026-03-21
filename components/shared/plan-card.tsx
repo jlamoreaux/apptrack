@@ -115,7 +115,7 @@ export function PlanCard({
 
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 font-display">
             {title}
             {isCurrentPlan && <Badge variant="secondary">Current</Badge>}
           </CardTitle>
@@ -227,8 +227,8 @@ export function PlanCard({
         ${
           isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg" : "hover:shadow-md"
         }
-        ${isPro ? "ring-blue-500" : ""}
-        ${isAI ? "ring-amber-500" : ""}
+        ${isPro ? "ring-indigo-500" : ""}
+        ${isAI ? "ring-indigo-400" : ""}
         ${className}
       `}
     >
@@ -258,7 +258,7 @@ export function PlanCard({
           ) : (
             <Check className={`h-5 w-5 mr-2 ${theme.colors.icon}`} />
           )}
-          <h3 className={`font-semibold text-lg ${theme.colors.text}`}>
+          <h3 className={`font-semibold font-display text-lg ${theme.colors.text}`}>
             {title}
           </h3>
         </div>
@@ -307,7 +307,10 @@ export function PlanCard({
       <div className="mt-auto">
         {isCurrentPlan ? (
           <Button
-            className={`w-full transition-all duration-200 ${theme.colors.button}`}
+            className={`w-full transition-all duration-200 ${
+              isFree ? "border-stone-300" : isAI ? "bg-accent hover:bg-accent/90 text-white" : theme.colors.button
+            }`}
+            variant={isFree ? "outline" : "default"}
             size="lg"
             disabled={true}
           >
@@ -316,7 +319,10 @@ export function PlanCard({
         ) : (
           <Link href={cta.href} className="block">
             <Button
-              className={`w-full transition-all duration-200 ${theme.colors.button}`}
+              className={`w-full transition-all duration-200 ${
+                isFree ? "border-stone-300" : isAI ? "bg-accent hover:bg-accent/90 text-white" : theme.colors.button
+              }`}
+              variant={isFree ? "outline" : "default"}
               size="lg"
             >
               {cta.text}

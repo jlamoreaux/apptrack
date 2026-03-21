@@ -7,41 +7,27 @@ import { AdminService } from "@/lib/services/admin.service";
 import { UserMenu } from "./user-menu";
 import { MobileNavigation } from "./mobile-navigation";
 import { MainNavigation } from "./main-navigation";
+import { NavigationStatic } from "./navigation-static";
 import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
 import { isOnFreePlan } from "@/lib/utils/plan-helpers";
 import type { PermissionLevel } from "@/types";
 
-export async function NavigationServer() {
+interface NavigationServerProps {
+  variant?: "default" | "marketing";
+}
+
+export async function NavigationServer({ variant = "default" }: NavigationServerProps) {
   const user = await getUser();
 
   // If no user, show public navigation
   if (!user) {
-    return (
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <nav aria-label="Main navigation" className="container flex h-14 items-center">
-          <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Image
-              src="/logo_square.png"
-              alt="AppTrack Logo"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-            />
-            <span className="font-bold text-xl text-primary">AppTrack</span>
-          </Link>
-          <div className="ml-auto flex items-center space-x-4">
-            <Link href="/login">
-              <Button variant="ghost">Login</Button>
-            </Link>
-            <Link href="/signup">
-              <Button className="bg-primary hover:bg-primary/90">
-                Sign Up
-              </Button>
-            </Link>
-          </div>
-        </nav>
-      </header>
-    );
+    return <NavigationStatic />;
+  }
+
+  // On marketing pages (homepage), show the public nav but swap
+  // "Login"/"Sign Up" for "Go to Dashboard" button
+  if (variant === "marketing") {
+    return <NavigationStatic isAuthenticated />;
   }
 
   // Get user data for authenticated navigation

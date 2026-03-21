@@ -1,21 +1,19 @@
 import Image from "next/image"
+import Link from "next/link"
+import { ArrowRight, BarChart3, FileText, MessageSquare, Brain, Target, Users, Sparkles, Check, Bot } from "lucide-react"
 import { ButtonLink } from "@/components/ui/button-link"
-import { CheckList } from "@/components/ui/check-list"
+import { Button } from "@/components/ui/button"
 import { NavigationServer } from "@/components/navigation-server"
 import { HomePricingSection } from "@/components/home-pricing-section"
-import { HomeProblemSolution } from "@/components/home-problem-solution"
 import { HomeFaq } from "@/components/home-faq"
-import { HomeFinalCta } from "@/components/home-final-cta"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
-import { HomeAICoachSection } from "@/components/home-ai-coach-section"
 import { TestimonialSection } from "@/components/testimonials"
 import { HeroContent } from "@/components/home-hero-variants"
-import { HomeTryAISection } from "@/components/home-try-ai-section"
 import { COPY } from "@/lib/content/copy"
-import { getFeatures } from "@/lib/content/features"
 import { createClient } from "@/lib/supabase/server-client"
-import { SCREENSHOT_STYLES, FEATURE_SECTIONS, IMAGE_SIZES, IMAGE_SIZES_SMALL, IMAGE_QUALITY, IMAGE_QUALITY_HERO } from "@/lib/constants/homepage-content"
+import { IMAGE_SIZES, IMAGE_QUALITY, IMAGE_QUALITY_HERO } from "@/lib/constants/homepage-content"
 import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
+import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal"
 
 async function getPlans() {
   try {
@@ -38,203 +36,407 @@ async function getPlans() {
   }
 }
 
+const AI_TOOLS = [
+  {
+    id: "resume",
+    title: "Resume Analysis",
+    description: "Get AI-powered feedback with specific improvement suggestions",
+    icon: Brain,
+    href: "/dashboard/resumes",
+    features: ["ATS optimization tips", "Keyword analysis", "Format recommendations"],
+    badgeColor: "bg-badge-indigo",
+    iconColor: "text-indigo-600",
+    cta: "Try it free",
+  },
+  {
+    id: "cover-letter",
+    title: "Cover Letter Generator",
+    description: "Create compelling, customized cover letters in seconds",
+    icon: FileText,
+    href: "/try/cover-letter",
+    features: ["Personalized to job description", "Professional formatting"],
+    badgeColor: "bg-badge-emerald",
+    iconColor: "text-emerald-600",
+    cta: "Try it free",
+  },
+  {
+    id: "interview",
+    title: "Interview Prep",
+    description: "Practice with AI-generated questions tailored to your role",
+    icon: MessageSquare,
+    href: "/try/interview-prep",
+    features: ["Role-specific questions", "STAR format guidance"],
+    badgeColor: "bg-badge-orange",
+    iconColor: "text-orange-600",
+    cta: "Try it free",
+  },
+  {
+    id: "job-fit",
+    title: "Job Fit Analysis",
+    description: "See how well your profile matches any job posting",
+    icon: Target,
+    href: "/try/job-fit",
+    features: ["Skills match percentage", "Actionable next steps"],
+    badgeColor: "bg-badge-violet",
+    iconColor: "text-violet-600",
+    cta: "Try it free",
+  },
+  {
+    id: "career-coach",
+    title: "AI Career Coach",
+    description: "Chat with an AI career advisor for personalized guidance",
+    icon: Bot,
+    href: "/dashboard/ai-coach",
+    features: ["Personalized career advice", "Strategic job search planning"],
+    badgeColor: "bg-badge-neutral",
+    iconColor: "text-foreground",
+    cta: "Learn more",
+    ctaHref: "#pricing",
+  },
+] as const
+
 export default async function HomePage() {
   const plans = await getPlans()
-  const features = getFeatures()
 
   return (
     <HomepageClientWrapper>
       <OrganizationSchema />
       <SoftwareApplicationSchema />
       <FAQSchema faqs={COPY.faq.items} />
-      <div className="min-h-screen flex flex-col bg-gradient-to-b from-background to-primary/5">
-        <NavigationServer />
+      <div className="min-h-screen flex flex-col">
+        <NavigationServer variant="marketing" />
         <main className="flex-1">
-        {/* Hero Section */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto">
-            <div className="grid lg:grid-cols-2 gap-12 items-center">
-              {/* Left side - Text content */}
-              <div className="text-center lg:text-left space-y-8 max-w-xl mx-auto lg:mx-0">
-                <div className="space-y-4">
+
+        {/* ============================================================
+            SECTION 1: HERO
+            ============================================================ */}
+        <section className="relative overflow-hidden">
+          {/* Warm gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-background via-surface-1 to-badge-indigo/40" />
+          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-badge-indigo/30 to-transparent" />
+
+          <div className="relative container mx-auto px-4 py-16 sm:py-20 lg:py-28">
+            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+              {/* Left: Copy */}
+              <div className="text-center lg:text-left space-y-8 max-w-2xl mx-auto lg:mx-0">
+                <div className="space-y-6">
                   <HeroContent />
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <ButtonLink 
-                    href="/signup" 
-                    size="lg" 
-                    className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-white"
+                  <ButtonLink
+                    href="/signup"
+                    size="lg"
+                    className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-white shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/30 transition-all duration-200 active:scale-[0.98] text-base px-8"
                   >
-                    {COPY.hero.cta.primary}
+                    Start Free — See Your Pipeline
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </ButtonLink>
                   <ButtonLink
                     href="/login"
                     variant="outline"
                     size="lg"
-                    className="w-full sm:w-auto border-primary text-primary hover:bg-primary hover:text-white"
+                    className="w-full sm:w-auto border-border text-foreground hover:bg-interactive-hover"
                   >
-                    {COPY.hero.cta.secondary}
+                    Sign In
                   </ButtonLink>
                 </div>
-                
-                <p className="text-sm text-muted-foreground">
-                  {COPY.hero.supportingText}
-                </p>
               </div>
 
-              {/* Right side - Screenshot with MacBook frame */}
-              <div className="relative">
-                <Image
-                  src="/screenshots/hero/dashboard-desktop.png"
-                  alt="AppTrack Dashboard showing job applications organized in columns with status tracking"
-                  width={1200}
-                  height={750}
-                  className="w-full h-auto"
-                  priority
-                  sizes={IMAGE_SIZES}
-                  quality={IMAGE_QUALITY_HERO}
-                  style={SCREENSHOT_STYLES}
-                />
-                <p className="text-center text-sm text-muted-foreground mt-4">
-                  See all your applications organized in one clean dashboard
-                </p>
-              </div>
+              {/* Right: Sankey chart screenshot */}
+              <ScrollReveal direction="right" delay={0.2}>
+                <div className="relative">
+                  <div className="rounded-xl overflow-hidden shadow-2xl shadow-black/10 border border-border">
+                    <Image
+                      src="/screenshots/features/sankey-chart.png"
+                      alt="AppTrack pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
+                      width={800}
+                      height={500}
+                      className="w-full h-auto"
+                      priority
+                      sizes={IMAGE_SIZES}
+                      quality={IMAGE_QUALITY_HERO}
+                    />
+                  </div>
+                  {/* Floating label */}
+                  <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-surface-1 rounded-full px-4 py-2 shadow-lg border border-border text-sm font-medium text-muted-foreground">
+                    <Sparkles className="inline h-4 w-4 text-indigo-500 mr-1.5" />
+                    Your pipeline, visualized
+                  </div>
+                </div>
+              </ScrollReveal>
             </div>
           </div>
         </section>
 
-        {/* Problem/Solution Section */}
-        <HomeProblemSolution />
+        {/* ============================================================
+            SECTION 2: SOCIAL PROOF BAR
+            ============================================================ */}
+        <section className="border-y border-border bg-surface-1">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-indigo-500" />
+                <span className="font-semibold text-foreground">Join thousands</span> of job seekers tracking applications
+              </span>
+              <span className="hidden sm:inline text-border">|</span>
+              <span>Free forever plan available</span>
+              <span className="hidden sm:inline text-border">|</span>
+              <span>AI coaching from $9/month</span>
+            </div>
+          </div>
+        </section>
 
-        {/* Try AI Features Free Section */}
-        <HomeTryAISection />
+        {/* ============================================================
+            SECTION 3: PRODUCT SHOWCASE
+            ============================================================ */}
+        <section className="py-16 sm:py-20 px-4">
+          <div className="container mx-auto max-w-6xl">
+            <ScrollReveal>
+              <div className="text-center mb-12">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
+                  Everything you need, nothing you don't
+                </h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  One place to organize your applications, track your progress, and get AI-powered career coaching.
+                </p>
+              </div>
+            </ScrollReveal>
 
-        {/* Testimonials Section - Early social proof before feature details */}
+            {/* Feature highlights — compact grid, no height matching */}
+            <StaggerContainer className="space-y-6" staggerDelay={0.1}>
+              {/* Pipeline Visualization - full width featured card */}
+              <StaggerItem>
+                <div className="group rounded-2xl border border-border bg-gradient-to-br from-badge-indigo/50 to-surface-1 p-6 sm:p-8 hover:shadow-card-hover transition-all duration-300">
+                  <div className="grid lg:grid-cols-5 gap-6 items-center">
+                    <div className="lg:col-span-2 space-y-3">
+                      <div className="rounded-xl bg-badge-indigo p-2.5 w-fit">
+                        <BarChart3 className="h-5 w-5 text-indigo-600" />
+                      </div>
+                      <h3 className="text-xl font-semibold font-display">Pipeline Visualization</h3>
+                      <p className="text-muted-foreground">See exactly where applications succeed or drop off with interactive Sankey charts — a feature no competitor offers.</p>
+                      <ul className="space-y-1.5">
+                        <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                          See conversion rates at each stage
+                        </li>
+                        <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                          Identify bottlenecks in your process
+                        </li>
+                        <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                          Track progress over time
+                        </li>
+                      </ul>
+                    </div>
+                    <div className="lg:col-span-3">
+                      <div className="rounded-lg overflow-hidden border border-border">
+                        <Image
+                          src="/screenshots/features/sankey-chart.png"
+                          alt="Application Pipeline Sankey Chart"
+                          width={800}
+                          height={500}
+                          className="w-full h-auto"
+                          sizes="(max-width: 768px) 100vw, 60vw"
+                          quality={IMAGE_QUALITY}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </StaggerItem>
+
+              {/* Feature cards - 2x2 grid */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <StaggerItem>
+                  <div className="group rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 h-full">
+                    <div className="rounded-xl bg-badge-emerald p-2.5 w-fit mb-3">
+                      <Check className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <h3 className="text-base font-semibold font-display mb-1">Smart Tracking</h3>
+                    <p className="text-sm text-muted-foreground">Track every application with status updates, interview notes, and recruiter contacts.</p>
+                  </div>
+                </StaggerItem>
+                <StaggerItem>
+                  <div className="group rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 h-full">
+                    <div className="rounded-xl bg-badge-violet p-2.5 w-fit mb-3">
+                      <Sparkles className="h-5 w-5 text-violet-600" />
+                    </div>
+                    <h3 className="text-base font-semibold font-display mb-1">AI Career Coaching</h3>
+                    <p className="text-sm text-muted-foreground">Resume analysis, cover letters, interview prep, and job fit scoring — powered by AI.</p>
+                  </div>
+                </StaggerItem>
+                <StaggerItem>
+                  <div className="group rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 h-full">
+                    <div className="rounded-xl bg-badge-orange p-2.5 w-fit mb-3">
+                      <Target className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <h3 className="text-base font-semibold font-display mb-1">Browser Extension</h3>
+                    <p className="text-sm text-muted-foreground">Save jobs from any site with one click. Auto-extract details instantly.</p>
+                  </div>
+                </StaggerItem>
+                <StaggerItem>
+                  <div className="group rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 h-full">
+                    <div className="rounded-xl bg-badge-neutral p-2.5 w-fit mb-3">
+                      <Users className="h-5 w-5 text-stone-600" />
+                    </div>
+                    <h3 className="text-base font-semibold font-display mb-1">Contact Management</h3>
+                    <p className="text-sm text-muted-foreground">Store recruiter contacts, LinkedIn profiles, and networking connections.</p>
+                  </div>
+                </StaggerItem>
+              </div>
+            </StaggerContainer>
+          </div>
+        </section>
+
+        {/* ============================================================
+            SECTION 4: AI TOOLS — BENTO GRID
+            ============================================================ */}
+        <section className="py-16 sm:py-20 px-4 bg-section-muted">
+          <div className="container mx-auto max-w-6xl">
+            <ScrollReveal>
+              <div className="text-center mb-12">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-badge-violet text-badge-violet-fg mb-4">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Powered
+                </span>
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
+                  Your AI career coach, on demand
+                </h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Get expert help with every step of your job search. Try our free tools or upgrade to AI Coach for unlimited access.
+                </p>
+              </div>
+            </ScrollReveal>
+
+            <StaggerContainer staggerDelay={0.08}>
+              {/* Row 1: First 3 tools */}
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                {AI_TOOLS.slice(0, 3).map((tool) => (
+                  <StaggerItem key={tool.id}>
+                    <Link
+                      href={"ctaHref" in tool ? (tool as any).ctaHref : tool.href}
+                      className="group block h-full rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                      <div className={`rounded-xl ${tool.badgeColor} p-2.5 w-fit mb-3`}>
+                        <tool.icon className={`h-5 w-5 ${tool.iconColor}`} />
+                      </div>
+                      <h3 className="font-semibold font-display text-base mb-1 group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {tool.description}
+                      </p>
+                      <ul className="space-y-1.5 mb-3">
+                        {tool.features.map((f) => (
+                          <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                      <span className="inline-flex items-center text-sm font-medium text-primary group-hover:text-primary/80">
+                        {tool.cta}
+                        <ArrowRight className="ml-1.5 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </span>
+                    </Link>
+                  </StaggerItem>
+                ))}
+              </div>
+              {/* Row 2: Last 2 tools — centered */}
+              <div className="grid sm:grid-cols-2 gap-4 max-w-2xl mx-auto">
+                {AI_TOOLS.slice(3).map((tool) => (
+                  <StaggerItem key={tool.id}>
+                    <Link
+                      href={"ctaHref" in tool ? (tool as any).ctaHref : tool.href}
+                      className="group block h-full rounded-2xl border border-border bg-surface-1 p-5 hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5"
+                    >
+                      <div className={`rounded-xl ${tool.badgeColor} p-2.5 w-fit mb-3`}>
+                        <tool.icon className={`h-5 w-5 ${tool.iconColor}`} />
+                      </div>
+                      <h3 className="font-semibold font-display text-base mb-1 group-hover:text-primary transition-colors">
+                        {tool.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        {tool.description}
+                      </p>
+                      <ul className="space-y-1.5 mb-3">
+                        {tool.features.map((f) => (
+                          <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                            {f}
+                          </li>
+                        ))}
+                      </ul>
+                      <span className="inline-flex items-center text-sm font-medium text-primary group-hover:text-primary/80">
+                        {tool.cta}
+                        <ArrowRight className="ml-1.5 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                      </span>
+                    </Link>
+                  </StaggerItem>
+                ))}
+              </div>
+            </StaggerContainer>
+
+            <ScrollReveal delay={0.3}>
+              <div className="text-center mt-10">
+                <p className="text-sm text-muted-foreground mb-4">
+                  Like what you see? Sign up to save your results and unlock unlimited access.
+                </p>
+                <ButtonLink
+                  href="/signup"
+                  size="lg"
+                  className="bg-accent hover:bg-accent/90 text-white shadow-lg shadow-orange-500/20"
+                >
+                  Create Free Account
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </ButtonLink>
+              </div>
+            </ScrollReveal>
+          </div>
+        </section>
+
+        {/* ============================================================
+            SECTION 5: TESTIMONIALS
+            ============================================================ */}
         <TestimonialSection />
 
-        {/* Features Section */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto">
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-12">
-              {COPY.features.title}
-            </h2>
-            
-            {/* Sankey Chart Feature Highlight */}
-            <div className="mb-16">
-              <div className="grid lg:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
-                <div className="relative order-2 lg:order-1">
-                  <Image
-                    src="/screenshots/features/sankey-chart.png"
-                    alt="Application Pipeline Sankey Chart"
-                    width={800}
-                    height={500}
-                    className="w-full h-auto"
-                    sizes={IMAGE_SIZES}
-                    quality={IMAGE_QUALITY}
-                  />
-                </div>
-                <div className="space-y-4 order-1 lg:order-2">
-                  <h3 className="text-2xl font-bold text-foreground">{FEATURE_SECTIONS.sankey.title}</h3>
-                  <p className="text-lg text-muted-foreground">
-                    {FEATURE_SECTIONS.sankey.description}
-                  </p>
-                  <CheckList items={FEATURE_SECTIONS.sankey.features} />
-                </div>
-              </div>
-            </div>
-
-            {/* Feature Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 justify-items-center px-4 sm:px-0">
-              {features.map((feature, index) => {
-                const isSecondary = index % 2 === 1
-
-                return (
-                  <div key={feature.title} className="text-center space-y-4 w-full max-w-[280px] sm:max-w-xs">
-                    <div
-                      className={`mx-auto w-12 h-12 ${isSecondary ? "bg-secondary/10 border-secondary/20" : "bg-primary/10 border-primary/20"} rounded-lg flex items-center justify-center border`}
-                    >
-                      <feature.IconComponent className={`h-6 w-6 ${isSecondary ? "text-secondary" : "text-primary"}`} />
-                    </div>
-                    <h3 className="font-semibold text-foreground">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">{feature.description}</p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* Interview Prep Section */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-6xl">
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              <div className="space-y-4">
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {FEATURE_SECTIONS.interviewPrep.title}
-                </h2>
-                <p className="text-lg text-muted-foreground">
-                  {FEATURE_SECTIONS.interviewPrep.description}
-                </p>
-                <CheckList items={FEATURE_SECTIONS.interviewPrep.features} />
-              </div>
-              <div className="relative">
-                <Image
-                  src="/screenshots/features/interview-prep.png"
-                  alt="AI Interview Preparation"
-                  width={800}
-                  height={600}
-                  className="w-full h-auto"
-                  sizes={IMAGE_SIZES}
-                  quality={IMAGE_QUALITY}
-                  style={SCREENSHOT_STYLES}
-                />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* AI Coach Feature Showcase */}
-        <HomeAICoachSection />
-
-        {/* Mobile Responsive Section */}
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-6xl">
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              <div className="order-2 lg:order-1">
-                <div className="relative mx-auto max-w-sm">
-                  <Image
-                    src="/screenshots/devices/mobile-dashboard.png"
-                    alt="AppTrack Mobile Dashboard"
-                    width={400}
-                    height={800}
-                    className="w-full h-auto"
-                    sizes={IMAGE_SIZES_SMALL}
-                    quality={IMAGE_QUALITY}
-                  />
-                </div>
-              </div>
-              <div className="order-1 lg:order-2 space-y-4 text-center lg:text-left">
-                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
-                  {FEATURE_SECTIONS.mobile.title}
-                </h2>
-                <p className="text-lg text-muted-foreground">
-                  {FEATURE_SECTIONS.mobile.description}
-                </p>
-                <CheckList items={FEATURE_SECTIONS.mobile.features} className="text-left" />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Pricing Section */}
+        {/* ============================================================
+            SECTION 6: PRICING
+            ============================================================ */}
         <HomePricingSection plans={plans} />
 
-        {/* FAQ Section */}
+        {/* ============================================================
+            SECTION 7: FAQ + FINAL CTA
+            ============================================================ */}
         <HomeFaq />
 
-        {/* Final CTA Section */}
-        <HomeFinalCta />
+        {/* Final CTA — Dark indigo section */}
+        <section className="py-16 sm:py-20 px-4 bg-indigo-950 text-white">
+          <div className="container mx-auto max-w-3xl text-center">
+            <ScrollReveal>
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
+                Ready to take control of your job search?
+              </h2>
+              <p className="text-lg text-indigo-200 mb-8">
+                Get organized, stay on track, and land your dream role with AI-powered assistance.
+              </p>
+              <ButtonLink
+                href="/signup"
+                size="lg"
+                className="bg-accent hover:bg-accent/90 text-white shadow-lg shadow-orange-500/25 text-base px-8"
+              >
+                Start Your Free Account
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </ButtonLink>
+              <p className="text-sm text-indigo-300 mt-6">
+                Start free • Upgrade anytime • Cancel when you get hired
+              </p>
+            </ScrollReveal>
+          </div>
+        </section>
+
       </main>
     </div>
     </HomepageClientWrapper>

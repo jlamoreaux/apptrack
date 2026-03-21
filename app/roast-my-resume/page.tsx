@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
 import { RoastingAnimationLazy } from "@/components/roast/roasting-animation-lazy";
+import { NavigationStatic } from "@/components/navigation-static";
 
 // Disposable email domains to block (client-side check)
 const DISPOSABLE_DOMAINS = new Set([
@@ -141,6 +142,7 @@ export default function RoastMyResumePage() {
   return (
     <>
       {isUploading && <RoastingAnimationLazy />}
+      <NavigationStatic />
       <div className="min-h-screen bg-gradient-to-br from-background to-primary/5">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
         {/* Header */}

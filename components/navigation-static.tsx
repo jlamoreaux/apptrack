@@ -42,7 +42,11 @@ const TRY_TOOLS = [
   },
 ];
 
-export function NavigationStatic() {
+interface NavigationStaticProps {
+  isAuthenticated?: boolean;
+}
+
+export function NavigationStatic({ isAuthenticated = false }: NavigationStaticProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -95,17 +99,28 @@ export function NavigationStatic() {
               variant="ghost"
               className="text-primary hover:text-primary/80"
             >
-              🔥 Roast My Resume
+              Roast My Resume
             </ButtonLink>
-            <ButtonLink href="/login" variant="ghost">
-              Login
-            </ButtonLink>
-            <ButtonLink
-              href="/signup"
-              className="bg-primary hover:bg-primary/90"
-            >
-              Sign Up
-            </ButtonLink>
+            {isAuthenticated ? (
+              <ButtonLink
+                href="/dashboard"
+                className="bg-accent hover:bg-accent/90 text-white"
+              >
+                Go to Dashboard
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink href="/login" variant="ghost">
+                  Login
+                </ButtonLink>
+                <ButtonLink
+                  href="/signup"
+                  className="bg-accent hover:bg-accent/90 text-white"
+                >
+                  Sign Up
+                </ButtonLink>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -149,23 +164,35 @@ export function NavigationStatic() {
               className="w-full justify-start h-11 text-primary hover:text-primary/80"
               onClick={() => setIsOpen(false)}
             >
-              🔥 Roast My Resume
+              Roast My Resume
             </ButtonLink>
-            <ButtonLink
-              href="/login"
-              variant="ghost"
-              className="w-full justify-start h-11"
-              onClick={() => setIsOpen(false)}
-            >
-              Login
-            </ButtonLink>
-            <ButtonLink
-              href="/signup"
-              className="w-full bg-primary hover:bg-primary/90 h-11"
-              onClick={() => setIsOpen(false)}
-            >
-              Sign Up
-            </ButtonLink>
+            {isAuthenticated ? (
+              <ButtonLink
+                href="/dashboard"
+                className="w-full bg-accent hover:bg-accent/90 text-white h-11"
+                onClick={() => setIsOpen(false)}
+              >
+                Go to Dashboard
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink
+                  href="/login"
+                  variant="ghost"
+                  className="w-full justify-start h-11"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Login
+                </ButtonLink>
+                <ButtonLink
+                  href="/signup"
+                  className="w-full bg-accent hover:bg-accent/90 text-white h-11"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Sign Up
+                </ButtonLink>
+              </>
+            )}
           </div>
         </div>
       )}
