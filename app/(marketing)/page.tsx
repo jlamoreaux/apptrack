@@ -149,7 +149,7 @@ export default async function HomePage() {
               <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
-                  <span className="font-semibold text-foreground">Join thousands</span> of job seekers tracking applications
+                  Track your job search in one place
                 </span>
                 <span className="hidden sm:inline text-border">|</span>
                 <span>Free forever plan available</span>
