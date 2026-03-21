@@ -82,15 +82,29 @@ export function PostHogPageView(): JSX.Element {
       ...(utmCampaign && { last_utm_campaign: utmCampaign }),
     });
 
-    // Set "first touch" properties only once per browser — survives across sessions
+    // Set "first touch" properties only once per browser — survives across sessions.
+    // localStorage can throw in private browsing or when storage is blocked,
+    // so both reads and writes are wrapped in try-catch.
     const firstTouchKey = "apptrack_first_utm_set";
-    if (!localStorage.getItem(firstTouchKey)) {
+    let firstTouchAlreadySet = false;
+    try {
+      firstTouchAlreadySet = !!localStorage.getItem(firstTouchKey);
+    } catch {
+      // Storage blocked — treat as not set and proceed
+    }
+
+    if (!firstTouchAlreadySet) {
       posthog.setPersonProperties({
         first_utm_source: utmSource,
         ...(utmMedium && { first_utm_medium: utmMedium }),
         ...(utmCampaign && { first_utm_campaign: utmCampaign }),
       });
-      localStorage.setItem(firstTouchKey, "1");
+      try {
+        localStorage.setItem(firstTouchKey, "1");
+      } catch {
+        // Storage blocked — first-touch marker won't persist, but the
+        // person property was still set for this session
+      }
     }
 
     // Fire a discrete event so we can build funnels: utm_visit → signed_up → upgraded
