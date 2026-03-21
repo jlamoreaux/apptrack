@@ -11,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SampleResultPreview } from "@/components/try/sample-result-preview";
+import { EmailCaptureGate } from "@/components/try/email-capture-gate";
 import Link from "next/link";
 import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
 import { SignupGate } from "@/components/try/signup-gate";
@@ -21,6 +22,7 @@ export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailCaptured, setEmailCaptured] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
 
@@ -145,7 +147,7 @@ export default function TryJobFitPage() {
           AI analyzes the job description against your background in 30 seconds
         </p>
         <p className="text-sm text-muted-foreground">
-          One free trial daily &bull; Get instant insights
+          Get your job fit analysis in 30 seconds
         </p>
       </div>
 
@@ -178,45 +180,63 @@ export default function TryJobFitPage() {
             ]}
           />
 
-          {/* Form or Results */}
-          {!results ? (
+          {/* Form, Processing, or Results */}
+          {isLoading ? (
+            <EmailCaptureGate
+              source="job-fit"
+              isProcessing={isLoading}
+              onEmailCaptured={() => setEmailCaptured(true)}
+              onSkip={() => {}}
+            />
+          ) : !results ? (
             <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
               <SampleResultPreview variant="job-fit" />
               <JobFitForm onSubmit={handleSubmit} isLoading={isLoading} />
             </div>
+          ) : emailCaptured ? (
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <JobFitResults analysis={results} isPreview={false} />
+              </div>
+              <div className="text-center">
+                <Button variant="outline" onClick={() => {
+                  setResults(null);
+                  setSessionId(null);
+                  setEmailCaptured(false);
+                  setError(null);
+                }}>
+                  Analyze Another Job
+                </Button>
+              </div>
+            </div>
           ) : (
-        <div className="space-y-8">
-          {/* Results */}
-          <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-            <JobFitResults analysis={results} isPreview={true} />
-          </div>
-
-          {/* Signup Gate */}
-          <SignupGate
-            featureType="job_fit"
-            sessionId={sessionId}
-            title="Your Analysis is Ready!"
-            benefits={[
-              { text: "Full analysis with detailed breakdown" },
-              { text: "Specific gaps and how to address them" },
-              { text: "Actionable next steps" },
-              { text: "Save and track this application" },
-              { text: "Try all AI features free once" },
-            ]}
-          />
-
-          {/* Try Another Application */}
-          <div className="text-center">
-            <Button variant="outline" onClick={() => {
-              setResults(null);
-              setSessionId(null);
-              setError(null);
-            }}>
-              Analyze Another Job
-            </Button>
-          </div>
-        </div>
-      )}
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <JobFitResults analysis={results} isPreview={true} />
+              </div>
+              <SignupGate
+                featureType="job_fit"
+                sessionId={sessionId}
+                title="Your Analysis is Ready!"
+                benefits={[
+                  { text: "Full analysis with detailed breakdown" },
+                  { text: "Specific gaps and how to address them" },
+                  { text: "Actionable next steps" },
+                  { text: "Save and track this application" },
+                  { text: "Try all AI features free once" },
+                ]}
+              />
+              <div className="text-center">
+                <Button variant="outline" onClick={() => {
+                  setResults(null);
+                  setSessionId(null);
+                  setError(null);
+                }}>
+                  Analyze Another Job
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
           {!results && (

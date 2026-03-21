@@ -11,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SampleResultPreview } from "@/components/try/sample-result-preview";
+import { EmailCaptureGate } from "@/components/try/email-capture-gate";
 import Link from "next/link";
 import {
   trackPreviewStarted,
@@ -25,6 +26,7 @@ export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailCaptured, setEmailCaptured] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Redirect logged-in users to dashboard
@@ -126,7 +128,7 @@ export default function TryInterviewPrepPage() {
         <p className="text-xl text-muted-foreground mb-2">
           AI generates personalized interview questions in 30 seconds
         </p>
-        <p className="text-sm text-muted-foreground">One free trial daily &bull; Get instant practice questions</p>
+        <p className="text-sm text-muted-foreground">Get personalized questions in 30 seconds</p>
       </div>
 
       {/* Skeleton loading while auth / rate-limit resolves */}
@@ -157,43 +159,67 @@ export default function TryInterviewPrepPage() {
             ]}
           />
 
-          {!results ? (
+          {isLoading ? (
+            <EmailCaptureGate
+              source="interview-prep"
+              isProcessing={isLoading}
+              onEmailCaptured={() => setEmailCaptured(true)}
+              onSkip={() => {}}
+            />
+          ) : !results ? (
             <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
               <SampleResultPreview variant="interview-prep" />
               <InterviewPrepForm onSubmit={handleSubmit} isLoading={isLoading} />
             </div>
+          ) : emailCaptured ? (
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <InterviewPrepResults analysis={results} isPreview={false} />
+              </div>
+              <div className="text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResults(null);
+                    setSessionId(null);
+                    setEmailCaptured(false);
+                    setError(null);
+                  }}
+                >
+                  Try Another Job
+                </Button>
+              </div>
+            </div>
           ) : (
-        <div className="space-y-8">
-          <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-            <InterviewPrepResults analysis={results} isPreview={true} />
-          </div>
-
-          <SignupGate
-            featureType="interview_prep"
-            sessionId={sessionId}
-            title="Your Questions Are Ready!"
-            benefits={[
-              { text: `All ${results.totalQuestions || results.questions?.length || 0} interview questions` },
-              { text: "Suggested approaches for each question" },
-              { text: "Practice tips and strategies" },
-              { text: "Try all AI features free once" },
-            ]}
-          />
-
-          <div className="text-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setResults(null);
-                setSessionId(null);
-                setError(null);
-              }}
-            >
-              Try Another Job
-            </Button>
-          </div>
-        </div>
-      )}
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <InterviewPrepResults analysis={results} isPreview={true} />
+              </div>
+              <SignupGate
+                featureType="interview_prep"
+                sessionId={sessionId}
+                title="Your Questions Are Ready!"
+                benefits={[
+                  { text: `All ${results.totalQuestions || results.questions?.length || 0} interview questions` },
+                  { text: "Suggested approaches for each question" },
+                  { text: "Practice tips and strategies" },
+                  { text: "Try all AI features free once" },
+                ]}
+              />
+              <div className="text-center">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setResults(null);
+                    setSessionId(null);
+                    setError(null);
+                  }}
+                >
+                  Try Another Job
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
           {!results && (

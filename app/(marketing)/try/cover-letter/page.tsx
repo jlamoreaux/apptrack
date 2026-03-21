@@ -11,6 +11,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SampleResultPreview } from "@/components/try/sample-result-preview";
+import { EmailCaptureGate } from "@/components/try/email-capture-gate";
 import Link from "next/link";
 import {
   trackPreviewStarted,
@@ -25,6 +26,7 @@ export default function TryCoverLetterPage() {
   const [results, setResults] = useState<any>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [emailCaptured, setEmailCaptured] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<CoverLetterFormData | null>(null);
 
@@ -136,7 +138,7 @@ export default function TryCoverLetterPage() {
           Get a professional cover letter written by AI in 30 seconds
         </p>
         <p className="text-sm text-muted-foreground">
-          One free trial daily
+          Get your cover letter in 30 seconds
         </p>
       </div>
 
@@ -171,53 +173,74 @@ export default function TryCoverLetterPage() {
             ]}
           />
 
-          {/* Form or Results */}
-          {!results ? (
+          {/* Form, Processing, or Results */}
+          {isLoading ? (
+            <EmailCaptureGate
+              source="cover-letter"
+              isProcessing={isLoading}
+              onEmailCaptured={() => setEmailCaptured(true)}
+              onSkip={() => {}}
+            />
+          ) : !results ? (
             <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm space-y-6">
               <SampleResultPreview variant="cover-letter" />
               <CoverLetterForm onSubmit={handleSubmit} isLoading={isLoading} />
             </div>
+          ) : emailCaptured ? (
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <CoverLetterResults
+                  coverLetter={results.text}
+                  isPreview={false}
+                  companyName={formData?.companyName}
+                  roleName={formData?.roleName}
+                />
+              </div>
+              <div className="text-center">
+                <Button variant="outline" onClick={() => {
+                  setResults(null);
+                  setSessionId(null);
+                  setEmailCaptured(false);
+                  setError(null);
+                  setFormData(null);
+                }}>
+                  Generate Another Cover Letter
+                </Button>
+              </div>
+            </div>
           ) : (
-        <div className="space-y-8">
-          {/* Results */}
-          <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
-            <CoverLetterResults
-              coverLetter={results.text}
-              isPreview={true}
-              companyName={formData?.companyName}
-              roleName={formData?.roleName}
-            />
-          </div>
-
-          {/* Signup Gate */}
-          <SignupGate
-            featureType="cover_letter"
-            sessionId={sessionId}
-            title="Your Cover Letter is Ready!"
-            benefits={[
-              { text: "Full professionally-written cover letter" },
-              { text: "Save and edit your cover letter" },
-              { text: "Track this application" },
-              { text: "Try all AI features free once" },
-            ]}
-          />
-
-          {/* Try Another */}
-          <div className="text-center">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setResults(null);
-                setSessionId(null);
-                setError(null);
-                setFormData(null);
-              }}
-            >
-              Generate Another Cover Letter
-            </Button>
-          </div>
-        </div>
-      )}
+            <div className="space-y-8">
+              <div className="bg-card rounded-lg border p-6 sm:p-8 shadow-sm">
+                <CoverLetterResults
+                  coverLetter={results.text}
+                  isPreview={true}
+                  companyName={formData?.companyName}
+                  roleName={formData?.roleName}
+                />
+              </div>
+              <SignupGate
+                featureType="cover_letter"
+                sessionId={sessionId}
+                title="Your Cover Letter is Ready!"
+                benefits={[
+                  { text: "Full professionally-written cover letter" },
+                  { text: "Save and edit your cover letter" },
+                  { text: "Track this application" },
+                  { text: "Try all AI features free once" },
+                ]}
+              />
+              <div className="text-center">
+                <Button variant="outline" onClick={() => {
+                  setResults(null);
+                  setSessionId(null);
+                  setError(null);
+                  setFormData(null);
+                }}>
+                  Generate Another Cover Letter
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* How It Works - Hidden on Mobile (shown via Quick Tips above) */}
           {!results && (

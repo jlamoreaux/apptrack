@@ -1,0 +1,166 @@
+"use client";
+
+import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+
+interface EmailCaptureGateProps {
+  source: string; // "job-fit" | "cover-letter" | "interview-prep"
+  isProcessing: boolean; // true while AI generates
+  onEmailCaptured: () => void;
+  onSkip: () => void;
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function EmailCaptureGate({
+  source,
+  isProcessing,
+  onEmailCaptured,
+  onSkip,
+}: EmailCaptureGateProps) {
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [captured, setCaptured] = useState(false);
+
+  // Hide component when processing is done and no email was captured
+  if (!isProcessing && !captured) {
+    return null;
+  }
+
+  // Success state
+  if (captured) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
+        <div className="flex flex-col items-center gap-2">
+          <CheckCircle2 className="h-8 w-8 text-green-500" />
+          <p className="text-sm font-medium text-foreground">
+            Email saved! Your full results will appear shortly.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function validateEmail(value: string): boolean {
+    if (!value.trim()) {
+      setEmailError("Email is required");
+      return false;
+    }
+    if (!EMAIL_REGEX.test(value)) {
+      setEmailError("Please enter a valid email address");
+      return false;
+    }
+    setEmailError("");
+    return true;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitError("");
+
+    if (!validateEmail(email)) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/try/capture-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Something went wrong. Please try again.");
+      }
+
+      setCaptured(true);
+      onEmailCaptured();
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Something went wrong. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
+      {/* Processing indicator */}
+      <div className="flex flex-col items-center gap-3 mb-6">
+        <Spinner size="lg" className="text-primary" />
+        <p className="text-sm font-medium text-muted-foreground animate-pulse">
+          Generating your results...
+        </p>
+      </div>
+
+      {/* Email capture form */}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-foreground">
+            Unlock your full results
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Enter your email and we&apos;ll send you a copy too
+          </p>
+        </div>
+
+        <div className="max-w-sm mx-auto space-y-2">
+          <Input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (emailError) validateEmail(e.target.value);
+            }}
+            onBlur={() => {
+              if (email) validateEmail(email);
+            }}
+            disabled={isSubmitting}
+            className={emailError ? "border-red-500 focus-visible:ring-red-500" : ""}
+          />
+          {emailError && (
+            <p className="text-sm text-red-500">{emailError}</p>
+          )}
+        </div>
+
+        {submitError && (
+          <p className="text-sm text-red-500">{submitError}</p>
+        )}
+
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="bg-accent hover:bg-accent/90 text-accent-foreground"
+        >
+          {isSubmitting ? (
+            <>
+              <Spinner size="sm" className="mr-2" />
+              Submitting...
+            </>
+          ) : (
+            "Unlock Full Results"
+          )}
+        </Button>
+
+        <p className="text-xs text-muted-foreground">
+          No spam. Unsubscribe anytime.
+        </p>
+
+        <button
+          type="button"
+          onClick={onSkip}
+          className="text-sm text-muted-foreground underline hover:text-foreground transition-colors"
+        >
+          Skip
+        </button>
+      </form>
+    </div>
+  );
+}
