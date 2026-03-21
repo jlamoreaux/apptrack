@@ -160,7 +160,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="sm:hidden p-2 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+            className="sm:hidden p-2 min-h-[44px] min-w-[44px] rounded-md hover:bg-interactive-hover focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label="Toggle menu"
             aria-expanded={isOpen}
           >
@@ -189,7 +189,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
                     key={tool.href}
                     href={tool.href}
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
                   >
                     <tool.icon className="h-5 w-5 text-primary" />
                     <span className="font-medium">{tool.title}</span>

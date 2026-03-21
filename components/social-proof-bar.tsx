@@ -1,5 +1,3 @@
-"use client";
-
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
 interface StatItemProps {

@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       const decryptedString = decryptContent(session.full_content_encrypted);
       fullContent = JSON.parse(decryptedString);
     } catch (decryptError) {
-      loggerService.error("Failed to decrypt session content", LogCategory.SECURITY, { error: decryptError, sessionId });
+      loggerService.error("Failed to decrypt session content", decryptError, { category: LogCategory.SECURITY, sessionId });
       return NextResponse.json(
         { error: "Failed to decrypt session content" },
         { status: 500 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
       featureType: session.feature_type,
     });
   } catch (error) {
-    loggerService.error("Unlock with email error", LogCategory.API, { error });
+    loggerService.error("Unlock with email error", error, { category: LogCategory.API });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

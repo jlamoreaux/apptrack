@@ -213,7 +213,7 @@ export default function RoastMyResumePage() {
         {/* Privacy Notice */}
         <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
           <p className="text-sm text-center text-gray-600 dark:text-gray-300">
-            <span className="font-semibold">🔒 Privacy First:</span> We automatically remove personal information
+            <span className="font-semibold">Privacy First:</span> We automatically remove personal information
             (except first names) before generating your roast. We never store your actual resume - only the anonymized roast expires after 30 days.
           </p>
         </div>
