@@ -62,5 +62,48 @@ export function PostHogPageView(): JSX.Element {
     }
   }, [pathname, searchParams]);
 
+  // Capture UTM attribution on landing. PostHog records UTM params in pageview
+  // events automatically, but this also sets person-level properties so we can
+  // segment users by acquisition source (e.g. "came from chatgpt.com") and
+  // track whether they converted.
+  useEffect(() => {
+    const utmSource = searchParams.get("utm_source");
+    if (!utmSource) return;
+
+    const utmMedium = searchParams.get("utm_medium") ?? undefined;
+    const utmCampaign = searchParams.get("utm_campaign") ?? undefined;
+    const utmContent = searchParams.get("utm_content") ?? undefined;
+    const utmTerm = searchParams.get("utm_term") ?? undefined;
+
+    // Always update "last touch" person properties
+    posthog.setPersonProperties({
+      last_utm_source: utmSource,
+      ...(utmMedium && { last_utm_medium: utmMedium }),
+      ...(utmCampaign && { last_utm_campaign: utmCampaign }),
+    });
+
+    // Set "first touch" properties only once per browser — survives across sessions
+    const firstTouchKey = "apptrack_first_utm_set";
+    if (!localStorage.getItem(firstTouchKey)) {
+      posthog.setPersonProperties({
+        first_utm_source: utmSource,
+        ...(utmMedium && { first_utm_medium: utmMedium }),
+        ...(utmCampaign && { first_utm_campaign: utmCampaign }),
+      });
+      localStorage.setItem(firstTouchKey, "1");
+    }
+
+    // Fire a discrete event so we can build funnels: utm_visit → signed_up → upgraded
+    posthog.capture("utm_visit", {
+      utm_source: utmSource,
+      ...(utmMedium && { utm_medium: utmMedium }),
+      ...(utmCampaign && { utm_campaign: utmCampaign }),
+      ...(utmContent && { utm_content: utmContent }),
+      ...(utmTerm && { utm_term: utmTerm }),
+    });
+  // Only run on initial mount — UTM params don't change mid-session
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return <></>;
 }
