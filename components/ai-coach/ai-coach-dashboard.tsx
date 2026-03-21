@@ -90,23 +90,23 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         className="space-y-6"
       >
         <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 w-full h-auto p-1 gap-1">
-          <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <FileText className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Resume</span>
           </TabsTrigger>
-          <TabsTrigger value="interview" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="interview" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <Briefcase className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Interview</span>
           </TabsTrigger>
-          <TabsTrigger value="cover-letter" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="cover-letter" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <Mail className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Cover</span>
           </TabsTrigger>
-          <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="job-fit" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <BarChart3 className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Job Fit</span>
           </TabsTrigger>
-          <TabsTrigger value="advice" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px] data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="advice" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <MessageSquare className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Advice</span>
           </TabsTrigger>
