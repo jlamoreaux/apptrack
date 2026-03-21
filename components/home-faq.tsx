@@ -11,7 +11,7 @@ export function HomeFaq() {
   return (
     <section className="py-16 px-4">
       <div className="container mx-auto max-w-3xl">
-        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-12">
+        <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display text-center mb-12">
           {COPY.faq.title}
         </h2>
         
@@ -22,7 +22,7 @@ export function HomeFaq() {
               className="border rounded-lg overflow-hidden"
             >
               <button
-                className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
+                className="w-full px-6 py-4 min-h-[44px] text-left flex items-center justify-between hover:bg-muted/50 transition-colors"
                 onClick={() => setOpenIndex(openIndex === index ? null : index)}
               >
                 <span className="font-medium">{item.question}</span>

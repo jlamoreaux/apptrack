@@ -192,38 +192,27 @@ export function getStatusColors(status: string) {
 }
 
 /**
- * Generate Tailwind-compatible CSS classes for status badges
- * 
+ * Generate layout classes and inline styles for status badges
+ *
+ * Uses inline styles from ACCESSIBLE_COLORS as the single source of truth
+ * for color values, ensuring WCAG AA compliance without relying on
+ * Tailwind color utilities that may not match the verified contrast ratios.
+ *
  * @param status - The status string (e.g., "Applied", "Interview Scheduled")
- * @returns Object containing container classes and exact color fallbacks
+ * @returns Object containing layout classes and inline color styles
  * @example
  * ```ts
- * const { container, exactColors } = getStatusClasses("Applied")
- * // container: "inline-flex items-center... bg-blue-50 text-blue-800..."
- * // exactColors: { backgroundColor: "#E3F2FD", color: "#0D47A1", borderColor: "#1976D2" }
+ * const { container, style } = getStatusClasses("Applied")
+ * // container: "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border status-badge"
+ * // style: { backgroundColor: "#E3F2FD", color: "#0D47A1", borderColor: "#1976D2" }
  * ```
  */
 export function getStatusClasses(status: string) {
   const statusColors = getStatusColors(status)
-  
-  // Map status to predefined Tailwind-compatible classes
-  const statusClassMap: Record<string, string> = {
-    'applied': 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100 focus:ring-blue-500',
-    'interview-scheduled': 'bg-orange-50 text-orange-800 border-orange-300 hover:bg-orange-100 focus:ring-orange-500', 
-    'interviewed': 'bg-purple-50 text-purple-800 border-purple-300 hover:bg-purple-100 focus:ring-purple-500',
-    'offer': 'bg-green-50 text-green-800 border-green-300 hover:bg-green-100 focus:ring-green-500',
-    'hired': 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 focus:ring-emerald-500',
-    'rejected': 'bg-red-50 text-red-800 border-red-300 hover:bg-red-100 focus:ring-red-500',
-    'archived': 'bg-gray-50 text-gray-800 border-gray-300 hover:bg-gray-100 focus:ring-gray-500'
-  }
-  
-  const normalizedStatus = status.toLowerCase().replace(/\s+/g, '-')
-  const statusClasses = statusClassMap[normalizedStatus] || statusClassMap['applied']
-  
+
   return {
-    container: `inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border status-badge ${statusClasses}`,
-    // Fallback for exact color matching when needed
-    exactColors: {
+    container: 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border status-badge',
+    style: {
       backgroundColor: statusColors.bg,
       color: statusColors.text,
       borderColor: statusColors.border
@@ -232,30 +221,50 @@ export function getStatusClasses(status: string) {
 }
 
 /**
- * Validate if color meets WCAG contrast requirements
- * 
- * @param foreground - The foreground color (hex format)
- * @param background - The background color (hex format)  
+ * Validate if a color pair meets WCAG contrast requirements.
+ *
+ * Implements the WCAG 2.1 relative luminance and contrast ratio formulas.
+ * See: https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+ *
+ * All predefined color pairs in ACCESSIBLE_COLORS have been manually verified
+ * using WebAIM Contrast Checker — their measured ratios are recorded in
+ * COLOR_CONTRAST_RATIOS. This function can be used at dev/test time to
+ * validate any *new* color pairs added to the system.
+ *
+ * @param foreground - The foreground color (6-digit hex, e.g. "#0D47A1")
+ * @param background - The background color (6-digit hex, e.g. "#E3F2FD")
  * @param level - WCAG level to validate against ('AA' or 'AAA')
- * @returns True if contrast meets requirements
- * 
- * @note This is a simplified validation. In production, use a proper contrast 
- * calculation library like 'wcag-contrast' or 'color-contrast'
+ * @returns True if the contrast ratio meets the required threshold
  */
 export function validateContrast(foreground: string, background: string, level: 'AA' | 'AAA' = 'AA'): boolean {
-  // Development-only validation warnings
-  if (process.env.NODE_ENV === 'development') {
-    if (!foreground || !background) {
-      return false
-    }
-    
-    if (!foreground.startsWith('#') || !background.startsWith('#')) {
-    }
+  if (!foreground || !background) return false
+
+  const hexToRgb = (hex: string): [number, number, number] | null => {
+    const match = hex.replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
+    if (!match) return null
+    return [parseInt(match[1], 16), parseInt(match[2], 16), parseInt(match[3], 16)]
   }
-  
-  // For our predefined accessible colors, we trust they meet requirements
-  // In a real implementation, calculate actual contrast ratios
-  return true
+
+  const srgbToLinear = (c: number): number => {
+    const s = c / 255
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+
+  const relativeLuminance = (rgb: [number, number, number]): number =>
+    0.2126 * srgbToLinear(rgb[0]) + 0.7152 * srgbToLinear(rgb[1]) + 0.0722 * srgbToLinear(rgb[2])
+
+  const fgRgb = hexToRgb(foreground)
+  const bgRgb = hexToRgb(background)
+  if (!fgRgb || !bgRgb) return false
+
+  const l1 = relativeLuminance(fgRgb)
+  const l2 = relativeLuminance(bgRgb)
+  const lighter = Math.max(l1, l2)
+  const darker = Math.min(l1, l2)
+  const ratio = (lighter + 0.05) / (darker + 0.05)
+
+  const threshold = level === 'AAA' ? 7 : 4.5
+  return ratio >= threshold
 }
 
 // Generate Tailwind color configuration from accessible colors

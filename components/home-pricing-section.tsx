@@ -41,9 +41,9 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
   }, [plans])
 
   return (
-    <section id="pricing" className="py-16 px-4 bg-muted" aria-labelledby="pricing-heading">
+    <section id="pricing" className="py-16 px-4 bg-section-pricing" aria-labelledby="pricing-heading">
       <div className="text-center mb-8">
-        <h2 id="pricing-heading" className="text-2xl font-bold mb-2 text-foreground">
+        <h2 id="pricing-heading" className="text-2xl font-bold font-display mb-2 text-foreground">
           {COPY.pricing.title}
         </h2>
         <p className="text-muted-foreground">{COPY.pricing.subtitle}</p>
@@ -62,6 +62,7 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
                 features={plan.features}
                 cta={plan.cta}
                 variant="home"
+                highlighted={plan.name === PLAN_NAMES.AI_COACH}
                 className="w-full"
               />
             </div>
@@ -69,9 +70,9 @@ export function HomePricingSection({ plans = [] }: HomePricingSectionProps) {
         </div>
       </div>
 
-      {/* Ethical Promise */}
-      <div className="text-center mt-8 p-4 bg-primary/5 rounded-lg max-w-2xl mx-auto">
-        <p className="text-sm font-medium text-foreground">
+      {/* Ethical Promise + Cancel Reminder (combined) */}
+      <div className="text-center mt-8 p-6 bg-badge-indigo border border-border rounded-xl max-w-2xl mx-auto">
+        <p className="text-base font-semibold text-foreground">
           {COPY.pricing.ethicalPromise}
         </p>
       </div>

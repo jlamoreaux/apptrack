@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signInWithPassword } from "@/lib/actions";
+import Link from "next/link";
 
 const signInSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -109,11 +110,19 @@ export function SignInForm() {
         {errors.password && (
           <p className="text-sm text-red-600">{errors.password.message}</p>
         )}
+        <div className="text-right">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-muted-foreground hover:text-primary underline-offset-4 hover:underline"
+          >
+            Forgot your password?
+          </Link>
+        </div>
       </div>
 
       <Button
         type="submit"
-        className="w-full bg-primary hover:bg-primary/90"
+        className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
         disabled={loading}
       >
         {loading ? "Signing In..." : "Sign In"}

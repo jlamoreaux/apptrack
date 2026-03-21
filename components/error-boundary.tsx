@@ -56,8 +56,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI
       return (
-        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-red-200 bg-red-50 p-8 text-center">
-          <div className="mb-4 text-red-600">
+        <div className="flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-destructive/20 bg-destructive/10 p-8 text-center">
+          <div className="mb-4 text-destructive">
             <svg
               className="mx-auto h-12 w-12"
               fill="none"
@@ -72,13 +72,13 @@ export class ErrorBoundary extends Component<Props, State> {
               />
             </svg>
           </div>
-          <h2 className="mb-2 text-lg font-semibold text-gray-900">Something went wrong</h2>
-          <p className="mb-4 text-sm text-gray-600">
+          <h2 className="mb-2 text-lg font-semibold text-foreground">Something went wrong</h2>
+          <p className="mb-4 text-sm text-muted-foreground">
             We've been notified of this error and are working to fix it.
           </p>
           <button
             onClick={() => this.setState({ hasError: false })}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 focus:outline-none focus:ring-2 focus:ring-destructive focus:ring-offset-2"
           >
             Try again
           </button>

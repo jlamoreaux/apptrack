@@ -178,7 +178,7 @@ export function CoverLetterForm({ onSubmit, isLoading = false }: CoverLetterForm
       <Button
         type="submit"
         size="lg"
-        className="w-full"
+        className="w-full bg-accent hover:bg-accent/90 text-accent-foreground"
         disabled={isLoading}
       >
         {isLoading ? (

@@ -54,6 +54,7 @@ interface PlanCardProps {
     href: string;
   };
   isCurrentPlan?: boolean;
+  highlighted?: boolean;
   variant?: "home" | "upgrade";
   className?: string;
 }
@@ -84,6 +85,7 @@ export function PlanCard({
   features,
   cta,
   isCurrentPlan = false,
+  highlighted = false,
   variant = "home",
   className = "",
 }: PlanCardProps) {
@@ -115,7 +117,7 @@ export function PlanCard({
 
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 font-display">
             {title}
             {isCurrentPlan && <Badge variant="secondary">Current</Badge>}
           </CardTitle>
@@ -221,14 +223,14 @@ export function PlanCard({
   return (
     <div
       className={`
-        relative h-full flex flex-col p-6 rounded-lg border-2 transition-all duration-200
+        relative h-full flex flex-col p-6 rounded-lg transition-all duration-200 ease-out hover:shadow-card-hover hover:-translate-y-0.5
+        ${highlighted ? "border-2 border-accent shadow-lg" : `border-2 ${theme.colors.border}`}
         ${theme.colors.background}
-        ${theme.colors.border}
         ${
-          isPro || isAI ? "ring-2 ring-opacity-50 shadow-lg" : "hover:shadow-md"
+          !highlighted && (isPro || isAI) ? "ring-2 ring-opacity-50 shadow-lg" : ""
         }
-        ${isPro ? "ring-blue-500" : ""}
-        ${isAI ? "ring-amber-500" : ""}
+        ${!highlighted && isPro ? "ring-primary" : ""}
+        ${!highlighted && isAI ? "ring-primary/80" : ""}
         ${className}
       `}
     >
@@ -248,6 +250,8 @@ export function PlanCard({
         </div>
       )}
 
+      {/* Highlighted plans rely on border-accent + shadow-lg to stand out visually */}
+
       {/* Plan header */}
       <div className="text-center mb-6">
         <div className="flex items-center justify-center mb-2">
@@ -258,7 +262,7 @@ export function PlanCard({
           ) : (
             <Check className={`h-5 w-5 mr-2 ${theme.colors.icon}`} />
           )}
-          <h3 className={`font-semibold text-lg ${theme.colors.text}`}>
+          <h3 className={`font-semibold font-display text-lg ${theme.colors.text}`}>
             {title}
           </h3>
         </div>
@@ -307,7 +311,10 @@ export function PlanCard({
       <div className="mt-auto">
         {isCurrentPlan ? (
           <Button
-            className={`w-full transition-all duration-200 ${theme.colors.button}`}
+            className={`w-full transition-all duration-200 ${
+              isFree ? "border-border" : isAI ? "bg-accent hover:bg-accent/90 text-accent-foreground" : theme.colors.button
+            }`}
+            variant={isFree ? "outline" : "default"}
             size="lg"
             disabled={true}
           >
@@ -316,7 +323,10 @@ export function PlanCard({
         ) : (
           <Link href={cta.href} className="block">
             <Button
-              className={`w-full transition-all duration-200 ${theme.colors.button}`}
+              className={`w-full transition-all duration-200 ${
+                isFree ? "border-border" : isAI ? "bg-accent hover:bg-accent/90 text-accent-foreground" : theme.colors.button
+              }`}
+              variant={isFree ? "outline" : "default"}
               size="lg"
             >
               {cta.text}

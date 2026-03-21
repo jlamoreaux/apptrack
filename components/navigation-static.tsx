@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
 import {
@@ -18,7 +19,10 @@ import {
   BarChart3,
   FileText,
   MessageSquare,
+  Sun,
+  Moon,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 const TRY_TOOLS = [
@@ -42,11 +46,31 @@ const TRY_TOOLS = [
   },
 ];
 
-export function NavigationStatic() {
+interface NavigationStaticProps {
+  isAuthenticated?: boolean;
+}
+
+export function NavigationStatic({ isAuthenticated = false }: NavigationStaticProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 16);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
-    <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+    <nav id="main-navigation" className={`sticky top-0 z-50 transition-all duration-normal bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 border-b ${isScrolled ? "shadow-sm border-border" : "border-transparent"}`}>
       <div className="container flex h-14 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
           <Image
@@ -95,23 +119,48 @@ export function NavigationStatic() {
               variant="ghost"
               className="text-primary hover:text-primary/80"
             >
-              🔥 Roast My Resume
+              Roast My Resume
             </ButtonLink>
-            <ButtonLink href="/login" variant="ghost">
-              Login
-            </ButtonLink>
-            <ButtonLink
-              href="/signup"
-              className="bg-primary hover:bg-primary/90"
-            >
-              Sign Up
-            </ButtonLink>
+            {mounted && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5" />
+                ) : (
+                  <Moon className="h-5 w-5" />
+                )}
+              </Button>
+            )}
+            {isAuthenticated ? (
+              <ButtonLink
+                href="/dashboard"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground"
+              >
+                Go to Dashboard
+              </ButtonLink>
+            ) : (
+              <>
+                <ButtonLink href="/login" variant="ghost">
+                  Login
+                </ButtonLink>
+                <ButtonLink
+                  href="/signup"
+                  className="bg-accent hover:bg-accent/90 text-accent-foreground"
+                >
+                  Sign Up
+                </ButtonLink>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="sm:hidden p-2 rounded-md hover:bg-accent focus:outline-none focus:ring-2 focus:ring-primary"
+            className="sm:hidden p-2 min-h-[44px] min-w-[44px] rounded-md hover:bg-interactive-hover focus:outline-none focus:ring-2 focus:ring-primary"
             aria-label="Toggle menu"
             aria-expanded={isOpen}
           >
@@ -121,54 +170,90 @@ export function NavigationStatic() {
       </div>
 
       {/* Mobile Menu */}
-      {isOpen && (
-        <div className="sm:hidden border-t bg-background">
-          <div className="container px-4 py-4 space-y-1">
-            <div className="py-2">
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-2">
-                Tools
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="sm:hidden border-t bg-background overflow-hidden"
+          >
+            <div className="container px-4 py-4 space-y-1">
+              <div className="py-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-2">
+                  Tools
+                </div>
+                {TRY_TOOLS.map((tool) => (
+                  <Link
+                    key={tool.href}
+                    href={tool.href}
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
+                  >
+                    <tool.icon className="h-5 w-5 text-primary" />
+                    <span className="font-medium">{tool.title}</span>
+                  </Link>
+                ))}
               </div>
-              {TRY_TOOLS.map((tool) => (
-                <Link
-                  key={tool.href}
-                  href={tool.href}
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-accent"
+
+              <div className="border-t my-2" />
+
+              {mounted && (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start h-11"
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
                 >
-                  <tool.icon className="h-5 w-5 text-primary" />
-                  <span className="font-medium">{tool.title}</span>
-                </Link>
-              ))}
+                  {theme === "dark" ? (
+                    <Sun className="h-5 w-5 mr-2" />
+                  ) : (
+                    <Moon className="h-5 w-5 mr-2" />
+                  )}
+                  {theme === "dark" ? "Light Mode" : "Dark Mode"}
+                </Button>
+              )}
+
+              <ButtonLink
+                href="/roast-my-resume"
+                variant="ghost"
+                className="w-full justify-start h-11 text-primary hover:text-primary/80"
+                onClick={() => setIsOpen(false)}
+              >
+                Roast My Resume
+              </ButtonLink>
+              {isAuthenticated ? (
+                <ButtonLink
+                  href="/dashboard"
+                  className="w-full bg-accent hover:bg-accent/90 text-accent-foreground h-11"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Go to Dashboard
+                </ButtonLink>
+              ) : (
+                <>
+                  <ButtonLink
+                    href="/login"
+                    variant="ghost"
+                    className="w-full justify-start h-11"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Login
+                  </ButtonLink>
+                  <ButtonLink
+                    href="/signup"
+                    className="w-full bg-accent hover:bg-accent/90 text-accent-foreground h-11"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    Sign Up
+                  </ButtonLink>
+                </>
+              )}
             </div>
-
-            <div className="border-t my-2" />
-
-            <ButtonLink
-              href="/roast-my-resume"
-              variant="ghost"
-              className="w-full justify-start h-11 text-primary hover:text-primary/80"
-              onClick={() => setIsOpen(false)}
-            >
-              🔥 Roast My Resume
-            </ButtonLink>
-            <ButtonLink
-              href="/login"
-              variant="ghost"
-              className="w-full justify-start h-11"
-              onClick={() => setIsOpen(false)}
-            >
-              Login
-            </ButtonLink>
-            <ButtonLink
-              href="/signup"
-              className="w-full bg-primary hover:bg-primary/90 h-11"
-              onClick={() => setIsOpen(false)}
-            >
-              Sign Up
-            </ButtonLink>
-          </div>
-        </div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </nav>
   );
 }

@@ -52,7 +52,7 @@ export default function LayoffsPage() {
     <div className="min-h-screen bg-background">
       <NavigationStatic />
 
-      <main className="container mx-auto px-4 py-16 max-w-3xl">
+      <main id="main-content" className="container mx-auto px-4 py-16 max-w-3xl">
         {/* Hero */}
         <div className="text-center space-y-4 mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold text-primary leading-tight">

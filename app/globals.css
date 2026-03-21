@@ -4,71 +4,149 @@
 
 @layer base {
   :root {
-    --background: 210 33% 98%;
-    --foreground: 210 50% 10%; /* Darker for better contrast */
+    /*
+     * ═══════════════════════════════════════════════════════
+     * AppTrack Design Tokens — LIGHT MODE
+     * Single source of truth. Components use semantic names.
+     * ═══════════════════════════════════════════════════════
+     */
 
-    --card: 0 0% 100%;
-    --card-foreground: 210 50% 10%; /* Darker for better contrast */
+    /* ─── Surfaces (elevation hierarchy) ─── */
+    --background: 40 6% 97%;          /* Page bg: warm off-white */
+    --foreground: 20 15% 12%;         /* Primary text: warm near-black */
+    --card: 0 0% 100%;                /* Surface-1: white cards */
+    --card-foreground: 20 15% 12%;
+    --popover: 0 0% 100%;             /* Surface-2: modals/popovers */
+    --popover-foreground: 20 15% 12%;
+    --surface-raised: 40 10% 96%;     /* Icon badge containers */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 210 50% 10%; /* Darker for better contrast */
-
-    --primary: 210 71% 42%; /* #1565C0 - WCAG AA compliant blue */
+    /* ─── Brand colors ─── */
+    --primary: 243 55% 50%;           /* Indigo-700 #4338CA */
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 122 39% 33%; /* #2E7D32 - WCAG AA compliant green */
+    --accent: 24 95% 53%;             /* Coral #F97316 — ALL CTAs */
+    --accent-foreground: 0 0% 100%;
+    --secondary: 160 84% 39%;         /* Emerald-600 — success */
     --secondary-foreground: 0 0% 100%;
-
-    --accent: 207 90% 94%; /* #E3F2FD - Light blue for hover states */
-    --accent-foreground: 210 100% 22%; /* #0D47A1 - Dark blue text */
-
-    --tertiary: 35 91% 42%; /* #D97706 - WCAG AA compliant amber/orange */
-    --tertiary-foreground: 0 0% 100%;
-
-    --muted: 210 20% 92%;
-    --muted-foreground: 210 25% 35%; /* Darker for better contrast */
-
-    --destructive: 0 70% 40%; /* #C62828 - WCAG AA compliant red */
+    --destructive: 347 77% 50%;       /* Rose-600 — errors */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 85%;
-    --input: 210 20% 85%;
-    --ring: 210 50% 24%;
+    /* ─── Text ─── */
+    --muted: 30 6% 96%;
+    --muted-foreground: 20 5% 42%;    /* Secondary text */
+    --tertiary-foreground: 20 5% 55%; /* Captions, timestamps */
 
-    --radius: 0.5rem;
+    /* ─── Borders ─── */
+    --border: 30 8% 88%;              /* Default card borders */
+    --border-subtle: 30 6% 93%;       /* Subtle dividers */
+    --border-strong: 243 55% 50%;     /* Focus/active borders */
+    --input: 30 8% 88%;
+    --ring: 243 55% 50%;
+
+    /* ─── Icon badge backgrounds ─── */
+    --badge-indigo: 226 100% 95%;     /* #EEF2FF */
+    --badge-indigo-fg: 243 55% 45%;   /* Indigo-700 */
+    --badge-emerald: 152 80% 93%;     /* #ECFDF5 */
+    --badge-emerald-fg: 160 84% 30%;  /* Emerald-700 */
+    --badge-violet: 270 100% 96%;     /* #F5F3FF */
+    --badge-violet-fg: 263 70% 45%;   /* Violet-700 */
+    --badge-orange: 33 100% 95%;      /* #FFF7ED */
+    --badge-orange-fg: 24 95% 40%;    /* Orange-700 */
+    --badge-neutral: 30 6% 94%;       /* Stone-100 */
+    --badge-neutral-fg: 20 5% 35%;    /* Stone-700 */
+
+    /* ─── Section backgrounds ─── */
+    --section-hero: 226 40% 97%;           /* Indigo-tinted hero */
+    --section-ai-tools: 270 30% 97%;       /* Violet-tinted AI section */
+    --section-pricing: 24 40% 97%;         /* Coral-tinted pricing */
+    --section-cta: 244 47% 15%;            /* Dark indigo final CTA */
+    --section-cta-foreground: 0 0% 100%;   /* White text on CTA */
+    --section-cta-muted: 0 0% 100% / 0.7; /* Subdued text on CTA */
+
+    /* ─── Interactive ─── */
+    --interactive-hover: 226 40% 97%;
+
+    --radius: 0.625rem;
+
+    /* ─── Sidebar ─── */
+    --sidebar: 40 6% 97%;
+    --sidebar-foreground: 20 15% 12%;
+    --sidebar-accent: 226 100% 97%;
+    --sidebar-accent-foreground: 244 55% 42%;
+    --sidebar-border: 30 8% 88%;
+    --sidebar-ring: 243 55% 50%;
   }
 
   .dark {
-    --background: 210 50% 10%;
-    --foreground: 210 20% 98%;
+    /*
+     * ═══════════════════════════════════════════════════════
+     * DARK MODE — Inspired by Linear/Vercel/Raycast
+     * Clear 4-step surface hierarchy:
+     *   bg (8%) → surface-1 (12%) → surface-2 (16%) → raised (20%)
+     * Neutral hue: 220° (cool blue-gray, NOT purple or brown)
+     * ═══════════════════════════════════════════════════════
+     */
 
-    --card: 210 50% 15%;
-    --card-foreground: 210 20% 98%;
+    /* ─── Surfaces (4-step elevation) ─── */
+    --background: 220 16% 8%;         /* Darkest: page bg */
+    --foreground: 220 10% 92%;        /* Off-white text (not pure white) */
+    --card: 220 16% 12%;              /* Surface-1: cards (+4% lighter) */
+    --card-foreground: 220 10% 92%;
+    --popover: 220 16% 16%;           /* Surface-2: modals (+4% more) */
+    --popover-foreground: 220 10% 92%;
+    --surface-raised: 220 16% 20%;    /* Surface-3: badges, chips (+4% more) */
 
-    --popover: 210 50% 15%;
-    --popover-foreground: 210 20% 98%;
-
-    --primary: 210 71% 55%; /* Lighter blue for dark mode */
+    /* ─── Brand colors (desaturated 10-15% for dark bg) ─── */
+    --primary: 239 70% 65%;           /* Indigo lighter, less saturated */
     --primary-foreground: 0 0% 100%;
-
-    --secondary: 122 39% 55%; /* Lighter green for dark mode */
+    --accent: 24 90% 55%;             /* Coral slightly lighter */
+    --accent-foreground: 0 0% 100%;
+    --secondary: 160 70% 48%;         /* Emerald desaturated */
     --secondary-foreground: 0 0% 100%;
-
-    --accent: 210 70% 30%; /* Blue for hover states on dark backgrounds */
-    --accent-foreground: 210 20% 98%; /* Light text on dark accent bg */
-
-    --tertiary: 35 91% 55%; /* Lighter amber for dark mode */
-    --tertiary-foreground: 0 0% 100%;
-
-    --muted: 210 50% 20%;
-    --muted-foreground: 210 20% 70%;
-
-    --destructive: 0 84% 60%;
+    --destructive: 347 65% 58%;       /* Rose desaturated */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 50% 20%;
-    --input: 210 50% 20%;
-    --ring: 210 50% 50%;
+    /* ─── Text ─── */
+    --muted: 220 14% 16%;
+    --muted-foreground: 220 10% 60%;  /* Secondary text */
+    --tertiary-foreground: 220 8% 48%; /* Captions */
+
+    /* ─── Borders (visible but not harsh) ─── */
+    --border: 220 14% 20%;            /* Default borders (+12% from bg) */
+    --border-subtle: 220 14% 15%;     /* Subtle dividers */
+    --border-strong: 239 70% 65%;     /* Focus/active = primary */
+    --input: 220 14% 20%;
+    --ring: 239 70% 65%;
+
+    /* ─── Icon badge backgrounds (clearly visible on cards) ─── */
+    --badge-indigo: 239 50% 25%;      /* Visible indigo on 12% card */
+    --badge-indigo-fg: 239 70% 75%;
+    --badge-emerald: 160 40% 22%;
+    --badge-emerald-fg: 160 60% 65%;
+    --badge-violet: 263 40% 25%;
+    --badge-violet-fg: 263 60% 75%;
+    --badge-orange: 24 50% 22%;
+    --badge-orange-fg: 24 80% 65%;
+    --badge-neutral: 220 14% 22%;
+    --badge-neutral-fg: 220 10% 65%;
+
+    /* ─── Section backgrounds ─── */
+    --section-hero: 239 30% 10%;           /* Indigo-tinted */
+    --section-ai-tools: 263 25% 10%;       /* Violet-tinted */
+    --section-pricing: 24 20% 9%;          /* Coral-tinted */
+    --section-cta: 244 47% 8%;             /* Darkest CTA bg */
+    --section-cta-foreground: 0 0% 100%;
+    --section-cta-muted: 0 0% 100% / 0.7;
+
+    /* ─── Interactive ─── */
+    --interactive-hover: 220 16% 16%;
+
+    /* ─── Sidebar ─── */
+    --sidebar: 220 16% 10%;
+    --sidebar-foreground: 220 10% 92%;
+    --sidebar-accent: 239 50% 25%;
+    --sidebar-accent-foreground: 239 70% 85%;
+    --sidebar-border: 220 14% 20%;
+    --sidebar-ring: 239 70% 65%;
   }
 }
 
@@ -83,19 +161,19 @@
 
 /* Chart colors for application pipeline */
 :root {
-  --chart-1: 210 50% 24%; /* Primary blue */
-  --chart-2: 160 40% 35%; /* Secondary green */
-  --chart-3: 210 15% 45%; /* Accent gray */
-  --chart-4: 25 70% 50%; /* Orange */
-  --chart-5: 0 70% 50%; /* Red */
+  --chart-1: 243 55% 50%; /* Indigo: primary */
+  --chart-2: 160 84% 39%; /* Emerald: success */
+  --chart-3: 24 5% 45%;   /* Stone: neutral */
+  --chart-4: 24 95% 53%;  /* Coral: accent */
+  --chart-5: 347 77% 50%; /* Rose: destructive */
 }
 
 .dark {
-  --chart-1: 210 50% 50%; /* Lighter blue for dark mode */
-  --chart-2: 160 40% 50%; /* Lighter green for dark mode */
-  --chart-3: 210 15% 70%; /* Lighter gray for dark mode */
-  --chart-4: 25 70% 60%; /* Lighter orange for dark mode */
-  --chart-5: 0 70% 60%; /* Lighter red for dark mode */
+  --chart-1: 239 84% 67%; /* Indigo lighter */
+  --chart-2: 160 84% 50%; /* Emerald lighter */
+  --chart-3: 30 6% 65%;   /* Stone lighter */
+  --chart-4: 24 95% 60%;  /* Coral lighter */
+  --chart-5: 347 77% 60%; /* Rose lighter */
 }
 
 /* Ensure high contrast for accessibility */
@@ -119,7 +197,7 @@
 
 /* Ensure focus indicators are always visible and meet 3:1 contrast ratio */
 *:focus-visible {
-  outline: 2px solid #1976D2; /* High contrast blue */
+  outline: 2px solid #4338CA; /* Indigo-700: brand primary */
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -129,7 +207,7 @@
   position: absolute;
   top: -40px;
   left: 6px;
-  background: #1565C0;
+  background: #4338CA;
   color: white;
   padding: 8px;
   text-decoration: none;
@@ -171,10 +249,10 @@
 /* High contrast mode support */
 @media (prefers-contrast: high) {
   :root {
-    --primary: 210 100% 20%;
-    --secondary: 122 100% 20%;
-    --accent: 0 0% 0%;
-    --destructive: 0 100% 25%;
+    --primary: 243 70% 30%;
+    --secondary: 160 100% 25%;
+    --accent: 24 100% 35%;
+    --destructive: 347 100% 30%;
   }
 }
 
@@ -228,10 +306,10 @@ a[href] {
 
   @keyframes pulse-highlight {
     0%, 100% {
-      box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.4);
+      box-shadow: 0 0 0 0 rgba(67, 56, 202, 0.4);
     }
     50% {
-      box-shadow: 0 0 0 10px rgba(33, 150, 243, 0);
+      box-shadow: 0 0 0 10px rgba(67, 56, 202, 0);
     }
   }
 

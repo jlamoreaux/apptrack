@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
 import { RoastingAnimationLazy } from "@/components/roast/roasting-animation-lazy";
+import { NavigationStatic } from "@/components/navigation-static";
 
 // Disposable email domains to block (client-side check)
 const DISPOSABLE_DOMAINS = new Set([
@@ -141,6 +142,7 @@ export default function RoastMyResumePage() {
   return (
     <>
       {isUploading && <RoastingAnimationLazy />}
+      <NavigationStatic />
       <div className="min-h-screen bg-gradient-to-br from-background to-primary/5">
         <div className="container mx-auto px-4 py-12 max-w-4xl">
         {/* Header */}
@@ -211,7 +213,7 @@ export default function RoastMyResumePage() {
         {/* Privacy Notice */}
         <div className="mt-8 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
           <p className="text-sm text-center text-gray-600 dark:text-gray-300">
-            <span className="font-semibold">🔒 Privacy First:</span> We automatically remove personal information
+            <span className="font-semibold">Privacy First:</span> We automatically remove personal information
             (except first names) before generating your roast. We never store your actual resume - only the anonymized roast expires after 30 days.
           </p>
         </div>

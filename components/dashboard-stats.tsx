@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Calendar, Building2, TrendingUp } from "lucide-react";
+import Link from "next/link";
 
 interface DashboardStatsProps {
   userId: string;
@@ -70,6 +71,32 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
     );
   }
 
+  // Empty state: show welcoming onboarding card instead of five "0" stat cards
+  if (stats.total === 0) {
+    return (
+      <section aria-labelledby="stats-heading">
+        <h2 id="stats-heading" className="sr-only">Application Statistics</h2>
+        <Card className="border-primary/20 bg-badge-indigo">
+          <CardContent className="py-8 text-center">
+            <Building2 className="h-10 w-10 text-primary mx-auto mb-3" />
+            <h3 className="text-lg font-semibold font-display mb-2">
+              Welcome to AppTrack
+            </h3>
+            <p className="text-muted-foreground mb-4 max-w-md mx-auto">
+              Add your first application to start tracking your job search progress.
+            </p>
+            <Link
+              href="/dashboard/add"
+              className="inline-flex items-center justify-center px-6 py-2.5 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground font-medium transition-colors min-h-[44px]"
+            >
+              Add Your First Application
+            </Link>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
   return (
     <section
       aria-labelledby="stats-heading"
@@ -124,12 +151,12 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
           <div className="text-xl sm:text-2xl font-bold">{stats.offers}</div>
         </CardContent>
       </Card>
-      <Card className="border-green-500/20 col-span-full sm:col-span-1 lg:col-span-1">
+      <Card className="border-secondary/20 col-span-full sm:col-span-1 lg:col-span-1">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-xs sm:text-sm font-medium">
             Hired
           </CardTitle>
-          <TrendingUp className="h-4 w-4 text-green-500" />
+          <TrendingUp className="h-4 w-4 text-secondary" />
         </CardHeader>
         <CardContent>
           <div className="text-xl sm:text-2xl font-bold">{stats.hired}</div>

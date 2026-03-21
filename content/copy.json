@@ -133,18 +133,21 @@
         "name": "Sarah M.",
         "role": "Support Engineer",
         "highlight": "It's the fastest I've ever improved my resume!",
+        "content": "The AI analysis caught formatting issues I'd missed for months. Within a week of fixing them, I started getting callbacks.",
         "rating": 5
       },
       {
         "name": "Alex T.",
         "role": "Customer Support Manager",
         "highlight": "I can finally retire my doom spreadsheet",
+        "content": "Having all my applications in one place with the pipeline chart saved me from reapplying to the same company twice.",
         "rating": 5
       },
       {
         "name": "Emily R.",
         "role": "Product Manager",
-        "highlight": "Apptrack helps me stay focused and energized about the job search process",
+        "highlight": "The pipeline view changed how I think about my job search",
+        "content": "Seeing where my applications were dropping off helped me focus on improving my interview skills.",
         "rating": 5
       }
     ]
@@ -167,6 +170,26 @@
       {
         "question": "How does the AI Coach help?",
         "answer": "Our AI analyzes your resume, generates tailored cover letters, prepares you for interviews, and provides personalized career advice - all based on specific job descriptions."
+      },
+      {
+        "question": "Is my data private and secure?",
+        "answer": "Yes. Your application data, resumes, and personal information are encrypted and stored securely. We never sell your data or share it with third parties. You can export or delete your data at any time."
+      },
+      {
+        "question": "How does the browser extension work?",
+        "answer": "Install the AppTrack extension for Chrome or Firefox. When you're on a job posting, click the extension to save the job details (company, role, description) to your tracker with one click. No copy-pasting needed."
+      },
+      {
+        "question": "Why not just use a spreadsheet?",
+        "answer": "Spreadsheets work for a few applications but break down fast. AppTrack gives you pipeline visualization (see where applications drop off), AI-powered resume feedback, automated status tracking, and follow-up reminders — things a spreadsheet can't do."
+      },
+      {
+        "question": "Can I try the AI tools before signing up?",
+        "answer": "Yes! Our Job Fit Analysis, Cover Letter Generator, and Interview Prep tools each offer one free use per day — no account required. Sign up free to save your results and get unlimited access with AI Coach."
+      },
+      {
+        "question": "Can I export my data?",
+        "answer": "Yes. You can export all your application data at any time. Your data belongs to you."
       }
     ]
   },
