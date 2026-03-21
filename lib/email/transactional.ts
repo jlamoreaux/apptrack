@@ -146,3 +146,120 @@ export async function sendRoastReadyEmail({
     return { success: false };
   }
 }
+
+// ─── Try Results Email ───────────────────────────────────────
+
+interface SendTryResultsEmailOptions {
+  email: string;
+  firstName?: string;
+  featureType: string;
+  results: any;
+}
+
+function formatResultsForEmail(featureType: string, results: any): string {
+  if (featureType === 'cover_letter') {
+    const text = typeof results === 'string' ? results : results?.text || '';
+    return `
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 16px 0; font-family: Georgia, serif;">
+        <p style="margin: 0; font-size: 15px; line-height: 1.7; color: #1f2937; white-space: pre-wrap;">${escapeHtml(text)}</p>
+      </div>
+    `;
+  }
+
+  if (featureType === 'job_fit') {
+    const score = results?.fitScore || results?.overallScore || 0;
+    const strengths = results?.strengths || [];
+    const gaps = results?.gaps || [];
+    const recommendation = results?.recommendation || '';
+
+    let html = `
+      <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 16px 0;">
+        <p style="margin: 0 0 12px; font-size: 24px; font-weight: bold; color: #4338ca;">Match Score: ${score}%</p>
+    `;
+    if (strengths.length > 0) {
+      html += `<p style="margin: 12px 0 4px; font-weight: 600; color: #1f2937;">Strengths:</p><ul style="margin: 0; padding-left: 20px;">`;
+      strengths.slice(0, 5).forEach((s: any) => {
+        const text = typeof s === 'string' ? s : s?.point || s?.description || '';
+        html += `<li style="margin: 4px 0; color: #3f3f46;">${escapeHtml(text)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    if (gaps.length > 0) {
+      html += `<p style="margin: 12px 0 4px; font-weight: 600; color: #1f2937;">Areas to improve:</p><ul style="margin: 0; padding-left: 20px;">`;
+      gaps.slice(0, 3).forEach((g: any) => {
+        const text = typeof g === 'string' ? g : g?.point || g?.description || '';
+        html += `<li style="margin: 4px 0; color: #3f3f46;">${escapeHtml(text)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    if (recommendation) {
+      html += `<p style="margin: 12px 0 0; color: #3f3f46;"><strong>Recommendation:</strong> ${escapeHtml(recommendation)}</p>`;
+    }
+    html += `</div>`;
+    return html;
+  }
+
+  if (featureType === 'interview_prep') {
+    const questions = results?.questions || [];
+    let html = `<div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 16px 0;">`;
+    questions.slice(0, 8).forEach((q: any, i: number) => {
+      const text = typeof q === 'string' ? q : q?.question || q?.text || '';
+      const type = q?.type || q?.category || '';
+      html += `
+        <p style="margin: ${i > 0 ? '16px' : '0'} 0 4px; font-weight: 600; color: #1f2937;">${i + 1}. ${escapeHtml(text)}</p>
+        ${type ? `<p style="margin: 0; font-size: 13px; color: #6b7280;">${escapeHtml(type)}</p>` : ''}
+      `;
+    });
+    html += `</div>`;
+    return html;
+  }
+
+  return '';
+}
+
+const FEATURE_LABELS: Record<string, string> = {
+  cover_letter: 'Cover Letter',
+  job_fit: 'Job Fit Analysis',
+  interview_prep: 'Interview Questions',
+};
+
+export async function sendTryResultsEmail({
+  email,
+  firstName,
+  featureType,
+  results,
+}: SendTryResultsEmailOptions): Promise<{ success: boolean }> {
+  const unsubscribeUrl = getUnsubscribeUrl(email);
+  const safeName = firstName ? escapeHtml(firstName) : undefined;
+  const label = FEATURE_LABELS[featureType] || 'AI Analysis';
+
+  const resultsHtml = formatResultsForEmail(featureType, results);
+
+  const html = wrapEmail(
+    `
+    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
+      ${safeName ? `Hi ${safeName},` : 'Hi there,'}
+    </p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      Here are your ${label.toLowerCase()} results from AppTrack:
+    </p>
+    ${resultsHtml}
+    <p style="margin: 16px 0; font-size: 16px; color: #3f3f46;">
+      Want to save these results and get unlimited AI coaching? Create a free account:
+    </p>
+    ${ctaButton('Create Free Account', `${APP_URL}/signup`)}
+  `,
+    unsubscribeUrl
+  );
+
+  try {
+    const result = await sendEmail({
+      to: email,
+      subject: `Your ${label} from AppTrack`,
+      html,
+    });
+    return { success: result.success };
+  } catch (err) {
+    return { success: false };
+  }
+}

@@ -69,7 +69,7 @@ export function EmailCaptureGate({
       const captureRes = await fetch("/api/try/capture-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source }),
+        body: JSON.stringify({ email, source, sessionId }),
       });
 
       if (!captureRes.ok) {

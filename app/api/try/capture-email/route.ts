@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateEmail } from '@/lib/email/validate';
 import { scheduleDripSequence } from '@/lib/email/drip-scheduler';
+import { sendTryResultsEmail } from '@/lib/email/transactional';
+import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
+import { decryptContent } from '@/lib/utils/encryption';
 
 // Simple in-memory rate limiting: max 5 submissions per IP per hour
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -83,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Schedule drip sequence (adds to audience + sends Day 0 emails)
+    // Schedule drip sequence (adds to audience + schedules Day 2/5 emails)
     await scheduleDripSequence({
       email: normalizedEmail,
       audience: 'leads',
@@ -94,6 +97,13 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Send transactional email with actual results (non-blocking)
+    if (sessionId) {
+      sendResultsEmail(normalizedEmail, sessionId, firstName).catch((err) => {
+        console.error('[capture-email] Failed to send results email:', err);
+      });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[capture-email] Failed to capture email:', error);
@@ -102,4 +112,27 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/** Decrypt session results and send transactional email with actual content */
+async function sendResultsEmail(email: string, sessionId: string, firstName?: string) {
+  const serviceClient = createServiceRoleClient();
+
+  const { data: session } = await serviceClient
+    .from('ai_preview_sessions')
+    .select('feature_type, full_content_encrypted')
+    .eq('id', sessionId)
+    .single();
+
+  if (!session?.full_content_encrypted) return;
+
+  const decryptedString = decryptContent(session.full_content_encrypted);
+  const fullContent = JSON.parse(decryptedString);
+
+  await sendTryResultsEmail({
+    email,
+    firstName,
+    featureType: session.feature_type,
+    results: fullContent,
+  });
 }

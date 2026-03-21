@@ -99,7 +99,7 @@ describe("EmailCaptureGate", () => {
       "/api/try/capture-email",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ email: "user@example.com", source: "cover-letter" }),
+        body: JSON.stringify({ email: "user@example.com", source: "cover-letter", sessionId: "sess_123" }),
       })
     );
 
