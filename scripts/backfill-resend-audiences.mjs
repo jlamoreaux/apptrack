@@ -72,7 +72,13 @@ async function getExistingResendContact(audienceId, email) {
   return data?.data?.[0]?.id || null;
 }
 
-async function createResendContact(audienceId, email, firstName) {
+const MAX_RETRIES = 3;
+
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function createResendContact(audienceId, email, firstName, attempt = 1) {
   const res = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
     method: 'POST',
     headers: {
@@ -96,7 +102,13 @@ async function createResendContact(audienceId, email, firstName) {
   }
 
   if (res.status === 429) {
-    throw new Error(`Rate limited — slow down`);
+    if (attempt < MAX_RETRIES) {
+      const backoffMs = 1000 * Math.pow(2, attempt);
+      console.warn(`  RATE LIMITED — backing off ${backoffMs}ms (attempt ${attempt}/${MAX_RETRIES})`);
+      await sleep(backoffMs);
+      return createResendContact(audienceId, email, firstName, attempt + 1);
+    }
+    throw new Error(`Rate limited after ${MAX_RETRIES} retries`);
   }
 
   if (!res.ok) {
@@ -143,6 +155,7 @@ async function main() {
   let skippedUnknownAudience = 0;
   let skippedAlreadyExisted = 0;
   let failed = 0;
+  const unrecoverable = [];
 
   for (const row of toSync) {
     const { email, current_audience, first_name } = row;
@@ -163,7 +176,11 @@ async function main() {
           await updateContactId(email, id);
           console.log(`  EXIST ${email} (${current_audience}) — recovered ID ${id}`);
         } else {
-          console.log(`  EXIST ${email} (${current_audience}) — already in Resend, ID not recoverable`);
+          // ID not recoverable — track for manual investigation.
+          // Row stays null so it can be retried if Resend API improves,
+          // but we log it separately so operators know to investigate.
+          console.warn(`  UNRECOVERABLE ${email} (${current_audience}) — contact exists in Resend but ID cannot be retrieved`);
+          unrecoverable.push(email);
         }
         skippedAlreadyExisted++;
       } else {
@@ -181,6 +198,9 @@ async function main() {
   }
 
   console.log(`\nDone. Added: ${synced} | Already existed: ${skippedAlreadyExisted} | Unknown audience: ${skippedUnknownAudience} | Failed: ${failed}`);
+  if (unrecoverable.length > 0) {
+    console.warn(`\nUnrecoverable contacts (contact exists in Resend but ID could not be retrieved — investigate manually):\n  ${unrecoverable.join('\n  ')}`);
+  }
 }
 
 main().catch(err => {
