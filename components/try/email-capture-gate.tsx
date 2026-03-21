@@ -7,9 +7,10 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 
 interface EmailCaptureGateProps {
-  source: string; // "job-fit" | "cover-letter" | "interview-prep"
-  isProcessing: boolean; // true while AI generates
-  onEmailCaptured: () => void;
+  source: string;
+  sessionId: string | null;
+  isProcessing: boolean;
+  onEmailCaptured: (fullResults?: any) => void;
   onSkip: () => void;
 }
 
@@ -17,6 +18,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function EmailCaptureGate({
   source,
+  sessionId,
   isProcessing,
   onEmailCaptured,
   onSkip,
@@ -34,8 +36,9 @@ export function EmailCaptureGate({
         <div className="flex flex-col items-center gap-2">
           <CheckCircle2 className="h-8 w-8 text-secondary" />
           <p className="text-sm font-medium text-foreground">
-            Email saved! Your full results will appear shortly.
+            Email saved! Loading your full results...
           </p>
+          <Spinner size="md" className="text-primary mt-2" />
         </div>
       </div>
     );
@@ -62,19 +65,40 @@ export function EmailCaptureGate({
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/try/capture-email", {
+      // Step 1: Capture email (add to audience + schedule drips)
+      const captureRes = await fetch("/api/try/capture-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, source }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
+      if (!captureRes.ok) {
+        const data = await captureRes.json().catch(() => null);
         throw new Error(data?.error || "Something went wrong. Please try again.");
       }
 
       setCaptured(true);
-      onEmailCaptured();
+
+      // Step 2: Unlock full results if we have a sessionId
+      let fullResults = undefined;
+      if (sessionId) {
+        try {
+          const unlockRes = await fetch("/api/try/unlock-with-email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessionId, email }),
+          });
+
+          if (unlockRes.ok) {
+            const unlockData = await unlockRes.json();
+            fullResults = unlockData.analysis;
+          }
+        } catch {
+          // Unlock failed — still captured email, parent will show preview
+        }
+      }
+
+      onEmailCaptured(fullResults);
     } catch (err) {
       setSubmitError(
         err instanceof Error ? err.message : "Something went wrong. Please try again."
@@ -145,7 +169,7 @@ export function EmailCaptureGate({
           {isSubmitting ? (
             <>
               <Spinner size="sm" className="mr-2" />
-              Submitting...
+              Unlocking...
             </>
           ) : (
             "Unlock Full Results"

@@ -177,8 +177,13 @@ export default function TryCoverLetterPage() {
           {showEmailGate && !emailCaptured && !emailSkipped ? (
             <EmailCaptureGate
               source="cover-letter"
+              sessionId={sessionId}
               isProcessing={isLoading}
-              onEmailCaptured={() => { setEmailCaptured(true); setShowEmailGate(false); }}
+              onEmailCaptured={(fullResults) => {
+                setEmailCaptured(true);
+                setShowEmailGate(false);
+                if (fullResults) setResults({ text: typeof fullResults === 'string' ? fullResults : fullResults.text || fullResults });
+              }}
               onSkip={() => { setEmailSkipped(true); setShowEmailGate(false); }}
             />
           ) : !results ? (

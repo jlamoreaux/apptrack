@@ -184,8 +184,13 @@ export default function TryJobFitPage() {
           {showEmailGate && !emailCaptured && !emailSkipped ? (
             <EmailCaptureGate
               source="job-fit"
+              sessionId={sessionId}
               isProcessing={isLoading}
-              onEmailCaptured={() => { setEmailCaptured(true); setShowEmailGate(false); }}
+              onEmailCaptured={(fullResults) => {
+                setEmailCaptured(true);
+                setShowEmailGate(false);
+                if (fullResults) setResults(fullResults);
+              }}
               onSkip={() => { setEmailSkipped(true); setShowEmailGate(false); }}
             />
           ) : !results ? (

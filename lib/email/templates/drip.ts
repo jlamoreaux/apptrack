@@ -91,6 +91,29 @@ function ctaButton(text: string, url: string): string {
 
 const leadsTemplates: DripTemplate[] = [
   {
+    templateId: 'lead_day_0',
+    subject: 'Your AppTrack results are ready',
+    preheader: 'Thanks for trying our AI tools',
+    dayOffset: 0,
+    getHtml: (params) => wrapEmail(`
+      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
+        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      </p>
+      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+        Thanks for trying our AI career tools. Here's what you can do with a free AppTrack account:
+      </p>
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+        <li style="margin-bottom: 8px;">Track all your job applications in one place</li>
+        <li style="margin-bottom: 8px;">Get AI-powered resume analysis and feedback</li>
+        <li style="margin-bottom: 8px;">Visualize your application pipeline at a glance</li>
+      </ul>
+      ${ctaButton('Create Free Account', `${APP_URL}/signup`)}
+      <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
+        <a href="${params.unsubscribeUrl}" style="color: #71717a;">Unsubscribe</a>
+      </p>
+    `, params),
+  },
+  {
     templateId: 'lead_day_2',
     subject: '3 Tips to Improve Your Job Search',
     preheader: 'Stand out from other applicants',
