@@ -47,22 +47,37 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
   }, [searchParams]);
 
   // Show nudge when analyses_used increases (an analysis just completed)
+  // Guard: only act on real data (loading=false), not placeholder defaults
   useEffect(() => {
+    if (loading) return;
     if (prevUsedRef.current !== null && budget.analyses_used > prevUsedRef.current) {
       setShowNudge(true);
     }
     prevUsedRef.current = budget.analyses_used;
-  }, [budget.analyses_used]);
+  }, [budget.analyses_used, loading]);
 
-  // Poll for budget changes while an AI tool tab is active
-  // This catches when an analysis completes in a child component
+  // Sequential poll for budget changes while an AI tool tab is active
+  // Waits for each refresh to complete before scheduling the next
   useEffect(() => {
     const aiTabs = ["interview", "cover-letter", "job-fit", "resume"];
-    if (!aiTabs.includes(activeTab) || budget.is_pro) return;
+    if (loading || !aiTabs.includes(activeTab) || budget.is_pro) return;
 
-    const interval = setInterval(refresh, 5000);
-    return () => clearInterval(interval);
-  }, [activeTab, budget.is_pro, refresh]);
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      await refresh();
+      if (!cancelled) {
+        timeoutId = setTimeout(poll, 5000);
+      }
+    };
+
+    timeoutId = setTimeout(poll, 5000);
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [activeTab, budget.is_pro, loading, refresh]);
 
   // Get applicationId from URL for passing to components that need it
   const applicationId = searchParams.get("applicationId");

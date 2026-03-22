@@ -12,7 +12,7 @@ import { PLAN_THEMES } from "./plan-themes";
 import { APP_ROUTES } from "./routes";
 import { UI_CONSTANTS } from "./ui";
 import { AI_THEME } from "./ai-theme";
-import type { NavItem } from "@/types";
+import type { NavItem, PermissionLevel } from "@/types";
 
 // Navigation items configuration
 export const NAV_ITEMS: readonly NavItem[] = [
