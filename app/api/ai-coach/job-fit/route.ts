@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
+import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { createAICoach } from "@/lib/ai-coach";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
@@ -17,10 +18,9 @@ async function handler(request: NextRequest) {
   let permissionResult: PermissionCheckResult | null = null;
 
   try {
-    const supabase = await createClient();
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-    user = authUser;
-    
+    const authUser = await getAuthenticatedUser(request);
+    user = authUser ? { id: authUser.id, email: authUser.email } : null;
+
     if (!user) {
       loggerService.warn('Unauthorized job fit analysis attempt', {
         category: LogCategory.SECURITY,
@@ -28,6 +28,7 @@ async function handler(request: NextRequest) {
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const supabase = createServiceRoleClient();
 
     // Check permission with trial budget support
     permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
@@ -60,6 +61,28 @@ async function handler(request: NextRequest) {
 
     const { jobDescription, applicationId: reqApplicationId, resumeId } = await request.json();
     applicationId = reqApplicationId;
+
+    // Verify user owns the applicationId before using with service-role client.
+    // Service-role bypasses RLS, so ownership must be checked explicitly to
+    // prevent IDOR (one user associating analysis to another user's application).
+    if (applicationId) {
+      const { data: appOwnershipCheck } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("id", applicationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!appOwnershipCheck) {
+        loggerService.warn("Job fit analysis attempted with unowned applicationId", {
+          category: LogCategory.SECURITY,
+          action: "job_fit_invalid_application_id",
+          userId: user.id,
+          metadata: { applicationId },
+        });
+        applicationId = undefined; // Drop it — don't associate analysis with foreign record
+      }
+    }
 
     // Try to get job description from saved data if not provided
     let finalJobDescription = jobDescription;
@@ -303,6 +326,7 @@ async function handler(request: NextRequest) {
       await supabase.from("job_fit_analysis").insert({
         user_id: user.id,
         application_id: applicationId || null,
+        user_resume_id: userResumeId,
         job_description: finalJobDescription,
         analysis_result: mockAnalysis,
         fit_score: mockAnalysis.overallScore,
