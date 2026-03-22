@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Image from "next/image";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { ButtonLink } from "@/components/ui/button-link";
 import { NavigationStatic } from "@/components/navigation-static";
@@ -40,15 +41,21 @@ export default function LayoffsPage() {
           </ButtonLink>
           {/* Product screenshot — light/dark variants */}
           <div className="mt-8 rounded-xl overflow-hidden border shadow-md">
-            <img
+            <Image
               src="/screenshots/features/sankey-chart-light.png"
               alt="AppTrack job application pipeline visualization"
+              width={2698}
+              height={1048}
               className="w-full h-auto dark:hidden"
+              priority
             />
-            <img
+            <Image
               src="/screenshots/features/sankey-chart-dark.png"
               alt="AppTrack job application pipeline visualization"
+              width={2698}
+              height={1048}
               className="w-full h-auto hidden dark:block"
+              priority
             />
           </div>
         </div>

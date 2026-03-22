@@ -21,8 +21,11 @@ export function CookieBanner() {
       try {
         const savedPreferences = JSON.parse(cookieConsent)
         setPreferences(savedPreferences)
-      } catch {}
-      return
+        return // Only skip the banner if parsing succeeded
+      } catch {
+        // Corrupted value — clear it so the banner can appear
+        try { localStorage?.removeItem('cookie-consent') } catch {}
+      }
     }
 
     // Delay banner: show after 3.5s OR on first scroll — whichever comes first
