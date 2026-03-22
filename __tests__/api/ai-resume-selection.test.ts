@@ -129,10 +129,14 @@ describe('AI Feature Resume Selection Logic', () => {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      neq: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       single: jest.fn(),
+      // maybeSingle: ownership check passes by default (user owns the applicationId)
+      maybeSingle: jest.fn().mockResolvedValue({ data: { id: applicationId }, error: null }),
     };
 
     mockCreateClient.mockResolvedValue(mockSupabase);
