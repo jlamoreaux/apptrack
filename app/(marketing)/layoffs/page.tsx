@@ -38,12 +38,17 @@ export default function LayoffsPage() {
           <ButtonLink href="/signup?intent=layoff-offer" size="lg" className="mt-2">
             Claim Your Free Month
           </ButtonLink>
-          {/* Product screenshot */}
+          {/* Product screenshot — light/dark variants */}
           <div className="mt-8 rounded-xl overflow-hidden border shadow-md">
             <img
-              src="/screenshots/hero/dashboard-clean.png"
-              alt="AppTrack job application pipeline"
-              className="w-full h-auto"
+              src="/screenshots/features/sankey-chart-light.png"
+              alt="AppTrack job application pipeline visualization"
+              className="w-full h-auto dark:hidden"
+            />
+            <img
+              src="/screenshots/features/sankey-chart-dark.png"
+              alt="AppTrack job application pipeline visualization"
+              className="w-full h-auto hidden dark:block"
             />
           </div>
         </div>
