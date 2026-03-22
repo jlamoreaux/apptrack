@@ -3,13 +3,14 @@
 // This is required for Next.js ImageResponse in Edge runtime
 
 export const OG_COLORS = {
-  primary: "#1565C0",
-  secondary: "#2E7D32",
-  background: "#f7f9fc",
-  foreground: "#0f1729",
-  muted: "#64748b",
-  mutedLight: "#9ca3af",
-  accent: "#424242",
+  primary: "#4338CA",        // Indigo-700 — brand primary
+  accent: "#F97316",         // Coral — CTAs
+  secondary: "#059669",      // Emerald-600 — success
+  background: "#F8F7F5",     // Warm off-white (hsl 40 6% 97%)
+  foreground: "#1F1A14",     // Warm near-black (hsl 20 15% 12%)
+  muted: "#6B6560",          // Secondary text (hsl 20 5% 42%)
+  mutedLight: "#8A8580",     // Tertiary text (hsl 20 5% 55%)
+  border: "#E5E0DA",         // Card borders (hsl 30 8% 88%)
   fire: {
     orange: "#f97316",
     red: "#ef4444",
