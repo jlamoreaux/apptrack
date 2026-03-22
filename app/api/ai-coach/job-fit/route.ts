@@ -326,6 +326,7 @@ async function handler(request: NextRequest) {
       await supabase.from("job_fit_analysis").insert({
         user_id: user.id,
         application_id: applicationId || null,
+        user_resume_id: userResumeId,
         job_description: finalJobDescription,
         analysis_result: mockAnalysis,
         fit_score: mockAnalysis.overallScore,
