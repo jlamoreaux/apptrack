@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
+import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { createAICoach } from "@/lib/ai-coach";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
@@ -17,10 +18,9 @@ async function handler(request: NextRequest) {
   let permissionResult: PermissionCheckResult | null = null;
 
   try {
-    const supabase = await createClient();
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-    user = authUser;
-    
+    const authUser = await getAuthenticatedUser(request);
+    user = authUser ? { id: authUser.id, email: authUser.email } : null;
+
     if (!user) {
       loggerService.warn('Unauthorized job fit analysis attempt', {
         category: LogCategory.SECURITY,
@@ -28,6 +28,7 @@ async function handler(request: NextRequest) {
       });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const supabase = createServiceRoleClient();
 
     // Check permission with trial budget support
     permissionResult = await PermissionMiddleware.checkApiPermissionWithFreeTier(
