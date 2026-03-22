@@ -16,17 +16,30 @@ export function CookieBanner() {
   })
 
   useEffect(() => {
-    // Check if user has already made a choice (use optional chaining for LinkedIn in-app browser where localStorage can be null)
     const cookieConsent = localStorage?.getItem('cookie-consent')
-    if (!cookieConsent) {
-      setIsVisible(true)
-    } else {
-      // Load saved preferences
+    if (cookieConsent) {
       try {
         const savedPreferences = JSON.parse(cookieConsent)
         setPreferences(savedPreferences)
-      } catch (error) {
-      }
+      } catch {}
+      return
+    }
+
+    // Delay banner: show after 3.5s OR on first scroll — whichever comes first
+    let shown = false
+    const show = () => {
+      if (shown) return
+      shown = true
+      setIsVisible(true)
+      window.removeEventListener('scroll', show)
+    }
+
+    const timer = setTimeout(show, 3500)
+    window.addEventListener('scroll', show, { passive: true, once: true })
+
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('scroll', show)
     }
   }, [])
 
