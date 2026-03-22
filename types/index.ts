@@ -1,3 +1,5 @@
+import type React from "react";
+
 // Core application types
 export interface User {
   id: string;
@@ -12,8 +14,27 @@ export interface Profile {
   full_name?: string;
   avatar_url?: string;
   extension_token_version?: number;
+  ai_analyses_used: number;
+  ai_trial_onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Trial budget types
+export type AIToolType = "job_fit" | "interview_prep" | "cover_letter";
+
+export interface TrialBudgetState {
+  analyses_used: number;
+  analyses_limit: number;
+  analyses_remaining: number;
+  is_pro: boolean;
+  onboarding_completed: boolean;
+}
+
+export interface TrialBudgetResponse {
+  allowed: boolean;
+  budget: TrialBudgetState;
+  reason?: "trial_exhausted";
 }
 
 // Extension auth types
@@ -236,11 +257,14 @@ export type PermissionResult = "allowed" | "denied" | "upgrade_required";
 
 // UI Component types
 export interface NavItem {
+  id: string;
   label: string;
   href: string;
-  icon?: string;
-  requiresAuth?: boolean;
-  requiresPlan?: PermissionLevel[];
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  badge?: string;
+  highlight?: boolean;
+  requiresPlan?: PermissionLevel;
 }
 
 export interface FeatureCard {

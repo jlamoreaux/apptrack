@@ -42,9 +42,9 @@ jest.mock('@/lib/services/logger.service', () => ({
   },
 }));
 
-jest.mock('@/lib/services/ai-feature-usage.service', () => ({
-  AIFeatureUsageService: {
-    trackUsage: jest.fn(),
+jest.mock('@/lib/services/trial-budget.service', () => ({
+  TrialBudgetService: {
+    refundAnalysis: jest.fn(),
   },
 }));
 
@@ -520,7 +520,7 @@ describe('AI Feature Resume Selection Logic', () => {
       mockPermissionMiddleware.checkApiPermissionWithFreeTier = jest.fn().mockResolvedValue({
         allowed: true,
         usedFreeTier: true,
-        remainingFreeTries: 1,
+        remainingFreeTries: 0,
       });
 
       mockAIDataFetcher.getUserResumeById = jest.fn().mockResolvedValue(mockSpecificResume);

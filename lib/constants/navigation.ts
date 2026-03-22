@@ -12,10 +12,10 @@ import { PLAN_THEMES } from "./plan-themes";
 import { APP_ROUTES } from "./routes";
 import { UI_CONSTANTS } from "./ui";
 import { AI_THEME } from "./ai-theme";
-import type { PermissionLevel } from "@/types";
+import type { NavItem, PermissionLevel } from "@/types";
 
 // Navigation items configuration
-export const NAV_ITEMS = [
+export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "dashboard",
     label: "Dashboard",
@@ -35,18 +35,9 @@ export const NAV_ITEMS = [
     label: "AI Coach",
     href: APP_ROUTES.DASHBOARD.AI_COACH,
     icon: Brain,
-    badge: "PRO",
     highlight: true,
-    requiresPlan: "ai_coach" as PermissionLevel,
     description: "AI-powered career coaching and insights",
   },
-  // {
-  //   id: "analytics",
-  //   label: "Analytics",
-  //   href: APP_ROUTES.DASHBOARD.ANALYTICS,
-  //   icon: BarChart3,
-  //   description: "Track your application performance",
-  // },
   {
     id: "resume-roast",
     label: "Resume Roast",
@@ -55,7 +46,7 @@ export const NAV_ITEMS = [
     badge: "NEW",
     description: "Get brutally honest AI feedback on your resume",
   },
-] as const;
+];
 
 // AI Coach color scheme (legacy export for backward compatibility)
 export const AI_COACH_COLORS = {

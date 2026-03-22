@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { NavigationServer } from "@/components/navigation-server";
-import { getUser, getSubscription } from "@/lib/supabase/server";
+import { getUser } from "@/lib/supabase/server";
 import { AICoachDashboard } from "@/components/ai-coach/ai-coach-dashboard";
 
 export default async function AICoachPage() {
@@ -9,15 +9,6 @@ export default async function AICoachPage() {
 
   if (!user) {
     redirect("/login");
-  }
-
-  // Check if user has AI Coach or Pro subscription (both have AI access now)
-  const subscription = await getSubscription(user.id);
-  const planName = subscription?.subscription_plans?.name;
-  const hasAIAccess = planName === "AI Coach" || planName === "Pro";
-
-  if (!hasAIAccess) {
-    redirect("/dashboard/upgrade?highlight=ai-coach");
   }
 
   return (

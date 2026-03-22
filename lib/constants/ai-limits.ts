@@ -42,6 +42,12 @@ export const REFRESH_THRESHOLDS = {
   FORCE_REFRESH_DAYS: 30, // Force refresh after 30 days
 } as const;
 
+// Trial budget configuration
+export const TRIAL_BUDGET = {
+  LIMIT: 5, // Total free analyses across all AI tools
+  TOOLS: ['job_fit', 'interview_prep', 'cover_letter'] as const,
+} as const;
+
 // Rate limiting configurations
 export const RATE_LIMITS = {
   AI_ANALYSIS: {
