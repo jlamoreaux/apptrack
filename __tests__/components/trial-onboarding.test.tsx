@@ -6,6 +6,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { TrialOnboarding } from '@/components/ai-coach/trial-onboarding';
+import { TRIAL_BUDGET } from '@/lib/constants/ai-limits';
 
 // Mock lucide-react icons (already mocked in jest.setup.js but adding specific ones)
 jest.mock('lucide-react', () => ({
@@ -40,7 +41,7 @@ describe('TrialOnboarding', () => {
   it('shows budget explanation text', () => {
     render(<TrialOnboarding onComplete={onComplete} />);
 
-    expect(screen.getByText(/You have 5 free analyses to use across any combination of tools/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`You have ${TRIAL_BUDGET.LIMIT} free analyses to use across any combination of tools`))).toBeInTheDocument();
   });
 
   it('shows the heading', () => {

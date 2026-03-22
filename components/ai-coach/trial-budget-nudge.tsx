@@ -17,6 +17,7 @@ import type { TrialBudgetState } from "@/types";
 
 interface TrialBudgetNudgeProps {
   budget: TrialBudgetState;
+  onDismiss?: () => void;
 }
 
 /**
@@ -28,7 +29,7 @@ interface TrialBudgetNudgeProps {
  *
  * Only renders after an analysis completes. Hidden for Pro users.
  */
-export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
+export function TrialBudgetNudge({ budget, onDismiss }: TrialBudgetNudgeProps) {
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(true);
   const modalShownRef = useRef(false);
@@ -53,6 +54,11 @@ export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
     capturePostHogEvent("ai_trial_upgrade_clicked", { source });
   };
 
+  const handleDismiss = () => {
+    setDismissed(true);
+    onDismiss?.();
+  };
+
   // Last-use modal (all 5 used)
   if (remaining <= 0) {
     return (
@@ -73,7 +79,7 @@ export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
             </Button>
             <Button
               variant="ghost"
-              onClick={() => setModalOpen(false)}
+              onClick={() => { setModalOpen(false); onDismiss?.(); }}
             >
               Maybe later
             </Button>
@@ -99,7 +105,7 @@ export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
           .
         </p>
         <button
-          onClick={() => setDismissed(true)}
+          onClick={handleDismiss}
           className="text-orange-600 hover:text-orange-800 dark:text-orange-400 min-h-[44px] min-w-[44px] flex items-center justify-center"
           aria-label="Dismiss"
         >
@@ -124,7 +130,7 @@ export function TrialBudgetNudge({ budget }: TrialBudgetNudgeProps) {
         .
       </p>
       <button
-        onClick={() => setDismissed(true)}
+        onClick={handleDismiss}
         className="text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] flex items-center justify-center"
         aria-label="Dismiss"
       >

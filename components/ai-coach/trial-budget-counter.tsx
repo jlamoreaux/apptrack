@@ -21,7 +21,7 @@ export function TrialBudgetCounter({ budget, loading }: TrialBudgetCounterProps)
 
   if (budget.analyses_remaining <= 0) {
     return (
-      <Button asChild size="sm" className="h-8">
+      <Button asChild size="sm" className="h-11 px-4">
         <Link href="/dashboard/upgrade?highlight=ai-coach">
           Upgrade to unlock
         </Link>

@@ -4,6 +4,18 @@ import { useState, useEffect, useCallback } from "react";
 import type { TrialBudgetState } from "@/types";
 import { TRIAL_BUDGET } from "@/lib/constants/ai-limits";
 
+function isTrialBudgetState(value: unknown): value is TrialBudgetState {
+  if (!value || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  return (
+    typeof v.analyses_used === "number" &&
+    typeof v.analyses_limit === "number" &&
+    typeof v.analyses_remaining === "number" &&
+    typeof v.is_pro === "boolean" &&
+    typeof v.onboarding_completed === "boolean"
+  );
+}
+
 const DEFAULT_STATE: TrialBudgetState = {
   analyses_used: 0,
   analyses_limit: TRIAL_BUDGET.LIMIT,
@@ -24,8 +36,10 @@ export function useTrialBudget() {
     try {
       const res = await fetch("/api/ai-coach/trial-budget");
       if (res.ok) {
-        const data: TrialBudgetState = await res.json();
-        setBudget(data);
+        const data: unknown = await res.json();
+        if (isTrialBudgetState(data)) {
+          setBudget(data);
+        }
       }
     } catch {
       // Keep current state on error
@@ -40,7 +54,8 @@ export function useTrialBudget() {
 
   const completeOnboarding = useCallback(async () => {
     try {
-      await fetch("/api/ai-coach/trial-budget", { method: "POST" });
+      const res = await fetch("/api/ai-coach/trial-budget", { method: "POST" });
+      if (!res.ok) return;
       setBudget((prev) => ({ ...prev, onboarding_completed: true }));
     } catch {
       // Silently fail — onboarding state is non-critical

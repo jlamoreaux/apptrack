@@ -25,14 +25,14 @@ describe('TrialBudgetCounter', () => {
     const budget = makeBudget({ analyses_remaining: 3 });
     render(<TrialBudgetCounter budget={budget} />);
 
-    expect(screen.getByText(/3 of 5 free analyses remaining/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`3 of ${TRIAL_BUDGET.LIMIT} free analyses remaining`))).toBeInTheDocument();
   });
 
   it('shows destructive variant when 1 remaining', () => {
     const budget = makeBudget({ analyses_remaining: 1 });
     const { container } = render(<TrialBudgetCounter budget={budget} />);
 
-    expect(screen.getByText(/1 of 5 free analyses remaining/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`1 of ${TRIAL_BUDGET.LIMIT} free analyses remaining`))).toBeInTheDocument();
     // The Badge component should have the destructive data attribute or class
     const badge = container.querySelector('[class*="destructive"]');
     expect(badge).not.toBeNull();
@@ -48,7 +48,7 @@ describe('TrialBudgetCounter', () => {
   });
 
   it('shows "Upgrade to unlock" button when 0 remaining', () => {
-    const budget = makeBudget({ analyses_remaining: 0, analyses_used: 5 });
+    const budget = makeBudget({ analyses_remaining: 0, analyses_used: TRIAL_BUDGET.LIMIT });
     render(<TrialBudgetCounter budget={budget} />);
 
     const link = screen.getByText('Upgrade to unlock');

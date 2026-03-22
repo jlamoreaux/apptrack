@@ -145,6 +145,29 @@ describe('useTrialBudget', () => {
     expect(result.current.budget.onboarding_completed).toBe(true);
   });
 
+  it('completeOnboarding does not update state on non-ok response', async () => {
+    // Initial fetch
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...budgetResponse, onboarding_completed: false }),
+    });
+
+    const { result } = renderHook(() => useTrialBudget());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    // POST returns 500
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
+
+    await act(async () => {
+      await result.current.completeOnboarding();
+    });
+
+    expect(result.current.budget.onboarding_completed).toBe(false);
+  });
+
   it('completeOnboarding silently fails on error', async () => {
     // Initial fetch
     mockFetch.mockResolvedValueOnce({

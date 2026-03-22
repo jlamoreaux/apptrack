@@ -12,22 +12,10 @@ import { PLAN_THEMES } from "./plan-themes";
 import { APP_ROUTES } from "./routes";
 import { UI_CONSTANTS } from "./ui";
 import { AI_THEME } from "./ai-theme";
-import type { PermissionLevel } from "@/types";
-
-// Navigation item type
-interface NavItemConfig {
-  id: string;
-  label: string;
-  href: string;
-  icon: typeof LayoutDashboard;
-  description: string;
-  badge?: string;
-  highlight?: boolean;
-  requiresPlan?: PermissionLevel;
-}
+import type { NavItem } from "@/types";
 
 // Navigation items configuration
-export const NAV_ITEMS: readonly NavItemConfig[] = [
+export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "dashboard",
     label: "Dashboard",

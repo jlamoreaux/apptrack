@@ -143,6 +143,16 @@ describe('TrialBudgetNudge', () => {
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith('ai_trial_upgrade_clicked', { source: 'modal' });
   });
 
+  it('calls onDismiss when banner is dismissed', () => {
+    const onDismiss = jest.fn();
+    const budget = makeBudget({ analyses_used: 2, analyses_remaining: 3 });
+    render(<TrialBudgetNudge budget={budget} onDismiss={onDismiss} />);
+
+    fireEvent.click(screen.getByLabelText('Dismiss'));
+
+    expect(onDismiss).toHaveBeenCalled();
+  });
+
   it('"Maybe later" closes the modal', () => {
     const budget = makeBudget({ analyses_used: 5, analyses_remaining: 0 });
     render(<TrialBudgetNudge budget={budget} />);

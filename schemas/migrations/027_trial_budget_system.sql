@@ -20,8 +20,15 @@ COMMENT ON COLUMN public.profiles.ai_trial_onboarding_completed IS
 -- Step 2: Add constraint to prevent negative or over-budget values
 -- ============================================================================
 
-ALTER TABLE public.profiles
-  ADD CONSTRAINT ai_analyses_used_non_negative CHECK (ai_analyses_used >= 0);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ai_analyses_used_non_negative'
+  ) THEN
+    ALTER TABLE public.profiles
+      ADD CONSTRAINT ai_analyses_used_non_negative CHECK (ai_analyses_used >= 0);
+  END IF;
+END $$;
 
 -- ============================================================================
 -- Step 3: Atomic check-and-decrement function

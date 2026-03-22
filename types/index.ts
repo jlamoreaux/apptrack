@@ -1,3 +1,5 @@
+import type React from "react";
+
 // Core application types
 export interface User {
   id: string;
@@ -255,11 +257,14 @@ export type PermissionResult = "allowed" | "denied" | "upgrade_required";
 
 // UI Component types
 export interface NavItem {
+  id: string;
   label: string;
   href: string;
-  icon?: string;
-  requiresAuth?: boolean;
-  requiresPlan?: PermissionLevel[];
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+  badge?: string;
+  highlight?: boolean;
+  requiresPlan?: PermissionLevel;
 }
 
 export interface FeatureCard {
