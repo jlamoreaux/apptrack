@@ -62,6 +62,28 @@ async function handler(request: NextRequest) {
     const { jobDescription, applicationId: reqApplicationId, resumeId } = await request.json();
     applicationId = reqApplicationId;
 
+    // Verify user owns the applicationId before using with service-role client.
+    // Service-role bypasses RLS, so ownership must be checked explicitly to
+    // prevent IDOR (one user associating analysis to another user's application).
+    if (applicationId) {
+      const { data: appOwnershipCheck } = await supabase
+        .from("applications")
+        .select("id")
+        .eq("id", applicationId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!appOwnershipCheck) {
+        loggerService.warn("Job fit analysis attempted with unowned applicationId", {
+          category: LogCategory.SECURITY,
+          action: "job_fit_invalid_application_id",
+          userId: user.id,
+          metadata: { applicationId },
+        });
+        applicationId = undefined; // Drop it — don't associate analysis with foreign record
+      }
+    }
+
     // Try to get job description from saved data if not provided
     let finalJobDescription = jobDescription;
     let finalResumeText: string | null = null;

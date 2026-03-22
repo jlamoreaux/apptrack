@@ -8,6 +8,18 @@ jest.mock('@/lib/supabase/server', () => ({
   createClient: jest.fn(),
 }));
 
+jest.mock('@/lib/supabase/service-role-client', () => ({
+  createServiceRoleClient: jest.fn(),
+}));
+
+jest.mock('@/lib/auth/extension-auth', () => ({
+  getAuthenticatedUser: jest.fn(),
+}));
+
+jest.mock('@/lib/analytics/posthog-server', () => ({
+  captureServerEvent: jest.fn(),
+}));
+
 jest.mock('@/lib/ai-coach', () => ({
   createAICoach: jest.fn(),
 }));
@@ -54,9 +66,13 @@ import { POST as CoverLetterPOST } from '@/app/api/ai-coach/cover-letter/route';
 import { AIDataFetcherService } from '@/lib/services/ai-data-fetcher.service';
 import { createAICoach } from '@/lib/ai-coach';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
+import { getAuthenticatedUser } from '@/lib/auth/extension-auth';
 import { PermissionMiddleware } from '@/lib/middleware/permissions';
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
+const mockCreateServiceRoleClient = createServiceRoleClient as jest.MockedFunction<typeof createServiceRoleClient>;
+const mockGetAuthenticatedUser = getAuthenticatedUser as jest.MockedFunction<typeof getAuthenticatedUser>;
 const mockCreateAICoach = createAICoach as jest.MockedFunction<typeof createAICoach>;
 const mockAIDataFetcher = AIDataFetcherService as jest.Mocked<typeof AIDataFetcherService>;
 const mockPermissionMiddleware = PermissionMiddleware as jest.Mocked<typeof PermissionMiddleware>;
@@ -120,6 +136,8 @@ describe('AI Feature Resume Selection Logic', () => {
     };
 
     mockCreateClient.mockResolvedValue(mockSupabase);
+    mockCreateServiceRoleClient.mockReturnValue(mockSupabase);
+    mockGetAuthenticatedUser.mockResolvedValue({ id: userId, email: 'test@example.com', source: 'session' } as any);
     mockCreateAICoach.mockReturnValue(mockAICoach as any);
 
     mockPermissionMiddleware.checkApiPermissionWithFreeTier = jest.fn().mockResolvedValue({
