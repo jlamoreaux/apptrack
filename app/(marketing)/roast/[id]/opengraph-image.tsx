@@ -133,7 +133,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               display: "flex",
             }}
           >
-            &ldquo;{tagline}&rdquo;
+            {"\u201C"}{tagline}{"\u201D"}
           </div>
 
           {/* Subtle domain */}
