@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og"
-import { SITE_CONFIG } from "@/lib/constants/site-config"
 import { OG_COLORS, OG_SIZE } from "@/components/og"
 
 export const runtime = "edge"
@@ -7,92 +6,108 @@ export const alt = "AppTrack - Smart Job Application Tracker"
 export const size = OG_SIZE
 export const contentType = "image/png"
 
+/**
+ * Option A: "Headline Hero"
+ * Small logo top-left, big bold headline centered, domain bottom-right.
+ * Matches patterns from Linear, Vercel, Raycast.
+ */
 export default async function Image() {
+  const logoData = await fetch(
+    new URL("/public/logo_square.png", import.meta.url)
+  ).then((res) => res.arrayBuffer())
+
   return new ImageResponse(
     (
       <div
         style={{
-          background: `linear-gradient(to bottom, ${OG_COLORS.background}, #e8f0ff)`,
+          background: OG_COLORS.background,
           width: "100%",
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
+          padding: "60px 80px",
+          position: "relative",
         }}
       >
+        {/* Top bar: logo + brand name */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={logoData as unknown as string}
+            width={44}
+            height={44}
+            alt=""
+          />
+          <span
+            style={{
+              fontSize: 28,
+              fontWeight: "800",
+              color: OG_COLORS.foreground,
+              letterSpacing: "-0.5px",
+            }}
+          >
+            AppTrack
+          </span>
+        </div>
+
+        {/* Center: headline */}
         <div
           style={{
             display: "flex",
             flexDirection: "column",
-            alignItems: "center",
             justifyContent: "center",
-            textAlign: "center",
+            flex: 1,
+            gap: 24,
           }}
         >
-          {/* Logo mark */}
-          <div
-            style={{
-              width: 100,
-              height: 100,
-              borderRadius: "20px",
-              background: OG_COLORS.primary,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 48,
-            }}
-          >
-            <svg
-              width="60"
-              height="60"
-              viewBox="0 0 24 24"
-              fill="white"
-              style={{ display: 'flex' }}
-            >
-              <rect x="2" y="7" width="20" height="14" rx="2" />
-              <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" stroke="white" strokeWidth="2" fill="none"/>
-              <line x1="12" y1="11" x2="12" y2="17" stroke={OG_COLORS.primary} strokeWidth="2"/>
-            </svg>
-          </div>
-
-          {/* Brand name */}
           <h1
             style={{
-              fontSize: "90px",
+              fontSize: 72,
               fontWeight: "900",
               color: OG_COLORS.foreground,
-              marginBottom: "30px",
+              lineHeight: 1.05,
               letterSpacing: "-2px",
+              maxWidth: "85%",
+              margin: 0,
             }}
           >
-            {SITE_CONFIG.name}
+            See exactly where your job search wins and loses
           </h1>
-
-          {/* Tagline */}
           <p
             style={{
-              fontSize: "32px",
-              color: OG_COLORS.accent,
+              fontSize: 28,
+              color: OG_COLORS.muted,
               fontWeight: "500",
-              maxWidth: "700px",
+              margin: 0,
+              maxWidth: "70%",
             }}
           >
-            {SITE_CONFIG.tagline}
+            Track applications, visualize your pipeline, and get AI career coaching.
           </p>
         </div>
 
-        {/* Footer - subtle domain */}
+        {/* Bottom-right: domain */}
         <div
           style={{
-            position: "absolute",
-            bottom: 30,
-            fontSize: "18px",
-            color: OG_COLORS.muted,
-            opacity: 0.6,
+            display: "flex",
+            justifyContent: "flex-end",
           }}
         >
-          apptrack.ing
+          <span
+            style={{
+              fontSize: 20,
+              color: OG_COLORS.mutedLight,
+              fontWeight: "500",
+            }}
+          >
+            apptrack.ing
+          </span>
         </div>
       </div>
     ),

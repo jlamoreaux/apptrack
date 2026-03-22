@@ -48,7 +48,7 @@ export default async function Image() {
             opacity: 0.2,
           }}
         />
-        
+
         {/* Main card */}
         <div
           style={{
@@ -80,7 +80,7 @@ export default async function Image() {
               height="70"
               viewBox="0 0 24 24"
               fill={OG_COLORS.fire.orange}
-              style={{ display: 'flex' }}
+              style={{ display: "flex" }}
             >
               <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
             </svg>
@@ -100,12 +100,12 @@ export default async function Image() {
               height="70"
               viewBox="0 0 24 24"
               fill={OG_COLORS.fire.red}
-              style={{ display: 'flex' }}
+              style={{ display: "flex" }}
             >
               <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
             </svg>
           </div>
-          
+
           {/* Subtitle */}
           <div
             style={{
@@ -118,23 +118,7 @@ export default async function Image() {
           >
             Get Brutally Honest AI Feedback
           </div>
-          
-          {/* Score emojis */}
-          <div
-            style={{
-              display: "flex",
-              gap: 35,
-              marginBottom: 35,
-              fontSize: 50,
-            }}
-          >
-            <span>💀</span>
-            <span>🤢</span>
-            <span>😬</span>
-            <span>🔥</span>
-            <span>🗑️</span>
-          </div>
-          
+
           {/* Feature text */}
           <div
             style={{
@@ -144,10 +128,10 @@ export default async function Image() {
               fontWeight: "500",
             }}
           >
-            Upload your resume • Get roasted • Share the laughs
+            Upload your resume  --  Get roasted  --  Share the laughs
           </div>
         </div>
-        
+
         {/* Bottom branding */}
         <div
           style={{

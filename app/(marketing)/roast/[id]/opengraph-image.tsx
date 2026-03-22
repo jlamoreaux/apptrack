@@ -11,14 +11,14 @@ export const contentType = "image/png";
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient();
   const { id } = await params;
-  
+
   const { data: roast } = await supabase
     .from("roasts")
     .select("emoji_score, score_label, first_name, tagline")
     .eq("shareable_id", id)
     .single();
 
-  const emojiScore = roast?.emoji_score || "💀/10";
+  const emojiScore = roast?.emoji_score || "0/10";
   const label = roast?.score_label || "Resume Crime Scene";
   const firstName = roast?.first_name;
   const tagline = roast?.tagline || "Your resume just got absolutely demolished";
@@ -64,7 +64,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
             opacity: 0.15,
           }}
         />
-        
+
         {/* Main card */}
         <div
           style={{
@@ -91,10 +91,10 @@ export default async function Image({ params }: { params: Promise<{ id: string }
                 display: "flex",
               }}
             >
-              {firstName} just got roasted 🔥
+              {firstName} just got roasted
             </div>
           )}
-          
+
           {/* Emoji Score */}
           <div
             style={{
@@ -106,7 +106,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           >
             {emojiScore}
           </div>
-          
+
           {/* Score Label */}
           <div
             style={{
@@ -119,12 +119,12 @@ export default async function Image({ params }: { params: Promise<{ id: string }
           >
             {label}
           </div>
-          
+
           {/* Tagline */}
           <div
             style={{
               fontSize: 24,
-              color: "#374151",
+              color: OG_COLORS.foreground,
               textAlign: "center",
               maxWidth: 800,
               lineHeight: 1.4,
@@ -133,15 +133,14 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               display: "flex",
             }}
           >
-            "{tagline}"
+            &ldquo;{tagline}&rdquo;
           </div>
-          
+
           {/* Subtle domain */}
           <div
             style={{
               fontSize: 16,
               color: OG_COLORS.mutedLight,
-              opacity: 0.7,
               display: "flex",
             }}
           >
