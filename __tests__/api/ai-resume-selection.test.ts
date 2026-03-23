@@ -22,6 +22,7 @@ jest.mock('@/lib/analytics/posthog-server', () => ({
 
 jest.mock('@/lib/ai-coach', () => ({
   generateJobFitAnalysis: jest.fn(),
+  createAICoach: jest.fn(),
 }));
 
 jest.mock('@/lib/ai-coach/response-parser', () => ({
@@ -68,7 +69,7 @@ jest.mock('@/lib/services/trial-budget.service', () => ({
 import { POST as JobFitPOST } from '@/app/api/ai-coach/job-fit/route';
 import { POST as CoverLetterPOST } from '@/app/api/ai-coach/cover-letter/route';
 import { AIDataFetcherService } from '@/lib/services/ai-data-fetcher.service';
-import { generateJobFitAnalysis } from '@/lib/ai-coach';
+import { generateJobFitAnalysis, createAICoach } from '@/lib/ai-coach';
 import { parseJobFitAnalysis } from '@/lib/ai-coach/response-parser';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
@@ -80,6 +81,7 @@ const mockCreateServiceRoleClient = createServiceRoleClient as jest.MockedFuncti
 const mockGetAuthenticatedUser = getAuthenticatedUser as jest.MockedFunction<typeof getAuthenticatedUser>;
 const mockGenerateJobFitAnalysis = generateJobFitAnalysis as jest.MockedFunction<typeof generateJobFitAnalysis>;
 const mockParseJobFitAnalysis = parseJobFitAnalysis as jest.MockedFunction<typeof parseJobFitAnalysis>;
+const mockCreateAICoach = createAICoach as jest.MockedFunction<typeof createAICoach>;
 const mockAIDataFetcher = AIDataFetcherService as jest.Mocked<typeof AIDataFetcherService>;
 const mockPermissionMiddleware = PermissionMiddleware as jest.Mocked<typeof PermissionMiddleware>;
 
@@ -124,6 +126,8 @@ describe('AI Feature Resume Selection Logic', () => {
     generateCoverLetter: jest.fn().mockResolvedValue('Mock cover letter content'),
   };
 
+
+
   beforeEach(() => {
     jest.clearAllMocks();
 
@@ -149,6 +153,7 @@ describe('AI Feature Resume Selection Logic', () => {
     mockGetAuthenticatedUser.mockResolvedValue({ id: userId, email: 'test@example.com', source: 'session' } as any);
     mockGenerateJobFitAnalysis.mockResolvedValue(JSON.stringify(mockAnalysisResult));
     mockParseJobFitAnalysis.mockReturnValue(mockAnalysisResult as any);
+    mockCreateAICoach.mockReturnValue(mockAICoach as any);
 
     mockPermissionMiddleware.checkApiPermissionWithFreeTier = jest.fn().mockResolvedValue({
       allowed: true,
