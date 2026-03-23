@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,6 +23,7 @@ export default function SignUpPageClient() {
   const isAICoachTrial = intent === "ai-coach-trial";
   const isLayoffOffer = intent === "layoff-offer";
   const hasPreviewSession = !!sessionId;
+  const [showEmailForm, setShowEmailForm] = useState(false);
 
   useEffect(() => {
     // Check if we have traffic source trial info in session storage
@@ -33,7 +34,17 @@ export default function SignUpPageClient() {
       // Trial info is already stored, user will get it after signup
       console.log("AI Coach trial ready for:", trafficSource);
     }
-  }, [isAICoachTrial]);
+
+    // Store promo code unconditionally so it survives email confirmation redirects
+    // even if the user never expands the email form (e.g. chose Google OAuth)
+    if (isLayoffOffer) {
+      try {
+        localStorage.setItem("pendingPromoCode", "NEWSTART");
+      } catch (e) {
+        console.warn("Could not save pendingPromoCode to localStorage:", e);
+      }
+    }
+  }, [isAICoachTrial, isLayoffOffer]);
 
   return (
     <AuthLayout>
@@ -113,16 +124,29 @@ export default function SignUpPageClient() {
               className="mb-4"
             />
 
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
+            {!showEmailForm ? (
+              <div className="text-center mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailForm(true)}
+                  className="inline-flex min-h-11 items-center justify-center px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Continue with email →
+                </button>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
-              </div>
-            </div>
-
-            <SignUpForm />
+            ) : (
+              <>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
+                  </div>
+                </div>
+                <SignUpForm />
+              </>
+            )}
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
               <Link href="/login" className="underline">
