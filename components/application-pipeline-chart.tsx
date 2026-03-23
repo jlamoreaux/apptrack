@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTheme } from "next-themes";
 import {
   Card,
   CardContent,
@@ -30,7 +31,8 @@ export function ApplicationPipelineChart({
   history = [],
 }: ApplicationPipelineChartProps) {
   const [mounted, setMounted] = useState(false);
-  
+  const { resolvedTheme } = useTheme();
+
   // Safely use the onboarding context - it might not be available
   let currentStep = null;
   let currentFlow = null;
@@ -221,7 +223,7 @@ export function ApplicationPipelineChart({
     },
     font: {
       size: 13,
-      color: "#9ca3af",
+      color: resolvedTheme === "dark" ? "#9ca3af" : "#374151",
     },
     autosize: true,
     margin: {
