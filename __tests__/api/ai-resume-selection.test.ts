@@ -169,8 +169,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -203,8 +202,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -238,8 +236,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -501,8 +498,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       const request = new Request('http://localhost/api/ai-coach/job-fit', {
@@ -529,8 +525,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       const request = new Request('http://localhost/api/ai-coach/job-fit', {
@@ -584,8 +579,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
-        company: 'Test Company',
-        role: 'Software Engineer',
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });

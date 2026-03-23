@@ -100,8 +100,8 @@ async function handler(request: NextRequest) {
       }
 
       finalResumeText = context.resumeText;
-      companyName = context.company || '';
-      roleName = context.role || '';
+      companyName = context.applicationData?.company || '';
+      roleName = context.applicationData?.role || '';
     }
 
     // Fetch resume: prioritize resumeId, then default resume
