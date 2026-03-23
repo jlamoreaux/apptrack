@@ -13,7 +13,6 @@ import type { Application, ApplicationHistory } from "@/types";
 import {
   buildStatusPath,
   countTransitions,
-  buildSankeyData,
 } from "@/lib/pipeline-utils";
 import { useOnboarding } from '@/lib/onboarding/context';
 import { FakeOnboardingPipelineChart } from './onboarding/fake-pipeline-chart';
@@ -92,6 +91,7 @@ export function ApplicationPipelineChart({
   }
 
   // Define the pipeline stages in order (must match database schema)
+  // "Awaiting Response" is a terminal node for apps still at Applied
   const stages = [
     "Applied",
     "Interview Scheduled",
@@ -99,10 +99,8 @@ export function ApplicationPipelineChart({
     "Offer",
     "Hired",
     "Rejected",
+    "Awaiting Response",
   ];
-
-  // Create nodes for the Sankey diagram
-  const nodeLabels = stages;
 
   // Define node colors
   const nodeColors = [
@@ -112,6 +110,7 @@ export function ApplicationPipelineChart({
     "#10b981", // Offer - emerald
     "#22c55e", // Hired - green
     "#ef4444", // Rejected - red
+    "#6b7280", // Awaiting Response - gray
   ];
 
   // Build all status paths for applications
@@ -119,11 +118,27 @@ export function ApplicationPipelineChart({
     buildStatusPath(app, history, stages)
   );
 
+  // Count how many apps pass through each node
+  const nodeCounts: Record<string, number> = {};
+  allPaths.forEach((path) => {
+    const seen = new Set<string>();
+    path.forEach((stage) => {
+      if (!seen.has(stage)) {
+        nodeCounts[stage] = (nodeCounts[stage] || 0) + 1;
+        seen.add(stage);
+      }
+    });
+  });
+
+  // Create node labels with counts
+  const nodeLabels = stages.map(
+    (stage) => `${stage} (${nodeCounts[stage] || 0})`
+  );
+
   // Map transition key to list of application display strings
   const transitionApplications: Record<string, string[]> = {};
   applications.forEach((app, idx) => {
     const path = allPaths[idx];
-    // @ts-ignore: role and company may not exist on Application type, but are present in your data
     const display = `${(app as any).role || app.id} -- ${
       (app as any).company || ""
     }`;
@@ -139,12 +154,31 @@ export function ApplicationPipelineChart({
   // Count transitions
   const transitionCounts = countTransitions(allPaths);
 
-  // Build Sankey data
-  const { sources, targets, values, linkColors } = buildSankeyData(
-    transitionCounts,
-    nodeLabels,
-    nodeColors
-  );
+  // Build Sankey data (use stages for index lookup, not nodeLabels with counts)
+  const sources: number[] = [];
+  const targets: number[] = [];
+  const values: number[] = [];
+  const linkColors: string[] = [];
+
+  transitionCounts.forEach((count, key) => {
+    const [from, to] = key.split("→");
+    const sourceIndex = stages.indexOf(from);
+    const targetIndex = stages.indexOf(to);
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      sources.push(sourceIndex);
+      targets.push(targetIndex);
+      values.push(count);
+      if (to === "Rejected") {
+        linkColors.push("rgba(239, 68, 68, 0.4)");
+      } else if (to === "Hired") {
+        linkColors.push("rgba(34, 197, 94, 0.4)");
+      } else if (to === "Awaiting Response") {
+        linkColors.push("rgba(107, 114, 128, 0.3)");
+      } else {
+        linkColors.push("rgba(59, 130, 246, 0.4)");
+      }
+    }
+  });
 
   // Build link labels for hover
   const linkLabels: string[] = [];
@@ -160,14 +194,18 @@ export function ApplicationPipelineChart({
       orientation: "h",
       arrangement: "snap",
       node: {
-        pad: 15,
-        thickness: 20,
+        pad: 25,
+        thickness: 24,
         line: {
-          color: "black",
-          width: 0.5,
+          color: "rgba(0,0,0,0)",
+          width: 0,
         },
         label: nodeLabels,
         color: nodeColors,
+        hovertemplate: "%{label}<extra></extra>",
+        // Custom positions: [Applied, Interview Scheduled, Interviewed, Offer, Hired, Rejected, Awaiting Response]
+        x: [0.01, 0.35, 0.55, 0.75, 0.99, 0.99, 0.22],
+        y: [0.55, 0.55, 0.55, 0.25, 0.40, 0.99, 0.01],
       },
       link: {
         source: sources,
@@ -176,7 +214,7 @@ export function ApplicationPipelineChart({
         color: linkColors,
         label: linkLabels,
       },
-    },
+    } as Plotly.Data,
   ];
 
   // Create the layout for the Sankey diagram
@@ -185,25 +223,20 @@ export function ApplicationPipelineChart({
       text: "",
     },
     font: {
-      size: 12,
+      size: 13,
+      color: "#9ca3af",
     },
     autosize: true,
     margin: {
-      l: 0,
-      r: 0,
-      b: 0,
-      t: 0,
-      pad: 4,
+      l: 8,
+      r: 8,
+      b: 8,
+      t: 8,
+      pad: 8,
     },
     paper_bgcolor: "rgba(0,0,0,0)",
     plot_bgcolor: "rgba(0,0,0,0)",
   };
-
-  // Calculate current status counts for summary
-  const statusCounts = applications.reduce((acc, app) => {
-    acc[app.status] = (acc[app.status] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
 
   return (
     <Card data-onboarding="pipeline-chart">

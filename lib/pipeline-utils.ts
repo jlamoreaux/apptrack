@@ -72,11 +72,14 @@ export function buildStatusPath(
   // No history - create a synthetic path based on current status
   // All applications start at "Applied"
   const path = ["Applied"];
-  
+
   // Build path to current status based on logical progression
   const currentIndex = stages.indexOf(app.status);
-  
-  if (app.status === "Rejected") {
+
+  if (app.status === "Applied") {
+    // Apps still at Applied flow to "Awaiting Response" so they're visible in the chart
+    path.push("Awaiting Response");
+  } else if (app.status === "Rejected") {
     // Rejections can happen at any stage, estimate based on common patterns
     // Use deterministic hash of app.id to avoid hydration mismatch (Math.random causes React error #418)
     const idHash = app.id ? app.id.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) : 0;
