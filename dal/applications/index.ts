@@ -67,8 +67,8 @@ export interface ApplicationQueryResult {
 
 export interface CreateHistoryInput {
   application_id: string;
-  user_id: string;
-  status: string;
+  old_status?: string | null;
+  new_status: string;
   notes?: string;
 }
 
@@ -212,6 +212,17 @@ export class ApplicationDAL
   ): Promise<Application | null> {
     const startTime = Date.now();
     
+    // If status is changing, fetch current status before update for history tracking
+    let currentStatus: string | undefined;
+    if (data.status !== undefined) {
+      try {
+        const existing = await this.findById(id);
+        currentStatus = existing?.status;
+      } catch {
+        // Non-fatal — we just won't track history if we can't fetch current status
+      }
+    }
+
     try {
       const supabase = await createClient();
       const { data: updatedApplication, error } = await supabase
@@ -257,6 +268,23 @@ export class ApplicationDAL
           }
         }
       );
+
+      // Track status change in history (non-blocking)
+      if (data.status !== undefined && currentStatus !== undefined && data.status !== currentStatus) {
+        try {
+          await this.addHistory({
+            application_id: id,
+            old_status: currentStatus ?? null,
+            new_status: data.status,
+          });
+        } catch (historyError) {
+          loggerService.error('Failed to record application status history (non-fatal)', historyError, {
+            category: LogCategory.DATABASE,
+            action: 'application_history_error',
+            metadata: { applicationId: id, oldStatus: currentStatus, newStatus: data.status }
+          });
+        }
+      }
 
       return updatedApplication;
     } catch (error) {
