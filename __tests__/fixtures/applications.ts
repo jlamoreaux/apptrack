@@ -55,6 +55,7 @@ export const SAMPLE_STAGES = [
   'Offer',
   'Hired',
   'Rejected',
+  'Awaiting Response',
 ];
 
 export const appliedApp = makeApplication({ id: 'app-001', status: 'Applied' });

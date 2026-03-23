@@ -17,4 +17,5 @@ LEFT JOIN LATERAL (
   ORDER BY changed_at DESC
   LIMIT 1
 ) last_h ON true
-WHERE last_h.new_status IS NULL OR a.status != last_h.new_status;
+WHERE (last_h.new_status IS NULL AND a.status != 'Applied')
+   OR (last_h.new_status IS NOT NULL AND a.status != last_h.new_status);

@@ -102,32 +102,35 @@ export async function getApplications(userId: string) {
   try {
     const supabase = await createClient();
 
-    const { data: applications, error } = await supabase
-      .from("applications")
-      .select(`
-        *,
-        ai_analyses:application_ai_analyses(
-          job_fit_count,
-          cover_letter_count,
-          interview_prep_count,
-          latest_job_fit,
-          latest_cover_letter,
-          latest_interview_prep,
-          best_fit_score
-        )
-      `)
-      .eq("user_id", userId)
-      .eq("archived", false) // Only get non-archived applications
-      .order("created_at", { ascending: false });
+    // Fetch applications and AI analyses separately since PostgREST
+    // can't auto-detect FK relationships on materialized views
+    const [appsResult, analysesResult] = await Promise.all([
+      supabase
+        .from("applications")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("archived", false)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("application_ai_analyses")
+        .select("*")
+        .eq("user_id", userId),
+    ]);
 
-    if (error) {
+    if (appsResult.error) {
       return [];
     }
 
-    // Transform the joined data to match ApplicationWithAnalyses type
-    return (applications || []).map((app: any) => ({
+    const applications = appsResult.data || [];
+
+    // Build a lookup map for analyses by application_id
+    const analysesMap = new Map(
+      (analysesResult.data || []).map((a: any) => [a.application_id, a])
+    );
+
+    return applications.map((app: any) => ({
       ...app,
-      ai_analyses: app.ai_analyses?.[0] || undefined,
+      ai_analyses: analysesMap.get(app.id) || undefined,
     }));
   } catch (error) {
     return [];

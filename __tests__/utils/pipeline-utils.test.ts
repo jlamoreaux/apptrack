@@ -16,10 +16,19 @@ import {
 
 describe('buildStatusPath', () => {
   describe('with no history', () => {
-    it('returns ["Applied"] for an application with status Applied', () => {
+    it('returns path with Awaiting Response for an Applied app so it is visible in the chart', () => {
       const app = makeApplication({ id: 'abc', status: 'Applied' });
       const result = buildStatusPath(app, [], SAMPLE_STAGES);
-      expect(result[0]).toBe('Applied');
+      expect(result).toEqual(['Applied', 'Awaiting Response']);
+    });
+
+    it('Applied apps produce at least one transition for the Sankey chart', () => {
+      const app = makeApplication({ id: 'abc', status: 'Applied' });
+      const path = buildStatusPath(app, [], SAMPLE_STAGES);
+      // Path must have 2+ nodes to create a link in the Sankey diagram
+      expect(path.length).toBeGreaterThanOrEqual(2);
+      const transitions = countTransitions([path]);
+      expect(transitions.size).toBeGreaterThan(0);
     });
 
     it('builds a path up to Interview Scheduled when no history', () => {
@@ -116,6 +125,21 @@ describe('buildStatusPath', () => {
 
       const result = buildStatusPath(app, history, SAMPLE_STAGES);
       expect(result[result.length - 1]).toBe('Rejected');
+    });
+
+    it('adds Awaiting Response for Applied apps with history that never moved beyond Applied', () => {
+      const app = makeApplication({ id: 'app-001', status: 'Applied' });
+      const history = [
+        makeApplicationHistory({
+          application_id: 'app-001',
+          old_status: null,
+          new_status: 'Applied',
+          changed_at: '2024-01-15T00:00:00Z',
+        }),
+      ];
+
+      const result = buildStatusPath(app, history, SAMPLE_STAGES);
+      expect(result).toEqual(['Applied', 'Awaiting Response']);
     });
 
     it('ignores history entries for other application ids', () => {
