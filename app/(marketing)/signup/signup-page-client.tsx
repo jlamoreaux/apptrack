@@ -34,7 +34,17 @@ export default function SignUpPageClient() {
       // Trial info is already stored, user will get it after signup
       console.log("AI Coach trial ready for:", trafficSource);
     }
-  }, [isAICoachTrial]);
+
+    // Store promo code unconditionally so it survives email confirmation redirects
+    // even if the user never expands the email form (e.g. chose Google OAuth)
+    if (isLayoffOffer) {
+      try {
+        localStorage.setItem("pendingPromoCode", "NEWSTART");
+      } catch (e) {
+        console.warn("Could not save pendingPromoCode to localStorage:", e);
+      }
+    }
+  }, [isAICoachTrial, isLayoffOffer]);
 
   return (
     <AuthLayout>
@@ -119,7 +129,7 @@ export default function SignUpPageClient() {
                 <button
                   type="button"
                   onClick={() => setShowEmailForm(true)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex min-h-11 items-center justify-center px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Continue with email →
                 </button>
