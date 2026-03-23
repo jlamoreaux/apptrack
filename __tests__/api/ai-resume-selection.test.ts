@@ -21,7 +21,12 @@ jest.mock('@/lib/analytics/posthog-server', () => ({
 }));
 
 jest.mock('@/lib/ai-coach', () => ({
+  generateJobFitAnalysis: jest.fn(),
   createAICoach: jest.fn(),
+}));
+
+jest.mock('@/lib/ai-coach/response-parser', () => ({
+  parseJobFitAnalysis: jest.fn(),
 }));
 
 jest.mock('@/lib/services/ai-data-fetcher.service', () => ({
@@ -64,7 +69,8 @@ jest.mock('@/lib/services/trial-budget.service', () => ({
 import { POST as JobFitPOST } from '@/app/api/ai-coach/job-fit/route';
 import { POST as CoverLetterPOST } from '@/app/api/ai-coach/cover-letter/route';
 import { AIDataFetcherService } from '@/lib/services/ai-data-fetcher.service';
-import { createAICoach } from '@/lib/ai-coach';
+import { generateJobFitAnalysis, createAICoach } from '@/lib/ai-coach';
+import { parseJobFitAnalysis } from '@/lib/ai-coach/response-parser';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
 import { getAuthenticatedUser } from '@/lib/auth/extension-auth';
@@ -73,6 +79,8 @@ import { PermissionMiddleware } from '@/lib/middleware/permissions';
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>;
 const mockCreateServiceRoleClient = createServiceRoleClient as jest.MockedFunction<typeof createServiceRoleClient>;
 const mockGetAuthenticatedUser = getAuthenticatedUser as jest.MockedFunction<typeof getAuthenticatedUser>;
+const mockGenerateJobFitAnalysis = generateJobFitAnalysis as jest.MockedFunction<typeof generateJobFitAnalysis>;
+const mockParseJobFitAnalysis = parseJobFitAnalysis as jest.MockedFunction<typeof parseJobFitAnalysis>;
 const mockCreateAICoach = createAICoach as jest.MockedFunction<typeof createAICoach>;
 const mockAIDataFetcher = AIDataFetcherService as jest.Mocked<typeof AIDataFetcherService>;
 const mockPermissionMiddleware = PermissionMiddleware as jest.Mocked<typeof PermissionMiddleware>;
@@ -115,9 +123,10 @@ describe('AI Feature Resume Selection Logic', () => {
   };
 
   const mockAICoach = {
-    analyzeJobFit: jest.fn().mockResolvedValue(mockAnalysisResult),
     generateCoverLetter: jest.fn().mockResolvedValue('Mock cover letter content'),
   };
+
+
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -142,6 +151,8 @@ describe('AI Feature Resume Selection Logic', () => {
     mockCreateClient.mockResolvedValue(mockSupabase);
     mockCreateServiceRoleClient.mockReturnValue(mockSupabase);
     mockGetAuthenticatedUser.mockResolvedValue({ id: userId, email: 'test@example.com', source: 'session' } as any);
+    mockGenerateJobFitAnalysis.mockResolvedValue(JSON.stringify(mockAnalysisResult));
+    mockParseJobFitAnalysis.mockReturnValue(mockAnalysisResult as any);
     mockCreateAICoach.mockReturnValue(mockAICoach as any);
 
     mockPermissionMiddleware.checkApiPermissionWithFreeTier = jest.fn().mockResolvedValue({
@@ -158,6 +169,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -175,9 +187,11 @@ describe('AI Feature Resume Selection Logic', () => {
 
       expect(response.status).toBe(200);
       expect(mockAIDataFetcher.getUserResume).toHaveBeenCalledWith(userId);
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockDefaultResume.text
+        mockDefaultResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -188,6 +202,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -206,9 +221,11 @@ describe('AI Feature Resume Selection Logic', () => {
 
       expect(response.status).toBe(200);
       expect(mockAIDataFetcher.getUserResumeById).toHaveBeenCalledWith(userId, specificResumeId);
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockSpecificResume.text
+        mockSpecificResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -219,6 +236,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });
@@ -266,9 +284,11 @@ describe('AI Feature Resume Selection Logic', () => {
       const response = await JobFitPOST(request);
 
       expect(response.status).toBe(200);
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockDefaultResume.text
+        mockDefaultResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
   });
@@ -401,9 +421,11 @@ describe('AI Feature Resume Selection Logic', () => {
       await JobFitPOST(request);
 
       // Should use the specific resume, not the application's resume
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockSpecificResume.text
+        mockSpecificResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -426,9 +448,11 @@ describe('AI Feature Resume Selection Logic', () => {
 
       await JobFitPOST(request);
 
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockDefaultResume.text
+        mockDefaultResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
 
@@ -454,9 +478,11 @@ describe('AI Feature Resume Selection Logic', () => {
       await JobFitPOST(request);
 
       expect(mockAIDataFetcher.getUserResume).toHaveBeenCalledWith(userId);
-      expect(mockAICoach.analyzeJobFit).toHaveBeenCalledWith(
+      expect(mockGenerateJobFitAnalysis).toHaveBeenCalledWith(
         mockJobDescription,
-        mockDefaultResume.text
+        mockDefaultResume.text,
+        expect.any(String),
+        expect.any(String)
       );
     });
   });
@@ -472,6 +498,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       const request = new Request('http://localhost/api/ai-coach/job-fit', {
@@ -498,6 +525,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       const request = new Request('http://localhost/api/ai-coach/job-fit', {
@@ -551,6 +579,7 @@ describe('AI Feature Resume Selection Logic', () => {
         resumeId: null,
         jobDescription: mockJobDescription,
         applicationData: null,
+        applicationData: { company: 'Test Company', role: 'Software Engineer', roleLink: null },
       });
 
       mockSupabase.single.mockResolvedValue({ data: null });

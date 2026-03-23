@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
-import { createAICoach } from "@/lib/ai-coach";
+import { generateJobFitAnalysis } from "@/lib/ai-coach";
+import { parseJobFitAnalysis } from "@/lib/ai-coach/response-parser";
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { AIDataFetcherService } from "@/lib/services/ai-data-fetcher.service";
 import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
@@ -88,6 +89,8 @@ async function handler(request: NextRequest) {
     let finalJobDescription = jobDescription;
     let finalResumeText: string | null = null;
     let userResumeId: string | null = null;
+    let companyName = '';
+    let roleName = '';
 
     if (applicationId) {
       const context = await AIDataFetcherService.getAIContext(user.id, applicationId);
@@ -97,6 +100,8 @@ async function handler(request: NextRequest) {
       }
 
       finalResumeText = context.resumeText;
+      companyName = context.applicationData?.company || '';
+      roleName = context.applicationData?.role || '';
     }
 
     // Fetch resume: prioritize resumeId, then default resume
@@ -143,8 +148,6 @@ async function handler(request: NextRequest) {
     }
 
     // Call AI service to analyze job fit
-    const aiCoach = createAICoach(user.id);
-    
     try {
       loggerService.debug('Starting job fit analysis', {
         category: LogCategory.AI_SERVICE,
@@ -158,8 +161,9 @@ async function handler(request: NextRequest) {
       });
 
       const aiStartTime = Date.now();
-      // Generate real analysis using AI
-      const analysis = await aiCoach.analyzeJobFit(finalJobDescription, finalResumeText);
+      // Generate real analysis using AI — call the prompt builder directly and parse the response
+      const rawAnalysis = await generateJobFitAnalysis(finalJobDescription, finalResumeText, companyName, roleName);
+      const analysis = parseJobFitAnalysis(rawAnalysis, { company: companyName, role: roleName });
       const aiDuration = Date.now() - aiStartTime;
 
       loggerService.info('Job fit analysis generated successfully', {
