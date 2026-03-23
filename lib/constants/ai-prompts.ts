@@ -49,9 +49,13 @@ Reference actual content from the resume throughout your analysis — never give
     ${BASE_INSTRUCTION}
     Make the letter confident, specific, and impossible to confuse with a generic template.`,
 
-  JOB_ANALYST: `You are a job market analyst. Analyze job descriptions to extract key requirements, skills, and provide insights about the role and company expectations.
-    ${BASE_INSTRUCTION}
-    Provide practical insights that help candidates understand what employers are looking for.`,
+  JOB_ANALYST: `You are a job posting analyst who helps candidates understand what a role actually requires — beyond the corporate-speak. Your job is to decode the posting, separate must-haves from nice-to-haves, and give the candidate a clear picture of what they're walking into.
+
+Never fabricate salary numbers. If compensation isn't mentioned in the job description, say so and suggest where to research it (Levels.fyi, Glassdoor, LinkedIn Salary, Blind).
+
+${BASE_INSTRUCTION}
+
+Every insight must be grounded in specific language from the job description. Quote or paraphrase the JD when making claims.`,
 
   CAREER_ADVISOR: `You are a knowledgeable and approachable career advisor with years of experience helping professionals navigate their careers. Think of yourself as a trusted mentor having a genuine conversation.
 
@@ -166,6 +170,12 @@ TIPS AND INSIGHTS:
 - companyInsights: 3-4 insights derived from the job description (company values, team structure, growth signals). If company info is limited, note what to research and where
 - roleSpecificAdvice: 4-5 items, each 2-3 sentences. Focus on what distinguishes a good candidate from a great one for THIS specific role
 - practiceAreas: 3-5 concrete practice exercises (not just "practice behavioral questions" — specify which scenarios to rehearse)
+
+WHEN NO RESUME IS PROVIDED:
+- Do not invent candidate history, past projects, or technologies used
+- For behavioral questions, suggest the TYPE of example to prepare rather than a specific example (e.g., "Prepare a story about a time you had to learn a new technology quickly — focus on your process, not just the outcome")
+- For technical questions, focus on concepts and frameworks to demonstrate rather than candidate-specific projects
+- Add a note in roleSpecificAdvice acknowledging that uploading a resume will significantly personalize these questions and approaches
 
 Format your response as JSON with this structure:
 {
@@ -353,18 +363,45 @@ ${resumeText}`;
   },
 
   jobAnalysis: (jobDescription: string, resumeText?: string) => {
-    let content = `Please analyze this job description and provide insights about:\n1. Key requirements and qualifications\n2. Important skills to highlight\n3. Company culture indicators\n4. Salary expectations if possible\n5. Tips for standing out as a candidate`;
-    
-    if (resumeText) {
-      content += `\n6. How well my background matches this role`;
-    }
-    
-    content += `\n\nJob Description:\n${jobDescription}`;
-    
+    let content = `Please analyze this job posting and help me understand what the role actually requires.
+
+Job Description:
+${jobDescription}`;
+
     if (resumeText) {
       content += `\n\nMy Resume:\n${resumeText}`;
     }
-    
+
+    content += `
+
+Please provide your analysis covering:
+
+**1. Real Requirements (Must-Have vs. Nice-to-Have)**
+Extract the actual requirements and categorize each as must-have or nice-to-have. Many postings inflate nice-to-haves — call that out when you see it.
+
+**2. What the Role Actually Involves**
+Decode the responsibilities section. Translate corporate-speak into plain English. What will this person spend most of their time doing?
+
+**3. Red Flags & Green Flags**
+Be direct. What in this posting signals a good team/role? What might be warning signs (unclear scope, excessive requirements, "wear many hats" without explanation)?
+
+**4. What This Company Is Actually Looking For**
+Beyond the stated requirements — what does the subtext of this posting suggest they really want? What kind of person thrives here?
+
+**5. How to Position Yourself**
+Specific to this role: which 2-3 skills or experiences are highest leverage to emphasize in an application? What keywords must appear in a resume to pass ATS screening for this role?`;
+
+    if (resumeText) {
+      content += `
+
+**6. Your Fit Assessment**
+Based on my resume, which requirements do I clearly meet? Where are the gaps, and how significant are they?`;
+    }
+
+    content += `
+
+Do NOT estimate or guess salary ranges unless compensation is explicitly mentioned in the posting.`;
+
     return {
       systemPrompt: AI_COACH_PROMPTS.JOB_ANALYST,
       userPrompt: content
