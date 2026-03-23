@@ -10,11 +10,11 @@ SELECT
   a.updated_at AS changed_at,
   'Backfill: status gap from missing history tracking' AS notes
 FROM applications a
-JOIN LATERAL (
+LEFT JOIN LATERAL (
   SELECT new_status
   FROM application_history
   WHERE application_id = a.id
   ORDER BY changed_at DESC
   LIMIT 1
 ) last_h ON true
-WHERE a.status != last_h.new_status;
+WHERE last_h.new_status IS NULL OR a.status != last_h.new_status;

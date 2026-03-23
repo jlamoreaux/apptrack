@@ -67,8 +67,8 @@ export interface ApplicationQueryResult {
 
 export interface CreateHistoryInput {
   application_id: string;
-  user_id: string;
-  status: string;
+  old_status?: string | null;
+  new_status: string;
   notes?: string;
 }
 
@@ -270,7 +270,7 @@ export class ApplicationDAL
       );
 
       // Track status change in history (non-blocking)
-      if (data.status !== undefined && data.status !== currentStatus) {
+      if (data.status !== undefined && currentStatus !== undefined && data.status !== currentStatus) {
         try {
           await this.addHistory({
             application_id: id,
