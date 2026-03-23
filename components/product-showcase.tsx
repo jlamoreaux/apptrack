@@ -30,6 +30,7 @@ interface Feature {
 interface Tab {
   id: string
   label: string
+  mobileLabel?: string
   icon: LucideIcon
   screenshot: string
   alt: string
@@ -68,6 +69,7 @@ const TABS: Tab[] = [
   {
     id: "ai-tools",
     label: "AI Career Tools",
+    mobileLabel: "AI Tools",
     icon: Sparkles,
     screenshot: "/screenshots/features/interview-prep-clean.png",
     alt: "AI interview preparation tool",
@@ -94,6 +96,7 @@ const TABS: Tab[] = [
   {
     id: "track-organize",
     label: "Track & Organize",
+    mobileLabel: "Organize",
     icon: Layers,
     screenshot: "/screenshots/hero/dashboard-clean.png",
     alt: "Application tracking dashboard",
@@ -161,7 +164,7 @@ export function ProductShowcase() {
   return (
     <div>
       {/* Tab buttons */}
-      <div role="tablist" className="inline-flex overflow-x-auto gap-1 mb-8 p-1 rounded-xl bg-muted border border-border scrollbar-hide">
+      <div role="tablist" className="inline-flex gap-1 mb-8 p-1 rounded-xl bg-muted border border-border">
         {TABS.map((tab, index) => {
           const Icon = tab.icon
           const isActive = index === activeTab
@@ -173,14 +176,21 @@ export function ProductShowcase() {
               aria-selected={isActive}
               aria-controls={`panel-${tab.id}`}
               onClick={() => handleTabChange(index)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 min-h-[44px] ${
+              className={`flex items-center gap-2 px-3 sm:px-5 py-2.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 min-h-[44px] ${
                 isActive
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground hover:bg-background/60"
               }`}
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
+              <Icon className="h-4 w-4 hidden sm:block" />
+              {tab.mobileLabel ? (
+                <>
+                  <span className="sm:hidden">{tab.mobileLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </>
+              ) : (
+                tab.label
+              )}
             </button>
           )
         })}
