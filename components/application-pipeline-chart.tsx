@@ -160,6 +160,8 @@ export function ApplicationPipelineChart({
   const values: number[] = [];
   const linkColors: string[] = [];
 
+  const linkLabels: string[] = [];
+
   transitionCounts.forEach((count, key) => {
     const [from, to] = key.split("→");
     const sourceIndex = stages.indexOf(from);
@@ -168,6 +170,8 @@ export function ApplicationPipelineChart({
       sources.push(sourceIndex);
       targets.push(targetIndex);
       values.push(count);
+      const apps = transitionApplications[key] || [];
+      linkLabels.push(apps.length ? apps.join("<br>") : "");
       if (to === "Rejected") {
         linkColors.push("rgba(239, 68, 68, 0.4)");
       } else if (to === "Hired") {
@@ -178,13 +182,6 @@ export function ApplicationPipelineChart({
         linkColors.push("rgba(59, 130, 246, 0.4)");
       }
     }
-  });
-
-  // Build link labels for hover
-  const linkLabels: string[] = [];
-  Array.from(transitionCounts.keys()).forEach((key) => {
-    const apps = transitionApplications[key] || [];
-    linkLabels.push(apps.length ? apps.join("<br>") : "");
   });
 
   // Create the Plotly data for the Sankey diagram
