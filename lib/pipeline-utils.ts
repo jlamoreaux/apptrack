@@ -64,9 +64,17 @@ export function buildStatusPath(
     }
 
     // Remove duplicates while preserving order
-    return path.filter(
+    const deduped = path.filter(
       (status, index, array) => array.indexOf(status) === index
     );
+
+    // If path is just ["Applied"] after dedup, the app has history but
+    // never moved beyond Applied — add "Awaiting Response" so it's visible
+    if (deduped.length === 1 && deduped[0] === "Applied") {
+      deduped.push("Awaiting Response");
+    }
+
+    return deduped;
   }
 
   // No history - create a synthetic path based on current status

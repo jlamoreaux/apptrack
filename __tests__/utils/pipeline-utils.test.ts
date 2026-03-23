@@ -127,6 +127,21 @@ describe('buildStatusPath', () => {
       expect(result[result.length - 1]).toBe('Rejected');
     });
 
+    it('adds Awaiting Response for Applied apps with history that never moved beyond Applied', () => {
+      const app = makeApplication({ id: 'app-001', status: 'Applied' });
+      const history = [
+        makeApplicationHistory({
+          application_id: 'app-001',
+          old_status: null,
+          new_status: 'Applied',
+          changed_at: '2024-01-15T00:00:00Z',
+        }),
+      ];
+
+      const result = buildStatusPath(app, history, SAMPLE_STAGES);
+      expect(result).toEqual(['Applied', 'Awaiting Response']);
+    });
+
     it('ignores history entries for other application ids', () => {
       const app = makeApplication({ id: 'app-001', status: 'Applied' });
       const history = [
