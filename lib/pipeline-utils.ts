@@ -38,7 +38,8 @@ export function buildStatusPath(
           for (let i = lastIdx + 1; i <= newIdx; i++) {
             path.push(stages[i]);
           }
-        } else {
+        } else if (h.new_status && !path.includes(h.new_status)) {
+          // Out-of-order or unknown status — append if not already present
           path.push(h.new_status);
         }
       }
