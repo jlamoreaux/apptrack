@@ -75,15 +75,17 @@ export async function generateRoastBase(
     const response = JSON.parse(completion.choices[0].message.content || "{}");
     
     // AI writes its own opening — no hardcoded wrapper
-    let roastContent = response.roast;
+    let roastContent = response.roast ?? config.fallbackContent(firstName);
 
     // Add sign-off
-    const signOff = config.signOffs[Math.floor(Math.random() * config.signOffs.length)];
-    roastContent += signOff.replace('${emojiScore}', response.emojiScore);
+    const signOffs = config.signOffs.length > 0 ? config.signOffs : [""];
+    const signOff = signOffs[Math.floor(Math.random() * signOffs.length)];
+    const emojiScore = response.emojiScore ?? config.fallbackScore;
+    roastContent += signOff.replace('${emojiScore}', emojiScore);
 
     return {
       content: roastContent,
-      emojiScore: response.emojiScore || config.fallbackScore,
+      emojiScore,
       scoreLabel: response.scoreLabel || config.fallbackLabel,
       tagline: response.tagline || config.fallbackTagline,
       categories: response.categories || {

@@ -75,8 +75,7 @@ Format your response as JSON:
     "skillsInflation": true/false,
     "genericDisease": true/false,
     "industryMisalignment": true/false
-  },
-  "topCrime": "The single biggest issue in 5 words max"
+  }
 }
 
 Resume:
