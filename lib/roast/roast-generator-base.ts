@@ -68,27 +68,24 @@ export async function generateRoastBase(
         },
       ],
       temperature: 0.9,
-      max_tokens: 800,
+      max_tokens: 1000,
       response_format: { type: "json_object" },
     });
 
     const response = JSON.parse(completion.choices[0].message.content || "{}");
     
-    // Personalize with first name if available
-    let roastContent = response.roast;
-    if (firstName) {
-      roastContent = `${firstName}, oh ${firstName}... what have you done?\n\n${roastContent}`;
-    } else {
-      roastContent = `Oh no... oh no no no...\n\n${roastContent}`;
-    }
-    
-    // Add sign-offs
-    const signOff = config.signOffs[Math.floor(Math.random() * config.signOffs.length)];
-    roastContent += signOff.replace('${response.emojiScore}', response.emojiScore);
+    // AI writes its own opening — no hardcoded wrapper
+    let roastContent = response.roast ?? config.fallbackContent(firstName);
+
+    // Add sign-off
+    const signOffs = config.signOffs.length > 0 ? config.signOffs : [""];
+    const signOff = signOffs[Math.floor(Math.random() * signOffs.length)];
+    const emojiScore = response.emojiScore ?? config.fallbackScore;
+    roastContent += signOff.replace('${emojiScore}', emojiScore);
 
     return {
       content: roastContent,
-      emojiScore: response.emojiScore || config.fallbackScore,
+      emojiScore,
       scoreLabel: response.scoreLabel || config.fallbackLabel,
       tagline: response.tagline || config.fallbackTagline,
       categories: response.categories || {
