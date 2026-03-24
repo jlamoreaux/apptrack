@@ -58,7 +58,8 @@ export function useUTMTracking() {
       // Also write to a cookie so UTM attribution survives the OAuth redirect
       // and is readable server-side at /auth/callback
       try {
-        document.cookie = `apptrack_utm=${encodeURIComponent(JSON.stringify(utmParams))}; path=/; max-age=2592000; SameSite=Lax`;
+        const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+        document.cookie = `apptrack_utm=${encodeURIComponent(JSON.stringify(utmParams))}; path=/; max-age=2592000; SameSite=Lax${secure}`;
       } catch {
         // non-blocking
       }
