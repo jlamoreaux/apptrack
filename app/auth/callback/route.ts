@@ -3,6 +3,7 @@ import { createCallbackClient } from "@/lib/supabase/server-client";
 import { handleOnSignup } from "@/lib/services/on-signup.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 /**
  * Handles the auth callback after email confirmation.
@@ -56,6 +57,36 @@ export async function GET(request: NextRequest) {
           const createdAt = user.created_at ? new Date(user.created_at).getTime() : 0;
           return Date.now() - createdAt < 5 * 60 * 1000;
         })();
+
+        // Fire server-side signup event for new users.
+        // Server-side capture ensures this fires even when the client
+        // has PostHog blocked (ad blockers, strict browser privacy modes).
+        if (isNewUser) {
+          try {
+            const provider = user.app_metadata?.provider ?? 'unknown';
+            const utmCookie = request.cookies.get('apptrack_utm')?.value;
+            const utm = utmCookie
+              ? JSON.parse(decodeURIComponent(utmCookie)) as Record<string, string>
+              : {};
+
+            captureServerEvent(user.id, 'user_signed_up', {
+              provider,
+              email_domain: user.email?.split('@')[1] ?? null,
+              utm_source: utm.utm_source ?? null,
+              utm_medium: utm.utm_medium ?? null,
+              utm_campaign: utm.utm_campaign ?? null,
+              utm_term: utm.utm_term ?? null,
+              utm_content: utm.utm_content ?? null,
+              $set: {
+                email_domain: user.email?.split('@')[1] ?? null,
+                signup_provider: provider,
+                utm_source: utm.utm_source ?? null,
+              },
+            });
+          } catch {
+            // never block the auth flow
+          }
+        }
 
         const redirectPath = isValidInternalPath(next)
           ? next
