@@ -1,4 +1,6 @@
 import { getPostBySlug, getAllPosts, formatPostDate } from "@/lib/blog";
+import { generatePageMetadata } from "@/lib/metadata";
+import { NavigationStatic } from "@/components/navigation-static";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -18,13 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPostBySlug(slug);
   if (!post) return {};
 
-  return {
-    title: `${post.title} | AppTrack`,
-    description: post.description,
-    alternates: {
-      canonical: `https://www.apptrack.ing/blog/${slug}`,
-    },
-  };
+  return generatePageMetadata(post.title, post.description, `/blog/${slug}`);
 }
 
 export default async function BlogPostPage({ params }: Props) {
@@ -35,6 +31,7 @@ export default async function BlogPostPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-background">
+      <NavigationStatic />
       <main className="container mx-auto px-4 py-16 max-w-2xl">
         <Link
           href="/blog"
@@ -45,7 +42,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <article>
           <p className="text-sm text-muted-foreground mb-2">
-            {formatPostDate(post.date)}
+            {post.author && `${post.author} · `}{formatPostDate(post.date)}
           </p>
           <h1 className="text-3xl font-bold mb-8">{post.title}</h1>
 
