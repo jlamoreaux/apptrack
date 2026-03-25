@@ -20,7 +20,7 @@ describe('resolveTrialDays', () => {
   });
 
   it('returns traffic source trial days even when promo also has trial_days', () => {
-    const promo = makePromo({ trial_days: 7 });
+    const promo = makePromo({ trial_days: 14 });
     expect(resolveTrialDays(7, promo)).toBe(7);
   });
 
