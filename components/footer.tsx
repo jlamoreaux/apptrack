@@ -14,6 +14,12 @@ export function Footer() {
           >
             Free Job Search Tools
           </Link>
+          <Link
+            href="/blog"
+            className="text-foreground font-medium hover:text-primary transition-colors"
+          >
+            Blog
+          </Link>
           <p>
             © {currentYear} {SITE_CONFIG.name}. All rights reserved.
           </p>

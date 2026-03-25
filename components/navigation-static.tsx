@@ -70,7 +70,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
   }, []);
 
   return (
-    <nav id="main-navigation" className={`sticky top-0 z-50 transition-all duration-normal bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 border-b ${isScrolled ? "shadow-sm border-border" : "border-transparent"}`}>
+    <nav id="main-navigation" className={`sticky top-0 z-50 transition-all duration-normal bg-background border-b ${isScrolled ? "shadow-sm border-border" : "border-transparent"}`}>
       <div className="container flex h-14 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
           <Image
