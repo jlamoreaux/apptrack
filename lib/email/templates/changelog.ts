@@ -7,6 +7,14 @@
 import { wrapEmail, ctaButton, APP_URL } from './shared';
 import type { BaseTemplateParams } from './shared';
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export type ChangelogCategory = {
   title: string;
   items: string[];
@@ -29,7 +37,7 @@ function renderCategory(category: ChangelogCategory): string {
       (item) => `
       <tr>
         <td style="padding: 8px 0; font-size: 14px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">
-          ${item}
+          ${escapeHtml(item)}
         </td>
       </tr>`
     )
@@ -37,7 +45,7 @@ function renderCategory(category: ChangelogCategory): string {
 
   return `
     <div style="margin: 0 0 24px;">
-      <p style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #18181b;">${category.title}</p>
+      <p style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #18181b;">${escapeHtml(category.title)}</p>
       <table width="100%" cellpadding="0" cellspacing="0">
         ${items}
       </table>
@@ -46,7 +54,7 @@ function renderCategory(category: ChangelogCategory): string {
 
 export function getChangelogHtml(params: ChangelogTemplateParams): string {
   const { changelog, ctaText, ctaUrl } = params;
-  const greeting = params.firstName ? `Hi ${params.firstName},` : 'Hi there,';
+  const greeting = params.firstName ? `Hi ${escapeHtml(params.firstName)},` : 'Hi there,';
 
   const categoriesHtml = changelog.categories.map(renderCategory).join('');
 

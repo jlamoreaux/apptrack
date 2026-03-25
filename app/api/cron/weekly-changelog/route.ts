@@ -30,9 +30,14 @@ export async function POST(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Verify auth
+    // Verify auth — fail closed if CRON_SECRET is not configured
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+    }
+
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       loggerService.logSecurityEvent('cron_unauthorized_access', 'high', {
         endpoint: '/api/cron/weekly-changelog',
         providedAuth: authHeader ? 'present' : 'missing',

@@ -5,6 +5,7 @@
  * changelog, and manages changelog_drafts in the database.
  */
 
+import crypto from 'crypto';
 import { createAdminClient } from '@/lib/supabase/admin-client';
 import { callOpenAI } from '@/lib/openai/client';
 import { Models } from '@/lib/openai/models';
@@ -116,10 +117,23 @@ Respond with ONLY valid JSON matching this exact structure:
 }
 
 /**
- * Save a changelog draft to the database
+ * Save a changelog draft to the database.
+ * Idempotent: if a pending draft already exists for this week, returns its ID.
  */
 export async function saveChangelogDraft(changelog: ChangelogData): Promise<string> {
   const supabase = createAdminClient();
+
+  // Check for existing pending draft for this week
+  const { data: existing } = await supabase
+    .from('changelog_drafts')
+    .select('id')
+    .eq('week_of', changelog.weekOf)
+    .eq('status', 'pending')
+    .single();
+
+  if (existing) {
+    return existing.id;
+  }
 
   const { data, error } = await supabase
     .from('changelog_drafts')
@@ -160,6 +174,14 @@ export async function getChangelogDraft(id: string): Promise<{
     .single();
 
   if (error) {
+    // PGRST116 = not found, which is expected — only log real errors
+    if (error.code !== 'PGRST116') {
+      loggerService.error('Failed to fetch changelog draft', error, {
+        category: LogCategory.EMAIL,
+        action: 'changelog_draft_fetch_failed',
+        metadata: { id },
+      });
+    }
     return null;
   }
 
@@ -167,21 +189,34 @@ export async function getChangelogDraft(id: string): Promise<{
 }
 
 /**
- * Mark a draft as approved
+ * Mark a draft as approved.
+ * Uses optimistic lock (.eq status=pending) to prevent double-approval.
+ * Returns true only if a row was actually updated.
  */
 export async function markDraftApproved(id: string): Promise<boolean> {
   const supabase = createAdminClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('changelog_drafts')
     .update({
       status: 'approved',
       approved_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('id');
 
-  return !error;
+  if (error) {
+    loggerService.error('Failed to mark changelog draft as approved', error, {
+      category: LogCategory.EMAIL,
+      action: 'changelog_draft_approve_failed',
+      metadata: { id },
+    });
+    return false;
+  }
+
+  // No rows updated means another request already changed the status
+  return (data?.length ?? 0) > 0;
 }
 
 /**
@@ -193,32 +228,54 @@ export async function markDraftSent(
 ): Promise<boolean> {
   const supabase = createAdminClient();
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('changelog_drafts')
     .update({
       status: 'sent',
       sent_at: new Date().toISOString(),
       send_results: results,
     })
-    .eq('id', id);
+    .eq('id', id)
+    .select('id');
 
-  return !error;
+  if (error) {
+    loggerService.error('Failed to mark changelog draft as sent', error, {
+      category: LogCategory.EMAIL,
+      action: 'changelog_draft_sent_failed',
+      metadata: { id },
+    });
+    return false;
+  }
+
+  return (data?.length ?? 0) > 0;
 }
 
 /**
- * Generate HMAC token for changelog approval links
+ * Generate HMAC token for changelog approval links.
+ * Throws if CRON_SECRET is not configured.
  */
 export function generateApproveToken(draftId: string): string {
-  const crypto = require('crypto');
-  const secret = process.env.CRON_SECRET || 'fallback-secret';
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    throw new Error('CRON_SECRET is not configured');
+  }
   return crypto.createHmac('sha256', secret).update(draftId).digest('hex');
 }
 
 /**
- * Verify HMAC token for changelog approval
+ * Verify HMAC token for changelog approval.
+ * Returns false for invalid or mismatched tokens (never throws).
  */
 export function verifyApproveToken(draftId: string, token: string): boolean {
-  const expected = generateApproveToken(draftId);
-  const crypto = require('crypto');
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  try {
+    const expected = generateApproveToken(draftId);
+    const expectedBuf = Buffer.from(expected);
+    const tokenBuf = Buffer.from(token);
+    if (expectedBuf.length !== tokenBuf.length) {
+      return false;
+    }
+    return crypto.timingSafeEqual(expectedBuf, tokenBuf);
+  } catch {
+    return false;
+  }
 }

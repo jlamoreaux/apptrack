@@ -7,11 +7,18 @@ import {
 } from '@/lib/email/changelog-generator';
 import { getChangelogHtml, getCtaForAudience } from '@/lib/email/templates/changelog';
 import { sendEmail } from '@/lib/email/client';
-import { wrapEmail, ctaButton } from '@/lib/email/templates/shared';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
 
 /**
  * Generate Weekly Changelog Cron
@@ -26,9 +33,14 @@ export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
   try {
-    // Verify auth
+    // Verify auth — fail closed if CRON_SECRET is not configured
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+    }
+
     const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${cronSecret}`) {
       loggerService.logSecurityEvent('cron_unauthorized_access', 'high', {
         endpoint: '/api/cron/generate-changelog',
         providedAuth: authHeader ? 'present' : 'missing',
@@ -122,7 +134,7 @@ function buildAdminNotificationEmail(
   commitCount: number,
 ): string {
   const categorySummary = changelog.categories
-    .map((c) => `${c.title}: ${c.items.length} items`)
+    .map((c) => `${escapeHtml(c.title)}: ${c.items.length} items`)
     .join(', ');
 
   return `
@@ -141,7 +153,7 @@ function buildAdminNotificationEmail(
             <td style="padding: 32px;">
               <h1 style="margin: 0 0 16px; font-size: 20px; font-weight: 600; color: #18181b;">Weekly Changelog Draft</h1>
               <p style="margin: 0 0 8px; font-size: 14px; color: #3f3f46;">
-                Week of ${changelog.weekOf} | ${commitCount} commits | ${categorySummary}
+                Week of ${escapeHtml(changelog.weekOf)} | ${commitCount} commits | ${categorySummary}
               </p>
               <p style="margin: 0 0 8px; font-size: 14px; color: #3f3f46;">
                 Draft ID: <code>${draftId}</code>

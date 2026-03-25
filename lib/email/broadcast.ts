@@ -70,23 +70,23 @@ export async function sendBroadcast(options: BroadcastOptions): Promise<Broadcas
   for (let i = 0; i < recipients.length; i += BATCH_SIZE) {
     const batch = recipients.slice(i, i + BATCH_SIZE);
 
-    const emails = batch.map((recipient) => {
-      const unsubscribeUrl = getUnsubscribeUrl(recipient.email);
-      const html = getHtml({
-        email: recipient.email,
-        firstName: recipient.first_name || undefined,
-        unsubscribeUrl,
+    try {
+      const emails = batch.map((recipient) => {
+        const unsubscribeUrl = getUnsubscribeUrl(recipient.email);
+        const html = getHtml({
+          email: recipient.email,
+          firstName: recipient.first_name || undefined,
+          unsubscribeUrl,
+        });
+
+        return {
+          from,
+          to: recipient.email,
+          subject,
+          html,
+        };
       });
 
-      return {
-        from,
-        to: recipient.email,
-        subject,
-        html,
-      };
-    });
-
-    try {
       const { data, error } = await resend.batch.send(emails);
 
       if (error) {
