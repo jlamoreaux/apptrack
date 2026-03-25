@@ -51,7 +51,7 @@ export default function SignUpPageClient() {
 
     if (isTrialOffer) {
       try {
-        localStorage.setItem("pendingPromoCode", "REDDIT14");
+        localStorage.setItem("pendingPromoCode", "REDDIT7");
       } catch (e) {
         console.warn("Could not save pendingPromoCode to localStorage:", e);
       }
@@ -110,7 +110,7 @@ export default function SignUpPageClient() {
           <Alert className="border-secondary bg-secondary/10">
             <Sparkles className="h-4 w-4 text-secondary" />
             <AlertDescription className="text-sm">
-              <strong>14 days free</strong> — then $9/mo. Cancel anytime.
+              <strong>7 days free</strong> — then $9/mo. Cancel anytime.
             </AlertDescription>
           </Alert>
         )}
@@ -156,7 +156,7 @@ export default function SignUpPageClient() {
               {hasPreviewSession
                 ? "Create your account to see the complete results + get 1 free try of each AI feature"
                 : isTrialOffer
-                ? "Create your account to start your 14-day free trial"
+                ? "Create your account to start your 7-day free trial"
                 : isDiscountOffer
                 ? "Create your account to activate 50% off for 3 months"
                 : isLayoffOffer
@@ -177,7 +177,7 @@ export default function SignUpPageClient() {
                   : isDiscountOffer
                   ? `/onboarding/welcome?promo=${encodeURIComponent(promoFromUrl ?? "REDDIT50")}`
                   : isTrialOffer
-                  ? "/onboarding/welcome?promo=REDDIT14"
+                  ? "/onboarding/welcome?promo=REDDIT7"
                   : undefined
               }
               className="mb-4"
