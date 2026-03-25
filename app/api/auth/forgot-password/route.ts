@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin-client";
+import { sendPasswordResetEmail } from "@/lib/email/transactional";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
-    loggerService.error("NEXT_PUBLIC_APP_URL is not configured", null, {
-      category: LogCategory.API,
-      action: "forgot_password_missing_env",
-    });
-    return NextResponse.json(
-      { error: "Server configuration error" },
-      { status: 500 }
-    );
-  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apptrack.ing";
 
   try {
     const { email } = await request.json();
@@ -27,14 +18,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createAdminClient();
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/reset-password`,
+    const { data, error } = await supabase.auth.admin.generateLink({
+      type: "recovery",
+      email,
     });
 
     if (error) {
-      loggerService.error("Error sending password reset email", error, {
+      loggerService.error("Error generating password reset link", error, {
         category: LogCategory.AUTH,
         action: "forgot_password_error",
         duration: Date.now() - startTime,
@@ -46,6 +38,15 @@ export async function POST(request: NextRequest) {
 
       // Return success even on error to prevent email enumeration
       return NextResponse.json({ success: true });
+    }
+
+    const token = data.properties?.hashed_token;
+
+    if (token) {
+      // Link to our own verify-reset endpoint which verifies the token
+      // server-side, sets session cookies, and redirects to /reset-password.
+      const resetUrl = `${appUrl}/api/auth/verify-reset?token=${token}`;
+      await sendPasswordResetEmail({ email, resetUrl });
     }
 
     loggerService.info("Password reset email sent", {
