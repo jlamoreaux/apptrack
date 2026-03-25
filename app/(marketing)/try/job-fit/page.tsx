@@ -14,6 +14,7 @@ import { SampleResultPreview } from "@/components/try/sample-result-preview";
 import { EmailCaptureGate } from "@/components/try/email-capture-gate";
 import Link from "next/link";
 import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } from "@/lib/analytics/pre-registration-events";
+import { trackCampaignPageViewed, trackCampaignAnalysisSubmitted } from "@/lib/analytics/campaign-events";
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
@@ -65,12 +66,22 @@ export default function TryJobFitPage() {
     }
   }, [checkingLimit, canUse]);
 
+  useEffect(() => {
+    if (!checkingLimit && canUse && offer) {
+      trackCampaignPageViewed(offer as "trial" | "discount");
+    }
+  }, [checkingLimit, canUse, offer]);
+
   const handleSubmit = async (formData: JobFitFormData) => {
     setIsLoading(true);
     setShowEmailGate(true);
     setError(null);
     const submitStartTime = Date.now();
     setStartTime(submitStartTime);
+
+    if (offer) {
+      trackCampaignAnalysisSubmitted(offer as "trial" | "discount");
+    }
 
     try {
       // Get browser fingerprint
@@ -260,6 +271,7 @@ export default function TryJobFitPage() {
                 ctaText={offerCtaText}
                 ctaHref={offerSignupHref}
                 googleRedirectTo={offerGoogleRedirect}
+                offerVariant={offer}
               />
               <div className="text-center">
                 <Button variant="outline" onClick={() => {

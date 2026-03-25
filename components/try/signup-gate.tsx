@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { trackSignupClicked, type PreRegFeatureType } from "@/lib/analytics/pre-registration-events";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
+import { trackCampaignCtaClicked } from "@/lib/analytics/campaign-events";
 
 interface SignupGateBenefit {
   text: string;
@@ -17,6 +18,7 @@ interface SignupGateProps {
   ctaText?: string;
   ctaHref?: string;
   googleRedirectTo?: string;
+  offerVariant?: string;
 }
 
 const DEFAULT_BENEFITS: SignupGateBenefit[] = [
@@ -33,6 +35,7 @@ export function SignupGate({
   ctaText = "Sign Up Free to Unlock",
   ctaHref,
   googleRedirectTo,
+  offerVariant,
 }: SignupGateProps) {
   const handleSignupClick = () => {
     trackSignupClicked({
@@ -80,7 +83,15 @@ export function SignupGate({
             variant="secondary"
             className="w-full h-12 min-h-[48px] text-base"
             asChild
-            onClick={handleSignupClick}
+            onClick={() => {
+              handleSignupClick();
+              if (offerVariant) {
+                trackCampaignCtaClicked(
+                  offerVariant as "trial" | "discount",
+                  ctaText
+                );
+              }
+            }}
           >
             <Link href={ctaHref ?? (sessionId ? `/signup?session=${sessionId}` : "/signup")}>
               {ctaText}

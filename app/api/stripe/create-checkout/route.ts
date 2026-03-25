@@ -341,6 +341,13 @@ export async function POST(request: NextRequest) {
     captureServerEvent(user.id, 'checkout_started', {
       plan: plan.name,
       billing_cycle: billingCycle,
+      offer_variant: utmData.utm_content ?? null,
+      utm_source: utmData.utm_source ?? null,
+      utm_medium: utmData.utm_medium ?? null,
+      utm_campaign: utmData.utm_campaign ?? null,
+      utm_content: utmData.utm_content ?? null,
+      has_trial: (trialDays ?? 0) > 0,
+      trial_days: trialDays ?? null,
     });
 
     return NextResponse.json({ url: session.url });

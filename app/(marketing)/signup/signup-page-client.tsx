@@ -15,6 +15,7 @@ import { AuthLayout } from "@/components/auth-layout";
 import { SignUpForm } from "@/components/forms/sign-up-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { Gift, Sparkles, HeartHandshake, Tag } from "lucide-react";
+import { trackCampaignSignupIntent } from "@/lib/analytics/campaign-events";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
@@ -63,7 +64,14 @@ export default function SignUpPageClient() {
         console.warn("Could not save pendingPromoCode to localStorage:", e);
       }
     }
-  }, [isAICoachTrial, isLayoffOffer, isTrialOffer, isDiscountOffer, promoFromUrl]);
+
+    if (isTrialOffer) {
+      trackCampaignSignupIntent("trial");
+    }
+    if (isDiscountOffer) {
+      trackCampaignSignupIntent("discount");
+    }
+  }, [isAICoachTrial, isLayoffOffer, isTrialOffer, isDiscountOffer, promoFromUrl, trackCampaignSignupIntent]);
 
   return (
     <AuthLayout>

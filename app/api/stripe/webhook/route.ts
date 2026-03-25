@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionUpdated(
           event.data.object as Stripe.Subscription,
           subscriptionService,
-          serviceClient
+          serviceClient,
+          event.data.previous_attributes as Record<string, unknown> | undefined
         );
         break;
 
@@ -304,6 +305,15 @@ async function handleCheckoutCompleted(
       plan: planName,
       billing_cycle: billingCycle,
       amount: session.amount_total,
+      offer_variant: subscription.metadata?.utm_content ?? null,
+      utm_source: subscription.metadata?.utm_source ?? null,
+      utm_medium: subscription.metadata?.utm_medium ?? null,
+      utm_campaign: subscription.metadata?.utm_campaign ?? null,
+      utm_content: subscription.metadata?.utm_content ?? null,
+      has_trial: subscription.status === "trialing",
+      trial_end: subscription.trial_end
+        ? new Date(subscription.trial_end * 1000).toISOString()
+        : null,
     });
 
     // Transition user to paid-users audience (non-blocking)
@@ -352,7 +362,8 @@ async function handleCheckoutCompleted(
 async function handleSubscriptionUpdated(
   subscription: Stripe.Subscription,
   subscriptionService: SubscriptionService,
-  serviceClient: SupabaseClient
+  serviceClient: SupabaseClient,
+  previousAttributes?: Record<string, unknown>
 ) {
   try {
     let userId = subscription.metadata?.userId;
@@ -471,6 +482,20 @@ async function handleSubscriptionUpdated(
         newPlanId
       }
     });
+
+    // Detect trial → paid conversion
+    if (
+      previousAttributes?.status === "trialing" &&
+      subscription.status === "active"
+    ) {
+      captureServerEvent(userId, "trial_converted", {
+        offer_variant: subscription.metadata?.utm_content ?? null,
+        utm_source: subscription.metadata?.utm_source ?? null,
+        utm_medium: subscription.metadata?.utm_medium ?? null,
+        utm_campaign: subscription.metadata?.utm_campaign ?? null,
+        subscription_id: subscription.id,
+      });
+    }
   } catch (error) {
     loggerService.error('Error in handleSubscriptionUpdated', error as Error, {
       category: LogCategory.PAYMENT,
