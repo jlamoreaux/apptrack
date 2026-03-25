@@ -3,10 +3,10 @@ import type { PromoCode } from '@/types/promo-codes';
 
 const makePromo = (overrides: Partial<PromoCode>): PromoCode => ({
   id: 'promo-1',
-  code: 'TEST14',
+  code: 'TEST7',
   description: 'Test promo',
   code_type: 'trial',
-  trial_days: 14,
+  trial_days: 7,
   used_count: 0,
   active: true,
   created_at: '2024-01-01T00:00:00Z',
@@ -20,13 +20,13 @@ describe('resolveTrialDays', () => {
   });
 
   it('returns traffic source trial days even when promo also has trial_days', () => {
-    const promo = makePromo({ trial_days: 14 });
+    const promo = makePromo({ trial_days: 7 });
     expect(resolveTrialDays(7, promo)).toBe(7);
   });
 
   it('falls back to promo code trial_days when traffic source returns 0', () => {
-    const promo = makePromo({ code_type: 'trial', trial_days: 14 });
-    expect(resolveTrialDays(0, promo)).toBe(14);
+    const promo = makePromo({ code_type: 'trial', trial_days: 7 });
+    expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
   it('returns 0 when no traffic trial and no promo', () => {

@@ -46,7 +46,7 @@ export default function TryJobFitPage() {
   const offerCtaText = isCampaignVisit
     ? (offer === "discount"
         ? "Get 50% off for 3 months — $4.50/mo, then $9/mo"
-        : "Start free — 14 days on us, then $9/mo")
+        : "Start free — 7 days on us, then $9/mo")
     : "Sign Up Free to Unlock";
 
   const offerSignupHref = isCampaignVisit
@@ -62,7 +62,7 @@ export default function TryJobFitPage() {
       ? `/try/unlock?session=${sessionId}`
       : (offer === "discount"
           ? "/onboarding/welcome?promo=REDDIT50"
-          : "/onboarding/welcome?promo=REDDIT14")
+          : "/onboarding/welcome?promo=REDDIT7")
     : undefined;
 
   // Track page view / preview started
@@ -198,7 +198,7 @@ export default function TryJobFitPage() {
             <Sparkles className="h-3.5 w-3.5" />
             {offer === "discount"
               ? "50% off for 3 months — $4.50/mo, then $9/mo"
-              : "14 days free, then $9/mo"}
+              : "7 days free, then $9/mo"}
           </div>
         )}
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">

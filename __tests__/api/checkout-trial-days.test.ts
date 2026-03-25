@@ -24,8 +24,8 @@ beforeEach(() => {
 
 const makeTrialPromo = (days: number): PromoCode => ({
   id: 'promo-trial',
-  code: 'TRIAL14',
-  description: '14-day trial',
+  code: 'TRIAL7',
+  description: '7-day trial',
   code_type: 'trial',
   trial_days: days,
   plan_name: 'AI Coach',
@@ -58,7 +58,7 @@ describe('createCheckoutSession trial days', () => {
       planName: 'AI Coach',
       planId: 'ai-coach',
       selectedBilling: 'monthly',
-      trialDays: 14,
+      trialDays: 7,
     });
 
     // Find the call to /api/stripe/create-checkout
@@ -68,7 +68,7 @@ describe('createCheckoutSession trial days', () => {
 
     expect(checkoutCall).toBeDefined();
     const body = JSON.parse(checkoutCall![1].body);
-    expect(body.trialDays).toBe(14);
+    expect(body.trialDays).toBe(7);
   });
 
   it('passes 0 trialDays when no trial is active', async () => {
@@ -112,7 +112,7 @@ describe('createCheckoutSession trial days', () => {
     setupFetchMocks();
 
     const promo: PromoCode = {
-      ...makeTrialPromo(14),
+      ...makeTrialPromo(7),
       stripe_promotion_code_id: 'promo_abc123',
     };
 
@@ -121,7 +121,7 @@ describe('createCheckoutSession trial days', () => {
       planId: 'ai-coach',
       selectedBilling: 'monthly',
       appliedPromo: promo,
-      trialDays: 14,
+      trialDays: 7,
     });
 
     const checkoutCall = mockFetch.mock.calls.find(
@@ -129,7 +129,7 @@ describe('createCheckoutSession trial days', () => {
     );
 
     const body = JSON.parse(checkoutCall![1].body);
-    expect(body.trialDays).toBe(14);
+    expect(body.trialDays).toBe(7);
     expect(body.promoCode).toBe('promo_abc123');
   });
 
