@@ -22,9 +22,9 @@ export default function BlogPage() {
         {posts.length === 0 ? (
           <p className="text-muted-foreground">No posts yet. Check back soon.</p>
         ) : (
-          <div className="space-y-10">
+          <div className="space-y-8">
             {posts.map((post) => (
-              <article key={post.slug}>
+              <article key={post.slug} className="rounded-lg border border-border p-6 transition-colors hover:border-primary/50">
                 <p className="text-sm text-muted-foreground mb-1">
                   {formatPostDate(post.date)}
                 </p>
@@ -36,10 +36,10 @@ export default function BlogPage() {
                     {post.title}
                   </Link>
                 </h2>
-                <p className="text-muted-foreground">{post.description}</p>
+                <p className="text-muted-foreground mb-4">{post.description}</p>
                 <Link
                   href={`/blog/${post.slug}`}
-                  className="mt-2 inline-flex min-h-[44px] items-center text-sm text-primary hover:underline"
+                  className="inline-flex min-h-[44px] items-center text-sm font-medium text-primary hover:underline"
                 >
                   Read more
                 </Link>

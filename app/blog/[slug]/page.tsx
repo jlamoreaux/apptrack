@@ -1,7 +1,6 @@
-import { getPostBySlug, getAllPosts, formatPostDate } from "@/lib/blog";
+import { getPostBySlug, getAllPosts, formatPostDate, renderMarkdown } from "@/lib/blog";
 import { generatePageMetadata } from "@/lib/metadata";
 import { NavigationStatic } from "@/components/navigation-static";
-import { MDXRemote } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -29,6 +28,8 @@ export default async function BlogPostPage({ params }: Props) {
 
   if (!post) notFound();
 
+  const html = await renderMarkdown(post.content);
+
   return (
     <div className="min-h-screen bg-background">
       <NavigationStatic />
@@ -44,11 +45,12 @@ export default async function BlogPostPage({ params }: Props) {
           <p className="text-sm text-muted-foreground mb-2">
             {post.author && `${post.author} · `}{formatPostDate(post.date)}
           </p>
-          <h1 className="text-3xl font-bold mb-8">{post.title}</h1>
+          <h1 className="text-3xl font-bold mb-8 pb-8 border-b border-border">{post.title}</h1>
 
-          <div className="prose prose-neutral dark:prose-invert max-w-none">
-            <MDXRemote source={post.content} />
-          </div>
+          <div
+            className="prose prose-neutral dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
         </article>
       </main>
     </div>
