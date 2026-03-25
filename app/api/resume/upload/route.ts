@@ -13,6 +13,7 @@ import { validateResumeName, validateResumeDescription } from "@/lib/validation/
 import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { validateFileType } from "@/lib/utils/file-type-validation";
 import { sanitizeFilename } from "@/lib/utils/sanitize-filename";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 async function handleUpload(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now();
@@ -375,6 +376,13 @@ async function handleUpload(request: NextRequest): Promise<NextResponse> {
       }
     });
 
+    captureServerEvent(user.id, 'resume_saved', {
+      resume_id: resume.id,
+      file_type: file.type,
+      file_size: file.size,
+      duration_ms: Date.now() - startTime,
+    });
+
     return NextResponse.json({
       success: true,
       resume: {
@@ -406,12 +414,23 @@ async function handleUpload(request: NextRequest): Promise<NextResponse> {
       // User not available, continue without userId
     }
 
-    loggerService.error('Resume upload error', error, {
-      category: LogCategory.API,
-      userId,
-      action: 'resume_upload_error',
-      duration: Date.now() - startTime
-    });
+    try {
+      loggerService.error('Resume upload error', error, {
+        category: LogCategory.API,
+        userId,
+        action: 'resume_upload_error',
+        duration: Date.now() - startTime
+      });
+
+      if (userId) {
+        captureServerEvent(userId, 'resume_upload_error', {
+          error_name: error instanceof Error ? error.name : 'UnknownError',
+          duration_ms: Date.now() - startTime,
+        });
+      }
+    } catch {
+      // Never let observability failures prevent the error response
+    }
 
     return NextResponse.json(
       { error: RESUME_ERROR_MESSAGES.UNEXPECTED_ERROR },

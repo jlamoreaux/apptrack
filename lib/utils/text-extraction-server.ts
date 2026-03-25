@@ -13,27 +13,23 @@ export async function extractTextFromBuffer(
   fileName: string
 ): Promise<TextExtractionResult> {
   try {
+    let rawText: string;
+
     switch (mimeType) {
       case "text/plain":
-        return {
-          text: buffer.toString("utf-8"),
-          success: true,
-        };
+        rawText = buffer.toString("utf-8");
+        break;
 
       case "application/pdf":
         const pdfData = await pdfParse(buffer);
-        return {
-          text: pdfData.text,
-          success: true,
-        };
+        rawText = pdfData.text;
+        break;
 
       case "application/msword": // .doc
       case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": // .docx
         const docxData = await mammoth.extractRawText({ buffer });
-        return {
-          text: docxData.value,
-          success: true,
-        };
+        rawText = docxData.value;
+        break;
 
       default:
         return {
@@ -42,6 +38,11 @@ export async function extractTextFromBuffer(
           error: `Unsupported file type: ${mimeType}`,
         };
     }
+
+    return {
+      text: sanitizeTextForDb(rawText),
+      success: true,
+    };
   } catch (error) {
     return {
       text: "",
@@ -66,6 +67,17 @@ export function getFileTypeLabel(mimeType: string): string {
     default:
       return "Unknown";
   }
+}
+
+/**
+ * Sanitize text for safe PostgreSQL storage.
+ * Removes null bytes (\u0000) and other control characters
+ * that PostgreSQL rejects with "unsupported Unicode escape sequence".
+ */
+export function sanitizeTextForDb(text: string): string {
+  return text
+    .replace(/\u0000/g, "")
+    .replace(/[\u0001-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, "");
 }
 
 export function isSupportedFileType(mimeType: string): boolean {
