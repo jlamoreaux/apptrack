@@ -204,6 +204,11 @@ export function ResumeListCard({
                 Upload Resume
               </Button>
             )}
+            {!meta?.canAdd && meta?.plan === "Free" && (
+              <Button asChild size="sm" variant="outline">
+                <a href="/pricing">Upgrade to Upload More</a>
+              </Button>
+            )}
           </div>
 
           {meta && (
@@ -263,7 +268,7 @@ export function ResumeListCard({
             <AlertDialogDescription>
               Are you sure you want to delete &quot;{resumeToDelete?.name}&quot;?
               This action cannot be undone.
-              {resumeToDelete?.is_default && (
+              {resumeToDelete?.is_default && resumes.length > 1 && (
                 <span className="block mt-2 text-yellow-600 dark:text-yellow-500">
                   This is your default resume. Another resume will be automatically
                   set as default.

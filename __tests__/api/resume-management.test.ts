@@ -571,21 +571,17 @@ describe('Resume Management API Routes', () => {
       expect((new ResumeService() as any).delete).toHaveBeenCalledWith(resumeId);
     });
 
-    it('should block deletion of last default resume', async () => {
+    it('should allow deletion of last default resume', async () => {
       (new ResumeService() as any).findById = jest.fn().mockResolvedValue({
         ...mockResume,
         is_default: true,
       });
-      (new ResumeService() as any).getAllResumes = jest.fn().mockResolvedValue([mockResume]);
-      // Route uses count() (not getAllResumes) to check if this is the only resume
-      (new ResumeService() as any).count = jest.fn().mockResolvedValue(1);
+      (new ResumeService() as any).delete = jest.fn().mockResolvedValue(true);
 
       const params = { params: Promise.resolve({ id: resumeId }) };
       const response = await DELETE(new Request('http://localhost'), params);
-      const data = await response.json();
 
-      expect(response.status).toBe(400);
-      expect(data.error).toContain('Cannot delete');
+      expect(response.status).toBe(200);
     });
 
     it('should allow deletion of default resume when user has other resumes', async () => {
