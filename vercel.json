@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/drip-emails",
       "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/generate-changelog",
+      "schedule": "0 9 * * 1"
     }
   ]
 }
