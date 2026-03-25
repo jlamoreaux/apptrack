@@ -17,6 +17,7 @@ import { trackPreviewStarted, trackPreviewCompleted, trackRateLimitReached } fro
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
+import { useSearchParams } from "next/navigation";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
@@ -34,6 +35,25 @@ export default function TryJobFitPage() {
   // Check rate limit
   const { canUse, isLoading: checkingLimit, resetAt } =
     usePreRegistrationRateLimit("job_fit");
+
+  // Offer variant from URL (?offer=trial or ?offer=discount)
+  const searchParams = useSearchParams();
+  const offer = searchParams.get("offer") ?? "trial";
+
+  const offerCtaText =
+    offer === "discount"
+      ? "Get 50% off for 3 months — $4.50/mo, then $9/mo"
+      : "Start free — 14 days on us, then $9/mo";
+
+  const offerSignupHref =
+    offer === "discount"
+      ? "/signup?intent=discount&promo=REDDIT50"
+      : "/signup?intent=trial";
+
+  const offerGoogleRedirect =
+    offer === "discount"
+      ? "/onboarding/welcome?promo=REDDIT50"
+      : "/onboarding/welcome?promo=REDDIT14";
 
   // Track page view / preview started
   useEffect(() => {
@@ -131,7 +151,9 @@ export default function TryJobFitPage() {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
             <Button size="lg" asChild>
-              <Link href="/signup">Sign Up Free</Link>
+              <Link href={offerSignupHref}>
+                {offer === "discount" ? "Claim 50% Off" : "Start Free Trial"}
+              </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="/">Back to Home</Link>
@@ -147,10 +169,10 @@ export default function TryJobFitPage() {
       {/* Header — always visible immediately */}
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
-          Find Out If You&apos;re a Good Fit
+          Before you apply — know if you&apos;re actually a fit.
         </h1>
         <p className="text-lg text-muted-foreground">
-          AI analyzes the job description against your background in 30 seconds
+          Paste a job listing. Upload your resume. Get a score and specific gaps in 30 seconds.
         </p>
       </div>
 
@@ -235,6 +257,9 @@ export default function TryJobFitPage() {
                   { text: "Save and track this application" },
                   { text: "Try all AI features free once" },
                 ]}
+                ctaText={offerCtaText}
+                ctaHref={offerSignupHref}
+                googleRedirectTo={offerGoogleRedirect}
               />
               <div className="text-center">
                 <Button variant="outline" onClick={() => {

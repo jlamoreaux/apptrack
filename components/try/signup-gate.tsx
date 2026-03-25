@@ -15,6 +15,8 @@ interface SignupGateProps {
   title?: string;
   benefits: SignupGateBenefit[];
   ctaText?: string;
+  ctaHref?: string;
+  googleRedirectTo?: string;
 }
 
 const DEFAULT_BENEFITS: SignupGateBenefit[] = [
@@ -29,6 +31,8 @@ export function SignupGate({
   title = "Your Results Are Ready!",
   benefits = DEFAULT_BENEFITS,
   ctaText = "Sign Up Free to Unlock",
+  ctaHref,
+  googleRedirectTo,
 }: SignupGateProps) {
   const handleSignupClick = () => {
     trackSignupClicked({
@@ -57,7 +61,7 @@ export function SignupGate({
         <div className="flex flex-col gap-4">
           <GoogleSignInButton
             context="unlock_results"
-            redirectTo={sessionId ? `/try/unlock?session=${sessionId}` : "/dashboard"}
+            redirectTo={googleRedirectTo ?? (sessionId ? `/try/unlock?session=${sessionId}` : "/dashboard")}
             size="lg"
             className="h-12 min-h-[48px] text-base"
           />
@@ -78,7 +82,7 @@ export function SignupGate({
             asChild
             onClick={handleSignupClick}
           >
-            <Link href={sessionId ? `/signup?session=${sessionId}` : "/signup"}>
+            <Link href={ctaHref ?? (sessionId ? `/signup?session=${sessionId}` : "/signup")}>
               {ctaText}
             </Link>
           </Button>

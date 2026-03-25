@@ -29,6 +29,17 @@ export async function POST(request: NextRequest) {
 
     const { planId, billingCycle, promoCode, couponId, discountCode, trialDays } = await request.json();
 
+    // Read UTM attribution from cookie
+    const utmCookieValue = request.cookies.get('apptrack_utm')?.value;
+    let utmData: Record<string, string | null> = {};
+    if (utmCookieValue) {
+      try {
+        utmData = JSON.parse(utmCookieValue);
+      } catch {
+        // Invalid cookie value — ignore
+      }
+    }
+
     loggerService.info('Creating checkout session', {
       category: LogCategory.PAYMENT,
       userId: user.id,
@@ -199,6 +210,10 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           planId: planId,
           billingCycle: billingCycle,
+          utm_source: utmData.utm_source ?? null,
+          utm_medium: utmData.utm_medium ?? null,
+          utm_campaign: utmData.utm_campaign ?? null,
+          utm_content: utmData.utm_content ?? null,
         },
       },
     };
