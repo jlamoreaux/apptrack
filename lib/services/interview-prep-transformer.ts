@@ -629,7 +629,7 @@ export class InterviewPrepTransformerService {
    */
   private findOldestCacheKey(): string | null {
     let oldestKey: string | null = null;
-    let oldestTimestamp = Date.now();
+    let oldestTimestamp = Infinity;
 
     for (const [key, cached] of this.transformationCache.entries()) {
       if (cached.timestamp < oldestTimestamp) {

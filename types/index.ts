@@ -244,6 +244,25 @@ export interface CheckoutSession {
   url: string;
 }
 
+// Email template types
+export type BaseTemplateParams = {
+  email: string;
+  unsubscribeUrl: string;
+  firstName?: string;
+};
+
+export type ChangelogCategory = {
+  title: string;
+  items: string[];
+};
+
+export type ChangelogData = {
+  weekOf: string;
+  categories: ChangelogCategory[];
+};
+
+export type ChangelogAudienceId = "free-users" | "trial-users" | "paid-users";
+
 // Error types
 export interface AppError {
   code: string;
