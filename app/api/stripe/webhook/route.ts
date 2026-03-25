@@ -305,7 +305,7 @@ async function handleCheckoutCompleted(
       plan: planName,
       billing_cycle: billingCycle,
       amount: session.amount_total,
-      offer_variant: subscription.metadata?.utm_content ?? null,
+      offer_variant: subscription.metadata?.offer_variant || subscription.metadata?.utm_content || null,
       utm_source: subscription.metadata?.utm_source ?? null,
       utm_medium: subscription.metadata?.utm_medium ?? null,
       utm_campaign: subscription.metadata?.utm_campaign ?? null,
@@ -316,34 +316,52 @@ async function handleCheckoutCompleted(
         : null,
     });
 
-    // Transition user to paid-users audience (non-blocking)
-    // Get user email from Stripe customer
+    // Transition user audience (non-blocking)
     if (session.customer_email || session.customer_details?.email) {
       const customerEmail = session.customer_email || session.customer_details?.email;
-      transitionAudience(customerEmail!, 'trial-users', 'paid-users', {
-        userId,
-        metadata: {
-          source: 'stripe-checkout',
-          planName,
-          subscriptionId: subscription.id,
-        },
-      }).catch((err) => {
-        // Try transitioning from free-users if not in trial
-        transitionAudience(customerEmail!, 'free-users', 'paid-users', {
+
+      if (subscription.status === "trialing") {
+        // Move to trial-users — will transition to paid-users on trial_converted
+        transitionAudience(customerEmail!, 'free-users', 'trial-users', {
+          userId,
+          metadata: {
+            source: 'stripe-checkout-trial',
+            planName,
+            subscriptionId: subscription.id,
+          },
+        }).catch((err) => {
+          loggerService.error('Failed to transition to trial-users audience', err, {
+            category: LogCategory.PAYMENT,
+            action: 'drip_audience_transition_error',
+            userId,
+          });
+        });
+      } else {
+        // Active subscription — move to paid-users
+        transitionAudience(customerEmail!, 'trial-users', 'paid-users', {
           userId,
           metadata: {
             source: 'stripe-checkout',
             planName,
             subscriptionId: subscription.id,
           },
-        }).catch((fallbackErr) => {
-          loggerService.error('Failed to transition to paid-users audience', fallbackErr, {
-            category: LogCategory.PAYMENT,
-            action: 'drip_audience_transition_error',
+        }).catch((err) => {
+          transitionAudience(customerEmail!, 'free-users', 'paid-users', {
             userId,
+            metadata: {
+              source: 'stripe-checkout',
+              planName,
+              subscriptionId: subscription.id,
+            },
+          }).catch((fallbackErr) => {
+            loggerService.error('Failed to transition to paid-users audience', fallbackErr, {
+              category: LogCategory.PAYMENT,
+              action: 'drip_audience_transition_error',
+              userId,
+            });
           });
         });
-      });
+      }
     }
   } catch (error) {
     loggerService.error('Error in handleCheckoutCompleted', error as Error, {
@@ -489,12 +507,32 @@ async function handleSubscriptionUpdated(
       subscription.status === "active"
     ) {
       captureServerEvent(userId, "trial_converted", {
-        offer_variant: subscription.metadata?.utm_content ?? null,
+        offer_variant: subscription.metadata?.offer_variant ?? null,
         utm_source: subscription.metadata?.utm_source ?? null,
         utm_medium: subscription.metadata?.utm_medium ?? null,
         utm_campaign: subscription.metadata?.utm_campaign ?? null,
+        utm_content: subscription.metadata?.utm_content ?? null,
         subscription_id: subscription.id,
       });
+
+      // Now move from trial-users to paid-users
+      const customer = await stripe.customers.retrieve(subscription.customer as string);
+      const email = 'deleted' in customer ? null : customer.email;
+      if (email) {
+        transitionAudience(email, 'trial-users', 'paid-users', {
+          userId,
+          metadata: {
+            source: 'trial-converted',
+            subscriptionId: subscription.id,
+          },
+        }).catch((err) => {
+          loggerService.error('Failed to transition trial-converted user to paid-users', err, {
+            category: LogCategory.PAYMENT,
+            action: 'drip_audience_transition_error',
+            userId,
+          });
+        });
+      }
     }
   } catch (error) {
     loggerService.error('Error in handleSubscriptionUpdated', error as Error, {

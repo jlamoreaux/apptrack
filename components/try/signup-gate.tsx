@@ -18,7 +18,7 @@ interface SignupGateProps {
   ctaText?: string;
   ctaHref?: string;
   googleRedirectTo?: string;
-  offerVariant?: string;
+  offerVariant?: "trial" | "discount";
 }
 
 const DEFAULT_BENEFITS: SignupGateBenefit[] = [
@@ -86,10 +86,7 @@ export function SignupGate({
             onClick={() => {
               handleSignupClick();
               if (offerVariant) {
-                trackCampaignCtaClicked(
-                  offerVariant as "trial" | "discount",
-                  ctaText
-                );
+                trackCampaignCtaClicked(offerVariant, ctaText);
               }
             }}
           >

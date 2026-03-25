@@ -39,22 +39,27 @@ export default function TryJobFitPage() {
 
   // Offer variant from URL (?offer=trial or ?offer=discount)
   const searchParams = useSearchParams();
-  const offer = searchParams.get("offer") ?? "trial";
+  const offerParam = searchParams.get("offer");
+  const isCampaignVisit = offerParam !== null;
+  const offer: "trial" | "discount" = offerParam === "discount" ? "discount" : "trial";
 
-  const offerCtaText =
-    offer === "discount"
-      ? "Get 50% off for 3 months — $4.50/mo, then $9/mo"
-      : "Start free — 14 days on us, then $9/mo";
+  const offerCtaText = isCampaignVisit
+    ? (offer === "discount"
+        ? "Get 50% off for 3 months — $4.50/mo, then $9/mo"
+        : "Start free — 14 days on us, then $9/mo")
+    : "Sign Up Free to Unlock";
 
-  const offerSignupHref =
-    offer === "discount"
-      ? "/signup?intent=discount&promo=REDDIT50"
-      : "/signup?intent=trial";
+  const offerSignupHref = isCampaignVisit
+    ? (offer === "discount"
+        ? "/signup?intent=discount&promo=REDDIT50"
+        : "/signup?intent=trial")
+    : "/signup";
 
-  const offerGoogleRedirect =
-    offer === "discount"
-      ? "/onboarding/welcome?promo=REDDIT50"
-      : "/onboarding/welcome?promo=REDDIT14";
+  const offerGoogleRedirect = isCampaignVisit
+    ? (offer === "discount"
+        ? "/onboarding/welcome?promo=REDDIT50"
+        : "/onboarding/welcome?promo=REDDIT14")
+    : undefined;
 
   // Track page view / preview started
   useEffect(() => {
@@ -67,10 +72,10 @@ export default function TryJobFitPage() {
   }, [checkingLimit, canUse]);
 
   useEffect(() => {
-    if (!checkingLimit && canUse && offer) {
-      trackCampaignPageViewed(offer as "trial" | "discount");
+    if (!checkingLimit && isCampaignVisit) {
+      trackCampaignPageViewed(offer);
     }
-  }, [checkingLimit, canUse, offer]);
+  }, [checkingLimit, isCampaignVisit, offer]);
 
   const handleSubmit = async (formData: JobFitFormData) => {
     setIsLoading(true);
@@ -79,8 +84,8 @@ export default function TryJobFitPage() {
     const submitStartTime = Date.now();
     setStartTime(submitStartTime);
 
-    if (offer) {
-      trackCampaignAnalysisSubmitted(offer as "trial" | "discount");
+    if (isCampaignVisit) {
+      trackCampaignAnalysisSubmitted(offer);
     }
 
     try {
@@ -271,7 +276,7 @@ export default function TryJobFitPage() {
                 ctaText={offerCtaText}
                 ctaHref={offerSignupHref}
                 googleRedirectTo={offerGoogleRedirect}
-                offerVariant={offer}
+                offerVariant={isCampaignVisit ? offer : undefined}
               />
               <div className="text-center">
                 <Button variant="outline" onClick={() => {

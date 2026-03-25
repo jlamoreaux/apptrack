@@ -140,12 +140,12 @@ export default function SignUpPageClient() {
               )}
             </div>
             <CardTitle>
-              {isTrialOffer
+              {hasPreviewSession
+                ? "Unlock Your Full Analysis"
+                : isTrialOffer
                 ? "Start Your Free Trial"
                 : isDiscountOffer
                 ? "Claim Your Discount"
-                : hasPreviewSession
-                ? "Unlock Your Full Analysis"
                 : isLayoffOffer
                 ? "Claim Your Free Month"
                 : isAICoachTrial
@@ -153,12 +153,12 @@ export default function SignUpPageClient() {
                 : "Join AppTrack"}
             </CardTitle>
             <CardDescription>
-              {isTrialOffer
+              {hasPreviewSession
+                ? "Create your account to see the complete results + get 1 free try of each AI feature"
+                : isTrialOffer
                 ? "Create your account to start your 14-day free trial"
                 : isDiscountOffer
                 ? "Create your account to activate 50% off for 3 months"
-                : hasPreviewSession
-                ? "Create your account to see the complete results + get 1 free try of each AI feature"
                 : isLayoffOffer
                 ? "Create your account to activate 30 days of AI Coach — free"
                 : isAICoachTrial
@@ -175,7 +175,7 @@ export default function SignUpPageClient() {
                   : isLayoffOffer
                   ? "/onboarding/welcome?promo=NEWSTART"
                   : isDiscountOffer
-                  ? "/onboarding/welcome?promo=REDDIT50"
+                  ? `/onboarding/welcome?promo=${encodeURIComponent(promoFromUrl ?? "REDDIT50")}`
                   : isTrialOffer
                   ? "/onboarding/welcome?promo=REDDIT14"
                   : undefined

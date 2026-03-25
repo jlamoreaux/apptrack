@@ -210,10 +210,13 @@ export async function POST(request: NextRequest) {
           userId: user.id,
           planId: planId,
           billingCycle: billingCycle,
-          utm_source: utmData.utm_source ?? null,
-          utm_medium: utmData.utm_medium ?? null,
-          utm_campaign: utmData.utm_campaign ?? null,
-          utm_content: utmData.utm_content ?? null,
+          utm_source: utmData.utm_source ?? "",
+          utm_medium: utmData.utm_medium ?? "",
+          utm_campaign: utmData.utm_campaign ?? "",
+          utm_content: utmData.utm_content ?? "",
+          offer_variant: utmData.utm_content === "trial" || utmData.utm_content === "discount"
+            ? utmData.utm_content
+            : "",
         },
       },
     };
