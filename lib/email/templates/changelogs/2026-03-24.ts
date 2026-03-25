@@ -1,7 +1,7 @@
 import type { ChangelogData } from '../changelog';
 
 export const changelog: ChangelogData = {
-  weekOf: 'March 17, 2026',
+  weekOf: 'March 24, 2026',
   categories: [
     {
       title: 'New Features',

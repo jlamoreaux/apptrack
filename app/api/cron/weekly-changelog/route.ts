@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { broadcastChangelog, getAudienceCount } from '@/lib/email/broadcast';
-import type { ChangelogData } from '@/lib/email/templates/changelog';
-import type { AudienceId } from '@/lib/email/audiences';
+import type { ChangelogData, ChangelogAudienceId } from '@/types';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const ALLOWED_AUDIENCES: AudienceId[] = ['free-users', 'trial-users', 'paid-users'];
+const ALLOWED_AUDIENCES: ChangelogAudienceId[] = ['free-users', 'trial-users', 'paid-users'];
 
 type RequestBody = {
   changelog: ChangelogData;
-  audiences?: AudienceId[];
+  audiences?: ChangelogAudienceId[];
   dryRun?: boolean;
   testEmail?: string;
 };

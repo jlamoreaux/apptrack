@@ -44,11 +44,7 @@ export async function sendBroadcast(options: BroadcastOptions): Promise<Broadcas
   const result: BroadcastResult = { audience, total: 0, sent: 0, failed: 0 };
 
   if (!resend) {
-    loggerService.warn('Resend not configured, skipping broadcast', {
-      category: LogCategory.EMAIL,
-      action: 'broadcast_skip_no_resend',
-    });
-    return result;
+    throw new Error('Resend not configured for email broadcast');
   }
 
   // Get recipients
@@ -136,7 +132,7 @@ async function getSubscribedMembers(audience: AudienceId): Promise<BroadcastReci
       action: 'broadcast_fetch_audience_failed',
       metadata: { audience },
     });
-    return [];
+    throw new Error(`Failed to fetch audience members for ${audience}: ${error.message}`);
   }
 
   return data || [];
@@ -148,7 +144,7 @@ async function getSubscribedMembers(audience: AudienceId): Promise<BroadcastReci
  */
 export async function broadcastChangelog(options: {
   changelog: import('./templates/changelog').ChangelogData;
-  audiences: AudienceId[];
+  audiences: import('@/types').ChangelogAudienceId[];
   testEmail?: string;
 }): Promise<{ total: number; sent: number; failed: number; audiences: BroadcastResult[] }> {
   const { getChangelogHtml, getCtaForAudience } = await import('./templates/changelog');
@@ -157,9 +153,7 @@ export async function broadcastChangelog(options: {
   const results: BroadcastResult[] = [];
 
   for (const audience of audiences) {
-    const { ctaText, ctaUrl } = getCtaForAudience(
-      audience as 'free-users' | 'trial-users' | 'paid-users'
-    );
+    const { ctaText, ctaUrl } = getCtaForAudience(audience);
 
     const result = await sendBroadcast({
       audience,

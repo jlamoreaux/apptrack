@@ -6,11 +6,11 @@ import {
   verifyApproveToken,
 } from '@/lib/email/changelog-generator';
 import { broadcastChangelog } from '@/lib/email/broadcast';
-import type { AudienceId } from '@/lib/email/audiences';
+import type { ChangelogAudienceId } from '@/types';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const BROADCAST_AUDIENCES: AudienceId[] = ['free-users', 'trial-users', 'paid-users'];
+const BROADCAST_AUDIENCES: ChangelogAudienceId[] = ['free-users', 'trial-users', 'paid-users'];
 
 function escapeHtml(str: string): string {
   return str

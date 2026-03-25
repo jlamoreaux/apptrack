@@ -24,14 +24,16 @@ type GitHubCommit = {
   };
 };
 
+const FETCH_TIMEOUT_MS = 15_000;
+const MAX_PAGES = 5;
+
 /**
- * Fetch recent commits from the GitHub REST API
+ * Fetch recent commits from the GitHub REST API.
+ * Paginates up to MAX_PAGES and uses an AbortController timeout.
  */
 export async function fetchRecentCommits(days: number): Promise<string[]> {
   const since = new Date();
   since.setDate(since.getDate() - days);
-
-  const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?since=${since.toISOString()}&per_page=100`;
 
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
@@ -43,16 +45,33 @@ export async function fetchRecentCommits(days: number): Promise<string[]> {
     headers.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(url, { headers });
+  const allCommits: GitHubCommit[] = [];
 
-  if (!response.ok) {
-    throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const url = `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?since=${since.toISOString()}&per_page=100&page=${page}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(url, { headers, signal: controller.signal });
+
+      if (!response.ok) {
+        throw new Error(`GitHub API error: ${response.status} ${response.statusText}`);
+      }
+
+      const commits: GitHubCommit[] = await response.json();
+      allCommits.push(...commits);
+
+      // Last page when fewer than per_page results
+      if (commits.length < 100) break;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
-  const commits: GitHubCommit[] = await response.json();
-
   // Extract first line of each commit message, skip merge commits
-  return commits
+  return allCommits
     .map((c) => c.commit.message.split('\n')[0])
     .filter((msg) => !msg.startsWith('Merge pull request') && !msg.startsWith('Merge branch'));
 }
@@ -106,14 +125,51 @@ Respond with ONLY valid JSON matching this exact structure:
 
   // Parse the JSON response, stripping markdown code fences if present
   const cleaned = result.replace(/```json\n?|\n?```/g, '').trim();
-  const parsed = JSON.parse(cleaned) as ChangelogData;
+  const parsed = JSON.parse(cleaned);
 
-  // Validate structure
-  if (!parsed.weekOf || !Array.isArray(parsed.categories)) {
-    throw new Error('Invalid changelog structure from AI');
+  const validated = validateChangelog(parsed);
+  return validated;
+}
+
+/**
+ * Runtime validation for AI-generated changelog data.
+ * Ensures structure is correct and strips any HTML from titles/items.
+ */
+function validateChangelog(data: unknown): ChangelogData {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid changelog: expected an object');
   }
 
-  return parsed;
+  const obj = data as Record<string, unknown>;
+
+  if (typeof obj.weekOf !== 'string' || obj.weekOf.length === 0) {
+    throw new Error('Invalid changelog: weekOf must be a non-empty string');
+  }
+
+  if (!Array.isArray(obj.categories)) {
+    throw new Error('Invalid changelog: categories must be an array');
+  }
+
+  const stripHtml = (s: string) => s.replace(/<[^>]*>/g, '');
+
+  const categories: ChangelogData['categories'] = obj.categories.map((cat: unknown, i: number) => {
+    if (!cat || typeof cat !== 'object') {
+      throw new Error(`Invalid changelog: category at index ${i} must be an object`);
+    }
+    const c = cat as Record<string, unknown>;
+    if (typeof c.title !== 'string') {
+      throw new Error(`Invalid changelog: category at index ${i} must have a string title`);
+    }
+    if (!Array.isArray(c.items) || !c.items.every((item: unknown) => typeof item === 'string')) {
+      throw new Error(`Invalid changelog: category "${c.title}" items must be an array of strings`);
+    }
+    return {
+      title: stripHtml(c.title),
+      items: (c.items as string[]).map(stripHtml),
+    };
+  });
+
+  return { weekOf: stripHtml(obj.weekOf), categories };
 }
 
 /**

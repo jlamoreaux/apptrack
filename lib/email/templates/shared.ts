@@ -4,13 +4,12 @@
  * Reusable HTML builders for all email templates (drip, changelog, etc.)
  */
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+import type { BaseTemplateParams } from '@/types';
 
-export type BaseTemplateParams = {
-  email: string;
-  unsubscribeUrl: string;
-  firstName?: string;
-};
+// Re-export for consumers that import from here
+export type { BaseTemplateParams };
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
 /**
  * Common email wrapper with header, content area, and footer

@@ -14,5 +14,9 @@ CREATE TABLE IF NOT EXISTS changelog_drafts (
 
 CREATE INDEX IF NOT EXISTS idx_changelog_drafts_status ON changelog_drafts(status);
 
+-- Prevent duplicate pending drafts for the same week
+CREATE UNIQUE INDEX IF NOT EXISTS idx_changelog_drafts_week_pending
+  ON changelog_drafts(week_of) WHERE status = 'pending';
+
 -- RLS: only service role can access
 ALTER TABLE changelog_drafts ENABLE ROW LEVEL SECURITY;

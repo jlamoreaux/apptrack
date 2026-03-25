@@ -5,7 +5,15 @@
  */
 
 import { wrapEmail, ctaButton, APP_URL } from './shared';
-import type { BaseTemplateParams } from './shared';
+import type {
+  BaseTemplateParams,
+  ChangelogCategory,
+  ChangelogData,
+  ChangelogAudienceId,
+} from '@/types';
+
+// Re-export for consumers that import from here
+export type { ChangelogCategory, ChangelogData, ChangelogAudienceId };
 
 function escapeHtml(str: string): string {
   return str
@@ -14,16 +22,6 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-export type ChangelogCategory = {
-  title: string;
-  items: string[];
-};
-
-export type ChangelogData = {
-  weekOf: string; // e.g. "March 17, 2026"
-  categories: ChangelogCategory[];
-};
 
 export type ChangelogTemplateParams = BaseTemplateParams & {
   changelog: ChangelogData;
@@ -77,7 +75,7 @@ export function getChangelogHtml(params: ChangelogTemplateParams): string {
 /**
  * Get CTA config based on audience segment
  */
-export function getCtaForAudience(audience: 'free-users' | 'trial-users' | 'paid-users'): {
+export function getCtaForAudience(audience: ChangelogAudienceId): {
   ctaText: string;
   ctaUrl: string;
 } {
@@ -86,7 +84,6 @@ export function getCtaForAudience(audience: 'free-users' | 'trial-users' | 'paid
       return { ctaText: 'Go to Dashboard', ctaUrl: `${APP_URL}/dashboard` };
     case 'free-users':
     case 'trial-users':
-    default:
       return { ctaText: 'Upgrade to Pro', ctaUrl: `${APP_URL}/dashboard/upgrade` };
   }
 }
