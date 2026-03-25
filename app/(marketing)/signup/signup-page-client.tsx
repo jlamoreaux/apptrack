@@ -14,7 +14,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthLayout } from "@/components/auth-layout";
 import { SignUpForm } from "@/components/forms/sign-up-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
-import { Gift, Sparkles, HeartHandshake } from "lucide-react";
+import { Gift, Sparkles, HeartHandshake, Tag } from "lucide-react";
+import { trackCampaignSignupIntent } from "@/lib/analytics/campaign-events";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
@@ -22,6 +23,9 @@ export default function SignUpPageClient() {
   const sessionId = searchParams.get("session");
   const isAICoachTrial = intent === "ai-coach-trial";
   const isLayoffOffer = intent === "layoff-offer";
+  const isTrialOffer = intent === "trial";
+  const isDiscountOffer = intent === "discount";
+  const promoFromUrl = searchParams.get("promo");
   const hasPreviewSession = !!sessionId;
   const [showEmailForm, setShowEmailForm] = useState(false);
 
@@ -44,7 +48,30 @@ export default function SignUpPageClient() {
         console.warn("Could not save pendingPromoCode to localStorage:", e);
       }
     }
-  }, [isAICoachTrial, isLayoffOffer]);
+
+    if (isTrialOffer) {
+      try {
+        localStorage.setItem("pendingPromoCode", "REDDIT14");
+      } catch (e) {
+        console.warn("Could not save pendingPromoCode to localStorage:", e);
+      }
+    }
+
+    if (isDiscountOffer) {
+      try {
+        localStorage.setItem("pendingPromoCode", promoFromUrl ?? "REDDIT50");
+      } catch (e) {
+        console.warn("Could not save pendingPromoCode to localStorage:", e);
+      }
+    }
+
+    if (isTrialOffer) {
+      trackCampaignSignupIntent("trial");
+    }
+    if (isDiscountOffer) {
+      trackCampaignSignupIntent("discount");
+    }
+  }, [isAICoachTrial, isLayoffOffer, isTrialOffer, isDiscountOffer, promoFromUrl, trackCampaignSignupIntent]);
 
   return (
     <AuthLayout>
@@ -79,13 +106,33 @@ export default function SignUpPageClient() {
           </Alert>
         )}
 
+        {isTrialOffer && !hasPreviewSession && (
+          <Alert className="border-secondary bg-secondary/10">
+            <Sparkles className="h-4 w-4 text-secondary" />
+            <AlertDescription className="text-sm">
+              <strong>14 days free</strong> — then $9/mo. Cancel anytime.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {isDiscountOffer && !hasPreviewSession && (
+          <Alert className="border-secondary bg-secondary/10">
+            <Tag className="h-4 w-4 text-secondary" />
+            <AlertDescription className="text-sm">
+              <strong>50% off for 3 months</strong> — $4.50/mo, then $9/mo.
+            </AlertDescription>
+          </Alert>
+        )}
+
         <Card>
           <CardHeader className="text-center">
             <div className="flex justify-center mb-2">
-              {(isAICoachTrial || isLayoffOffer || hasPreviewSession) && (
+              {(isAICoachTrial || isLayoffOffer || hasPreviewSession || isTrialOffer || isDiscountOffer) && (
                 <div className="p-2 bg-secondary/10 rounded-full">
                   {isLayoffOffer ? (
                     <HeartHandshake className="h-6 w-6 text-secondary" />
+                  ) : isDiscountOffer ? (
+                    <Tag className="h-6 w-6 text-secondary" />
                   ) : (
                     <Sparkles className="h-6 w-6 text-secondary" />
                   )}
@@ -95,6 +142,10 @@ export default function SignUpPageClient() {
             <CardTitle>
               {hasPreviewSession
                 ? "Unlock Your Full Analysis"
+                : isTrialOffer
+                ? "Start Your Free Trial"
+                : isDiscountOffer
+                ? "Claim Your Discount"
                 : isLayoffOffer
                 ? "Claim Your Free Month"
                 : isAICoachTrial
@@ -104,6 +155,10 @@ export default function SignUpPageClient() {
             <CardDescription>
               {hasPreviewSession
                 ? "Create your account to see the complete results + get 1 free try of each AI feature"
+                : isTrialOffer
+                ? "Create your account to start your 14-day free trial"
+                : isDiscountOffer
+                ? "Create your account to activate 50% off for 3 months"
                 : isLayoffOffer
                 ? "Create your account to activate 30 days of AI Coach — free"
                 : isAICoachTrial
@@ -119,6 +174,10 @@ export default function SignUpPageClient() {
                   ? `/try/unlock?session=${encodeURIComponent(sessionId)}`
                   : isLayoffOffer
                   ? "/onboarding/welcome?promo=NEWSTART"
+                  : isDiscountOffer
+                  ? `/onboarding/welcome?promo=${encodeURIComponent(promoFromUrl ?? "REDDIT50")}`
+                  : isTrialOffer
+                  ? "/onboarding/welcome?promo=REDDIT14"
                   : undefined
               }
               className="mb-4"
