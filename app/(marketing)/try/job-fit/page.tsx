@@ -7,7 +7,7 @@ import { QuickTips } from "@/components/try/quick-tips";
 import { usePreRegistrationRateLimit } from "@/lib/hooks/use-pre-registration-rate-limit";
 import { getFingerprint } from "@/lib/utils/fingerprint";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SampleResultPreview } from "@/components/try/sample-result-preview";
@@ -83,7 +83,10 @@ export default function TryJobFitPage() {
 
   const handleSubmit = async (formData: JobFitFormData) => {
     setIsLoading(true);
-    setShowEmailGate(true);
+    // Skip email gate for campaign visitors — they go straight to results + SignupGate
+    if (!isCampaignVisit) {
+      setShowEmailGate(true);
+    }
     setError(null);
     const submitStartTime = Date.now();
     setStartTime(submitStartTime);
@@ -190,6 +193,14 @@ export default function TryJobFitPage() {
     <div className="max-w-4xl mx-auto p-4 sm:p-8 py-12">
       {/* Header — always visible immediately */}
       <div className="text-center mb-12">
+        {isCampaignVisit && (
+          <div className="inline-flex items-center gap-2 bg-secondary/10 border border-secondary/20 rounded-full px-4 py-1.5 text-sm font-medium text-secondary mb-6">
+            <Sparkles className="h-3.5 w-3.5" />
+            {offer === "discount"
+              ? "50% off for 3 months — $4.50/mo, then $9/mo"
+              : "14 days free, then $9/mo"}
+          </div>
+        )}
         <h1 className="text-4xl sm:text-5xl font-bold mb-4">
           Before you apply — know if you&apos;re actually a fit.
         </h1>
