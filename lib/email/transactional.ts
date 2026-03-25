@@ -147,6 +147,45 @@ export async function sendRoastReadyEmail({
   }
 }
 
+// ─── Password Reset Email ────────────────────────────────────
+
+export async function sendPasswordResetEmail({
+  email,
+  resetUrl,
+}: {
+  email: string;
+  resetUrl: string;
+}): Promise<{ success: boolean }> {
+  const safeResetUrl = safeUrl(resetUrl);
+
+  const html = wrapEmail(
+    `
+    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
+      Hi there,
+    </p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      We received a request to reset your password. Click the button below to choose a new one.
+    </p>
+    ${ctaButton('Reset Password', safeResetUrl)}
+    <p style="margin: 0 0 16px; font-size: 14px; color: #71717a;">
+      This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.
+    </p>
+    `,
+    getUnsubscribeUrl(email)
+  );
+
+  try {
+    const result = await sendEmail({
+      to: email,
+      subject: 'Reset your AppTrack password',
+      html,
+    });
+    return { success: result.success };
+  } catch {
+    return { success: false };
+  }
+}
+
 // ─── Try Results Email ───────────────────────────────────────
 
 interface SendTryResultsEmailOptions {
