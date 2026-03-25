@@ -51,14 +51,18 @@ export default function TryJobFitPage() {
 
   const offerSignupHref = isCampaignVisit
     ? (offer === "discount"
-        ? "/signup?intent=discount&promo=REDDIT50"
-        : "/signup?intent=trial")
-    : "/signup";
+        ? `/signup?intent=discount&promo=REDDIT50${sessionId ? `&session=${sessionId}` : ""}`
+        : `/signup?intent=trial${sessionId ? `&session=${sessionId}` : ""}`)
+    : sessionId
+      ? `/signup?session=${sessionId}`
+      : "/signup";
 
-  const offerGoogleRedirect = isCampaignVisit
-    ? (offer === "discount"
-        ? "/onboarding/welcome?promo=REDDIT50"
-        : "/onboarding/welcome?promo=REDDIT14")
+  const offerGoogleRedirect: string | undefined = isCampaignVisit
+    ? sessionId
+      ? `/try/unlock?session=${sessionId}`
+      : (offer === "discount"
+          ? "/onboarding/welcome?promo=REDDIT50"
+          : "/onboarding/welcome?promo=REDDIT14")
     : undefined;
 
   // Track page view / preview started
@@ -168,7 +172,9 @@ export default function TryJobFitPage() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
             <Button size="lg" asChild>
               <Link href={offerSignupHref}>
-                {offer === "discount" ? "Claim 50% Off" : "Start Free Trial"}
+                {isCampaignVisit
+                  ? (offer === "discount" ? "Claim 50% Off" : "Start Free Trial")
+                  : "Sign Up Free"}
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
