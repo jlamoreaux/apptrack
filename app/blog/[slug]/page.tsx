@@ -1,4 +1,4 @@
-import { getPostBySlug, getAllPosts } from "@/lib/blog";
+import { getPostBySlug, getAllPosts, formatPostDate } from "@/lib/blog";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -45,16 +45,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <article>
           <p className="text-sm text-muted-foreground mb-2">
-            {(() => {
-              const parsed = Date.parse(post.date);
-              return Number.isNaN(parsed)
-                ? post.date
-                : new Date(parsed).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  });
-            })()}
+            {formatPostDate(post.date)}
           </p>
           <h1 className="text-3xl font-bold mb-8">{post.title}</h1>
 

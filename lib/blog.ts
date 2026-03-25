@@ -4,6 +4,16 @@ import matter from "gray-matter";
 
 const BLOG_DIR = path.join(process.cwd(), "content/blog");
 
+export function formatPostDate(dateStr: string): string {
+  const parsed = Date.parse(dateStr);
+  if (Number.isNaN(parsed)) return dateStr;
+  return new Date(parsed).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
 export interface BlogPost {
   slug: string;
   title: string;

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAllPosts } from "@/lib/blog";
+import { getAllPosts, formatPostDate } from "@/lib/blog";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -25,11 +25,7 @@ export default function BlogPage() {
             {posts.map((post) => (
               <article key={post.slug}>
                 <p className="text-sm text-muted-foreground mb-1">
-                  {new Date(post.date).toLocaleDateString("en-US", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {formatPostDate(post.date)}
                 </p>
                 <h2 className="text-xl font-semibold mb-2">
                   <Link

@@ -16,7 +16,7 @@ export function Footer() {
           </Link>
           <Link
             href="/blog"
-            className="inline-flex min-h-[44px] items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="text-foreground font-medium hover:text-primary transition-colors"
           >
             Blog
           </Link>
