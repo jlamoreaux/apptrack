@@ -8,7 +8,6 @@ import {
   TrendingUp,
   ArrowRight,
 } from "lucide-react";
-import { PreviewBlurOverlay } from "./preview-blur-overlay";
 
 interface JobFitAnalysis {
   fitScore: number;
@@ -26,8 +25,8 @@ interface JobFitResultsProps {
 
 /**
  * Display job fit analysis results
- * Shows partial content in preview mode (before signup)
- * Shows full content after signup
+ * Preview mode: shows real score + first 2 strengths, blurs/fades the rest
+ * Full mode: shows everything
  */
 export function JobFitResults({
   analysis,
@@ -42,6 +41,12 @@ export function JobFitResults({
     return "text-red-600";
   };
 
+  const getScoreBg = (score: number) => {
+    if (score >= 80) return "from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950";
+    if (score >= 60) return "from-amber-50 to-yellow-50 dark:from-amber-950 dark:to-yellow-950";
+    return "from-red-50 to-rose-50 dark:from-red-950 dark:to-rose-950";
+  };
+
   const getScoreLabel = (score: number) => {
     if (score >= 80) return "Strong Match";
     if (score >= 60) return "Good Match";
@@ -52,48 +57,24 @@ export function JobFitResults({
   return (
     <div className="space-y-8">
       {isPreview ? (
-        <PreviewBlurOverlay
-          title="Sign up to unlock full analysis"
-          description="See your specific gaps, detailed recommendations, and actionable next steps"
-        >
-          {/* Fit Score - Teaser in Preview, Full in Unlocked */}
-          <div className="text-center p-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950 dark:to-purple-950 rounded-lg border">
-            <div className="mb-4">
-              {isPreview ? (
-                <>
-                  <div className="text-7xl font-bold text-green-500/60 blur-lg select-none pointer-events-none">
-                    57%
-                  </div>
-                  <p className="text-lg font-medium text-muted-foreground mt-2">
-                    Your Match Score is Ready!
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div
-                    className={cn(
-                      "text-7xl font-bold",
-                      getScoreColor(fitScore)
-                    )}
-                  >
-                    {fitScore}%
-                  </div>
-                  <p className="text-lg font-medium text-muted-foreground mt-2">
-                    {getScoreLabel(fitScore)}
-                  </p>
-                </>
-              )}
+        <>
+          {/* Score — real value, prominently displayed */}
+          <div className={cn(
+            "text-center p-8 bg-gradient-to-br rounded-lg border",
+            getScoreBg(fitScore)
+          )}>
+            <div className={cn("text-7xl font-bold", getScoreColor(fitScore))}>
+              {fitScore}%
             </div>
-
-            {/* Score breakdown hint */}
-            <p className="text-sm text-muted-foreground max-w-md mx-auto">
-              {isPreview
-                ? "Sign up to reveal your personalized match score"
-                : "Based on skills match, experience level, and job requirements alignment"}
+            <p className="text-lg font-semibold mt-2">
+              {getScoreLabel(fitScore)}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Based on skills match, experience level, and job requirements
             </p>
           </div>
 
-          {/* Strengths - Partial in Preview */}
+          {/* First 2 strengths — visible */}
           {analysis.strengths && analysis.strengths.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -111,65 +92,47 @@ export function JobFitResults({
                   </li>
                 ))}
               </ul>
-
-              {isPreview && (
-                <p className="text-sm text-muted-foreground mt-3 italic">
-                  + {3 - (analysis.strengths?.length || 0)} more strengths (sign
-                  up to see all)
-                </p>
-              )}
             </div>
           )}
-          <div className="space-y-6">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-                <h3 className="text-lg font-semibold">Areas to Improve</h3>
+
+          {/* Locked section — fades out with blur, flows into SignupGate below */}
+          <div className="relative">
+            <div
+              className="space-y-6 select-none pointer-events-none"
+              style={{ filter: "blur(4px)", opacity: 0.5 }}
+              aria-hidden="true"
+            >
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  <h3 className="text-lg font-semibold">Areas to Improve</h3>
+                </div>
+                <ul className="space-y-3">
+                  <li className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">Skill gap identified in required technical area</span>
+                  </li>
+                  <li className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">Experience level below job requirements</span>
+                  </li>
+                </ul>
               </div>
-              <ul className="space-y-3">
-                <li className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">
-                    [Hidden - Sign up to see specific gaps]
-                  </span>
-                </li>
-                <li className="flex items-start gap-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                  <span className="text-sm">
-                    [Hidden - Sign up to see specific gaps]
-                  </span>
-                </li>
-              </ul>
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="h-5 w-5 text-indigo-600" />
+                  <h3 className="text-lg font-semibold">Recommendation</h3>
+                </div>
+                <div className="p-4 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+                  <p className="text-sm">Apply with targeted cover letter addressing experience gaps directly.</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="h-5 w-5 text-indigo-600" />
-                <h3 className="text-lg font-semibold">Recommendation</h3>
-              </div>
-              <div className="p-4 bg-indigo-50 dark:bg-indigo-950 border border-indigo-200 dark:border-indigo-800 rounded-lg">
-                <p className="text-sm">
-                  [Hidden - Sign up to see full recommendation]
-                </p>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <ArrowRight className="h-5 w-5 text-purple-600" />
-                <h3 className="text-lg font-semibold">Next Steps</h3>
-              </div>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2 text-sm">
-                  <span className="text-purple-600 mt-1">1.</span>
-                  <span>[Hidden - Sign up to see actionable next steps]</span>
-                </li>
-                <li className="flex items-start gap-2 text-sm">
-                  <span className="text-purple-600 mt-1">2.</span>
-                  <span>[Hidden - Sign up to see actionable next steps]</span>
-                </li>
-              </ul>
-            </div>
+
+            {/* Gradient fade at the bottom of the locked zone */}
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           </div>
-        </PreviewBlurOverlay>
+        </>
       ) : (
         /* Full Content - After Signup */
         <>
