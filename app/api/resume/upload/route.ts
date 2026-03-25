@@ -10,7 +10,6 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { RESUME_CONSTRAINTS, RESUME_ERROR_MESSAGES } from "@/lib/constants/resume";
 import { validateResumeName, validateResumeDescription } from "@/lib/validation/resume.schema";
-import { withRateLimit } from "@/lib/middleware/rate-limit.middleware";
 import { validateFileType } from "@/lib/utils/file-type-validation";
 import { sanitizeFilename } from "@/lib/utils/sanitize-filename";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
@@ -441,12 +440,8 @@ async function handleUpload(request: NextRequest): Promise<NextResponse> {
 
 /**
  * POST /api/resume/upload
- * Upload a new resume with rate limiting
+ * Upload a new resume (plan-based limits enforced by canAddResume + DB trigger)
  */
 export async function POST(request: NextRequest) {
-  return withRateLimit(handleUpload, {
-    feature: 'resume_upload',
-    request,
-    skipTracking: false, // Track usage for analytics
-  });
+  return handleUpload(request);
 }

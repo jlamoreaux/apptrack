@@ -30,7 +30,6 @@ export const RESUME_ERROR_MESSAGES = {
   EMPTY_EXTRACTION: 'Could not extract text from the file',
   UPLOAD_FAILED: 'Failed to upload file',
   RESUME_NOT_FOUND: 'Resume not found',
-  CANNOT_DELETE_ONLY_DEFAULT: 'Cannot delete your only default resume. Upload a new resume first.',
   LIMIT_REACHED: (plan: string, limit: number) =>
     `Resume limit reached. Your ${plan} plan allows ${limit} resume(s). Please upgrade or delete an existing resume.`,
   INVALID_INPUT: 'Invalid input',

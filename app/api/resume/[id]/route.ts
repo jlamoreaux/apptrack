@@ -185,22 +185,6 @@ export async function DELETE(
       );
     }
 
-    // Check if this is the only resume and it's default
-    const resumeCount = await resumeService.count(user.id);
-    if (resumeCount === 1 && resume.is_default) {
-      loggerService.warn('Attempted to delete only default resume', {
-        category: LogCategory.BUSINESS,
-        userId: user.id,
-        action: 'resume_delete_only_default',
-        duration: Date.now() - startTime,
-        metadata: { resumeId: id }
-      });
-      return NextResponse.json(
-        { error: RESUME_ERROR_MESSAGES.CANNOT_DELETE_ONLY_DEFAULT },
-        { status: 400 }
-      );
-    }
-
     // Delete resume from database first (DB trigger handles default reassignment)
     // This validates constraints before cleanup
     await resumeService.delete(id);
