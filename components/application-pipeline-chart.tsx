@@ -91,7 +91,7 @@ export function ApplicationPipelineChart({
               <p>No applications to display yet.</p>
               {isAuditEnabled && (
                 <Link href="/dashboard/add">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" className="min-h-11 px-4">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Application
                   </Button>

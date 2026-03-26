@@ -105,7 +105,7 @@ export function NavigationClient() {
             height={24}
             className="h-6 w-6"
           />
-          <span className="font-bold text-xl text-primary">AppTrack</span>
+          <span className="font-bold text-xl text-foreground">AppTrack</span>
         </Link>
 
         <div className="ml-auto flex items-center space-x-2">

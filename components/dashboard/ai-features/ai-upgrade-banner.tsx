@@ -66,13 +66,14 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
       const timer = setTimeout(() => {
         setIsVisible(true);
         capturePostHogEvent("ai_upgrade_banner_shown", {
-          message: BANNER_MESSAGES[messageIndex].title,
+          message: BANNER_MESSAGES[0].title,
           variant,
         });
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, [messageIndex, variant, isAuditEnabled, dismissDuration]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [variant, isAuditEnabled, dismissDuration]);
 
   useEffect(() => {
     // Only rotate messages when audit flag is off

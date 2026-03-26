@@ -81,7 +81,7 @@ export function AICoachTeaser({
         data-onboarding="ai-coach-nav"
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className={`p-2 rounded-md ${AI_THEME.classes.background.gradient} flex-shrink-0`}>
+          <div className={`p-2 rounded-md ${theme.background.gradient} flex-shrink-0`}>
             <Brain className="h-4 w-4 text-white" />
           </div>
           <p className="text-sm text-muted-foreground truncate">
