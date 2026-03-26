@@ -106,7 +106,7 @@ export class TrialBudgetService {
 
     // -1 means budget was already exhausted
     if (newCount === -1) {
-      captureServerEvent(userId, "ai_trial_exhausted", { tool_type: toolType });
+      await captureServerEvent(userId, "ai_trial_exhausted", { tool_type: toolType });
       return {
         allowed: false,
         budget: { ...budget, analyses_remaining: 0 },
@@ -116,14 +116,14 @@ export class TrialBudgetService {
 
     const remaining = TRIAL_BUDGET.LIMIT - newCount;
 
-    captureServerEvent(userId, "ai_trial_analysis_used", {
+    await captureServerEvent(userId, "ai_trial_analysis_used", {
       analyses_remaining: remaining,
       tool_type: toolType,
     });
 
     // Fire exhausted event when hitting zero
     if (remaining === 0) {
-      captureServerEvent(userId, "ai_trial_exhausted", { tool_type: toolType });
+      await captureServerEvent(userId, "ai_trial_exhausted", { tool_type: toolType });
     }
 
     return {
@@ -154,7 +154,7 @@ export class TrialBudgetService {
       return;
     }
 
-    captureServerEvent(userId, "ai_trial_analysis_refunded", {
+    await captureServerEvent(userId, "ai_trial_analysis_refunded", {
       tool_type: toolType,
       error_reason: "analysis_failed",
     });
@@ -175,6 +175,6 @@ export class TrialBudgetService {
       return;
     }
 
-    captureServerEvent(userId, "ai_trial_onboarding_completed");
+    await captureServerEvent(userId, "ai_trial_onboarding_completed");
   }
 }

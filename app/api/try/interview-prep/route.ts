@@ -98,11 +98,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
-      tool: 'interview_prep',
-      authenticated: false,
-    }));
-
     const fullAnalysis = {
       questions: parsedAnalysis.questions || [],
       generalTips: parsedAnalysis.generalTips || [],
@@ -147,6 +142,12 @@ export async function POST(request: NextRequest) {
       ip_address: ipAddress,
       feature_type: "interview_prep",
     });
+
+    // Emit only on confirmed success — after DB write succeeds
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
+      tool: 'interview_prep',
+      authenticated: false,
+    }));
 
     return NextResponse.json({
       sessionId: session.id,

@@ -125,11 +125,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
-      tool: 'job_fit',
-      authenticated: false,
-    }));
-
     // Map to component's expected structure
     const fullAnalysis = {
       fitScore: parsedAnalysis.overallScore || 0,
@@ -200,7 +195,12 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if tracking fails
     }
 
-    // Return session ID and preview content
+    // Emit only on confirmed success — after DB write succeeds
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
+      tool: 'job_fit',
+      authenticated: false,
+    }));
+
     return NextResponse.json({
       sessionId: session.id,
       preview: previewContent,
