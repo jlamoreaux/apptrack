@@ -31,7 +31,7 @@ export default async function ApplicationsPage() {
             </Button>
           </Link>
           <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               All Applications
             </h1>
             <p className="text-muted-foreground">

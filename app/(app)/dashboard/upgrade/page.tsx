@@ -292,7 +292,7 @@ export default function UpgradePage() {
           </div>
 
           <div className="text-center space-y-4">
-            <h1 className="text-3xl font-bold text-primary">
+            <h1 className="text-3xl font-bold text-foreground">
               Choose Your Plan
             </h1>
             <p className="text-muted-foreground">
@@ -340,7 +340,7 @@ export default function UpgradePage() {
                   className="text-xs sm:text-sm"
                 >
                   Yearly
-                  <Badge variant="secondary" className="ml-1 sm:ml-2 text-xs">
+                  <Badge className="ml-1 sm:ml-2 text-xs bg-white/20 text-white border-0 hover:bg-white/20">
                     Save 33%
                   </Badge>
                 </Button>
@@ -428,6 +428,7 @@ export default function UpgradePage() {
           </div>
 
           {/* Pricing Cards - 2-tier structure */}
+          {/* AI Coach first on mobile, Free first on desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
             {[freePlan, aiCoachPlan].filter(plan => plan && plan.name !== PLAN_NAMES.PRO).map((plan) => {
               if (!plan) return null;
@@ -464,8 +465,9 @@ export default function UpgradePage() {
               
 
               return (
-                <div 
-                  key={plan.id} 
+                <div
+                  key={plan.id}
+                  className={plan.name === PLAN_NAMES.FREE ? "order-last lg:order-first" : "order-first lg:order-last"}
                   onClick={(e) => {
                     // Intercept all clicks on upgrade/downgrade buttons
                     const target = e.target as HTMLElement;
@@ -516,49 +518,30 @@ export default function UpgradePage() {
             <h2 className="text-2xl font-bold text-center text-primary">
               Frequently Asked Questions
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    Can I cancel anytime?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Yes! You can cancel your subscription at any time. {"We'll"}{" "}
-                    even remind you to cancel when you mark a job as {"'Offer'"}{" "}
-                    to help you save money.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    What happens to my data?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Your data is always yours. Even if you downgrade to the free
-                    plan, {"you'll"} keep access to your first 100 applications
-                    and all your notes.
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    How does AI coaching work?
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Our AI coach uses advanced language models to analyze your
-                    resume, prepare you for interviews, and provide personalized
-                    career advice based on your goals and experience.
-                  </p>
-                </CardContent>
-              </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto items-start">
+              {[
+                {
+                  q: "Can I cancel anytime?",
+                  a: "Yes! You can cancel your subscription at any time. We'll even remind you to cancel when you mark a job as 'Offer' to help you save money.",
+                },
+                {
+                  q: "What happens to my data?",
+                  a: "Your data is always yours. Even if you downgrade to the free plan, you'll keep access to your first 100 applications and all your notes.",
+                },
+                {
+                  q: "How does AI coaching work?",
+                  a: "Our AI coach uses advanced language models to analyze your resume, prepare you for interviews, and provide personalized career advice based on your goals and experience.",
+                },
+              ].map((faq, i, arr) => (
+                <Card key={i}>
+                  <CardHeader>
+                    <CardTitle className="text-lg">{faq.q}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{faq.a}</p>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           </div>
         </div>

@@ -20,6 +20,33 @@ function getClient(): PostHog | null {
  * Returns a Promise — wrap in after() in route handlers so Vercel
  * keeps the lambda alive until the HTTP request to PostHog completes.
  */
+/**
+ * Evaluate a feature flag server-side for a given user.
+ * Returns the flag value (boolean or string variant), or the fallback if
+ * PostHog is unavailable. This avoids client-side flash of content.
+ */
+export async function getServerFeatureFlag(
+  distinctId: string,
+  flagName: string,
+  fallback: boolean = false
+): Promise<boolean> {
+  // Dev override: NEXT_PUBLIC_FF_<FLAG_NAME>=true in .env
+  // e.g. NEXT_PUBLIC_FF_DASHBOARD_UX_AUDIT_V1=true
+  const envKey = `NEXT_PUBLIC_FF_${flagName.toUpperCase().replace(/-/g, "_")}`;
+  const envVal = process.env[envKey];
+  if (envVal === "true") return true;
+  if (envVal === "false") return false;
+
+  try {
+    const client = getClient();
+    if (!client) return fallback;
+    const value = await client.isFeatureEnabled(flagName, distinctId);
+    return value ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export async function captureServerEvent(
   distinctId: string,
   event: string,

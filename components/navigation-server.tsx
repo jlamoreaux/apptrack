@@ -44,7 +44,7 @@ export async function NavigationServer({ variant = "default" }: NavigationServer
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Top Header */}
-      <nav aria-label="Site header" className="container flex h-14 items-center">
+      <nav aria-label="Site header" className="container flex h-14 items-center px-4 sm:px-8">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2" aria-label="AppTrack Dashboard">
           <Image
             src="/logo_square.png"
@@ -53,10 +53,10 @@ export async function NavigationServer({ variant = "default" }: NavigationServer
             height={24}
             className="h-6 w-6"
           />
-          <span className="font-bold text-xl text-primary">AppTrack</span>
+          <span className="font-bold text-xl text-foreground">AppTrack</span>
         </Link>
 
-        <div className="ml-auto flex items-center space-x-2 sm:space-x-3" role="toolbar" aria-label="User actions">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3" role="toolbar" aria-label="User actions">
           {/* Mobile Navigation Menu */}
           <MobileNavigation 
             user={user} 

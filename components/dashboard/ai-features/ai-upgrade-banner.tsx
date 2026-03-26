@@ -7,6 +7,7 @@ import { useNavigation } from "@/lib/utils/navigation";
 import { cn } from "@/lib/utils";
 import { AI_THEME } from "@/lib/constants/ai-theme";
 import { capturePostHogEvent } from "@/lib/analytics/posthog";
+import { useDashboardFlags } from "@/components/providers/dashboard-flags-provider";
 
 interface AIUpgradeBannerProps {
   className?: string;
@@ -31,12 +32,16 @@ const BANNER_MESSAGES = [
   },
 ];
 
-const DISMISS_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+const DISMISS_DURATION_DEFAULT = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DISMISS_DURATION_LONG = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBannerProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [messageIndex, setMessageIndex] = useState(0);
   const { navigateToUpgrade } = useNavigation();
+  const { isAuditEnabled } = useDashboardFlags();
+
+  const dismissDuration = isAuditEnabled ? DISMISS_DURATION_LONG : DISMISS_DURATION_DEFAULT;
 
   useEffect(() => {
     // Check if banner was dismissed recently
@@ -44,33 +49,41 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
     if (dismissedAt) {
       const dismissTime = new Date(dismissedAt).getTime();
       const now = new Date().getTime();
-      if (now - dismissTime < DISMISS_DURATION) {
+      if (now - dismissTime < dismissDuration) {
         return;
       }
     }
 
-    // Show banner after a short delay
-    const timer = setTimeout(() => {
+    if (isAuditEnabled) {
+      // Show immediately (no delay) when audit flag is on
       setIsVisible(true);
-
-      // Track banner impression
       capturePostHogEvent("ai_upgrade_banner_shown", {
-        message: BANNER_MESSAGES[messageIndex].title,
+        message: BANNER_MESSAGES[0].title,
         variant,
       });
-    }, 2000);
-
-    return () => clearTimeout(timer);
-  }, [messageIndex, variant]);
+    } else {
+      // Show banner after a short delay
+      const timer = setTimeout(() => {
+        setIsVisible(true);
+        capturePostHogEvent("ai_upgrade_banner_shown", {
+          message: BANNER_MESSAGES[messageIndex].title,
+          variant,
+        });
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [messageIndex, variant, isAuditEnabled, dismissDuration]);
 
   useEffect(() => {
-    // Rotate messages every 10 seconds
+    // Only rotate messages when audit flag is off
+    if (isAuditEnabled) return;
+
     const interval = setInterval(() => {
       setMessageIndex((prev) => (prev + 1) % BANNER_MESSAGES.length);
     }, 10000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isAuditEnabled]);
 
   const handleDismiss = () => {
     setIsVisible(false);
@@ -165,10 +178,12 @@ export function AIUpgradeBanner({ className, variant = "default" }: AIUpgradeBan
         </div>
       </div>
       
-      {/* Animated background effect */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute -inset-40 bg-gradient-to-r from-amber-400/50 to-orange-400/50 blur-3xl animate-pulse" />
-      </div>
+      {/* Animated background effect — hidden when audit flag is on */}
+      {!isAuditEnabled && (
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute -inset-40 bg-gradient-to-r from-amber-400/50 to-orange-400/50 blur-3xl animate-pulse" />
+        </div>
+      )}
     </div>
   );
 }

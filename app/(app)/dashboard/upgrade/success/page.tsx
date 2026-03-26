@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { CheckCircle, ArrowRight } from "lucide-react"
 import { trackLinkedInPurchase } from "@/lib/analytics/linkedin"
 import { trackConversionEvent, CONVERSION_EVENTS } from "@/lib/analytics/conversion-events"
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag"
 
 export default function UpgradeSuccessPage() {
   const router = useRouter()
@@ -16,6 +17,7 @@ export default function UpgradeSuccessPage() {
   const sessionId = searchParams.get("session_id")
   const [countdown, setCountdown] = useState(5)
   const hasTracked = useRef(false)
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT)
 
   // Track purchase conversion once on successful checkout
   useEffect(() => {
@@ -56,19 +58,19 @@ export default function UpgradeSuccessPage() {
         <div className="max-w-2xl mx-auto">
           <Card className="text-center">
             <CardHeader>
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${isAuditEnabled ? "bg-secondary/20" : "bg-green-100"}`}>
+                <CheckCircle className={`h-8 w-8 ${isAuditEnabled ? "text-secondary" : "text-green-600"}`} />
               </div>
-              <CardTitle className="text-2xl">Welcome to Pro! 🎉</CardTitle>
+              <CardTitle className="text-2xl">Welcome to Pro!</CardTitle>
               <CardDescription>
                 Your subscription has been activated successfully. You now have unlimited access to track job
                 applications.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-semibold text-green-900 mb-2">What's included in your AI Coach plan:</h3>
-                <ul className="text-sm text-green-700 space-y-1 text-left">
+              <div className={`p-4 rounded-lg ${isAuditEnabled ? "bg-secondary/10" : "bg-green-50"}`}>
+                <h3 className={`font-semibold mb-2 ${isAuditEnabled ? "text-foreground" : "text-green-900"}`}>What&apos;s included in your AI Coach plan:</h3>
+                <ul className={`text-sm space-y-1 text-left ${isAuditEnabled ? "text-muted-foreground" : "text-green-700"}`}>
                   <li>• Unlimited job applications</li>
                   <li>• AI-powered resume analysis</li>
                   <li>• Interview preparation</li>
@@ -78,8 +80,8 @@ export default function UpgradeSuccessPage() {
                 </ul>
               </div>
 
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <p className="text-blue-800 text-sm">
+              <div className={`p-4 rounded-lg ${isAuditEnabled ? "bg-info/10" : "bg-blue-50"}`}>
+                <p className={`text-sm ${isAuditEnabled ? "text-info-foreground" : "text-blue-800"}`}>
                   Redirecting to your dashboard in <span className="font-bold">{countdown}</span> seconds...
                 </p>
               </div>

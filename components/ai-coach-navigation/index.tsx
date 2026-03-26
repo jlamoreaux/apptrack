@@ -9,24 +9,26 @@ interface AICoachDashboardIntegrationProps {
   recentApplications?: Application[];
   className?: string;
   userId?: string;
+  compact?: boolean;
 }
 
 /**
  * Main integration component that shows appropriate AI Coach content
  * based on user's subscription level
  */
-export function AICoachDashboardIntegration({ 
-  userPlan, 
-  recentApplications = [], 
+export function AICoachDashboardIntegration({
+  userPlan,
+  recentApplications = [],
   className,
-  userId
+  userId,
+  compact = false,
 }: AICoachDashboardIntegrationProps) {
   // Show quick actions for AI Coach subscribers
   if (userPlan === "ai_coach") {
     return (
-      <AICoachQuickActions 
-        recentApplications={recentApplications} 
-        className={className} 
+      <AICoachQuickActions
+        recentApplications={recentApplications}
+        className={className}
         userId={userId}
       />
     );
@@ -34,11 +36,12 @@ export function AICoachDashboardIntegration({
 
   // Show teaser for non-subscribers
   return (
-    <AICoachTeaser 
+    <AICoachTeaser
       userPlan={userPlan}
-      recentApplications={recentApplications} 
-      className={className} 
+      recentApplications={recentApplications}
+      className={className}
       userId={userId}
+      compact={compact}
     />
   );
 }

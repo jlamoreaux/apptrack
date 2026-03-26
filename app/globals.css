@@ -29,6 +29,13 @@
     --secondary-foreground: 0 0% 100%;
     --destructive: 347 77% 50%;       /* Rose-600 — errors */
     --destructive-foreground: 0 0% 100%;
+    --warning: 33 100% 50%;            /* Amber-500 — warnings */
+    --warning-foreground: 21 100% 32%; /* #E65100 — 6.8:1 on light bg */
+    --info: 210 79% 46%;              /* Blue-600 #1976D2 — info */
+    --info-foreground: 213 100% 33%;  /* #0D47A1 — 7.2:1 on light bg */
+    --ai-brand: 33 100% 50%;          /* Amber/orange for AI features */
+    --ai-brand-foreground: 0 0% 100%;
+    --ai-brand-light: 33 100% 95%;    /* Subtle AI bg */
 
     /* ─── Text ─── */
     --muted: 30 6% 96%;
@@ -96,7 +103,7 @@
     --surface-raised: 220 16% 20%;    /* Surface-3: badges, chips (+4% more) */
 
     /* ─── Brand colors (desaturated 10-15% for dark bg) ─── */
-    --primary: 239 70% 65%;           /* Indigo lighter, less saturated */
+    --primary: 239 70% 75%;           /* Indigo — light enough for dark bg */
     --primary-foreground: 0 0% 100%;
     --accent: 24 90% 55%;             /* Coral slightly lighter */
     --accent-foreground: 0 0% 100%;
@@ -104,6 +111,13 @@
     --secondary-foreground: 0 0% 100%;
     --destructive: 347 65% 58%;       /* Rose desaturated */
     --destructive-foreground: 0 0% 100%;
+    --warning: 33 90% 55%;            /* Amber lighter for dark bg */
+    --warning-foreground: 33 90% 70%; /* Readable on dark surfaces */
+    --info: 210 70% 60%;             /* Blue lighter for dark bg */
+    --info-foreground: 210 70% 75%;  /* Readable on dark surfaces */
+    --ai-brand: 33 90% 55%;          /* Amber/orange lighter */
+    --ai-brand-foreground: 0 0% 100%;
+    --ai-brand-light: 33 50% 15%;    /* Subtle AI bg on dark */
 
     /* ─── Text ─── */
     --muted: 220 14% 16%;

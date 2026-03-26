@@ -40,6 +40,7 @@ import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions
 import { Sparkles } from "lucide-react"
 import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
 import { formatLocalDate, formatLocalDateTime } from "@/lib/utils/date"
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag"
 
 export default function ApplicationDetailPage() {
   const { user, loading: authLoading } = useSupabaseAuth()
@@ -50,6 +51,7 @@ export default function ApplicationDetailPage() {
   const [saving, setSaving] = useState(false)
   const router = useRouter()
   const params = useParams()
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT)
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [offerModalStatus, setOfferModalStatus] = useState<"Offer" | "Hired">("Offer")
   const { isOnFreePlan } = useSubscription(user?.id || null)
@@ -217,7 +219,7 @@ export default function ApplicationDetailPage() {
           {/* Application Overview */}
           <Card>
             <CardHeader>
-              <div className="flex items-start justify-between gap-4">
+              <div className={isAuditEnabled ? "flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4" : "flex items-start justify-between gap-4"}>
                 <div className="space-y-2 flex-1 min-w-0">
                   <CardTitle className="text-xl sm:text-2xl break-words">{application.role}</CardTitle>
                   <CardDescription className="text-base sm:text-lg break-words">{application.company}</CardDescription>
@@ -247,7 +249,7 @@ export default function ApplicationDetailPage() {
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <DropdownMenuItem
-                            className="text-red-600 focus:text-red-600"
+                            className={isAuditEnabled ? "text-destructive focus:text-destructive" : "text-red-600 focus:text-red-600"}
                             onSelect={(e) => e.preventDefault()}
                           >
                             <Trash className="h-4 w-4 mr-2" />
@@ -267,7 +269,7 @@ export default function ApplicationDetailPage() {
                             <AlertDialogAction
                               onClick={handleDeleteApplication}
                               disabled={isDeleting}
-                              className="bg-red-600 hover:bg-red-700"
+                              className={isAuditEnabled ? "bg-destructive hover:bg-destructive/90" : "bg-red-600 hover:bg-red-700"}
                             >
                               {isDeleting ? "Deleting..." : "Delete"}
                             </AlertDialogAction>
@@ -431,7 +433,7 @@ export default function ApplicationDetailPage() {
                                       <AlertDialogCancel>Cancel</AlertDialogCancel>
                                       <AlertDialogAction
                                         onClick={() => handleDeleteNote(index)}
-                                        className="bg-red-600 hover:bg-red-700"
+                                        className={isAuditEnabled ? "bg-destructive hover:bg-destructive/90" : "bg-red-600 hover:bg-red-700"}
                                       >
                                         Delete
                                       </AlertDialogAction>

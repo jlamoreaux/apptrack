@@ -3,6 +3,7 @@
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { Info } from "lucide-react";
+import { useDashboardFlags } from "@/components/providers/dashboard-flags-provider";
 import {
   Tooltip,
   TooltipContent,
@@ -26,6 +27,7 @@ export function ApplicationUsageDisplay({
   const percentage = (currentCount / limit) * 100;
   const isNearLimit = percentage >= 80;
   const isAtLimit = currentCount >= limit;
+  const { isAuditEnabled } = useDashboardFlags();
 
   if (variant === "compact") {
     return (
@@ -57,20 +59,20 @@ export function ApplicationUsageDisplay({
           </div>
           
           <div className="space-y-2">
-            <Progress 
-              value={percentage} 
+            <Progress
+              value={percentage}
               className={cn(
                 "h-2",
-                isAtLimit && "bg-red-100",
-                isNearLimit && !isAtLimit && "bg-orange-100"
+                isAtLimit && (isAuditEnabled ? "bg-destructive/10" : "bg-red-100"),
+                isNearLimit && !isAtLimit && (isAuditEnabled ? "bg-warning/10" : "bg-orange-100")
               )}
             />
-            
+
             <div className="flex items-center justify-between text-sm">
               <span className={cn(
                 "font-medium",
-                isAtLimit && "text-red-600",
-                isNearLimit && !isAtLimit && "text-orange-600"
+                isAtLimit && (isAuditEnabled ? "text-destructive" : "text-red-600"),
+                isNearLimit && !isAtLimit && (isAuditEnabled ? "text-warning-foreground" : "text-orange-600")
               )}>
                 {currentCount} / {limit} applications used
               </span>
@@ -81,13 +83,13 @@ export function ApplicationUsageDisplay({
           </div>
           
           {isNearLimit && !isAtLimit && (
-            <p className="text-xs text-orange-600 mt-2">
-              You're approaching your application limit. Consider upgrading for unlimited tracking.
+            <p className={`text-xs mt-2 ${isAuditEnabled ? "text-warning-foreground" : "text-orange-600"}`}>
+              You&apos;re approaching your application limit. Consider upgrading for unlimited tracking.
             </p>
           )}
-          
+
           {isAtLimit && (
-            <p className="text-xs text-red-600 mt-2">
+            <p className={`text-xs mt-2 ${isAuditEnabled ? "text-destructive" : "text-red-600"}`}>
               You've reached your application limit. Upgrade to continue tracking new applications.
             </p>
           )}
@@ -103,8 +105,8 @@ export function ApplicationUsageDisplay({
         <span className="text-muted-foreground">Applications</span>
         <span className={cn(
           "font-medium",
-          isAtLimit && "text-red-600",
-          isNearLimit && !isAtLimit && "text-orange-600"
+          isAtLimit && (isAuditEnabled ? "text-destructive" : "text-red-600"),
+          isNearLimit && !isAtLimit && (isAuditEnabled ? "text-warning-foreground" : "text-orange-600")
         )}>
           {currentCount} / {limit}
         </span>

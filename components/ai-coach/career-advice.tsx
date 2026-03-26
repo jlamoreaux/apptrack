@@ -444,8 +444,8 @@ export function CareerAdvice() {
 
   return (
     <div className="flex gap-6 h-[calc(100vh-12rem)]">
-      {/* Sidebar */}
-      <Card className="w-72 flex flex-col shrink-0">
+      {/* Sidebar - hidden on mobile */}
+      <Card className="w-72 flex-col shrink-0 hidden md:flex">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-medium">Conversations</CardTitle>

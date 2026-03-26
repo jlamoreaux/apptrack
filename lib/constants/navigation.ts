@@ -5,7 +5,6 @@ import {
   Brain,
   BarChart3,
   Settings,
-  Flame,
 } from "lucide-react";
 import { PLAN_NAMES } from "./plans";
 import { PLAN_THEMES } from "./plan-themes";
@@ -37,14 +36,6 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Brain,
     highlight: true,
     description: "AI-powered career coaching and insights",
-  },
-  {
-    id: "resume-roast",
-    label: "Resume Roast",
-    href: "/roast-my-resume",
-    icon: Flame,
-    badge: "NEW",
-    description: "Get brutally honest AI feedback on your resume",
   },
 ];
 

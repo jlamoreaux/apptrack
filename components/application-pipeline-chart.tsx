@@ -17,6 +17,10 @@ import {
 } from "@/lib/pipeline-utils";
 import { useOnboarding } from '@/lib/onboarding/context';
 import { FakeOnboardingPipelineChart } from './onboarding/fake-pipeline-chart';
+import { useDashboardFlags } from "@/components/providers/dashboard-flags-provider";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -47,6 +51,7 @@ export function ApplicationPipelineChart({
   // Check if we're in any onboarding flow (show fake chart during onboarding)
   const isInOnboarding = currentFlow !== null;
   const isOnboardingPipelineStep = currentStep?.id === 'view-pipeline';
+  const { isAuditEnabled } = useDashboardFlags();
 
   useEffect(() => {
     setMounted(true);
@@ -82,15 +87,25 @@ export function ApplicationPipelineChart({
           {isInOnboarding ? (
             <FakeOnboardingPipelineChart />
           ) : (
-            <div className="h-[400px] flex items-center justify-center text-muted-foreground">
-              No applications to display. Add your first application to see the
-              pipeline visualization.
+            <div className={`${isAuditEnabled ? "h-[200px]" : "h-[400px]"} flex flex-col items-center justify-center text-muted-foreground gap-3`}>
+              <p>No applications to display yet.</p>
+              {isAuditEnabled && (
+                <Link href="/dashboard/add">
+                  <Button variant="outline" size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Application
+                  </Button>
+                </Link>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
     );
   }
+
+  // When audit enabled and very few applications, show a hint
+  const showSparseHint = isAuditEnabled && applications.length < 4;
 
   // Define the pipeline stages in order (must match database schema)
   // "Awaiting Response" is a terminal node for apps still at Applied
@@ -254,6 +269,11 @@ export function ApplicationPipelineChart({
             style={{ width: "100%", height: "100%" }}
           />
         </div>
+        {showSparseHint && (
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Add more applications to see a richer pipeline visualization.
+          </p>
+        )}
       </CardContent>
     </Card>
   );

@@ -23,6 +23,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { formatLocalDate } from "@/lib/utils/date";
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 
 interface SubscriptionManagementProps {
   userId: string;
@@ -41,6 +42,7 @@ export function SubscriptionManagement({
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
 
   const isOnFreePlan =
     subscription?.subscription_plans?.name === "Free" || !subscription;
@@ -154,14 +156,12 @@ export function SubscriptionManagement({
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
-            {subscription?.subscription_plans?.features.map(
-              (feature, index) => (
-                <li key={index} className="flex items-center gap-2 text-sm">
-                  <div className="w-1.5 h-1.5 bg-secondary rounded-full" />
-                  {feature}
-                </li>
-              )
-            )}
+            {subscription?.subscription_plans?.features?.map((feature, index) => (
+              <li key={index} className="flex items-center gap-2 text-sm">
+                <div className="w-1.5 h-1.5 bg-secondary rounded-full" />
+                {feature}
+              </li>
+            ))}
             <li className="flex items-center gap-2 text-sm">
               <div className="w-1.5 h-1.5 bg-secondary rounded-full" />
               {isOnFreePlan ? "Up to 100 applications" : "Unlimited applications"}
@@ -207,7 +207,7 @@ export function SubscriptionManagement({
               <Link href="/dashboard/upgrade" className="flex-1">
                 <Button
                   variant="outline"
-                  className="w-full bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                  className={`w-full ${isAuditEnabled ? "bg-secondary/10 border-secondary/20 text-secondary hover:bg-secondary/15" : "bg-green-50 border-green-200 text-green-700 hover:bg-green-100"}`}
                 >
                   <Crown className="h-4 w-4 mr-2" />
                   Reactivate Subscription
@@ -218,7 +218,7 @@ export function SubscriptionManagement({
                 variant="outline"
                 onClick={() => setConfirmCancelOpen(true)}
                 disabled={loadingCancel}
-                className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                className={`flex-1 ${isAuditEnabled ? "text-destructive border-destructive/20 hover:bg-destructive/10" : "text-red-600 border-red-200 hover:bg-red-50"}`}
               >
                 {loadingCancel ? (
                   <>
@@ -243,7 +243,7 @@ export function SubscriptionManagement({
         subscription.status !== "canceled" &&
         (subscription.status === "active" ||
           subscription.status === "trialing") && (
-          <div className="p-3 text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-md">
+          <div className={`p-3 text-sm rounded-md ${isAuditEnabled ? "text-warning-foreground bg-warning/10 border border-warning/20" : "text-yellow-700 bg-yellow-50 border border-yellow-200"}`}>
             Your subscription will end on{" "}
             {subscription.current_period_end
               ? formatLocalDate(subscription.current_period_end)
@@ -255,7 +255,7 @@ export function SubscriptionManagement({
 
       {subscription?.status === "canceled" &&
         subscription?.current_period_end && (
-          <div className="p-3 text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-md">
+          <div className={`p-3 text-sm rounded-md ${isAuditEnabled ? "text-warning-foreground bg-warning/10 border border-warning/20" : "text-orange-600 bg-orange-50 border border-orange-200"}`}>
             Your subscription is canceled and will end on{" "}
             {formatLocalDate(subscription.current_period_end)}.
             You can still upgrade to reactivate your subscription.
@@ -301,7 +301,7 @@ export function SubscriptionManagement({
               variant="outline"
               onClick={handleCancelSubscription}
               disabled={loadingCancel}
-              className="border-red-200 text-red-600 hover:bg-red-600 hover:text-white"
+              className={isAuditEnabled ? "border-destructive/20 text-destructive hover:bg-destructive hover:text-destructive-foreground" : "border-red-200 text-red-600 hover:bg-red-600 hover:text-white"}
             >
               {loadingCancel ? "Canceling..." : "Yes, Cancel Subscription"}
             </Button>
