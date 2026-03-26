@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { ApplicationDAL, type CreateApplicationInput } from "@/dal/applications";
 import type { ApplicationQueryOptions } from "@/dal/applications";
@@ -228,10 +228,10 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    captureServerEvent(user.id, 'application_added', {
+    after(() => captureServerEvent(user.id, 'application_added', {
       status: newApplication.status,
       has_role_link: !!role_link,
-    });
+    }));
 
     return NextResponse.json(newApplication, { status: 201 });
   } catch (error) {

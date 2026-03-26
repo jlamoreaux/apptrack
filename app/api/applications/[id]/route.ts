@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { ApplicationDAL } from "@/dal/applications";
 import { z } from "zod";
@@ -151,10 +151,10 @@ export async function PUT(
       }
     });
 
-    captureServerEvent(user.id, 'application_updated', {
+    after(() => captureServerEvent(user.id, 'application_updated', {
       field_updated: Object.keys(validatedData).join(','),
       new_status: validatedData.status,
-    });
+    }));
 
     return NextResponse.json({ application: updatedApp });
 

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import Stripe from "stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
@@ -317,11 +317,11 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    captureServerEvent(user.id, 'checkout_started', {
+    after(() => captureServerEvent(user.id, 'checkout_started', {
       plan: plan.name,
       billing_cycle: billingCycle,
       onboarding: true,
-    });
+    }));
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

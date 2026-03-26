@@ -16,18 +16,20 @@ function getClient(): PostHog | null {
 }
 
 /**
- * Capture a server-side PostHog event.
- * Fire-and-forget -- never throws, never blocks the response.
+ * Capture a server-side PostHog event and flush immediately.
+ * Returns a Promise — wrap in after() in route handlers so Vercel
+ * keeps the lambda alive until the HTTP request to PostHog completes.
  */
-export function captureServerEvent(
+export async function captureServerEvent(
   distinctId: string,
   event: string,
   properties?: Record<string, unknown>
-): void {
+): Promise<void> {
   try {
     const client = getClient();
     if (!client) return;
     client.capture({ distinctId, event, properties: properties ?? {} });
+    await client.flush();
   } catch {
     // never throw
   }

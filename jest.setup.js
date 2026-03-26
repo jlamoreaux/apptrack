@@ -105,6 +105,10 @@ global.NextResponse = class MockNextResponse extends global.Response {
 jest.mock('next/server', () => ({
   NextRequest: global.NextRequest,
   NextResponse: global.NextResponse,
+  after: jest.fn((fn) => {
+    if (typeof fn === 'function') fn();
+    else if (fn && typeof fn.then === 'function') fn.catch(() => {});
+  }),
 }))
 
 // Mock Next.js router

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { generateCoverLetter } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
@@ -15,7 +15,7 @@ import { captureServerEvent } from "@/lib/analytics/posthog-server";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { jobDescription, userBackground, companyName, roleName, fingerprint } = body;
+    const { jobDescription, userBackground, companyName, roleName, fingerprint, phDistinctId } = body;
 
     // Validate required fields
     if (!jobDescription || !userBackground || !companyName || !fingerprint) {
@@ -92,10 +92,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    captureServerEvent('anonymous', 'free_tool_used', {
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
       tool: 'cover_letter',
       authenticated: false,
-    });
+    }));
 
     // Create preview version (first ~300 characters)
     const previewLength = 300;

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { generateInterviewPrep } from "@/lib/ai-coach/functions";
 import { getClientIP } from "@/lib/utils/fingerprint";
@@ -9,7 +9,7 @@ import { captureServerEvent } from "@/lib/analytics/posthog-server";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { jobDescription, userBackground, interviewType, fingerprint } = body;
+    const { jobDescription, userBackground, interviewType, fingerprint, phDistinctId } = body;
 
     if (!jobDescription || !userBackground || !fingerprint) {
       return NextResponse.json(
@@ -98,11 +98,6 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    captureServerEvent('anonymous', 'free_tool_used', {
-      tool: 'interview_prep',
-      authenticated: false,
-    });
-
     const fullAnalysis = {
       questions: parsedAnalysis.questions || [],
       generalTips: parsedAnalysis.generalTips || [],
@@ -147,6 +142,12 @@ export async function POST(request: NextRequest) {
       ip_address: ipAddress,
       feature_type: "interview_prep",
     });
+
+    // Emit only on confirmed success — after DB write succeeds
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
+      tool: 'interview_prep',
+      authenticated: false,
+    }));
 
     return NextResponse.json({
       sessionId: session.id,
