@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    after(captureServerEvent(user.id, 'application_added', {
+    after(() => captureServerEvent(user.id, 'application_added', {
       status: newApplication.status,
       has_role_link: !!role_link,
     }));

@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    after(captureServerEvent(user.id, 'checkout_started', {
+    after(() => captureServerEvent(user.id, 'checkout_started', {
       plan: plan.name,
       billing_cycle: billingCycle,
       onboarding: true,

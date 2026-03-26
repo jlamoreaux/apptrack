@@ -98,8 +98,7 @@ export function JobFitResults({
           {/* Locked section — fades out with blur, flows into SignupGate below */}
           <div className="relative">
             <div
-              className="space-y-6 select-none pointer-events-none"
-              style={{ filter: "blur(4px)", opacity: 0.5 }}
+              className="space-y-6 select-none pointer-events-none blur-sm opacity-50"
               aria-hidden="true"
             >
               <div>
@@ -136,6 +135,43 @@ export function JobFitResults({
       ) : (
         /* Full Content - After Signup */
         <>
+          {/* Score card — same real value as preview */}
+          <div className={cn(
+            "text-center p-8 bg-gradient-to-br rounded-lg border",
+            getScoreBg(fitScore)
+          )}>
+            <div className={cn("text-7xl font-bold", getScoreColor(fitScore))}>
+              {fitScore}%
+            </div>
+            <p className="text-lg font-semibold mt-2">
+              {getScoreLabel(fitScore)}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Based on skills match, experience level, and job requirements
+            </p>
+          </div>
+
+          {/* All strengths */}
+          {analysis.strengths && analysis.strengths.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <h3 className="text-lg font-semibold">Your Strengths</h3>
+              </div>
+              <ul className="space-y-3">
+                {analysis.strengths.map((strength, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg"
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                    <span className="text-sm">{strength}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Gaps */}
           {analysis.gaps && analysis.gaps.length > 0 && (
             <div>

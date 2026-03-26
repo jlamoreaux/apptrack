@@ -296,7 +296,7 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    after(captureServerEvent(user?.id ?? 'anonymous', 'roast_submitted', {
+    after(() => captureServerEvent(user?.id ?? 'anonymous', 'roast_submitted', {
       authenticated: !!user,
       file_type: file.type,
     }));
@@ -426,7 +426,7 @@ export async function POST(req: NextRequest) {
         errorMessage: errorResponse.message
       }
     });
-    after(captureServerEvent('anonymous', 'api_error', {
+    after(() => captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
       route: '/api/roast',
       error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
     }));

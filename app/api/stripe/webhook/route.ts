@@ -301,7 +301,7 @@ async function handleCheckoutCompleted(
       },
     });
 
-    after(captureServerEvent(userId, 'upgrade_completed', {
+    after(() => captureServerEvent(userId, 'upgrade_completed', {
       plan: planName,
       billing_cycle: billingCycle,
       amount: session.amount_total,
@@ -506,7 +506,7 @@ async function handleSubscriptionUpdated(
       previousAttributes?.status === "trialing" &&
       subscription.status === "active"
     ) {
-      after(captureServerEvent(userId, "trial_converted", {
+      after(() => captureServerEvent(userId, "trial_converted", {
         offer_variant: subscription.metadata?.offer_variant ?? null,
         utm_source: subscription.metadata?.utm_source ?? null,
         utm_medium: subscription.metadata?.utm_medium ?? null,

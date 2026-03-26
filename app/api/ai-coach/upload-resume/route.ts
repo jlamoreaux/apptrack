@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    after(captureServerEvent(user.id, 'resume_uploaded', {
+    after(() => captureServerEvent(user.id, 'resume_uploaded', {
       file_type: file.type,
     }));
 
@@ -172,6 +172,10 @@ export async function POST(request: NextRequest) {
       action: 'resume_upload_error',
       duration: Date.now() - startTime
     });
+    after(() => captureServerEvent(authResult?.user?.id ?? 'anonymous', 'api_error', {
+      route: '/api/ai-coach/upload-resume',
+      error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
+    }));
     return NextResponse.json(
       { error: "Failed to process resume" },
       { status: 500 }

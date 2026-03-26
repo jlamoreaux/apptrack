@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    after(captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
       tool: 'job_fit',
       authenticated: false,
     }));

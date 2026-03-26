@@ -349,7 +349,7 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       }
     });
 
-    after(captureServerEvent(user.id, 'interview_prep_generated', {
+    after(() => captureServerEvent(user.id, 'interview_prep_generated', {
       has_job_description: !!effectiveJobDescription,
       has_application_id: !!applicationId,
     }));
@@ -376,6 +376,10 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         structured
       }
     });
+    after(() => captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
+      route: '/api/ai-coach/interview-prep',
+      error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
+    }));
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.INTERVIEW_PREP.GENERATION_FAILED },
       { status: 500 }

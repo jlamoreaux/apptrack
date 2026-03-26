@@ -151,7 +151,7 @@ export async function PUT(
       }
     });
 
-    after(captureServerEvent(user.id, 'application_updated', {
+    after(() => captureServerEvent(user.id, 'application_updated', {
       field_updated: Object.keys(validatedData).join(','),
       new_status: validatedData.status,
     }));

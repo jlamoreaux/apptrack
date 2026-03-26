@@ -258,7 +258,7 @@ async function coverLetterHandler(request: NextRequest) {
       }
     });
 
-    after(captureServerEvent(user.id, 'cover_letter_generated', {
+    after(() => captureServerEvent(user.id, 'cover_letter_generated', {
       has_job_description: !!finalJobDescription,
       has_application_id: !!applicationId,
     }));
@@ -284,7 +284,7 @@ async function coverLetterHandler(request: NextRequest) {
         applicationId
       }
     });
-    after(captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
+    after(() => captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
       route: '/api/ai-coach/cover-letter',
       error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
     }));

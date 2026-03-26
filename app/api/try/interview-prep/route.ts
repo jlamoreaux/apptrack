@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    after(captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
+    after(() => captureServerEvent(phDistinctId ?? 'anonymous', 'free_tool_used', {
       tool: 'interview_prep',
       authenticated: false,
     }));

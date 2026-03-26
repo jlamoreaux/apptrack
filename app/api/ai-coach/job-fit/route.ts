@@ -209,7 +209,7 @@ async function handler(request: NextRequest) {
         }
       });
 
-      after(captureServerEvent(user.id, 'job_fit_analyzed', {
+      after(() => captureServerEvent(user.id, 'job_fit_analyzed', {
         overall_score: analysis.overallScore,
         has_application_id: !!applicationId,
       }));
@@ -348,7 +348,7 @@ async function handler(request: NextRequest) {
         }
       });
 
-      after(captureServerEvent(user.id, 'job_fit_analyzed', {
+      after(() => captureServerEvent(user.id, 'job_fit_analyzed', {
         overall_score: mockAnalysis.overallScore,
         has_application_id: !!applicationId,
         fallback: true,
@@ -375,7 +375,7 @@ async function handler(request: NextRequest) {
         applicationId
       }
     });
-    after(captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
+    after(() => captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
       route: '/api/ai-coach/job-fit',
       error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
     }));
