@@ -64,7 +64,7 @@ export function OfferBanner({
                       🎊 {welcomeOffer.offerMessage || "Welcome Bonus Active!"}
                     </>
                   ) : (
-                    <>🎁 {DEFAULT_TRIAL_DAYS}-Day Free Trial Included</>
+                    <>{DEFAULT_TRIAL_DAYS}-Day Free Trial Included</>
                   )}
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -75,7 +75,7 @@ export function OfferBanner({
                   ) : welcomeOffer ? (
                     "Discount automatically applied • No code needed"
                   ) : (
-                    "Try Pro free for 7 days • Cancel anytime"
+                    `Try Pro free for ${DEFAULT_TRIAL_DAYS} days • Cancel anytime`
                   )}
                 </p>
               </div>
