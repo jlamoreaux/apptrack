@@ -19,7 +19,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const post = getPostBySlug(slug);
   if (!post) return {};
 
-  return generatePageMetadata(post.title, post.description, `/blog/${slug}`);
+  const metadata = generatePageMetadata(post.title, post.description, `/blog/${slug}`);
+  // Remove default OG/Twitter images so the file-based opengraph-image.tsx takes over
+  const { images: _ogImages, ...openGraph } = metadata.openGraph ?? {};
+  const { images: _twImages, ...twitter } = metadata.twitter ?? {};
+  return { ...metadata, openGraph, twitter };
 }
 
 export default async function BlogPostPage({ params }: Props) {
