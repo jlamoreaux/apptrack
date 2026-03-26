@@ -48,6 +48,9 @@ export const TRIAL_BUDGET = {
   TOOLS: ['job_fit', 'interview_prep', 'cover_letter'] as const,
 } as const;
 
+// Default trial length for all new Pro signups (hardcoded, no DB entry required)
+export const DEFAULT_TRIAL_DAYS = 7;
+
 // Rate limiting configurations
 export const RATE_LIMITS = {
   AI_ANALYSIS: {

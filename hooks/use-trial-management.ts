@@ -4,6 +4,7 @@ import type { TrafficSourceTrial, PromoCode } from "@/types/promo-codes";
 import { PLAN_NAMES } from "@/lib/constants/plans";
 import { clientLogger } from "@/lib/utils/client-logger";
 import { LogCategory } from "@/lib/services/logger.types";
+import { DEFAULT_TRIAL_DAYS } from "@/lib/constants/ai-limits";
 
 interface UseTrialManagementProps {
   user: any;
@@ -11,15 +12,18 @@ interface UseTrialManagementProps {
 }
 
 /**
- * Resolves trial days from traffic source trials with fallback to promo code trials.
- * Traffic source trials take precedence over promo code trials.
+ * Resolves trial days in priority order:
+ * 1. Traffic source trial (e.g. Reddit/LinkedIn campaign)
+ * 2. Promo code trial (e.g. REDDIT14)
+ * 3. Default trial for all new signups (hardcoded, no DB entry required)
  */
 export function resolveTrialDays(
   trafficTrialDays: number,
   appliedPromo?: PromoCode | null
 ): number {
   return trafficTrialDays ||
-    (appliedPromo?.code_type === 'trial' ? (appliedPromo.trial_days ?? 0) : 0);
+    (appliedPromo?.code_type === 'trial' ? (appliedPromo.trial_days ?? 0) : 0) ||
+    DEFAULT_TRIAL_DAYS;
 }
 
 export function useTrialManagement({ user, onTrialDetected }: UseTrialManagementProps) {
