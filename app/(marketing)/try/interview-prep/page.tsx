@@ -21,6 +21,7 @@ import {
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
+import posthog from "posthog-js";
 
 export default function TryInterviewPrepPage() {
   const [results, setResults] = useState<any>(null);
@@ -57,7 +58,7 @@ export default function TryInterviewPrepPage() {
       const response = await fetch("/api/try/interview-prep", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, fingerprint }),
+        body: JSON.stringify({ ...formData, fingerprint, phDistinctId: posthog.get_distinct_id() }),
       });
 
       const data = await response.json();

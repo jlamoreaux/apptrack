@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { generateJobFitAnalysis } from "@/lib/ai-coach";
@@ -209,10 +209,10 @@ async function handler(request: NextRequest) {
         }
       });
 
-      captureServerEvent(user.id, 'job_fit_analyzed', {
+      after(captureServerEvent(user.id, 'job_fit_analyzed', {
         overall_score: analysis.overallScore,
         has_application_id: !!applicationId,
-      });
+      }));
 
       return NextResponse.json({
         ...analysis,
@@ -348,11 +348,11 @@ async function handler(request: NextRequest) {
         }
       });
 
-      captureServerEvent(user.id, 'job_fit_analyzed', {
+      after(captureServerEvent(user.id, 'job_fit_analyzed', {
         overall_score: mockAnalysis.overallScore,
         has_application_id: !!applicationId,
         fallback: true,
-      });
+      }));
 
       return NextResponse.json({
         ...mockAnalysis,
@@ -375,6 +375,10 @@ async function handler(request: NextRequest) {
         applicationId
       }
     });
+    after(captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
+      route: '/api/ai-coach/job-fit',
+      error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
+    }));
     return NextResponse.json(
       { error: "Failed to analyze job fit" },
       { status: 500 }

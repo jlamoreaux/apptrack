@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
@@ -258,10 +258,10 @@ async function coverLetterHandler(request: NextRequest) {
       }
     });
 
-    captureServerEvent(user.id, 'cover_letter_generated', {
+    after(captureServerEvent(user.id, 'cover_letter_generated', {
       has_job_description: !!finalJobDescription,
       has_application_id: !!applicationId,
-    });
+    }));
 
     return NextResponse.json({
       coverLetter,
@@ -284,6 +284,10 @@ async function coverLetterHandler(request: NextRequest) {
         applicationId
       }
     });
+    after(captureServerEvent(user?.id ?? 'anonymous', 'api_error', {
+      route: '/api/ai-coach/cover-letter',
+      error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
+    }));
     return NextResponse.json(
       { error: ERROR_MESSAGES.AI_COACH.COVER_LETTER.GENERATION_FAILED },
       { status: 500 }

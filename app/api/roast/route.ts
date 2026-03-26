@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { extractTextFromResume, filterPII } from "@/lib/roast/resume-parser";
 import { generateRoast } from "@/lib/roast/roast-generator-v2";
@@ -296,10 +296,10 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    captureServerEvent(user?.id ?? 'anonymous', 'roast_submitted', {
+    after(captureServerEvent(user?.id ?? 'anonymous', 'roast_submitted', {
       authenticated: !!user,
       file_type: file.type,
-    });
+    }));
 
     // Set cookies to track usage and ownership
     const cookieStore = await cookies();
@@ -426,6 +426,10 @@ export async function POST(req: NextRequest) {
         errorMessage: errorResponse.message
       }
     });
+    after(captureServerEvent('anonymous', 'api_error', {
+      route: '/api/roast',
+      error_code: error instanceof Error ? error.constructor.name : 'UnknownError',
+    }));
     return NextResponse.json(errorResponse, { status: errorResponse.statusCode });
   }
 }

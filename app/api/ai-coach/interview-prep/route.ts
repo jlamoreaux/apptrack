@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAICoach } from "@/lib/ai-coach";
 import { PermissionMiddleware, type PermissionCheckResult } from "@/lib/middleware/permissions";
@@ -349,10 +349,10 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
       }
     });
 
-    captureServerEvent(user.id, 'interview_prep_generated', {
+    after(captureServerEvent(user.id, 'interview_prep_generated', {
       has_job_description: !!effectiveJobDescription,
       has_application_id: !!applicationId,
-    });
+    }));
 
     return NextResponse.json({ 
       preparation: transformResult.content,
