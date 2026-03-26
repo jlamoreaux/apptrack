@@ -29,32 +29,32 @@ describe('resolveTrialDays', () => {
     expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
-  it('returns 0 when no traffic trial and no promo', () => {
-    expect(resolveTrialDays(0)).toBe(0);
+  it('returns DEFAULT_TRIAL_DAYS when no traffic trial and no promo', () => {
+    expect(resolveTrialDays(0)).toBe(7);
   });
 
-  it('returns 0 when no traffic trial and promo is null', () => {
-    expect(resolveTrialDays(0, null)).toBe(0);
+  it('returns DEFAULT_TRIAL_DAYS when no traffic trial and promo is null', () => {
+    expect(resolveTrialDays(0, null)).toBe(7);
   });
 
-  it('returns 0 when promo is a discount code (not trial)', () => {
+  it('returns DEFAULT_TRIAL_DAYS when promo is a discount code (not trial)', () => {
     const promo = makePromo({ code_type: 'discount', trial_days: undefined });
-    expect(resolveTrialDays(0, promo)).toBe(0);
+    expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
-  it('returns 0 when promo is premium_free', () => {
+  it('returns DEFAULT_TRIAL_DAYS when promo is premium_free', () => {
     const promo = makePromo({ code_type: 'premium_free', trial_days: undefined });
-    expect(resolveTrialDays(0, promo)).toBe(0);
+    expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
-  it('returns 0 when promo is trial type but trial_days is undefined', () => {
+  it('returns DEFAULT_TRIAL_DAYS when promo is trial type but trial_days is undefined', () => {
     const promo = makePromo({ code_type: 'trial', trial_days: undefined });
-    expect(resolveTrialDays(0, promo)).toBe(0);
+    expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
-  it('handles promo with trial_days of 0 explicitly', () => {
+  it('returns DEFAULT_TRIAL_DAYS when promo has trial_days of 0', () => {
     const promo = makePromo({ code_type: 'trial', trial_days: 0 });
-    expect(resolveTrialDays(0, promo)).toBe(0);
+    expect(resolveTrialDays(0, promo)).toBe(7);
   });
 
   it('handles large trial day values', () => {

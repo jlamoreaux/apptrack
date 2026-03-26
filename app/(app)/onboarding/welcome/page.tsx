@@ -108,31 +108,9 @@ export default function OnboardingWelcomePage() {
   }, [user, loading, plansLoading, subscription, router]);
 
   useEffect(() => {
-    // Fetch the welcome offer when component mounts
-    const fetchWelcomeOffer = async () => {
-      try {
-        const response = await fetch("/api/promo-codes/welcome-offer");
-        if (response.ok) {
-          const data = await response.json();
-          setWelcomeOffer(data.welcomeOffer);
-        } else {
-          clientLogger.warn("Failed to fetch welcome offer", {
-            category: LogCategory.BUSINESS,
-            action: 'welcome_offer_fetch_failed',
-            metadata: { status: response.status }
-          });
-        }
-      } catch (error) {
-        clientLogger.error("Error fetching welcome offer", {
-          category: LogCategory.BUSINESS,
-          action: 'welcome_offer_fetch_error',
-          error: error instanceof Error ? error.message : "Unknown error"
-        });
-      }
-    };
+    // Welcome offer is now a hardcoded 7-day trial (resolveTrialDays default).
+    // No DB fetch needed — welcomeOffer stays null.
 
-    fetchWelcomeOffer();
-    
     // Auto-select plan if needed (handled by useTrialManagement)
     if (shouldAutoSelectPlan && !selectedPlan) {
       setTimeout(() => {
@@ -317,7 +295,7 @@ export default function OnboardingWelcomePage() {
         />
 
         {/* Plan Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 px-4 md:px-0">
+        <div className="flex flex-col-reverse md:grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-12 px-4 md:px-0">
           {plans.map((plan) => (
             <PlanCard
               key={plan.name}

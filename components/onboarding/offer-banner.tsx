@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { PromoCode, WelcomeOffer, TrafficSourceTrial } from "@/types/promo-codes";
+import { DEFAULT_TRIAL_DAYS } from "@/lib/constants/ai-limits";
 
 interface OfferBannerProps {
   trafficTrial: TrafficSourceTrial | null;
@@ -63,7 +64,7 @@ export function OfferBanner({
                       🎊 {welcomeOffer.offerMessage || "Welcome Bonus Active!"}
                     </>
                   ) : (
-                    "Special offers available!"
+                    <>{DEFAULT_TRIAL_DAYS}-Day Free Trial Included</>
                   )}
                 </p>
                 <p className="text-sm text-muted-foreground">
@@ -74,7 +75,7 @@ export function OfferBanner({
                   ) : welcomeOffer ? (
                     "Discount automatically applied • No code needed"
                   ) : (
-                    "Check for available promo codes"
+                    `Try Pro free for ${DEFAULT_TRIAL_DAYS} days • Cancel anytime`
                   )}
                 </p>
               </div>
