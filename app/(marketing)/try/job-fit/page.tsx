@@ -19,6 +19,7 @@ import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
 import { useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 
 export default function TryJobFitPage() {
   const [results, setResults] = useState<any>(null);
@@ -106,6 +107,7 @@ export default function TryJobFitPage() {
         body: JSON.stringify({
           ...formData,
           fingerprint,
+          phDistinctId: posthog.get_distinct_id(),
         }),
       });
 

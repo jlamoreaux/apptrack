@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 import { loggerService } from "@/lib/services/logger.service";
@@ -160,9 +160,9 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    captureServerEvent(user.id, 'resume_uploaded', {
+    after(captureServerEvent(user.id, 'resume_uploaded', {
       file_type: file.type,
-    });
+    }));
 
     return NextResponse.json({ text: extractedText });
   } catch (error) {

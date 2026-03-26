@@ -21,6 +21,7 @@ import {
 import { SignupGate } from "@/components/try/signup-gate";
 import { useAuthRedirect } from "@/lib/hooks/use-auth-redirect";
 import { formatLocalDate, formatLocalTime } from "@/lib/utils/date";
+import posthog from "posthog-js";
 
 export default function TryCoverLetterPage() {
   const [results, setResults] = useState<any>(null);
@@ -60,7 +61,7 @@ export default function TryCoverLetterPage() {
       const response = await fetch("/api/try/cover-letter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, fingerprint }),
+        body: JSON.stringify({ ...data, fingerprint, phDistinctId: posthog.get_distinct_id() }),
       });
 
       const responseData = await response.json();
