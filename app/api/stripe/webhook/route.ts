@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { type NextRequest, NextResponse, after } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { SubscriptionService } from "@/services/subscriptions";
 import { ERROR_MESSAGES } from "@/lib/constants/error-messages";
@@ -301,7 +301,7 @@ async function handleCheckoutCompleted(
       },
     });
 
-    captureServerEvent(userId, 'upgrade_completed', {
+    after(captureServerEvent(userId, 'upgrade_completed', {
       plan: planName,
       billing_cycle: billingCycle,
       amount: session.amount_total,
@@ -314,7 +314,7 @@ async function handleCheckoutCompleted(
       trial_end: subscription.trial_end
         ? new Date(subscription.trial_end * 1000).toISOString()
         : null,
-    });
+    }));
 
     // Transition user audience (non-blocking)
     if (session.customer_email || session.customer_details?.email) {
@@ -506,14 +506,14 @@ async function handleSubscriptionUpdated(
       previousAttributes?.status === "trialing" &&
       subscription.status === "active"
     ) {
-      captureServerEvent(userId, "trial_converted", {
+      after(captureServerEvent(userId, "trial_converted", {
         offer_variant: subscription.metadata?.offer_variant ?? null,
         utm_source: subscription.metadata?.utm_source ?? null,
         utm_medium: subscription.metadata?.utm_medium ?? null,
         utm_campaign: subscription.metadata?.utm_campaign ?? null,
         utm_content: subscription.metadata?.utm_content ?? null,
         subscription_id: subscription.id,
-      });
+      }));
 
       // Now move from trial-users to paid-users
       const customer = await stripe.customers.retrieve(subscription.customer as string);

@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
               ? JSON.parse(decodeURIComponent(utmCookie)) as Record<string, string>
               : {};
 
-            captureServerEvent(user.id, 'user_signed_up', {
+            after(captureServerEvent(user.id, 'user_signed_up', {
               provider,
               email_domain: user.email?.split('@')[1] ?? null,
               utm_source: utm.utm_source ?? null,
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
                 signup_provider: provider,
                 utm_source: utm.utm_source ?? null,
               },
-            });
+            }));
           } catch {
             // never block the auth flow
           }
