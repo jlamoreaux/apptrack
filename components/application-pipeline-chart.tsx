@@ -90,12 +90,12 @@ export function ApplicationPipelineChart({
             <div className={`${isAuditEnabled ? "h-[200px]" : "h-[400px]"} flex flex-col items-center justify-center text-muted-foreground gap-3`}>
               <p>No applications to display yet.</p>
               {isAuditEnabled && (
-                <Link href="/dashboard/add">
-                  <Button variant="outline" className="min-h-11 px-4">
+                <Button variant="outline" className="min-h-11 px-4" asChild>
+                  <Link href="/dashboard/add">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Your First Application
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               )}
             </div>
           )}

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { JobFitResults } from "@/components/try/job-fit-results";
 import { CoverLetterResults } from "@/components/try/cover-letter-results";
 import { InterviewPrepResults } from "@/components/try/interview-prep-results";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -36,8 +36,6 @@ export default function UnlockPage() {
       }
 
       try {
-        const supabase = createClient();
-
         // Check if user is authenticated
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 

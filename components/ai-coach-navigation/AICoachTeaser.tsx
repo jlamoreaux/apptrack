@@ -52,18 +52,20 @@ export function AICoachTeaser({
   const { isAuditEnabled } = useDashboardFlags();
   const theme = getAIThemeClasses(isAuditEnabled);
 
+  // Track navigation view
+  useEffect(() => {
+    if (userPlan !== "ai_coach") {
+      aiCoachAnalytics.trackNavigationViewed({
+        subscription_plan: userPlan,
+        user_id: userId,
+      });
+    }
+  }, [userPlan, userId]);
+
   // Don't show teaser to AI Coach users
   if (userPlan === "ai_coach") {
     return null;
   }
-
-  // Track navigation view
-  useEffect(() => {
-    aiCoachAnalytics.trackNavigationViewed({
-      subscription_plan: userPlan,
-      user_id: userId,
-    });
-  }, [userPlan, userId]);
 
   // Handle upgrade click
   const handleUpgradeClick = () => {
@@ -90,7 +92,7 @@ export function AICoachTeaser({
         </div>
         <Button
           variant="outline"
-          size="sm"
+          size="default"
           className="flex-shrink-0"
           onClick={handleUpgradeClick}
           asChild
