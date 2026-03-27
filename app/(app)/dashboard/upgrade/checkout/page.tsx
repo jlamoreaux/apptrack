@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Loader2, Check } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 
 function CheckoutContent() {
   const { user, loading: authLoading } = useSupabaseAuth();
@@ -18,6 +19,7 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
 
   const planId = searchParams.get("planId");
   const billingCycle = searchParams.get("billingCycle") as "monthly" | "yearly";
@@ -174,7 +176,7 @@ function CheckoutContent() {
           </div>
 
           <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold text-primary">
+            <h1 className="text-3xl font-bold text-foreground">
               Complete Your Subscription
             </h1>
             <p className="text-muted-foreground">
@@ -190,7 +192,7 @@ function CheckoutContent() {
                 <span>{plan.name} Plan</span>
                 <div className="flex items-center gap-2">
                   {discountPercent && (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-600">
+                    <Badge variant="secondary" className={isAuditEnabled ? "bg-secondary/10 text-secondary" : "bg-green-500/10 text-green-600"}>
                       {discountPercent}% OFF
                     </Badge>
                   )}
@@ -206,7 +208,7 @@ function CheckoutContent() {
               </CardTitle>
               {discountCode && (
                 <div className="mt-2">
-                  <Badge variant="outline" className="text-green-600 border-green-600">
+                  <Badge variant="outline" className={isAuditEnabled ? "text-secondary border-secondary" : "text-green-600 border-green-600"}>
                     Discount Code Applied: {discountCode}
                   </Badge>
                 </div>
@@ -228,7 +230,7 @@ function CheckoutContent() {
           <Card>
             <CardContent className="pt-6">
               {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md mb-4 whitespace-pre-wrap">
+                <div className={`p-3 text-sm rounded-md mb-4 whitespace-pre-wrap ${isAuditEnabled ? "text-destructive bg-destructive/10 border border-destructive/20" : "text-red-600 bg-red-50 border border-red-200"}`}>
                   {error}
                 </div>
               )}

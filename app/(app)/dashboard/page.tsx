@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
-import { ApplicationPipelineChart } from "@/components/application-pipeline-chart";
 import { NavigationServer } from "@/components/navigation-server";
 import { SubscriptionUsageBannerServer } from "@/components/subscription-usage-banner-server";
 import {
@@ -9,21 +8,15 @@ import {
   getApplications,
   getApplicationHistory,
 } from "@/lib/supabase/server";
-import { AICoachDashboardIntegration } from "@/components/ai-coach-navigation";
-import {
-  NavigationErrorBoundary,
-  AICoachFallback,
-} from "@/components/NavigationErrorBoundary";
 import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
-import { APPLICATION_LIMITS } from "@/lib/constants/navigation";
 import type { Application, ApplicationHistory } from "@/types";
-import { DashboardApplicationsList } from "@/components/dashboard-applications-list";
 import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
-import { DashboardStats } from "@/components/dashboard-stats";
 import { HiredSubscriptionBanner } from "@/components/hired-subscription-banner";
 import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
+import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper";
+import { getServerFeatureFlag } from "@/lib/analytics/posthog-server";
 
 export default async function DashboardPage() {
   // Add a timeout to prevent hanging
@@ -71,6 +64,17 @@ export default async function DashboardPage() {
     const planName = subscription?.subscription_plans?.name;
     const userPlan = getPermissionLevelFromPlan(planName);
 
+    // Evaluate feature flag server-side to avoid flash of content
+    let isAuditEnabled = false;
+    try {
+      isAuditEnabled = await Promise.race([
+        getServerFeatureFlag(user.id, "dashboard-ux-audit-v1"),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 2000)),
+      ]);
+    } catch {
+      // Flag fetch failed — fall back to disabled
+    }
+
     return (
       <DashboardWithOnboarding>
         <div className="min-h-screen bg-background">
@@ -83,7 +87,7 @@ export default async function DashboardPage() {
           >
             {/* Header Section */}
             <header className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
                 Dashboard
               </h1>
               <p className="text-sm sm:text-base text-muted-foreground">
@@ -103,43 +107,13 @@ export default async function DashboardPage() {
               userId={user.id}
             />
 
-            {/* Stats Cards - Client-side for live data */}
-            <DashboardStats userId={user.id} />
-
-            {/* AI Coach Integration */}
-            <NavigationErrorBoundary fallback={<AICoachFallback />}>
-              <AICoachDashboardIntegration
-                userPlan={userPlan}
-                recentApplications={applications.slice(
-                  0,
-                  APPLICATION_LIMITS.DASHBOARD_DISPLAY
-                )}
-                userId={user.id}
-              />
-            </NavigationErrorBoundary>
-
-            {/* Applications List */}
-            <section aria-labelledby="applications-heading">
-              <h2 id="applications-heading" className="sr-only">
-                Recent Applications
-              </h2>
-              <DashboardApplicationsList
-                userId={user.id}
-                initialApplications={applications}
-                initialTotal={applications.length}
-              />
-            </section>
-
-            {/* Application Pipeline Chart */}
-            <section aria-labelledby="chart-heading">
-              <h2 id="chart-heading" className="sr-only">
-                Application Pipeline Visualization
-              </h2>
-              <ApplicationPipelineChart
-                applications={applications}
-                history={history}
-              />
-            </section>
+            <DashboardLayoutWrapper
+              userId={user.id}
+              userPlan={userPlan}
+              applications={applications}
+              history={history}
+              serverFlagEnabled={isAuditEnabled}
+            />
           </main>
         </div>
       </DashboardWithOnboarding>

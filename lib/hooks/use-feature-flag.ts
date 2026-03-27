@@ -13,6 +13,9 @@ export const FEATURE_FLAGS = {
   AI_TEASER_DESIGN: "ai-teaser-design",
   REFERRAL_PROGRAM_BETA: "referral-program-beta",
   
+  // Dashboard UX audit
+  DASHBOARD_UX_AUDIT: "dashboard-ux-audit-v1",
+
   // Other feature flags
   EXIT_INTENT_POPUP: "exit-intent-popup",
   ONBOARDING_V2: "onboarding-v2",
@@ -28,12 +31,40 @@ export type FeatureFlag = typeof FEATURE_FLAGS[keyof typeof FEATURE_FLAGS];
  * @param fallback - Fallback value if PostHog is not available (default: false)
  * @returns boolean indicating if the feature is enabled
  */
+/**
+ * Dev-only: check localStorage for flag overrides.
+ * Set via browser console: localStorage.setItem("ff:dashboard-ux-audit-v1", "true")
+ * Remove override: localStorage.removeItem("ff:dashboard-ux-audit-v1")
+ */
+function getLocalOverride(flagName: string): boolean | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const val = localStorage.getItem(`ff:${flagName}`);
+    if (val === "true") return true;
+    if (val === "false") return false;
+  } catch {
+    // localStorage unavailable
+  }
+  return null;
+}
+
 export function useFeatureFlag(flagName: FeatureFlag, fallback = false): boolean {
   const posthog = usePostHog();
-  const [isEnabled, setIsEnabled] = useState(fallback);
+  const [isEnabled, setIsEnabled] = useState(() => {
+    const local = getLocalOverride(flagName);
+    return local ?? fallback;
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Dev override takes priority
+    const localOverride = getLocalOverride(flagName);
+    if (localOverride !== null) {
+      setIsEnabled(localOverride);
+      setIsLoading(false);
+      return;
+    }
+
     if (!posthog) {
       setIsLoading(false);
       return;

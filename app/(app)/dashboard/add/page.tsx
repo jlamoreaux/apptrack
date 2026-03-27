@@ -27,6 +27,7 @@ import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSupabaseApplications } from "@/hooks/use-supabase-applications";
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 
 import { DateInput } from "@/components/ui/date-input";
 
@@ -44,6 +45,7 @@ export default function AddApplicationPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -112,7 +114,7 @@ export default function AddApplicationPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 {error && (
                   <div className="space-y-3">
-                    <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                    <div className={`p-3 text-sm rounded-md ${isAuditEnabled ? "text-destructive bg-destructive/10 border border-destructive/20" : "text-red-600 bg-red-50 border border-red-200"}`}>
                       {error}
                     </div>
                     {error.includes("100 applications") && (

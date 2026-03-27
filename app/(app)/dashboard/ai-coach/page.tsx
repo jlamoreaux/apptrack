@@ -18,7 +18,7 @@ export default async function AICoachPage() {
         <div className="max-w-6xl mx-auto space-y-8">
           {/* Header */}
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary flex items-center gap-2 sm:gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground flex items-center gap-2 sm:gap-3">
               AI Career Coach
             </h1>
             <p className="text-muted-foreground">

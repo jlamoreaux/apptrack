@@ -121,7 +121,7 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         className="space-y-6"
       >
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <TabsList className="grid grid-cols-3 sm:flex sm:flex-wrap md:grid md:grid-cols-5 flex-1 h-auto p-1 gap-1">
+          <TabsList className="grid grid-cols-5 flex-1 h-auto p-1 gap-1">
           <TabsTrigger value="resume" className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-2 min-w-[60px] sm:min-w-[80px]">
             <FileText className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] sm:text-xs md:text-sm leading-tight text-center">Resume</span>

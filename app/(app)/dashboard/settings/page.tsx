@@ -12,7 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
 import { AccountInfoForm } from "@/components/forms/account-info-form";
 import { SubscriptionManagement } from "@/components/subscription-management";
-import { DangerZone } from "@/components/danger-zone";
+import { DangerZone, DangerZoneCard } from "@/components/danger-zone";
 import { ArrowLeft, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/theme-toggle";
@@ -128,17 +128,7 @@ export default async function SettingsPage() {
             <Separator />
 
             {/* Danger Zone */}
-            <Card className="border-red-200">
-              <CardHeader>
-                <CardTitle className="text-red-600">Danger Zone</CardTitle>
-                <CardDescription>
-                  Irreversible and destructive actions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <DangerZone userId={user.id} subscription={subscription} />
-              </CardContent>
-            </Card>
+            <DangerZoneCard userId={user.id} subscription={subscription} />
           </div>
         </div>
       </div>

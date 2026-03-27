@@ -33,7 +33,7 @@ import { UI_CONSTANTS } from "@/lib/constants/ui";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/supabase";
 import type { PermissionLevel } from "@/types";
-import { NavItemTag } from "@/components/ui/nav-item-tag";
+
 
 interface MobileNavigationProps {
   user: SupabaseUser;
@@ -55,9 +55,6 @@ export function MobileNavigation({
   const pathname = usePathname();
   const router = useRouter();
   
-  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
-  const resumeRoastNewTagExpiry = new Date('2026-03-22');
-
   const handleSignOut = async () => {
     setLoading(true);
     try {
@@ -83,13 +80,13 @@ export function MobileNavigation({
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="md:hidden -mr-2"
           aria-label="Open menu"
         >
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] sm:w-[350px]">
+      <SheetContent side="right" className="w-[280px] sm:w-[350px]">
         <SheetHeader>
           <SheetTitle>Menu</SheetTitle>
         </SheetHeader>

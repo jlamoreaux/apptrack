@@ -14,12 +14,37 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { AlertTriangle, Trash2, Loader2 } from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { deleteAccountAction } from "@/lib/actions";
+import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 import type { UserSubscription } from "@/lib/supabase";
 
 interface DangerZoneProps {
   userId: string;
   subscription: UserSubscription | null;
+}
+
+export function DangerZoneCard({ userId, subscription }: DangerZoneProps) {
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
+  return (
+    <Card className={isAuditEnabled ? "border-destructive/20" : "border-red-200"}>
+      <CardHeader>
+        <CardTitle className={isAuditEnabled ? "text-destructive" : "text-red-600"}>Danger Zone</CardTitle>
+        <CardDescription>
+          Irreversible and destructive actions
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <DangerZone userId={userId} subscription={subscription} />
+      </CardContent>
+    </Card>
+  );
 }
 
 export function DangerZone({ userId, subscription }: DangerZoneProps) {
@@ -34,6 +59,7 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
     subscription?.subscription_plans?.name !== "Free" &&
     subscription?.status === "active";
   const confirmationText = "DELETE MY ACCOUNT";
+  const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
 
   const handleDeleteAccount = async () => {
     if (confirmText !== confirmationText) return;
@@ -68,21 +94,21 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start gap-3 p-4 border border-red-200 rounded-lg bg-red-50">
-        <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+      <div className={`flex items-start gap-3 p-4 rounded-lg ${isAuditEnabled ? "border border-destructive/20 bg-destructive/5" : "border border-red-200 bg-red-50"}`}>
+        <AlertTriangle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${isAuditEnabled ? "text-destructive" : "text-red-600"}`} />
         <div className="space-y-2">
-          <h3 className="font-semibold text-red-900">Delete Account</h3>
-          <p className="text-sm text-red-700">
+          <h3 className={`font-semibold ${isAuditEnabled ? "text-foreground" : "text-red-900"}`}>Delete Account</h3>
+          <p className={`text-sm ${isAuditEnabled ? "text-muted-foreground" : "text-red-700"}`}>
             Permanently delete your account and all associated data. This action
             cannot be undone.
           </p>
           {isOnPaidPlan && (
-            <p className="text-sm text-red-700 font-medium">
-              ⚠️ You have an active subscription that will be canceled
+            <p className={`text-sm font-medium ${isAuditEnabled ? "text-destructive" : "text-red-700"}`}>
+              You have an active subscription that will be canceled
               immediately.
             </p>
           )}
-          <ul className="text-xs text-red-600 space-y-1 ml-4">
+          <ul className={`text-xs space-y-1 ml-4 ${isAuditEnabled ? "text-destructive" : "text-red-600"}`}>
             <li>• All your job applications and notes will be deleted</li>
             <li>• Your LinkedIn contacts will be removed</li>
             <li>• Your subscription will be canceled (if active)</li>
@@ -93,14 +119,14 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="destructive" className="bg-red-600 hover:bg-red-700">
+          <Button variant="destructive" className={isAuditEnabled ? "" : "bg-red-600 hover:bg-red-700"}>
             <Trash2 className="h-4 w-4 mr-2" />
             Delete Account
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
+            <DialogTitle className={`flex items-center gap-2 ${isAuditEnabled ? "text-destructive" : "text-red-600"}`}>
               <AlertTriangle className="h-5 w-5" />
               Delete Account
             </DialogTitle>
@@ -110,7 +136,7 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
                 data.
               </p>
               {isOnPaidPlan && (
-                <p className="text-red-600 font-medium">
+                <p className={`font-medium ${isAuditEnabled ? "text-destructive" : "text-red-600"}`}>
                   Your active subscription will be canceled immediately.
                 </p>
               )}
@@ -137,7 +163,7 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
               variant="destructive"
               onClick={handleDeleteAccount}
               disabled={confirmText !== confirmationText || loading}
-              className="w-full bg-red-600 hover:bg-red-700"
+              className={`w-full ${isAuditEnabled ? "" : "bg-red-600 hover:bg-red-700"}`}
             >
               {loading ? (
                 <>

@@ -101,7 +101,7 @@ export function DashboardApplicationsList({
       <CardHeader>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-primary text-lg sm:text-xl">Applications</CardTitle>
+            <CardTitle className="text-foreground text-lg sm:text-xl">Applications</CardTitle>
             <CardDescription>
               Track and manage your job applications
             </CardDescription>

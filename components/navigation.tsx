@@ -5,7 +5,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { User, LogOut, Crown, Flame, BarChart3 } from "lucide-react"
-import { NavItemTag } from "@/components/ui/nav-item-tag"
+
 import { useSupabaseAuthSimple } from "@/hooks/use-supabase-auth-simple"
 import { useSubscription } from "@/hooks/use-subscription"
 
@@ -13,8 +13,6 @@ export function Navigation() {
   const { user, profile, signOut } = useSupabaseAuthSimple()
   const { isOnFreePlan } = useSubscription(user?.id || null)
   
-  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
-  const resumeRoastNewTagExpiry = new Date('2026-03-22')
 
   const handleLogout = async () => {
     await signOut()
@@ -111,14 +109,7 @@ export function Navigation() {
               <Link href="/roast-my-resume">
                 <DropdownMenuItem>
                   <Flame className="h-4 w-4 mr-2" />
-                  <span className="flex items-center gap-1">
-                    Resume Roast
-                    <NavItemTag 
-                      label="new" 
-                      variant="new" 
-                      expiresAt={resumeRoastNewTagExpiry}
-                    />
-                  </span>
+                  Resume Roast
                 </DropdownMenuItem>
               </Link>
 

@@ -101,10 +101,96 @@ export const AI_THEME = {
   },
 } as const;
 
+// Semantic token version — uses CSS variables that adapt to dark mode automatically
+const AI_THEME_SEMANTIC = {
+  classes: {
+    text: {
+      primary: "text-ai-brand",
+      secondary: "text-accent",
+      muted: "text-ai-brand/70",
+    },
+    background: {
+      solid: "bg-ai-brand",
+      light: "bg-ai-brand-light",
+      gradient: "bg-gradient-to-r from-amber-600 to-orange-600", // gradients can't use CSS vars
+      gradientLight: "bg-ai-brand-light",
+      gradientSubtle: "bg-ai-brand/10",
+    },
+    border: {
+      default: "border-ai-brand/20",
+      strong: "border-ai-brand",
+      subtle: "border-ai-brand/10",
+    },
+    hover: {
+      background: "hover:bg-ai-brand/90",
+      text: "hover:text-ai-brand/80",
+      subtle: "hover:bg-ai-brand-light hover:text-ai-brand",
+    },
+    focus: {
+      ring: "focus:ring-ai-brand focus:ring-offset-2",
+      border: "focus:border-ai-brand",
+    },
+    button: {
+      primary: "bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white",
+      secondary: "bg-card text-ai-brand hover:bg-ai-brand-light",
+      outline: "border-ai-brand/20 text-ai-brand hover:bg-ai-brand-light",
+    },
+    badge: {
+      default: "bg-gradient-to-r from-amber-600 to-orange-600 text-white",
+      subtle: "bg-ai-brand-light text-ai-brand",
+    },
+    card: {
+      border: "border-2 border-ai-brand/20",
+      background: "bg-ai-brand/5",
+      highlight: "ring-2 ring-ai-brand ring-opacity-50",
+    },
+    iconContainer: {
+      default: "bg-ai-brand-light text-ai-brand",
+      gradient: "bg-gradient-to-br from-amber-600 to-orange-600 text-white",
+      bordered: "border border-ai-brand/20",
+    },
+  },
+} as const;
+
+/**
+ * Returns AI theme classes based on whether semantic tokens should be used.
+ * When useSemanticTokens is true, returns CSS variable-based classes that
+ * automatically adapt to dark mode without manual dark: prefixes.
+ */
+export function getAIThemeClasses(useSemanticTokens: boolean) {
+  if (useSemanticTokens) {
+    return {
+      ...AI_THEME_SEMANTIC.classes,
+      getButtonClasses: (variant: "primary" | "secondary" | "outline" = "primary") =>
+        AI_THEME_SEMANTIC.classes.button[variant],
+      getBadgeClasses: (variant: "default" | "subtle" = "default") =>
+        AI_THEME_SEMANTIC.classes.badge[variant],
+      getCardClasses: (includeHighlight = false) => {
+        const base = `${AI_THEME_SEMANTIC.classes.card.border} ${AI_THEME_SEMANTIC.classes.card.background}`;
+        return includeHighlight ? `${base} ${AI_THEME_SEMANTIC.classes.card.highlight}` : base;
+      },
+      getIconContainerClasses: (variant: "default" | "gradient" | "bordered" = "default") => {
+        const base = AI_THEME_SEMANTIC.classes.iconContainer[variant];
+        return variant === "bordered"
+          ? `${AI_THEME_SEMANTIC.classes.iconContainer.default} ${base}`
+          : base;
+      },
+    };
+  }
+
+  return {
+    ...AI_THEME.classes,
+    getButtonClasses: AI_THEME.getButtonClasses,
+    getBadgeClasses: AI_THEME.getBadgeClasses,
+    getCardClasses: AI_THEME.getCardClasses,
+    getIconContainerClasses: AI_THEME.getIconContainerClasses,
+  };
+}
+
 // Feature-specific color mappings (for backward compatibility)
 export const AI_FEATURE_COLORS = {
   resume: "amber",
-  interview: "blue", 
+  interview: "blue",
   advice: "green",
   "cover-letter": "orange",
 } as const;

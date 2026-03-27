@@ -26,7 +26,8 @@ import {
 import { UI_CONSTANTS } from "@/lib/constants/ui";
 import { APP_ROUTES } from "@/lib/constants/routes";
 import { aiCoachAnalytics } from "@/lib/analytics";
-import { AI_THEME } from "@/lib/constants/ai-theme";
+import { AI_THEME, getAIThemeClasses } from "@/lib/constants/ai-theme";
+import { useDashboardFlags } from "@/components/providers/dashboard-flags-provider";
 import type { Application, PermissionLevel } from "@/types";
 
 interface AICoachTeaserProps {
@@ -34,6 +35,7 @@ interface AICoachTeaserProps {
   recentApplications?: Application[];
   className?: string;
   userId?: string;
+  compact?: boolean;
 }
 
 /**
@@ -45,54 +47,79 @@ export function AICoachTeaser({
   recentApplications = [],
   className,
   userId,
+  compact = false,
 }: AICoachTeaserProps) {
+  const { isAuditEnabled } = useDashboardFlags();
+  const theme = getAIThemeClasses(isAuditEnabled);
+
+  // Track navigation view
+  useEffect(() => {
+    if (userPlan !== "ai_coach") {
+      aiCoachAnalytics.trackNavigationViewed({
+        subscription_plan: userPlan,
+        user_id: userId,
+      });
+    }
+  }, [userPlan, userId]);
+
   // Don't show teaser to AI Coach users
   if (userPlan === "ai_coach") {
     return null;
   }
 
-  // Track navigation view
-  useEffect(() => {
-    aiCoachAnalytics.trackNavigationViewed({
-      subscription_plan: userPlan,
-      user_id: userId,
-    });
-  }, [userPlan, userId]);
-
   // Handle upgrade click
   const handleUpgradeClick = () => {
     aiCoachAnalytics.trackUpgradeClick({
-      source: "navigation",
+      source: compact ? "navigation_compact" : "navigation",
       subscription_plan: userPlan,
       user_id: userId,
     });
   };
 
-  // Handle preview features click
-  const handlePreviewClick = () => {
-    aiCoachAnalytics.trackFeatureCardClick({
-      feature_name: "preview_features",
-      location: "navigation",
-      subscription_plan: userPlan,
-      user_id: userId,
-    });
-  };
+  if (compact) {
+    return (
+      <div
+        className={`flex items-center justify-between gap-4 p-4 rounded-lg border border-border bg-card ${className}`}
+        data-onboarding="ai-coach-nav"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-md ${theme.background.gradient} flex-shrink-0`}>
+            <Brain className="h-4 w-4 text-white" />
+          </div>
+          <p className="text-sm text-muted-foreground truncate">
+            Get AI-powered resume analysis, interview prep, and career coaching
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="default"
+          className="flex-shrink-0"
+          onClick={handleUpgradeClick}
+          asChild
+        >
+          <Link href={NAVIGATION_URLS.UPGRADE}>
+            Learn More
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <Card
-      className={`${AI_THEME.getCardClasses()} ${className}`}
+      className={`${theme.getCardClasses()} ${className}`}
       data-onboarding="ai-coach-nav"
     >
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`p-3 rounded-lg ${AI_THEME.classes.background.gradient} flex items-center justify-center`}>
+            <div className={`p-3 rounded-lg ${theme.background.gradient} flex items-center justify-center`}>
               <Brain className="h-6 w-6 text-white" />
             </div>
             <div>
               <CardTitle className="flex items-center gap-2 text-foreground">
                 Unlock AI Career Coach
-                <Badge className={`${AI_THEME.getBadgeClasses()} border-0`}>
+                <Badge className={`${theme.getBadgeClasses()} border-0`}>
                   PRO
                 </Badge>
               </CardTitle>
@@ -101,13 +128,13 @@ export function AICoachTeaser({
               </CardDescription>
             </div>
           </div>
-          <Sparkles className={`h-8 w-8 ${AI_THEME.classes.text.primary} animate-pulse`} />
+          <Sparkles className={`h-8 w-8 ${theme.text.primary} ${isAuditEnabled ? "" : "animate-pulse"}`} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="flex items-center gap-3 p-3 bg-background/60 dark:bg-background/40 border border-border rounded-lg">
-            <Brain className={`h-5 w-5 ${AI_THEME.classes.text.primary}`} />
+            <Brain className={`h-5 w-5 ${theme.text.primary}`} />
             <div>
               <p className="font-medium text-sm text-foreground">
                 Resume Analysis
@@ -118,7 +145,7 @@ export function AICoachTeaser({
             </div>
           </div>
           <div className="flex items-center gap-3 p-3 bg-background/60 dark:bg-background/40 border border-border rounded-lg">
-            <MessageSquare className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <MessageSquare className={`h-5 w-5 ${isAuditEnabled ? "text-primary" : "text-blue-600 dark:text-blue-400"}`} />
             <div>
               <p className="font-medium text-sm text-foreground">
                 Interview Prep
@@ -147,7 +174,7 @@ export function AICoachTeaser({
 
         <div className="flex gap-3">
           <Button
-            className={`flex-1 ${AI_THEME.getButtonClasses("primary")} font-semibold shadow-md`}
+            className={`flex-1 ${theme.getButtonClasses("primary")} font-semibold shadow-md`}
             onClick={handleUpgradeClick}
             asChild
           >
@@ -156,17 +183,6 @@ export function AICoachTeaser({
               Upgrade Now
             </Link>
           </Button>
-          {/* <Button 
-            variant="outline" 
-            className="border-border hover:bg-accent hover:text-accent-foreground"
-            onClick={handlePreviewClick}
-            asChild
-          >
-            <Link href={NAVIGATION_URLS.AI_COACH}>
-              Preview Features
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Link>
-          </Button> */}
         </div>
       </CardContent>
     </Card>

@@ -14,15 +14,13 @@ import {
 import { User, LogOut, Crown, Shield, Flame } from "lucide-react";
 import { useSupabaseAuth } from "@/hooks/use-supabase-auth";
 import { useSubscription } from "@/hooks/use-subscription";
-import { NavItemTag } from "@/components/ui/nav-item-tag";
+
 
 export function NavigationClient() {
   const { user, profile, signOut } = useSupabaseAuth();
   const { isOnFreePlan } = useSubscription(user?.id || null);
   const [isAdmin, setIsAdmin] = useState(false);
   
-  // Resume Roast "new" tag expires 6 months from launch (March 22, 2026)
-  const resumeRoastNewTagExpiry = new Date('2026-03-22');
 
   // Check if user is admin
   useEffect(() => {
@@ -81,7 +79,7 @@ export function NavigationClient() {
               height={24}
               className="h-6 w-6"
             />
-            <span className="font-bold text-xl text-primary">AppTrack</span>
+            <span className="font-bold text-xl text-foreground">AppTrack</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
             <Button variant="ghost" asChild>
@@ -107,7 +105,7 @@ export function NavigationClient() {
             height={24}
             className="h-6 w-6"
           />
-          <span className="font-bold text-xl text-primary">AppTrack</span>
+          <span className="font-bold text-xl text-foreground">AppTrack</span>
         </Link>
 
         <div className="ml-auto flex items-center space-x-2">
@@ -153,14 +151,7 @@ export function NavigationClient() {
               <Link href="/roast-my-resume">
                 <DropdownMenuItem>
                   <Flame className="h-4 w-4 mr-2" />
-                  <span className="flex items-center gap-1">
-                    Resume Roast
-                    <NavItemTag 
-                      label="new" 
-                      variant="new" 
-                      expiresAt={resumeRoastNewTagExpiry}
-                    />
-                  </span>
+                  Resume Roast
                 </DropdownMenuItem>
               </Link>
 

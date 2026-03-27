@@ -36,7 +36,7 @@ export default async function ArchivedApplicationsPage() {
             </Button>
           </Link>
           <div className="space-y-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
               Archived Applications
             </h1>
             <p className="text-muted-foreground">
