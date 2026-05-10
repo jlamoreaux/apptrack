@@ -168,6 +168,32 @@ describe('useTrialBudget', () => {
     expect(result.current.budget.onboarding_completed).toBe(false);
   });
 
+  it('refresh does not downgrade onboarding_completed from true to false', async () => {
+    // Initial fetch returns onboarding not yet completed
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...budgetResponse, onboarding_completed: false }),
+    });
+
+    const { result } = renderHook(() => useTrialBudget());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // User clicks "Got it" — POST succeeds, local state becomes true
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({ success: true }) });
+    await act(async () => { await result.current.completeOnboarding(); });
+    expect(result.current.budget.onboarding_completed).toBe(true);
+
+    // Polling refresh fires — server still returns false (race condition / slow write)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...budgetResponse, onboarding_completed: false }),
+    });
+    await act(async () => { await result.current.refresh(); });
+
+    // Fix: local true must survive the poll — no flash back to onboarding
+    expect(result.current.budget.onboarding_completed).toBe(true);
+  });
+
   it('completeOnboarding silently fails on error', async () => {
     // Initial fetch
     mockFetch.mockResolvedValueOnce({
