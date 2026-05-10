@@ -38,7 +38,13 @@ export function useTrialBudget() {
       if (res.ok) {
         const data: unknown = await res.json();
         if (isTrialBudgetState(data)) {
-          setBudget(data);
+          // Never downgrade onboarding_completed from true→false — the user
+          // may have dismissed the modal before the server write committed,
+          // and the polling refresh would otherwise flash it back.
+          setBudget((prev) => ({
+            ...data,
+            onboarding_completed: prev.onboarding_completed || data.onboarding_completed,
+          }));
         }
       }
     } catch {
