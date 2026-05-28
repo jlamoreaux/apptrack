@@ -12,10 +12,15 @@ const customJestConfig = {
   testPathIgnorePatterns: [
     '<rootDir>/.next/',
     '<rootDir>/node_modules/',
+    // Local agent git worktrees live here; they mirror the source tree and
+    // would otherwise be discovered as duplicate (failing) test suites.
+    '<rootDir>/.claude/',
     '<rootDir>/__tests__/fixtures/',
     '<rootDir>/__tests__/types/',
     '<rootDir>/__tests__/utils/test-helpers',
   ],
+  // Keep Haste from indexing worktree copies (avoids duplicate-module collisions).
+  modulePathIgnorePatterns: ['<rootDir>/.claude/'],
   transform: {
     '^.+\\.(js|jsx|ts|tsx|mjs)$': ['babel-jest', { presets: ['next/babel'] }],
   },
