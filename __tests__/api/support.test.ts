@@ -236,6 +236,27 @@ describe("POST /api/support", () => {
     expect(data.success).toBe(true);
   });
 
+  it("fails closed with 500 when the email is mocked in production", async () => {
+    mockSendEmail.mockResolvedValue({ success: true, mock: true } as any);
+    // NODE_ENV is typed read-only; assign through a widened view of process.env.
+    const env = process.env as Record<string, string | undefined>;
+    const originalEnv = env.NODE_ENV;
+    // NODE_ENV is read inside the handler; force production for this case so a
+    // missing RESEND_API_KEY surfaces as an error instead of a silent drop.
+    env.NODE_ENV = "production";
+
+    try {
+      const POST = loadPost();
+      const response = await POST(createRequest(validBody));
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+    } finally {
+      env.NODE_ENV = originalEnv;
+    }
+  });
+
   it("returns 500 without leaking provider internals when send fails", async () => {
     mockSendEmail.mockRejectedValue(new Error("Resend internal: API key 12345"));
     const POST = loadPost();

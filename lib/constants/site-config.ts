@@ -43,3 +43,12 @@ export const SUPPORT_CATEGORIES = [
 ] as const;
 
 export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
+
+// Single source of truth for support message limits, shared by the client form
+// (components/support/support-form.tsx) and the API route (app/api/support).
+export const SUPPORT_LIMITS = {
+  subjectMin: 1,
+  subjectMax: 200,
+  messageMin: 1,
+  messageMax: 5000,
+} as const;

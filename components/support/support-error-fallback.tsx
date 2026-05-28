@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { capturePostHogEvent } from "@/lib/analytics/posthog";
 
-// Cap the error message we forward to the support page so the URL stays sane.
-const MAX_ERROR_MESSAGE_LENGTH = 300;
+// Cap the safe token we forward to the support page so the URL stays sane.
+const MAX_ERROR_TOKEN_LENGTH = 100;
 
 const SUPPORT_PATH = "/dashboard/support";
 
@@ -22,12 +22,15 @@ interface SupportErrorFallbackProps {
   reset?: () => void;
 }
 
+// Forward only the error *name* (e.g. "TypeError"), never the message. The
+// message can contain user/PII data and would leak into the URL — and thus
+// browser history, server logs, and PostHog's `$current_url` autocapture.
 function buildSupportHref(error?: Error): string {
-  const message = error?.message;
-  if (!message) return SUPPORT_PATH;
+  const name = error?.name;
+  if (!name) return SUPPORT_PATH;
 
-  const truncated = message.slice(0, MAX_ERROR_MESSAGE_LENGTH);
-  return `${SUPPORT_PATH}?errorMessage=${encodeURIComponent(truncated)}`;
+  const safeToken = name.slice(0, MAX_ERROR_TOKEN_LENGTH);
+  return `${SUPPORT_PATH}?errorMessage=${encodeURIComponent(safeToken)}`;
 }
 
 /**

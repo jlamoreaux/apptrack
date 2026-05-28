@@ -16,15 +16,19 @@ import { useToast } from "@/hooks/use-toast";
 import { capturePostHogEvent } from "@/lib/analytics/posthog";
 import {
   SUPPORT_CATEGORIES,
+  SUPPORT_LIMITS,
   type SupportCategory,
 } from "@/lib/constants/site-config";
 
-// Mirror the server-side caps in app/api/support/route.ts so the client blocks
-// invalid input before a round-trip. Keep these in sync with the route.
-const SUBJECT_MAX = 200;
-const MESSAGE_MAX = 5000;
+// Shared with the API route (app/api/support) via SUPPORT_LIMITS so the client
+// blocks invalid input before a round-trip without the caps drifting.
+const { subjectMax: SUBJECT_MAX, messageMax: MESSAGE_MAX } = SUPPORT_LIMITS;
 
 const DEFAULT_CATEGORY: SupportCategory = SUPPORT_CATEGORIES[0];
+
+function isSupportCategory(value: string): value is SupportCategory {
+  return (SUPPORT_CATEGORIES as readonly string[]).includes(value);
+}
 
 type SubmitStatus = "idle" | "submitting" | "success" | "error";
 
@@ -166,7 +170,9 @@ export function SupportForm({
         <Label htmlFor="support-category">Category</Label>
         <Select
           value={category}
-          onValueChange={(value) => setCategory(value as SupportCategory)}
+          onValueChange={(value) => {
+            if (isSupportCategory(value)) setCategory(value);
+          }}
           disabled={isSubmitting}
         >
           <SelectTrigger id="support-category" className="min-h-11">

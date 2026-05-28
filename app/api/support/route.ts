@@ -5,16 +5,16 @@ import { escapeHtml, safeUrl } from "@/lib/email/transactional";
 import {
   SUPPORT_EMAIL,
   SUPPORT_CATEGORIES,
+  SUPPORT_LIMITS,
   type SupportCategory,
 } from "@/lib/constants/site-config";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
-// Validation caps (named to avoid magic numbers).
-const SUBJECT_MIN = 1;
-const SUBJECT_MAX = 200;
-const MESSAGE_MIN = 1;
-const MESSAGE_MAX = 5000;
+// Subject/message caps are shared with the client form via SUPPORT_LIMITS.
+const { subjectMin: SUBJECT_MIN, subjectMax: SUBJECT_MAX } = SUPPORT_LIMITS;
+const { messageMin: MESSAGE_MIN, messageMax: MESSAGE_MAX } = SUPPORT_LIMITS;
+// Context caps are server-only (named to avoid magic numbers).
 const CONTEXT_URL_MAX = 2000;
 const CONTEXT_ERROR_MESSAGE_MAX = 1000;
 const CONTEXT_TOTAL_MAX = 4000;
@@ -251,6 +251,27 @@ export async function POST(request: NextRequest) {
     });
 
     if ("mock" in result && result.mock === true) {
+      // In production a mocked send means RESEND_API_KEY is missing and the
+      // request would be silently dropped — fail closed so the user knows it
+      // didn't go through. In dev/test, mock mode is expected, so report success.
+      if (process.env.NODE_ENV === "production") {
+        loggerService.error(
+          "Support email mocked in production (RESEND_API_KEY missing)",
+          undefined,
+          {
+            category: LogCategory.EMAIL,
+            userId: user.id,
+            action: "support_email_mocked_in_production",
+            duration: Date.now() - startTime,
+            metadata: { category },
+          }
+        );
+        return NextResponse.json(
+          { success: false, error: "Email delivery is not configured." },
+          { status: 500 }
+        );
+      }
+
       loggerService.info("Support request email mocked (no RESEND_API_KEY)", {
         category: LogCategory.EMAIL,
         userId: user.id,

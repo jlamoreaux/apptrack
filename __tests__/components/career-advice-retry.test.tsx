@@ -1,10 +1,10 @@
 /**
- * Tests for the AI Coach chat "Retry" button (crash-fix regression guard).
+ * Behavior contract for the AI Coach chat "Retry" button (career-advice.tsx).
  *
- * The bug: career-advice.tsx destructured `reload` from useChat, but ai@6 /
- * @ai-sdk/react@3 renamed it to `regenerate`, so clicking Retry threw
- * "reload is not a function". These tests mock useChat in the error state and
- * assert Retry re-fires the request via `regenerate` and clears the error.
+ * In the chat error state, clicking "Retry" must re-fire the request via
+ * useChat's `regenerate`, clear the error via `clearError`, and emit the
+ * ai_chat_retry_clicked analytics event — without falling back to manual
+ * sendMessage. These tests mock useChat in the error state and assert that.
  */
 
 import React from "react";
@@ -61,15 +61,21 @@ jest.mock("lucide-react", () => {
 import { CareerAdvice } from "@/components/ai-coach/career-advice";
 
 describe("CareerAdvice retry button", () => {
+  let fetchSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockRegenerate.mockResolvedValue(undefined);
     // The component fetches conversations on mount; return an empty list.
-    (global.fetch as jest.Mock).mockResolvedValue({
+    fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({ conversations: [] }),
       headers: { get: () => null },
-    });
+    } as unknown as Response);
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
   });
 
   it("renders a Retry button in the error state", async () => {

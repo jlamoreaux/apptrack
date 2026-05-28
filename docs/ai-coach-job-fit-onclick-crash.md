@@ -19,7 +19,7 @@ On `/dashboard/ai-coach?tab=job-fit&applicationId=…`, clicking a button in the
 
 ## Stack (mangled — sourcemaps missing)
 Top frame is `onClick` in:
-```
+```text
 /_next/static/chunks/app/(app)/dashboard/ai-coach/page-85fa627d3bb58727.js
 ```
 Calls into shared chunk `/_next/static/chunks/5bfbefed-7fac4e9d5299b08f.js` at functions `iG → ? → nS → i4 → ce → s9`.

@@ -188,7 +188,7 @@ export function MobileNavigation({
               setIsOpen(false);
               setIsSupportOpen(true);
             }}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
           >
             <LifeBuoy className="h-4 w-4" />
             <span>Help / Contact support</span>
