@@ -21,9 +21,11 @@ import {
   Sparkles,
   Shield,
   Flame,
+  LifeBuoy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/actions";
+import { SupportDialog } from "@/components/support/support-dialog";
 import {
   NAV_ITEMS,
   AI_COACH_COLORS,
@@ -51,6 +53,7 @@ export function MobileNavigation({
   isAdmin = false,
 }: MobileNavigationProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -75,6 +78,7 @@ export function MobileNavigation({
   };
 
   return (
+    <>
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <Button
@@ -179,6 +183,18 @@ export function MobileNavigation({
           )}
 
           <button
+            type="button"
+            onClick={() => {
+              setIsOpen(false);
+              setIsSupportOpen(true);
+            }}
+            className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
+          >
+            <LifeBuoy className="h-4 w-4" />
+            <span>Help / Contact support</span>
+          </button>
+
+          <button
             onClick={handleSignOut}
             disabled={loading}
             className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
@@ -189,5 +205,7 @@ export function MobileNavigation({
         </div>
       </SheetContent>
     </Sheet>
+    <SupportDialog open={isSupportOpen} onOpenChange={setIsSupportOpen} />
+    </>
   );
 }

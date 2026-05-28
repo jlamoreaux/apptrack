@@ -31,3 +31,24 @@ export const SITE_CONFIG = {
 } as const;
 
 export type SiteConfig = typeof SITE_CONFIG;
+
+export const SUPPORT_EMAIL = "support@apptrack.ing";
+
+export const SUPPORT_CATEGORIES = [
+  "Bug / something broke",
+  "Billing",
+  "Feature request",
+  "Account",
+  "Other",
+] as const;
+
+export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
+
+// Single source of truth for support message limits, shared by the client form
+// (components/support/support-form.tsx) and the API route (app/api/support).
+export const SUPPORT_LIMITS = {
+  subjectMin: 1,
+  subjectMax: 200,
+  messageMin: 1,
+  messageMax: 5000,
+} as const;

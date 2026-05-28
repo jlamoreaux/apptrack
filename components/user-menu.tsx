@@ -7,11 +7,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Crown, Settings, Shield } from "lucide-react";
+import { User, LogOut, Crown, Settings, Shield, LifeBuoy } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/actions";
+import { SupportDialog } from "@/components/support/support-dialog";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import type { Profile } from "@/lib/supabase";
 
@@ -24,6 +26,7 @@ interface UserMenuProps {
 
 export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserMenuProps) {
   const [loading, setLoading] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
   const router = useRouter();
 
   // Helper function to get display name with proper truncation
@@ -60,6 +63,7 @@ export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserM
   };
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm" className="max-w-[200px]">
@@ -98,11 +102,29 @@ export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserM
           </Link>
         )}
 
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem
+          onSelect={(event) => {
+            // Prevent the menu from stealing focus as it closes, which can
+            // race with the dialog mounting and swallow the open.
+            event.preventDefault();
+            setIsSupportOpen(true);
+          }}
+        >
+          <LifeBuoy className="h-4 w-4 mr-2" />
+          Help / Contact support
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
         <DropdownMenuItem onClick={handleSignOut} disabled={loading}>
           <LogOut className="h-4 w-4 mr-2" />
           {loading ? "Signing out..." : "Logout"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <SupportDialog open={isSupportOpen} onOpenChange={setIsSupportOpen} />
+    </>
   );
 }
