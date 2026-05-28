@@ -12,11 +12,13 @@ export async function sendEmail({
   subject,
   html,
   from = process.env.FROM_EMAIL || 'AppTrack <onboarding@resend.dev>',
+  replyTo,
 }: {
   to: string;
   subject: string;
   html: string;
   from?: string;
+  replyTo?: string;
 }) {
   if (!resend) {
     return { success: true, mock: true };
@@ -28,6 +30,7 @@ export async function sendEmail({
       to,
       subject,
       html,
+      ...(replyTo ? { replyTo } : {}),
     });
 
     if (error) {

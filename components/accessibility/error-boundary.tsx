@@ -1,6 +1,8 @@
+"use client";
+
 /**
  * Accessibility-Focused Error Boundary Component
- * 
+ *
  * Provides graceful error handling with accessibility features:
  * - Announces errors to screen readers
  * - Provides keyboard-accessible recovery options

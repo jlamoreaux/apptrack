@@ -15,7 +15,7 @@ const APP_URL =
   'https://www.apptrack.ing';
 
 /** Escape special HTML characters to prevent XSS via user-controlled strings. */
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -28,7 +28,7 @@ function escapeHtml(str: string): string {
  * Validate and return a safe URL for use in href attributes.
  * Only allows http/https schemes; falls back to '#' for anything else.
  */
-function safeUrl(url: string): string {
+export function safeUrl(url: string): string {
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {

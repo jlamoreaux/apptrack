@@ -55,6 +55,8 @@ import {
   copyAnalysisToClipboard,
   downloadAnalysisPDF,
 } from "@/lib/utils/analysis-export";
+import { SectionErrorBoundary } from "@/components/accessibility/error-boundary";
+import { SupportErrorFallback } from "@/components/support/support-error-fallback";
 import { JobFitAnalysisResult as JobFitAnalysisDisplay } from "@/components/ai-coach/results/JobFitAnalysisResult";
 import { InterviewPreparationResult as InterviewPreparationDisplay } from "@/components/ai-coach/results/InterviewPreparationResult";
 import { CoverLetterResult as CoverLetterDisplay } from "@/components/ai-coach/results/CoverLetterResult";
@@ -357,6 +359,10 @@ export function ApplicationAIAnalysis({
   }
 
   return (
+    <SectionErrorBoundary
+      name="Application AI Analysis"
+      fallback={<SupportErrorFallback name="Application AI Analysis" />}
+    >
     <Card className={`overflow-hidden ${className || ""}`}>
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2 text-primary">
@@ -704,5 +710,6 @@ export function ApplicationAIAnalysis({
         </CardContent>
       </div>
     </Card>
+    </SectionErrorBoundary>
   );
 }

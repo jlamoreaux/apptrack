@@ -22,6 +22,8 @@ import { useTrialBudget } from "@/hooks/use-trial-budget";
 import { TrialOnboarding } from "./trial-onboarding";
 import { TrialBudgetCounter } from "./trial-budget-counter";
 import { TrialBudgetNudge } from "./trial-budget-nudge";
+import { SectionErrorBoundary } from "@/components/accessibility/error-boundary";
+import { SupportErrorFallback } from "@/components/support/support-error-fallback";
 
 interface AICoachDashboardProps {
   userId: string;
@@ -147,23 +149,48 @@ function AICoachDashboardInner({ userId }: AICoachDashboardProps) {
         </div>
 
         <TabsContent value="resume" className="space-y-6">
-          <ResumeAnalyzer userId={userId} />
+          <SectionErrorBoundary
+            name="Resume"
+            fallback={<SupportErrorFallback name="Resume" />}
+          >
+            <ResumeAnalyzer userId={userId} />
+          </SectionErrorBoundary>
         </TabsContent>
 
         <TabsContent value="interview" className="space-y-6">
-          <InterviewPrep />
+          <SectionErrorBoundary
+            name="Interview"
+            fallback={<SupportErrorFallback name="Interview" />}
+          >
+            <InterviewPrep />
+          </SectionErrorBoundary>
         </TabsContent>
 
         <TabsContent value="cover-letter" className="space-y-6">
-          <CoverLetterGenerator />
+          <SectionErrorBoundary
+            name="Cover Letter"
+            fallback={<SupportErrorFallback name="Cover Letter" />}
+          >
+            <CoverLetterGenerator />
+          </SectionErrorBoundary>
         </TabsContent>
 
         <TabsContent value="job-fit" className="space-y-6">
-          <JobFitAnalysis />
+          <SectionErrorBoundary
+            name="Job Fit"
+            fallback={<SupportErrorFallback name="Job Fit" />}
+          >
+            <JobFitAnalysis />
+          </SectionErrorBoundary>
         </TabsContent>
 
         <TabsContent value="advice" className="space-y-6">
-          <CareerAdvice />
+          <SectionErrorBoundary
+            name="Advice"
+            fallback={<SupportErrorFallback name="Advice" />}
+          >
+            <CareerAdvice />
+          </SectionErrorBoundary>
         </TabsContent>
       </Tabs>
 

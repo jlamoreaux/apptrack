@@ -31,3 +31,15 @@ export const SITE_CONFIG = {
 } as const;
 
 export type SiteConfig = typeof SITE_CONFIG;
+
+export const SUPPORT_EMAIL = "support@apptrack.ing";
+
+export const SUPPORT_CATEGORIES = [
+  "Bug / something broke",
+  "Billing",
+  "Feature request",
+  "Account",
+  "Other",
+] as const;
+
+export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];

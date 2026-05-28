@@ -45,6 +45,7 @@ import {
   Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { capturePostHogEvent } from "@/lib/analytics/posthog";
 import type { Conversation } from "@/types";
 
 interface ConversationWithPreview extends Conversation {
@@ -126,7 +127,8 @@ export function CareerAdvice() {
     setMessages,
     status,
     error,
-    reload,
+    regenerate,
+    clearError,
     stop,
   } = useChat({
     transport,
@@ -281,6 +283,21 @@ export function CareerAdvice() {
     } catch (err) {
       console.error("Failed to send message:", err);
       setChatInput(messageText); // Restore input on error
+    }
+  };
+
+  // Retry the failed request after a chat error. In the error state the last
+  // message is the user's send whose assistant response failed; regenerate()
+  // with no messageId keeps that user message and re-fires the request (verified
+  // against ai@6 AbstractChat.regenerate). clearError dismisses the stale banner.
+  const handleRetry = async () => {
+    clearError();
+    try {
+      await regenerate();
+      capturePostHogEvent("ai_chat_retry_clicked", { outcome: "success" });
+    } catch (err) {
+      console.error("Failed to retry message:", err);
+      capturePostHogEvent("ai_chat_retry_clicked", { outcome: "failure" });
     }
   };
 
@@ -683,7 +700,7 @@ export function CareerAdvice() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => reload()}
+                  onClick={handleRetry}
                   className="h-7 text-xs"
                 >
                   <RefreshCw className="h-3 w-3 mr-1" />
