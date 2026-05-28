@@ -56,3 +56,6 @@ node_modules/
 
 # Test coverage
 coverage/
+
+# Local Claude Code agent worktrees (never commit)
+.claude/worktrees/
