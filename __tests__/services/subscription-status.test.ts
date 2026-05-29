@@ -23,14 +23,16 @@ type SingleResult = { data: unknown; error: unknown };
 
 /**
  * Builds a chainable Supabase client stub whose `user_subscriptions` query
- * terminates with the provided `.single()` result. Records the value passed
- * to `.in("status", ...)` so the test can assert the entitled-status filter.
+ * terminates with the provided result. Supports both `.single()` and
+ * `.maybeSingle()` terminals (the DAL uses `.maybeSingle()`). Records the value
+ * passed to `.in("status", ...)` so the test can assert the entitled-status filter.
  */
 function buildSupabaseMock(singleResult: SingleResult) {
   const inArgs: { column: string; values: unknown }[] = [];
 
   const single = jest.fn().mockResolvedValue(singleResult);
-  const limit = jest.fn().mockReturnValue({ single });
+  const maybeSingle = jest.fn().mockResolvedValue(singleResult);
+  const limit = jest.fn().mockReturnValue({ single, maybeSingle });
   const order = jest.fn().mockReturnValue({ limit });
   const inFn = jest.fn().mockImplementation((column: string, values: unknown) => {
     inArgs.push({ column, values });
@@ -40,7 +42,7 @@ function buildSupabaseMock(singleResult: SingleResult) {
   const select = jest.fn().mockReturnValue({ eq });
   const from = jest.fn().mockReturnValue({ select });
 
-  return { supabase: { from }, inArgs, single };
+  return { supabase: { from }, inArgs, single, maybeSingle };
 }
 
 const USER_ID = "user-123";
@@ -79,7 +81,7 @@ describe("SubscriptionService entitlement resolution", () => {
 
   it("falls back to Free / inactive for a canceled subscription (excluded by the entitled filter)", async () => {
     // A canceled row is excluded by `.in([active, trialing])`, so the DAL sees
-    // no matching row and (via maybeSingle/single PGRST116) returns null.
+    // no matching row and (via maybeSingle returning null) resolves to null.
     const { supabase } = buildSupabaseMock({ data: null, error: null });
 
     const service = new SubscriptionService(supabase as never);

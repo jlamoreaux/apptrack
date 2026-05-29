@@ -270,18 +270,16 @@ export class SubscriptionDAL
         .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === "PGRST116") {
-          return null; // Not found
-        }
         throw new DALError(
           `Failed to get current subscription: ${error.message}`,
           "QUERY_ERROR"
         );
       }
 
+      // maybeSingle returns null when no entitled subscription exists.
       return data;
     } catch (error) {
       if (error instanceof DALError) throw error;
@@ -444,12 +442,9 @@ export class SubscriptionDAL
         .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
         .order("created_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        if (error.code === "PGRST116") {
-          return null; // Not found
-        }
         throw new DALError(
           `Failed to get subscription with plan name: ${error.message}`,
           "QUERY_ERROR"
