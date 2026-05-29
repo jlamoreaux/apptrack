@@ -206,6 +206,12 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 })
 
+// jsdom does not implement scrollIntoView; components that call it from an
+// effect (e.g. chat auto-scroll) would otherwise throw inside a timer and flake.
+if (typeof window !== 'undefined' && window.HTMLElement) {
+  window.HTMLElement.prototype.scrollIntoView = jest.fn()
+}
+
 // Global test setup
 beforeEach(() => {
   // Clear all mocks before each test
