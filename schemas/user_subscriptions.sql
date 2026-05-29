@@ -6,6 +6,7 @@ create table public.user_subscriptions (
   billing_cycle text null default 'monthly'::text,
   current_period_start timestamp with time zone null default now(),
   current_period_end timestamp with time zone null,
+  trial_ending_notified_at timestamp with time zone null,
   stripe_subscription_id text null,
   stripe_customer_id text null,
   created_at timestamp with time zone null default now(),

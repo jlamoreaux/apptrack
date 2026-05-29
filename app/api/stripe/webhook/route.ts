@@ -10,6 +10,7 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { sendTrialEndingEmail } from "@/lib/email/transactional";
 import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -93,6 +94,14 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionCreated(
           event.data.object as Stripe.Subscription,
           subscriptionService
+        );
+        break;
+
+      case "customer.subscription.trial_will_end":
+        await handleTrialWillEnd(
+          event.data.object as Stripe.Subscription,
+          subscriptionService,
+          serviceClient
         );
         break;
 
@@ -657,6 +666,296 @@ async function handlePaymentFailed(
         invoiceId: invoice.id
       }
     });
+  }
+}
+
+const APP_URL =
+  process.env.APP_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://www.apptrack.ing";
+
+// Bare label so the email's "your ${planName} plan" / "for ${planName}" copy
+// reads correctly (a real plan name is also bare, e.g. "AI Coach").
+const TRIAL_PLAN_NAME_FALLBACK = "AppTrack";
+
+/**
+ * Build human-readable charge cadence wording from a Stripe recurring price.
+ * The email renders "per <cadence>", so the multi-count branch must not include
+ * "every" (would read "per every 3 months").
+ * Examples: "month", "year", "3 months", "2 weeks".
+ */
+function formatCadence(
+  interval: Stripe.Price.Recurring.Interval,
+  intervalCount: number
+): string {
+  if (intervalCount > 1) {
+    return `${intervalCount} ${interval}s`;
+  }
+  return interval;
+}
+
+/**
+ * Format a charge amount (minor units) into a localized currency string.
+ * Returns `undefined` if the currency code is malformed: `Intl.NumberFormat`
+ * throws on a bad currency, and since this runs inside the handler's main try
+ * that would rethrow → infinite Stripe retries. Falling back to `undefined`
+ * lets the email use the generic "your plan will renew" copy instead.
+ */
+function formatChargeAmount(
+  unitAmountMinor: number,
+  currency: string
+): string | undefined {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency.toUpperCase(),
+    }).format(unitAmountMinor / 100);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Format a trial-end Date for display with a pinned locale. */
+function formatTrialEndDate(date: Date): string {
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(date);
+}
+
+/**
+ * Look up the plan display name by Stripe price id, returning a neutral
+ * fallback if not found or on error. Never throws — a missing plan name must
+ * not block a compliance-required pre-charge notice.
+ */
+async function resolvePlanName(
+  serviceClient: SupabaseClient,
+  priceId: string | undefined
+): Promise<string> {
+  if (!priceId) {
+    return TRIAL_PLAN_NAME_FALLBACK;
+  }
+  try {
+    const { data: plan } = await serviceClient
+      .from("subscription_plans")
+      .select("name")
+      .or(
+        `stripe_monthly_price_id.eq.${priceId},stripe_yearly_price_id.eq.${priceId}`
+      )
+      .maybeSingle();
+    return plan?.name || TRIAL_PLAN_NAME_FALLBACK;
+  } catch {
+    return TRIAL_PLAN_NAME_FALLBACK;
+  }
+}
+
+/**
+ * Handle Stripe's `customer.subscription.trial_will_end` event (~3 days before
+ * a paid trial charges) by sending the customer a pre-charge notice.
+ *
+ * Exported for unit testing (see __tests__/api/stripe-trial-will-end.test.ts).
+ *
+ * Skip-vs-rethrow policy: "skip" outcomes (no userId, already notified, won't
+ * charge, no email, no trial_end) are normal non-error states — they `return`
+ * inside the try and the catch is never reached, so the webhook returns 2xx and
+ * Stripe stops. Genuine failures (a `findByStripeSubscriptionId` throw, a send
+ * failure, or any unexpected throw) propagate to the catch, are logged, and are
+ * RETHROWN so the route returns non-2xx and Stripe retries — favoring delivery
+ * of a compliance notice. `trial_ending_notified_at` is stamped only after a
+ * successful send, so retries never double-notify.
+ */
+export async function handleTrialWillEnd(
+  subscription: Stripe.Subscription,
+  subscriptionService: SubscriptionService,
+  serviceClient: SupabaseClient
+) {
+  try {
+    // Resolve userId from metadata, falling back to the local row. We fetch the
+    // local row regardless because it also carries the idempotency timestamp.
+    const local = await subscriptionService.findByStripeSubscriptionId(
+      subscription.id
+    );
+    const userId = String(subscription.metadata?.userId || local?.user_id || "");
+    if (!userId) {
+      loggerService.warn("Skipping trial_will_end: unresolved userId", {
+        category: LogCategory.PAYMENT,
+        action: "trial_will_end_missing_user",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    // Require the local row: it's the idempotency anchor. Without it we can't
+    // record that the notice was sent (updateFromStripeWebhook no-ops when no
+    // row matches), so sending would risk duplicates on Stripe redelivery. A
+    // real Stripe trial always has a local row by the time trial_will_end fires
+    // (created on customer.subscription.created).
+    if (!local) {
+      loggerService.warn("Skipping trial_will_end: no local row", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_no_local_row",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    // Idempotency: never double-notify if we already sent this notice.
+    if (local?.trial_ending_notified_at) {
+      loggerService.info("Skipping trial_will_end: already notified", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_already_notified",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    // Scope guard: only notify trials that will actually charge.
+    if (subscription.status !== "trialing" || subscription.cancel_at_period_end) {
+      loggerService.info("Skipping trial_will_end: not a charging trial", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_not_charging",
+        metadata: {
+          subscriptionId: subscription.id,
+          status: subscription.status,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        },
+      });
+      return;
+    }
+
+    // The customer retrieve is required: for Checkout trials the card lives on
+    // the customer, not the (un-expanded) subscription payload.
+    const customer = await stripe.customers.retrieve(
+      subscription.customer as string
+    );
+    if ("deleted" in customer) {
+      loggerService.info("Skipping trial_will_end: customer deleted", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_customer_deleted",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    const hasPaymentMethod = Boolean(
+      subscription.default_payment_method ||
+        customer.invoice_settings?.default_payment_method ||
+        customer.default_source
+    );
+    if (!hasPaymentMethod) {
+      loggerService.info("Skipping trial_will_end: no payment method on file", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_no_payment_method",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    const email = customer.email;
+    if (!email) {
+      loggerService.info("Skipping trial_will_end: customer has no email", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_no_email",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    if (!subscription.trial_end) {
+      loggerService.info("Skipping trial_will_end: no trial_end", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_no_trial_end",
+        metadata: { subscriptionId: subscription.id },
+      });
+      return;
+    }
+
+    // Don't email "your trial ends on <past date>" for a late/retried event.
+    if (subscription.trial_end * 1000 <= Date.now()) {
+      loggerService.info("Skipping trial_will_end: trial_end in the past", {
+        category: LogCategory.PAYMENT,
+        userId,
+        action: "trial_will_end_stale",
+        metadata: {
+          subscriptionId: subscription.id,
+          trialEnd: subscription.trial_end,
+        },
+      });
+      return;
+    }
+
+    const trialEndDate = formatTrialEndDate(
+      new Date(subscription.trial_end * 1000)
+    );
+
+    const price = subscription.items.data[0]?.price;
+    const unitAmount = price?.unit_amount ?? null;
+    const currency = price?.currency || "usd";
+    const interval = price?.recurring?.interval;
+    const intervalCount = price?.recurring?.interval_count || 1;
+
+    // Treat a zero (or absent) amount as "unknown" so the email uses the generic
+    // renewal copy instead of a confusing "you'll be charged $0.00" line.
+    const amountFormatted =
+      unitAmount != null && unitAmount > 0
+        ? formatChargeAmount(unitAmount, currency)
+        : undefined;
+    const cadence = interval
+      ? formatCadence(interval, intervalCount)
+      : "billing period";
+
+    const planName = await resolvePlanName(serviceClient, price?.id);
+
+    const manageUrl = `${APP_URL}/dashboard/settings`;
+
+    const result = await sendTrialEndingEmail({
+      email,
+      firstName: customer.name?.split(" ")[0] || undefined,
+      planName,
+      amountFormatted,
+      cadence,
+      trialEndDate,
+      manageUrl,
+    });
+
+    if (!result.success) {
+      // Throw so the outer catch rethrows → webhook returns non-2xx → Stripe
+      // retries. The row is left unstamped, so the retry will re-attempt.
+      throw new Error("sendTrialEndingEmail failed");
+    }
+
+    await subscriptionService.updateFromStripeWebhook(subscription.id, {
+      trial_ending_notified_at: new Date().toISOString(),
+    });
+
+    after(() =>
+      captureServerEvent(userId, "trial_ending_notified", {
+        subscription_id: subscription.id,
+        amount_cents: unitAmount ?? null,
+        currency,
+        interval,
+        trial_end: subscription.trial_end,
+      })
+    );
+
+    loggerService.info("Sent trial-ending notice", {
+      category: LogCategory.PAYMENT,
+      userId,
+      action: "trial_will_end_notified",
+      metadata: { subscriptionId: subscription.id },
+    });
+  } catch (error) {
+    loggerService.error("Error in handleTrialWillEnd", error as Error, {
+      category: LogCategory.PAYMENT,
+      action: "trial_will_end_error",
+      metadata: { subscriptionId: subscription.id },
+    });
+    // Rethrow so a genuine failure surfaces as non-2xx and Stripe retries.
+    throw error;
   }
 }
 
