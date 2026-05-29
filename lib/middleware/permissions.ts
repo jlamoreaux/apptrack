@@ -5,6 +5,7 @@ import {
   canAccessFeature,
 } from "@/lib/constants/permissions";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import { isEntitledStatus } from "@/lib/constants/subscription-status";
 import { PermissionServiceError } from "@/services/base";
 import {
   isOnProOrHigher,
@@ -215,9 +216,7 @@ export class PermissionMiddleware {
       const subscription = await getSubscription(userId);
       const plan = subscription?.subscription_plans?.name || PLAN_NAMES.FREE;
       const status = subscription?.status || "none";
-      const isActive =
-        subscription?.status === "active" ||
-        subscription?.status === "trialing";
+      const isActive = isEntitledStatus(subscription?.status);
       const isAICoach = isOnAICoachPlan(plan);
       const isPro = isOnProOrHigher(plan);
       const isFree = isOnFreePlan(plan);

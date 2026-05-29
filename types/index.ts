@@ -1,5 +1,10 @@
 import type React from "react";
 
+// Single source of truth for the subscription status union.
+// Type-only re-export keeps this free of runtime/client-bundle coupling.
+export type { SubscriptionStatus } from "@/lib/constants/subscription-status";
+import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
+
 // Core application types
 export interface User {
   id: string;
@@ -71,7 +76,7 @@ export interface Subscription {
   plan_id: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  status: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  status: SubscriptionStatus;
   billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;

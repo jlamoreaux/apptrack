@@ -10,6 +10,7 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
@@ -129,24 +130,30 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to map Stripe status to our database status
-function mapStripeStatus(
-  stripeStatus: string
-): "active" | "canceled" | "past_due" | "trialing" {
+// Helper function to map Stripe status to our database status.
+// Exported for unit testing (see __tests__/api/stripe-status-map.test.ts).
+export function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
   switch (stripeStatus) {
     case "active":
       return "active";
-    case "canceled":
-      return "canceled";
-    case "past_due":
-      return "past_due";
     case "trialing":
       return "trialing";
+    case "past_due":
+      return "past_due";
+    case "canceled":
+      return "canceled";
+    // Non-entitled Stripe states map to "canceled" so they never grant the plan.
     case "incomplete":
     case "incomplete_expired":
     case "unpaid":
+    case "paused":
+      return "canceled";
     default:
-      return "trialing"; // Default to trialing for any unknown or pending states
+      // Fail closed: an unknown/future Stripe status must not silently grant
+      // entitlements. Real trials always arrive as the explicit "trialing"
+      // case above, and a paid signup briefly in "incomplete" transitions to
+      // "active" via a later subscription.updated webhook that overwrites this.
+      return "canceled";
   }
 }
 

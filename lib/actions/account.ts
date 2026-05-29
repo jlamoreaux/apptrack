@@ -5,6 +5,7 @@ import { createAdminClient } from "../supabase/admin-client";
 import { revalidatePath } from "next/cache";
 import { stripe } from "../stripe";
 import { AuditAction, EntityType } from "../services/audit.service";
+import { ENTITLED_SUBSCRIPTION_STATUSES } from "@/lib/constants/subscription-status";
 
 export async function deleteAccountAction(formData: FormData) {
   try {
@@ -28,13 +29,15 @@ export async function deleteAccountAction(formData: FormData) {
     const userEmail = profile?.email || user.email || "unknown";
     const userName = profile?.full_name || "unknown";
 
-    // Get user's subscription to cancel it
+    // Get user's subscription to cancel it (active or trialing)
     const { data: subscription } = await supabase
       .from("user_subscriptions")
       .select("stripe_subscription_id")
       .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+      .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // Cancel Stripe subscription if it exists
     if (subscription?.stripe_subscription_id) {

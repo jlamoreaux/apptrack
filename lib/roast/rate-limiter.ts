@@ -1,24 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { ROAST_CONSTANTS } from "@/lib/constants/roast";
+// Reuse the canonical tier resolver instead of duplicating it. The previous
+// local copy queried a non-existent `user_subscriptions.subscription_tier`
+// column, so it always returned 'free'; the shared helper derives the tier from
+// the joined plan name.
+import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
 
 interface RateLimitResult {
   allowed: boolean;
   remaining: number;
   resetAt: Date;
   limit: number;
-}
-
-async function getUserSubscriptionTier(userId: string): Promise<'free' | 'pro' | 'ai_coach'> {
-  const supabase = await createClient();
-  
-  const { data: subscription } = await supabase
-    .from("user_subscriptions")
-    .select("subscription_tier")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .single();
-    
-  return subscription?.subscription_tier || 'free';
 }
 
 export async function checkRoastRateLimit(userId: string, version?: string): Promise<RateLimitResult> {

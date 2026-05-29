@@ -24,6 +24,7 @@ import {
 import { deleteAccountAction } from "@/lib/actions";
 import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
 import type { UserSubscription } from "@/lib/supabase";
+import { isEntitledStatus } from "@/lib/constants/subscription-status";
 
 interface DangerZoneProps {
   userId: string;
@@ -57,7 +58,7 @@ export function DangerZone({ userId, subscription }: DangerZoneProps) {
 
   const isOnPaidPlan =
     subscription?.subscription_plans?.name !== "Free" &&
-    subscription?.status === "active";
+    isEntitledStatus(subscription?.status);
   const confirmationText = "DELETE MY ACCOUNT";
   const isAuditEnabled = useFeatureFlag(FEATURE_FLAGS.DASHBOARD_UX_AUDIT);
 
