@@ -12,6 +12,7 @@ import {
 } from "@/dal/subscriptions";
 import type { Subscription } from "@/types";
 import { PLAN_NAMES } from "@/lib/constants/plans";
+import { isEntitledStatus } from "@/lib/constants/subscription-status";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
@@ -388,9 +389,7 @@ export class SubscriptionService
   async isSubscriptionActive(userId: string): Promise<boolean> {
     try {
       const subscription = await this.getCurrentSubscription(userId);
-      return (
-        subscription?.status === "active" || subscription?.status === "trialing"
-      );
+      return isEntitledStatus(subscription?.status);
     } catch (error) {
       throw wrapDALError(error, "Failed to check if subscription is active");
     }
@@ -404,9 +403,7 @@ export class SubscriptionService
         await this.subscriptionDAL.getSubscriptionWithPlanName(userId);
       const plan = subscription?.plan_name || PLAN_NAMES.FREE;
       const status = subscription?.status || "none";
-      const isActive =
-        subscription?.status === "active" ||
-        subscription?.status === "trialing";
+      const isActive = isEntitledStatus(subscription?.status);
 
       return { plan, status, isActive };
     } catch (error) {

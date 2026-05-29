@@ -6,6 +6,7 @@ import {
 } from "@/lib/services/rate-limit.service";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { ENTITLED_SUBSCRIPTION_STATUSES } from "@/lib/constants/subscription-status";
 
 export interface RateLimitOptions {
   feature: AIFeature;
@@ -50,7 +51,7 @@ export async function withRateLimit(
       .from("user_subscriptions")
       .select("subscription_plans(name)")
       .eq("user_id", user.id)
-      .in("status", ["active", "trialing"])
+      .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -190,7 +191,7 @@ export async function getUserSubscriptionTier(
       .from("user_subscriptions")
       .select("subscription_plans(name)")
       .eq("user_id", userId)
-      .in("status", ["active", "trialing"])
+      .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();

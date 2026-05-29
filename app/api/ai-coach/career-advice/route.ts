@@ -1,4 +1,4 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, after } from "next/server";
 import { streamText, generateText, tool, stepCountIs, type LanguageModel } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { z } from "zod";
@@ -13,6 +13,7 @@ import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware"
 import { ResumeService } from "@/services/resumes";
 import { ApplicationDAL } from "@/dal/applications";
 import { APPLICATION_STATUS_VALUES, type ApplicationStatus } from "@/lib/constants/application-status";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
 
 // Cast to LanguageModel to handle type compatibility between ai and @ai-sdk/openai
 const model = openai("gpt-4o-mini") as LanguageModel;
@@ -444,34 +445,64 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 const MAX_MESSAGE_LENGTH = 10000;
 const MIN_MESSAGE_LENGTH = 3;
 
+// Flag only degenerate input with 2 or fewer distinct characters (e.g. "aaaa", "abab").
+const MIN_DISTINCT_CHARS = 3;
+// Absolute length floor below which diversity is not checked — short messages are
+// legitimately low-diversity. This is a fixed threshold, not a length-saturating ratio.
+const DIVERSITY_MIN_LENGTH = 30;
+
+/** Stable reason codes for a rejected message, for observability without string drift. */
+export type MessageRejectionReason = "too_short" | "too_long" | "low_diversity";
+
+export interface MessageValidationResult {
+  valid: boolean;
+  error?: string;
+  reason?: MessageRejectionReason;
+}
+
+/**
+ * Detects degenerate, repeated-character input (e.g. "aaaaaa", "ababab") that carries
+ * no real content. Counts distinct code points and length from the same code-point
+ * array so emoji/CJK surrogate pairs count as one character.
+ */
+function hasInsufficientCharacterDiversity(text: string): boolean {
+  const chars = [...text.replace(/\s+/g, "")];
+  const distinct = new Set(chars).size;
+  const length = chars.length;
+  return length > DIVERSITY_MIN_LENGTH && distinct < MIN_DISTINCT_CHARS;
+}
+
 /**
  * Validates message content for quality and security.
  */
-function validateMessageContent(content: string): { valid: boolean; error?: string } {
+export function validateMessageContent(content: string): MessageValidationResult {
   const trimmed = content.trim();
 
   if (!trimmed) {
-    return { valid: false, error: "Message cannot be empty" };
+    return { valid: false, error: "Message cannot be empty", reason: "too_short" };
   }
 
   if (trimmed.length < MIN_MESSAGE_LENGTH) {
-    return { valid: false, error: "Message is too short. Please provide more context." };
+    return {
+      valid: false,
+      error: "Message is too short. Please provide more context.",
+      reason: "too_short",
+    };
   }
 
   if (trimmed.length > MAX_MESSAGE_LENGTH) {
     return {
       valid: false,
       error: `Message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters`,
+      reason: "too_long",
     };
   }
 
-  // Check for suspicious patterns
-  const uniqueChars = new Set(trimmed.toLowerCase().replace(/\s/g, "")).size;
-  const totalChars = trimmed.replace(/\s/g, "").length;
-  if (totalChars > 20 && uniqueChars / totalChars < 0.3) {
+  if (hasInsufficientCharacterDiversity(trimmed)) {
     return {
       valid: false,
-      error: "Message appears to contain suspicious patterns. Please use normal text.",
+      error: "Your message looks like repeated characters — please rephrase as normal text.",
+      reason: "low_diversity",
     };
   }
 
@@ -658,6 +689,21 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Validate only the new user message with comprehensive checks (length, spam detection, etc.)
     const lastMessageValidation = validateMessageContent(lastUserContent);
     if (!lastMessageValidation.valid) {
+      // Observe blocked messages without logging raw content (PII): only reason + length.
+      loggerService.warn("AI chat message blocked", {
+        category: LogCategory.BUSINESS,
+        userId: user.id,
+        action: "ai_chat_message_blocked",
+        metadata: {
+          reason: lastMessageValidation.reason,
+          length: lastUserContent.length,
+        },
+      });
+      after(() =>
+        captureServerEvent(user.id, "ai_chat_message_blocked", {
+          reason: lastMessageValidation.reason,
+        })
+      );
       return new Response(
         JSON.stringify({ error: lastMessageValidation.error || "Invalid message" }),
         {

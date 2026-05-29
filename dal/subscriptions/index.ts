@@ -2,13 +2,17 @@ import { createClient } from "@/lib/supabase/server";
 import { BaseDAL, DALError, NotFoundError, ValidationError } from "../base";
 import type { Subscription } from "@/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  ENTITLED_SUBSCRIPTION_STATUSES,
+  type SubscriptionStatus,
+} from "@/lib/constants/subscription-status";
 
 export interface CreateSubscriptionInput {
   user_id: string;
   plan_id: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  status: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  status: SubscriptionStatus;
   billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;
@@ -19,7 +23,7 @@ export interface UpdateSubscriptionInput {
   plan_id?: string;
   stripe_customer_id?: string;
   stripe_subscription_id?: string;
-  status?: "active" | "canceled" | "past_due" | "unpaid" | "trialing";
+  status?: SubscriptionStatus;
   billing_cycle?: "monthly" | "yearly";
   current_period_start?: string;
   current_period_end?: string;
@@ -232,19 +236,19 @@ export class SubscriptionDAL
         .from("user_subscriptions")
         .select("*")
         .eq("user_id", userId)
-        .eq("status", "active")
-        .single();
+        .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) {
-        if (error.code === "PGRST116") {
-          return null; // Not found
-        }
         throw new DALError(
           `Failed to get active subscription: ${error.message}`,
           "QUERY_ERROR"
         );
       }
 
+      // maybeSingle returns null when no entitled subscription exists.
       return data;
     } catch (error) {
       if (error instanceof DALError) throw error;
@@ -263,7 +267,7 @@ export class SubscriptionDAL
         .from("user_subscriptions")
         .select("*")
         .eq("user_id", userId)
-        .in("status", ["active", "trialing"])
+        .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
         .order("created_at", { ascending: false })
         .limit(1)
         .single();
@@ -437,7 +441,7 @@ export class SubscriptionDAL
         `
         )
         .eq("user_id", userId)
-        .eq("status", "active")
+        .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
         .order("created_at", { ascending: false })
         .limit(1)
         .single();

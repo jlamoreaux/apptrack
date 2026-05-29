@@ -1,4 +1,6 @@
 // Types for our database
+import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
+
 export interface Profile {
   id: string;
   email: string;
@@ -64,7 +66,7 @@ export interface UserSubscription {
   id: string;
   user_id: string;
   plan_id: string;
-  status: "active" | "canceled" | "past_due" | "trialing";
+  status: SubscriptionStatus;
   billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;

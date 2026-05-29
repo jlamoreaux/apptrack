@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ROAST_CONSTANTS } from "@/lib/constants/roast";
+import { ENTITLED_SUBSCRIPTION_STATUSES } from "@/lib/constants/subscription-status";
 
 interface RateLimitResult {
   allowed: boolean;
@@ -15,9 +16,11 @@ async function getUserSubscriptionTier(userId: string): Promise<'free' | 'pro' |
     .from("user_subscriptions")
     .select("subscription_tier")
     .eq("user_id", userId)
-    .eq("status", "active")
-    .single();
-    
+    .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return subscription?.subscription_tier || 'free';
 }
 

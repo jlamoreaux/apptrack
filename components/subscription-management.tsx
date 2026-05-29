@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatLocalDate } from "@/lib/utils/date";
 import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag";
+import { isEntitledStatus } from "@/lib/constants/subscription-status";
 
 interface SubscriptionManagementProps {
   userId: string;
@@ -46,7 +47,7 @@ export function SubscriptionManagement({
 
   const isOnFreePlan =
     subscription?.subscription_plans?.name === "Free" || !subscription;
-  const isActive = subscription?.status === "active";
+  const isActive = isEntitledStatus(subscription?.status);
 
   const handleCancelSubscription = async () => {
     if (!subscription || !subscription.stripe_subscription_id) return;

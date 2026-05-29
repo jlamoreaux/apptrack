@@ -1,4 +1,5 @@
 import { UsersDAL, type UserWithSubscription } from "@/lib/dal/users.dal";
+import { isEntitledStatus } from "@/lib/constants/subscription-status";
 
 /**
  * Admin service for managing admin users and permissions
@@ -63,7 +64,7 @@ export class AdminService {
       // Map the data to include admin status and format subscription info
       const mappedUsers = users.map(user => {
         const activeSubscription = user.user_subscriptions?.find(
-          sub => sub.status === 'active' || sub.status === 'trialing'
+          sub => isEntitledStatus(sub.status)
         );
 
         return {

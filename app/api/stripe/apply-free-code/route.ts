@@ -3,6 +3,7 @@ import { stripe } from "@/lib/stripe";
 import { createClient, getUser } from "@/lib/supabase/server";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { ENTITLED_SUBSCRIPTION_STATUSES } from "@/lib/constants/subscription-status";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -127,13 +128,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get current subscription
+    // Get current subscription (active or trialing)
     const { data: subscription } = await supabase
       .from("user_subscriptions")
       .select("*, subscription_plans(*)")
       .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
+      .in("status", [...ENTITLED_SUBSCRIPTION_STATUSES])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // If user has an active paid subscription, cancel it
     if (subscription?.stripe_subscription_id) {
