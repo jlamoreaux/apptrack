@@ -674,7 +674,9 @@ const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL ||
   "https://www.apptrack.ing";
 
-const TRIAL_PLAN_NAME_FALLBACK = "your AppTrack plan";
+// Bare label so the email's "your ${planName} plan" / "for ${planName}" copy
+// reads correctly (a real plan name is also bare, e.g. "AI Coach").
+const TRIAL_PLAN_NAME_FALLBACK = "AppTrack";
 
 /**
  * Build human-readable charge cadence wording from a Stripe recurring price.
@@ -896,8 +898,12 @@ export async function handleTrialWillEnd(
     const interval = price?.recurring?.interval;
     const intervalCount = price?.recurring?.interval_count || 1;
 
+    // Treat a zero (or absent) amount as "unknown" so the email uses the generic
+    // renewal copy instead of a confusing "you'll be charged $0.00" line.
     const amountFormatted =
-      unitAmount != null ? formatChargeAmount(unitAmount, currency) : undefined;
+      unitAmount != null && unitAmount > 0
+        ? formatChargeAmount(unitAmount, currency)
+        : undefined;
     const cadence = interval
       ? formatCadence(interval, intervalCount)
       : "billing period";

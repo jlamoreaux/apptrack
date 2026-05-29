@@ -83,8 +83,8 @@ function makeSubscription(
     status: 'trialing',
     cancel_at_period_end: false,
     default_payment_method: null,
-    // ~3 days out so the FIX 3 stale-trial_end guard never trips for the
-    // happy-path tests. The dedicated stale test overrides this with a past value.
+    // ~3 days out so the stale-trial_end guard never trips for the happy-path
+    // tests. The dedicated stale test overrides this with a past value.
     trial_end: Math.floor((Date.now() + 3 * 24 * 60 * 60 * 1000) / 1000),
     metadata: { userId: 'user_abc' },
     items: {
@@ -239,6 +239,18 @@ describe('handleTrialWillEnd', () => {
     const subscriptionService = makeSubscriptionService();
     const sub = makeSubscription();
     (sub.items.data[0].price as any).unit_amount = null;
+
+    await handleTrialWillEnd(sub, subscriptionService as any, makeServiceClient());
+
+    expect(mockSendTrialEndingEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ amountFormatted: undefined })
+    );
+  });
+
+  it('uses generic copy when unit_amount is 0 (no "$0.00 charge" line)', async () => {
+    const subscriptionService = makeSubscriptionService();
+    const sub = makeSubscription();
+    (sub.items.data[0].price as any).unit_amount = 0;
 
     await handleTrialWillEnd(sub, subscriptionService as any, makeServiceClient());
 

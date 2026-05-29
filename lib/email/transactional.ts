@@ -367,8 +367,8 @@ function trialEndingFooter(manageUrl: string): string {
  *
  * Mirrors the other senders: returns `{ success }` and returns `false` (rather
  * than throwing) when the send fails, so the caller decides how to react. The
- * webhook handler (Task 3) treats a falsy `success` as a delivery failure and
- * rethrows to trigger a Stripe retry.
+ * webhook handler treats a falsy `success` as a delivery failure and rethrows
+ * to trigger a Stripe webhook retry.
  */
 export async function sendTrialEndingEmail({
   email,
