@@ -180,7 +180,7 @@ export class SubscriptionService
         );
         
         // Log specific business events for important status changes
-        if (data.status === 'cancelled' || data.status === 'canceled') {
+        if (data.status === 'canceled') {
           loggerService.logBusinessMetric(
             'subscription_cancelled',
             1,

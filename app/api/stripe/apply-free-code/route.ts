@@ -7,10 +7,12 @@ import { ENTITLED_SUBSCRIPTION_STATUSES } from "@/lib/constants/subscription-sta
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  // Declared in function scope so the catch block can log it safely.
+  let user: Awaited<ReturnType<typeof getUser>> = null;
+
   try {
-    const user = await getUser();
-    
+    user = await getUser();
+
     if (!user) {
       loggerService.warn('Unauthorized free code application', {
         category: LogCategory.SECURITY,
