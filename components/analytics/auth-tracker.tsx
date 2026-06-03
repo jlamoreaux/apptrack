@@ -19,9 +19,11 @@ function getPersonProperties(user: User): Record<string, string> {
     properties.email = user.email
   }
 
-  const name = user.user_metadata?.full_name || user.user_metadata?.name
-  if (name) {
-    properties.name = name
+  // Use full_name to match the key set by the server identify route, so person
+  // profiles aren't fragmented across two different name properties.
+  const fullName = user.user_metadata?.full_name || user.user_metadata?.name
+  if (fullName) {
+    properties.full_name = fullName
   }
 
   return properties
@@ -48,8 +50,8 @@ export function AuthTracker() {
           session.user.app_metadata?.provider || 'email'
         )
       } else if (event === 'INITIAL_SESSION' && session?.user) {
-        // Re-establish client-side identity on page load in case localStorage
-        // was cleared. This is a no-op if already identified.
+        // Re-establish client-side identity on page load, refreshing the
+        // person's email/name properties in case localStorage was cleared.
         posthog.identify(session.user.id, getPersonProperties(session.user))
       } else if (event === 'SIGNED_OUT') {
         // Clear PostHog identity so the next session starts fresh anonymous
