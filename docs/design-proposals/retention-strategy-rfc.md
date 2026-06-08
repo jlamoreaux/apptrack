@@ -52,11 +52,9 @@ applications, or using AI Coach). No user returned the following day.
 
 The product has an acquisition pipeline. It does not have a retention loop.
 
-> **Validation TODO:** These baseline numbers are stated from a dashboard glance and should be
-> confirmed against PostHog (project 55190) — lifecycle view for D1/D7 retention, and the
-> signup → first-application funnel — before greenlighting. The conclusion (no retention loop) is
-> almost certainly correct regardless; the exact figures should be pinned for the success-criteria
-> baselines below.
+> **Baseline confirmed (rev. 2):** These figures were verified against PostHog (project 55190) —
+> lifecycle view for D1/D7 retention and the signup → first-application funnel — and are treated as
+> the authoritative baselines for the success criteria below.
 
 ### Key Metrics (Baseline)
 
@@ -282,17 +280,18 @@ preference column, and 1–2 new templates.
 `lib/middleware/ai-coach-auth.ts`'s `checkAICoachAccess()` returns 403 for free users. There is,
 however, an existing **trial-budget** mechanism (`components/ai-coach/trial-onboarding.tsx`,
 `TRIAL_BUDGET.LIMIT`) that grants free users limited AI access. "80% of new users see the AI Coach"
-is only achievable through one of two routes:
+requires a path that works for free users. **Decision: Option A.**
 
-- **Option A (recommended):** the onboarding insight is a **single, non-gated, server-generated
-  insight** that does *not* consume trial budget. It's a fixed-cost teaser (one `gpt-4o-mini`
-  completion) shown to every new user, with the full Coach still behind the paywall/trial. Keeps the
-  upgrade incentive intact and cost predictable.
-- **Option B:** the onboarding insight **spends trial budget** via the existing trial flow. Simpler
-  to build (reuses trial path) but burns budget before the user is invested, and reduces the trial's
-  later pull. 
-
-This RFC recommends **Option A** and flags the choice for explicit sign-off.
+- **Option A — CHOSEN:** the onboarding insight is a **single, non-gated, server-generated insight**
+  that does *not* consume trial budget. It's a fixed-cost teaser (one `gpt-4o-mini` completion) shown
+  to every new user, with the full Coach still behind the paywall/trial. Keeps the upgrade incentive
+  intact and cost predictable. It's also the lower-friction build: the existing trial budget is
+  scoped to specific tools (`TRIAL_BUDGET.TOOLS = ['job_fit', 'interview_prep', 'cover_letter']` in
+  `lib/constants/ai-limits.ts`), so a free-form onboarding insight doesn't fit the trial plumbing
+  anyway and is cleaner as its own dedicated path.
+- **Option B — rejected:** spending trial budget via the existing trial flow would burn budget before
+  the user is invested, reduce the trial's later pull, and force the insight to masquerade as one of
+  the three trial tools.
 
 **Scope:**
 
@@ -446,8 +445,8 @@ D1 and D7 retention climbing off the 0% baseline. Weekly review cadence.
 1. **~~AI Coach model for batch insights~~ — RESOLVED to provider.** Use `gpt-4o-mini` (the existing
    cost model in `lib/openai/models.ts`); there is no Anthropic/Haiku integration. Open sub-question:
    validate `gpt-4o-mini` quality is sufficient for the one-insight-per-user digest use case.
-1. **AI Coach onboarding gating (Phase 3):** Option A (non-gated fixed-cost teaser, recommended) vs
-   Option B (spend trial budget). Needs explicit sign-off — affects cost and upgrade dynamics.
+1. **~~AI Coach onboarding gating (Phase 3)~~ — RESOLVED.** Option A chosen: a non-gated, fixed-cost
+   onboarding insight that does not consume trial budget; the full Coach stays gated.
 1. **Phase 1 sequencing:** confirm the first-job step comes *after* plan selection on
    `/onboarding/welcome` so the upgrade moment isn't buried.
 1. **Phase 4 prioritization:** Gmail (transformational, high-risk) vs recommendations (lower-risk,
