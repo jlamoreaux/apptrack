@@ -34,10 +34,11 @@ export async function createCheckoutSession(options: CreateCheckoutOptions): Pro
       headers: { "Content-Type": "application/json" },
     });
 
-    // Handle free plan
+    // Handle free plan: route into the guided first-job step (retention Phase 1)
+    // so the user populates their pipeline before landing on the dashboard.
     if (planName === PLAN_NAMES.FREE) {
       if (onSuccess) onSuccess();
-      return "/dashboard";
+      return "/onboarding/first-job";
     }
 
     // Check if we have a premium free code (no payment required)

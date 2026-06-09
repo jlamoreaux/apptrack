@@ -2,8 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import * as crypto from 'crypto';
 import { unsubscribeContact } from '@/lib/email/audiences';
 import { cancelPendingDrips } from '@/lib/email/drip-scheduler';
+import { createAdminClient } from '@/lib/supabase/admin-client';
+import { updateEmailPreferences, type EmailCategory } from '@/lib/email/preferences';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
+
+const CATEGORY_COLUMN: Record<EmailCategory, 'drip_enabled' | 'reminders_enabled' | 'digest_enabled'> = {
+  drip: 'drip_enabled',
+  reminders: 'reminders_enabled',
+  digest: 'digest_enabled',
+};
+
+/**
+ * Disable a single email category for the user behind this address. Used by
+ * per-category one-click links. Returns false if the user can't be resolved.
+ */
+async function unsubscribeCategory(email: string, category: EmailCategory): Promise<boolean> {
+  const supabase = createAdminClient();
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', email.toLowerCase().trim())
+    .maybeSingle();
+
+  if (!profile?.id) return false;
+
+  const result = await updateEmailPreferences(profile.id, { [CATEGORY_COLUMN[category]]: false });
+  return result.success;
+}
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || 'fallback-secret-change-me';
@@ -89,7 +115,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, token } = body;
+    const { email, token, category } = body;
 
     if (!email || !token) {
       return NextResponse.json(
@@ -105,7 +131,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Unsubscribe the contact
+    // Per-category opt-out: disable just one lifecycle category, leave the rest.
+    if (category === 'drip' || category === 'reminders' || category === 'digest') {
+      const ok = await unsubscribeCategory(email, category);
+      if (!ok) {
+        return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
+      }
+      loggerService.info('User unsubscribed from email category', {
+        category: LogCategory.BUSINESS,
+        action: 'email_category_unsubscribe',
+        metadata: { email, category },
+      });
+      return NextResponse.json({ success: true, category });
+    }
+
+    // Unsubscribe the contact (all marketing email)
     const result = await unsubscribeContact(email);
 
     if (!result.success) {

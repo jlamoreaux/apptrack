@@ -229,3 +229,33 @@ action; (3) coach onboarding shown → CTA clicked → dashboard coach used.
 2. Phase 2a enrol on signup; 2b/2c crons after preference schema migration.
 3. Phase 3 insight after Phase 1 is stable.
 4. Weekly PostHog lifecycle review; greenlight each next phase on measured impact.
+
+## Implementation Status (initial delivery)
+
+Shipped on branch `claude/apptrack-retention-rfc-F7imt`:
+
+- **Phase 1:** `lib/onboarding/job-extraction.ts` (+ SSRF host guard), non-gated rate-limited route
+  `app/api/onboarding/extract-job`, UI `components/onboarding/first-job-step.tsx` rendered at
+  `app/(app)/onboarding/first-job`. Free-plan selection now routes here
+  (`lib/checkout/create-checkout.ts`).
+- **Phase 2:** migration `schemas/migrations/029_retention_email_preferences.sql`; preferences
+  service `lib/email/preferences.ts` + API `app/api/email/preferences`; stale reminders
+  (`lib/email/stale-reminders.ts` + cron) and weekly digest (`lib/email/weekly-digest.ts` + cron),
+  templates in `lib/email/templates/lifecycle.ts`; paginated query helper
+  `lib/email/application-rows.ts`; two `vercel.json` crons; per-category unsubscribe in
+  `app/api/email/unsubscribe`.
+- **Phase 3:** `lib/ai-coach/onboarding-insight.ts` + non-gated route
+  `app/api/onboarding/coach-insight` (Option A — no trial-budget spend); digest insight reuses it.
+- **Analytics:** new events/properties in `lib/analytics/conversion-events.ts`.
+- **Tests:** 26 unit tests across extraction, insight, preferences, stale grouping, digest summary,
+  templates, and the SSRF guard.
+
+Known follow-ups (not blocking initial delivery):
+- Migration `029` must be applied via `./scripts/run-schema.sh` before the crons/preferences are live.
+- Paid-plan signups still land on the dashboard (Stripe success flow unchanged); only free-plan users
+  get the guided step today. Wiring the post-checkout path is a follow-up.
+- Per-category unsubscribe is supported by the API but the lifecycle email templates still link the
+  account-wide unsubscribe; adding `&category=` to those links is a follow-up.
+- `first-job-step.tsx` needs visual QA (cannot run the app per CLAUDE.md).
+- Lint gate (`next lint`) could not run — eslint is not installed in the build environment.
+
