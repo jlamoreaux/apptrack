@@ -1,7 +1,9 @@
 /**
  * Shared Email Template Components
  *
- * Reusable HTML builders for all email templates (drip, changelog, etc.)
+ * Reusable HTML builders for all email templates (drip, changelog, lifecycle,
+ * transactional). EMAIL_THEME mirrors the app's design system (globals.css):
+ * warm neutrals, indigo for links and accents, coral for every CTA.
  */
 
 import type { BaseTemplateParams } from '@/types';
@@ -10,6 +12,27 @@ import type { BaseTemplateParams } from '@/types';
 export type { BaseTemplateParams };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+
+/**
+ * Email-safe hex equivalents of the app's CSS variables. Email clients can't
+ * read CSS custom properties, so the palette lives here — change it in one
+ * place and every template follows.
+ */
+export const EMAIL_THEME = {
+  pageBg: '#f8f7f5', // --background: warm off-white
+  cardBg: '#ffffff',
+  panelBg: '#faf9f7', // --muted: warm panel fill
+  border: '#e9e6e1', // warm hairline
+  borderLight: '#f0eeea', // row separators
+  heading: '#241e19', // --foreground: warm near-black
+  body: '#4a443f', // body copy
+  muted: '#706a64', // --muted-foreground: secondary text
+  primary: '#4338ca', // --primary: indigo — links and accents
+  primaryTint: '#eef2ff', // indigo-50 panel (AI Coach blocks)
+  primaryDark: '#3730a3', // indigo-800 text on the tint
+  cta: '#f97316', // --accent: coral — ALL CTAs per the design system
+  ctaForeground: '#ffffff',
+} as const;
 
 /**
  * Escape HTML entities so user-provided values (names, companies, roles) and
@@ -40,10 +63,21 @@ export function safeUrl(url: string): string {
   return '#';
 }
 
+export type WrapEmailParams = {
+  unsubscribeUrl: string;
+  /** Overrides the default "signed up for AppTrack updates" footer line. */
+  footerNote?: string;
+};
+
 /**
- * Common email wrapper with header, content area, and footer
+ * Common email wrapper with branded header (logo + wordmark), content area,
+ * and footer. The logo has an empty alt so clients that block images render
+ * just the wordmark.
  */
-export function wrapEmail(content: string, params: BaseTemplateParams): string {
+export function wrapEmail(content: string, params: WrapEmailParams): string {
+  const footerNote =
+    params.footerNote ?? "You're receiving this because you signed up for AppTrack updates.";
+
   return `
 <!DOCTYPE html>
 <html>
@@ -52,15 +86,15 @@ export function wrapEmail(content: string, params: BaseTemplateParams): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AppTrack</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f5;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f5f5; padding: 40px 20px;">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${EMAIL_THEME.pageBg};">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${EMAIL_THEME.pageBg}; padding: 40px 20px;">
     <tr>
       <td align="center">
-        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; overflow: hidden;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: ${EMAIL_THEME.cardBg}; border-radius: 8px; overflow: hidden;">
           <!-- Header -->
           <tr>
             <td style="padding: 32px 32px 24px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px; font-weight: 600; color: #18181b;">AppTrack</h1>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: ${EMAIL_THEME.heading};"><img src="${APP_URL}/logo_square.png" alt="" width="28" height="28" style="border: 0; border-radius: 6px; vertical-align: -5px; margin-right: 10px;">AppTrack</h1>
             </td>
           </tr>
           <!-- Content -->
@@ -71,12 +105,12 @@ export function wrapEmail(content: string, params: BaseTemplateParams): string {
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 32px; background-color: #fafafa; border-top: 1px solid #e4e4e7;">
-              <p style="margin: 0 0 8px; font-size: 12px; color: #71717a; text-align: center;">
-                You're receiving this because you signed up for AppTrack updates.
+            <td style="padding: 24px 32px; background-color: ${EMAIL_THEME.panelBg}; border-top: 1px solid ${EMAIL_THEME.border};">
+              <p style="margin: 0 0 8px; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
+                ${footerNote}
               </p>
-              <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
-                <a href="${escapeHtml(params.unsubscribeUrl)}" style="color: #71717a;">Unsubscribe</a>
+              <p style="margin: 0; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
+                <a href="${escapeHtml(safeUrl(params.unsubscribeUrl))}" style="color: ${EMAIL_THEME.muted};">Unsubscribe</a>
               </p>
             </td>
           </tr>
@@ -89,14 +123,14 @@ export function wrapEmail(content: string, params: BaseTemplateParams): string {
 }
 
 /**
- * CTA button component
+ * CTA button component — coral, matching the app's accent-on-every-CTA rule.
  */
 export function ctaButton(text: string, url: string): string {
   return `
 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
   <tr>
     <td align="center">
-      <a href="${escapeHtml(safeUrl(url))}" style="display: inline-block; padding: 12px 32px; background-color: #18181b; color: #ffffff; text-decoration: none; font-weight: 500; border-radius: 6px;">${escapeHtml(text)}</a>
+      <a href="${escapeHtml(safeUrl(url))}" style="display: inline-block; padding: 12px 32px; background-color: ${EMAIL_THEME.cta}; color: ${EMAIL_THEME.ctaForeground}; text-decoration: none; font-weight: 600; border-radius: 6px;">${escapeHtml(text)}</a>
     </td>
   </tr>
 </table>`;

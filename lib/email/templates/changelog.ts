@@ -4,7 +4,7 @@
  * Renders a weekly changelog email with segment-specific CTAs.
  */
 
-import { wrapEmail, ctaButton, APP_URL } from './shared';
+import { wrapEmail, ctaButton, escapeHtml, APP_URL, EMAIL_THEME } from './shared';
 import type {
   BaseTemplateParams,
   ChangelogCategory,
@@ -14,14 +14,6 @@ import type {
 
 // Re-export for consumers that import from here
 export type { ChangelogCategory, ChangelogData, ChangelogAudienceId };
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 export type ChangelogTemplateParams = BaseTemplateParams & {
   changelog: ChangelogData;
@@ -34,7 +26,7 @@ function renderCategory(category: ChangelogCategory): string {
     .map(
       (item) => `
       <tr>
-        <td style="padding: 8px 0; font-size: 14px; color: #3f3f46; border-bottom: 1px solid #f4f4f5;">
+        <td style="padding: 8px 0; font-size: 14px; color: ${EMAIL_THEME.body}; border-bottom: 1px solid ${EMAIL_THEME.borderLight};">
           ${escapeHtml(item)}
         </td>
       </tr>`
@@ -43,7 +35,7 @@ function renderCategory(category: ChangelogCategory): string {
 
   return `
     <div style="margin: 0 0 24px;">
-      <p style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: #18181b;">${escapeHtml(category.title)}</p>
+      <p style="margin: 0 0 12px; font-size: 16px; font-weight: 600; color: ${EMAIL_THEME.heading};">${escapeHtml(category.title)}</p>
       <table width="100%" cellpadding="0" cellspacing="0">
         ${items}
       </table>
@@ -57,15 +49,15 @@ export function getChangelogHtml(params: ChangelogTemplateParams): string {
   const categoriesHtml = changelog.categories.map(renderCategory).join('');
 
   const content = `
-    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
+    <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
       ${greeting}
     </p>
-    <p style="margin: 0 0 24px; font-size: 16px; color: #3f3f46;">
+    <p style="margin: 0 0 24px; font-size: 16px; color: ${EMAIL_THEME.body};">
       Here's what's new in AppTrack this week.
     </p>
     ${categoriesHtml}
     ${ctaButton(ctaText, ctaUrl)}
-    <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
+    <p style="margin: 24px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted}; text-align: center;">
       Reply to this email if you have any questions. We read every reply.
     </p>`;
 

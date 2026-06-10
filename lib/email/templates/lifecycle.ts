@@ -6,7 +6,7 @@
  * than scheduled through the drip engine (which dedups one template per email).
  */
 
-import { wrapEmail, ctaButton, escapeHtml, APP_URL } from './shared';
+import { wrapEmail, ctaButton, escapeHtml, APP_URL, EMAIL_THEME } from './shared';
 import type { BaseTemplateParams } from './shared';
 
 export type StaleJob = {
@@ -35,11 +35,11 @@ export function staleReminderTemplate(params: StaleReminderParams): string {
     .map(
       (job) => `
       <tr>
-        <td style="padding: 12px 16px; border-bottom: 1px solid #f1f1f1;">
-          <p style="margin: 0; font-size: 15px; color: #18181b; font-weight: 600;">${escapeHtml(job.role)}</p>
-          <p style="margin: 4px 0 0; font-size: 13px; color: #71717a;">${escapeHtml(job.company)} · no update in ${job.daysSinceUpdate} days</p>
+        <td style="padding: 12px 16px; border-bottom: 1px solid ${EMAIL_THEME.borderLight};">
+          <p style="margin: 0; font-size: 15px; color: ${EMAIL_THEME.heading}; font-weight: 600;">${escapeHtml(job.role)}</p>
+          <p style="margin: 4px 0 0; font-size: 13px; color: ${EMAIL_THEME.muted};">${escapeHtml(job.company)} · no update in ${job.daysSinceUpdate} days</p>
           <p style="margin: 8px 0 0;">
-            <a href="${applicationUrl(job.applicationId)}" style="font-size: 13px; color: #2563eb; text-decoration: none;">Update status &rarr;</a>
+            <a href="${applicationUrl(job.applicationId)}" style="font-size: 13px; color: ${EMAIL_THEME.primary}; text-decoration: none;">Update status &rarr;</a>
           </p>
         </td>
       </tr>`
@@ -53,9 +53,9 @@ export function staleReminderTemplate(params: StaleReminderParams): string {
 
   return wrapEmail(
     `
-    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">${greeting}</p>
-    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">${lead} A quick status update keeps your pipeline accurate — or mark it as no response.</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 8px; border: 1px solid #f1f1f1; border-radius: 6px;">
+    <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">${greeting}</p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">${lead} A quick status update keeps your pipeline accurate — or mark it as no response.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 8px; border: 1px solid ${EMAIL_THEME.borderLight}; border-radius: 6px;">
       ${rows}
     </table>
     ${ctaButton('Review your pipeline', `${APP_URL}/dashboard`)}
@@ -77,21 +77,21 @@ export function weeklyDigestTemplate(params: WeeklyDigestParams): string {
 
   const stat = (value: number, label: string) => `
     <td align="center" style="padding: 16px 8px;">
-      <p style="margin: 0; font-size: 28px; font-weight: 700; color: #18181b;">${value}</p>
-      <p style="margin: 4px 0 0; font-size: 13px; color: #71717a;">${label}</p>
+      <p style="margin: 0; font-size: 28px; font-weight: 700; color: ${EMAIL_THEME.heading};">${value}</p>
+      <p style="margin: 4px 0 0; font-size: 13px; color: ${EMAIL_THEME.muted};">${label}</p>
     </td>`;
 
   const insightBlock = insight
-    ? `<div style="margin: 16px 0; padding: 16px; background-color: #f5f8ff; border-radius: 6px;">
-         <p style="margin: 0; font-size: 14px; color: #1e3a8a;"><strong>AI Coach:</strong> ${escapeHtml(insight)}</p>
+    ? `<div style="margin: 16px 0; padding: 16px; background-color: ${EMAIL_THEME.primaryTint}; border-radius: 6px;">
+         <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.primaryDark};"><strong>AI Coach:</strong> ${escapeHtml(insight)}</p>
        </div>`
     : '';
 
   return wrapEmail(
     `
-    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">${greeting}</p>
-    <p style="margin: 0 0 8px; font-size: 16px; color: #3f3f46;">Here's your pipeline this week:</p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 8px; background-color: #fafafa; border-radius: 6px;">
+    <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">${greeting}</p>
+    <p style="margin: 0 0 8px; font-size: 16px; color: ${EMAIL_THEME.body};">Here's your pipeline this week:</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 8px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
       <tr>
         ${stat(activeCount, 'active')}
         ${stat(needsFollowUp, 'need follow-up')}
