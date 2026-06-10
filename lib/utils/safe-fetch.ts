@@ -61,6 +61,51 @@ export async function assertResolvesPublic(hostname: string): Promise<void> {
 }
 
 /**
+ * Fetch a user-supplied URL with redirects followed manually so every hop is
+ * re-validated against the SSRF guards — `redirect: 'follow'` would let a
+ * public host bounce the request to an internal address.
+ * Throws 'Blocked host' or 'Too many redirects'.
+ */
+export async function fetchPublicUrl(
+  url: string,
+  options: {
+    headers?: Record<string, string>;
+    timeoutMs?: number;
+    maxRedirects?: number;
+  } = {}
+): Promise<Response> {
+  const { headers, timeoutMs = 10_000, maxRedirects = 5 } = options;
+  let current = url;
+
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const parsed = new URL(current);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Blocked host');
+    }
+    if (isBlockedHost(parsed.hostname)) {
+      throw new Error('Blocked host');
+    }
+    await assertResolvesPublic(parsed.hostname);
+
+    const response = await fetch(current, {
+      headers,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get('location');
+      if (!location) return response;
+      current = new URL(location, current).toString();
+      continue;
+    }
+    return response;
+  }
+
+  throw new Error('Too many redirects');
+}
+
+/**
  * Read a response body as text, stopping at maxBytes so a malicious server
  * can't stream an unbounded payload.
  */

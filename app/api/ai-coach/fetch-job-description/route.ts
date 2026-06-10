@@ -2,11 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 import { htmlToText } from "@/lib/utils/html-to-text";
-import {
-  isBlockedHost,
-  assertResolvesPublic,
-  readBodyCapped,
-} from "@/lib/utils/safe-fetch";
+import { fetchPublicUrl, readBodyCapped } from "@/lib/utils/safe-fetch";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -43,9 +39,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate URL format
-    let parsedUrl: URL;
     try {
-      parsedUrl = new URL(url);
+      new URL(url);
     } catch {
       loggerService.warn('Job description fetch invalid URL', {
         category: LogCategory.API,
@@ -60,34 +55,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // SSRF guard: refuse internal hosts, including public hostnames that
-    // resolve to private addresses.
+    // Fetch the webpage. fetchPublicUrl re-validates every redirect hop
+    // against the SSRF guards (blocked hosts, DNS rebinding).
+    let response: Response;
     try {
-      if (isBlockedHost(parsedUrl.hostname)) {
-        throw new Error('Blocked host');
-      }
-      await assertResolvesPublic(parsedUrl.hostname);
-    } catch {
-      loggerService.warn('Job description fetch blocked host', {
-        category: LogCategory.SECURITY,
-        userId: user.id,
-        action: 'fetch_job_description_blocked_host',
-        duration: Date.now() - startTime,
-        metadata: { url }
+      response = await fetchPublicUrl(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; JobTracker/1.0)",
+        },
+        timeoutMs: 10_000,
       });
-      return NextResponse.json(
-        { error: "This URL cannot be fetched" },
-        { status: 400 }
-      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'Blocked host' || message === 'Too many redirects') {
+        loggerService.warn('Job description fetch blocked', {
+          category: LogCategory.SECURITY,
+          userId: user.id,
+          action: 'fetch_job_description_blocked_host',
+          duration: Date.now() - startTime,
+          metadata: { url, reason: message }
+        });
+        return NextResponse.json(
+          { error: "This URL cannot be fetched" },
+          { status: 400 }
+        );
+      }
+      throw error;
     }
-
-    // Fetch the webpage
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; JobTracker/1.0)",
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
 
     if (!response.ok) {
       loggerService.error('Failed to fetch webpage', new Error(`HTTP ${response.status}`), {
