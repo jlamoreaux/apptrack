@@ -1,8 +1,9 @@
 import {
-  htmlToText,
   parseExtractionResponse,
   isBlockedHost,
+  isBlockedIp,
 } from '@/lib/onboarding/job-extraction';
+import { htmlToText } from '@/lib/utils/html-to-text';
 
 describe('isBlockedHost', () => {
   it('blocks loopback, private, and link-local hosts', () => {
@@ -19,6 +20,23 @@ describe('isBlockedHost', () => {
     expect(isBlockedHost('www.linkedin.com')).toBe(false);
     expect(isBlockedHost('boards.greenhouse.io')).toBe(false);
     expect(isBlockedHost('172.15.0.1')).toBe(false); // just outside private range
+  });
+});
+
+describe('isBlockedIp', () => {
+  it('blocks private and special-purpose addresses, including v4-mapped IPv6', () => {
+    expect(isBlockedIp('127.0.0.1')).toBe(true);
+    expect(isBlockedIp('169.254.169.254')).toBe(true);
+    expect(isBlockedIp('::ffff:10.0.0.5')).toBe(true); // v4-mapped private
+    expect(isBlockedIp('::1')).toBe(true);
+    expect(isBlockedIp('fe80::1')).toBe(true); // link-local
+    expect(isBlockedIp('fd00::1')).toBe(true); // unique-local
+  });
+
+  it('allows public addresses', () => {
+    expect(isBlockedIp('93.184.216.34')).toBe(false);
+    expect(isBlockedIp('2606:4700::6810:84e5')).toBe(false);
+    expect(isBlockedIp('::ffff:8.8.8.8')).toBe(false);
   });
 });
 

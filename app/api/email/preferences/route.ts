@@ -6,6 +6,8 @@ import {
   DEFAULT_EMAIL_PREFERENCES,
   type EmailPreferences,
 } from '@/lib/email/preferences';
+import { unsubscribeContact, resubscribeContact } from '@/lib/email/audiences';
+import { cancelPendingDrips, isUserSubscribed } from '@/lib/email/drip-scheduler';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
@@ -24,19 +26,35 @@ async function getUser() {
   return user;
 }
 
+/**
+ * `audience_members.subscribed` is the master suppression switch (CAN-SPAM),
+ * so reads must reflect it and writes to `unsubscribed_all` must update it —
+ * otherwise a user who unsubscribed via an email link would see
+ * `unsubscribed_all: false` here, and opting out here wouldn't stop sends.
+ */
+async function loadPreferences(userId: string, email: string): Promise<EmailPreferences> {
+  const prefs = (await getEmailPreferences(userId)) ?? DEFAULT_EMAIL_PREFERENCES;
+  const subscribed = await isUserSubscribed(email);
+  return { ...prefs, unsubscribed_all: prefs.unsubscribed_all || !subscribed };
+}
+
 export async function GET() {
   const user = await getUser();
-  if (!user) {
+  if (!user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const prefs = (await getEmailPreferences(user.id)) ?? DEFAULT_EMAIL_PREFERENCES;
-  return NextResponse.json({ preferences: prefs });
+  try {
+    const prefs = await loadPreferences(user.id, user.email);
+    return NextResponse.json({ preferences: prefs });
+  } catch {
+    return NextResponse.json({ error: 'Failed to load preferences' }, { status: 500 });
+  }
 }
 
 export async function PUT(request: NextRequest) {
   const user = await getUser();
-  if (!user) {
+  if (!user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -64,6 +82,14 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
   }
 
+  // Keep the audience master switch in sync with the global flag.
+  if (updates.unsubscribed_all === true) {
+    await unsubscribeContact(user.email);
+    await cancelPendingDrips(user.email);
+  } else if (updates.unsubscribed_all === false) {
+    await resubscribeContact(user.email);
+  }
+
   loggerService.info('Email preferences updated', {
     category: LogCategory.BUSINESS,
     userId: user.id,
@@ -71,6 +97,11 @@ export async function PUT(request: NextRequest) {
     metadata: { fields: Object.keys(updates) },
   });
 
-  const prefs = (await getEmailPreferences(user.id)) ?? DEFAULT_EMAIL_PREFERENCES;
-  return NextResponse.json({ preferences: prefs });
+  try {
+    const prefs = await loadPreferences(user.id, user.email);
+    return NextResponse.json({ preferences: prefs });
+  } catch {
+    // The update succeeded; only the re-read failed.
+    return NextResponse.json({ preferences: { ...DEFAULT_EMAIL_PREFERENCES, ...updates } });
+  }
 }

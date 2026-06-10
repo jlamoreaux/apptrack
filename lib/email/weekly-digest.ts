@@ -82,9 +82,9 @@ export function buildDigestGroups(
       if (group.sampleJobs.length < 5) {
         group.sampleJobs.push({ company: row.company, role: row.role, status: row.status });
       }
-    }
-    if (new Date(row.created_at).getTime() >= weekCutoff) {
-      group.summary.newThisWeek++;
+      if (new Date(row.created_at).getTime() >= weekCutoff) {
+        group.summary.newThisWeek++;
+      }
     }
   }
 

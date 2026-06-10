@@ -3,32 +3,41 @@ import * as crypto from 'crypto';
 import { unsubscribeContact } from '@/lib/email/audiences';
 import { cancelPendingDrips } from '@/lib/email/drip-scheduler';
 import { createAdminClient } from '@/lib/supabase/admin-client';
-import { updateEmailPreferences, type EmailCategory } from '@/lib/email/preferences';
+import { updateEmailPreferences, CATEGORY_COLUMN, type EmailCategory } from '@/lib/email/preferences';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const CATEGORY_COLUMN: Record<EmailCategory, 'drip_enabled' | 'reminders_enabled' | 'digest_enabled'> = {
-  drip: 'drip_enabled',
-  reminders: 'reminders_enabled',
-  digest: 'digest_enabled',
+const CATEGORY_LABEL: Record<EmailCategory, string> = {
+  drip: 'tips and onboarding emails',
+  reminders: 'application reminder emails',
+  digest: 'the weekly pipeline digest',
 };
+
+function parseCategory(value: unknown): EmailCategory | null {
+  return value === 'drip' || value === 'reminders' || value === 'digest' ? value : null;
+}
 
 /**
  * Disable a single email category for the user behind this address. Used by
- * per-category one-click links. Returns false if the user can't be resolved.
+ * per-category one-click links. Returns 'no_user' when the address has no
+ * profile (e.g. a lead) so the caller can fall back to a global unsubscribe.
  */
-async function unsubscribeCategory(email: string, category: EmailCategory): Promise<boolean> {
+async function unsubscribeCategory(
+  email: string,
+  category: EmailCategory
+): Promise<'updated' | 'no_user' | 'error'> {
   const supabase = createAdminClient();
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('id')
     .eq('email', email.toLowerCase().trim())
     .maybeSingle();
 
-  if (!profile?.id) return false;
+  if (error) return 'error';
+  if (!profile?.id) return 'no_user';
 
   const result = await updateEmailPreferences(profile.id, { [CATEGORY_COLUMN[category]]: false });
-  return result.success;
+  return result.success ? 'updated' : 'error';
 }
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
@@ -88,9 +97,20 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const email = searchParams.get('email');
   const token = searchParams.get('token');
+  const rawCategory = searchParams.get('category');
 
   if (!email || !token) {
     return new NextResponse(getErrorPage('Missing email or token'), {
+      status: 400,
+      headers: { 'Content-Type': 'text/html' },
+    });
+  }
+
+  // Reject unknown categories instead of silently treating the link as a
+  // global unsubscribe.
+  const category = parseCategory(rawCategory);
+  if (rawCategory !== null && !category) {
+    return new NextResponse(getErrorPage('Invalid unsubscribe link'), {
       status: 400,
       headers: { 'Content-Type': 'text/html' },
     });
@@ -106,7 +126,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Show confirmation page
-  return new NextResponse(getConfirmationPage(decodedEmail, token), {
+  return new NextResponse(getConfirmationPage(decodedEmail, token, category), {
     status: 200,
     headers: { 'Content-Type': 'text/html' },
   });
@@ -131,18 +151,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Reject unknown categories instead of falling through to a global
+    // unsubscribe the user didn't ask for.
+    const parsedCategory = parseCategory(category);
+    if (category !== undefined && category !== null && !parsedCategory) {
+      return NextResponse.json({ error: 'Unknown email category' }, { status: 400 });
+    }
+
     // Per-category opt-out: disable just one lifecycle category, leave the rest.
-    if (category === 'drip' || category === 'reminders' || category === 'digest') {
-      const ok = await unsubscribeCategory(email, category);
-      if (!ok) {
+    if (parsedCategory) {
+      const outcome = await unsubscribeCategory(email, parsedCategory);
+      if (outcome === 'error') {
         return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
       }
-      loggerService.info('User unsubscribed from email category', {
-        category: LogCategory.BUSINESS,
-        action: 'email_category_unsubscribe',
-        metadata: { email, category },
-      });
-      return NextResponse.json({ success: true, category });
+      if (outcome === 'updated') {
+        // Opting out of drips must also stop the already-scheduled ones — the
+        // drip cron reads from drip_emails, not just the preference flag.
+        if (parsedCategory === 'drip') {
+          await cancelPendingDrips(email);
+        }
+        loggerService.info('User unsubscribed from email category', {
+          category: LogCategory.BUSINESS,
+          action: 'email_category_unsubscribe',
+          metadata: { email, emailCategory: parsedCategory },
+        });
+        return NextResponse.json({ success: true, category: parsedCategory });
+      }
+      // 'no_user': no profile behind this address (e.g. a lead) — fall through
+      // to the global unsubscribe so the valid token still opts them out.
     }
 
     // Unsubscribe the contact (all marketing email)
@@ -178,12 +214,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getConfirmationPage(email: string, token: string): string {
+function getConfirmationPage(email: string, token: string, category: EmailCategory | null): string {
   // Escape user input to prevent XSS
   const safeEmail = escapeHtml(email);
   // JSON.stringify handles escaping for JS context
   const jsonEmail = JSON.stringify(email);
   const jsonToken = JSON.stringify(token);
+  const jsonCategory = JSON.stringify(category);
+
+  const confirmCopy = category
+    ? `Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from ${CATEGORY_LABEL[category]}?`
+    : `Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from AppTrack emails?`;
+  const successCopy = category
+    ? `You've been unsubscribed from ${CATEGORY_LABEL[category]}. Other AppTrack emails are unaffected.`
+    : `You've been unsubscribed from AppTrack marketing emails. You'll still receive transactional emails about your account.`;
 
   return `
 <!DOCTYPE html>
@@ -243,20 +287,21 @@ function getConfirmationPage(email: string, token: string): string {
   <div class="container">
     <div id="confirm">
       <h1>Unsubscribe</h1>
-      <p>Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from AppTrack emails?</p>
+      <p>${confirmCopy}</p>
       <button id="unsubscribeBtn" onclick="unsubscribe()">Unsubscribe</button>
       <button class="cancel" onclick="window.location.href='${APP_URL}'">Cancel</button>
       <p id="error" class="error"></p>
     </div>
     <div id="success" class="success">
       <h1>Unsubscribed</h1>
-      <p>You've been unsubscribed from AppTrack marketing emails. You'll still receive transactional emails about your account.</p>
+      <p>${successCopy}</p>
       <button onclick="window.location.href='${APP_URL}'">Go to AppTrack</button>
     </div>
   </div>
   <script>
     const EMAIL = ${jsonEmail};
     const TOKEN = ${jsonToken};
+    const CATEGORY = ${jsonCategory};
 
     async function unsubscribe() {
       const btn = document.getElementById('unsubscribeBtn');
@@ -269,7 +314,7 @@ function getConfirmationPage(email: string, token: string): string {
         const response = await fetch('/api/email/unsubscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: EMAIL, token: TOKEN })
+          body: JSON.stringify(CATEGORY ? { email: EMAIL, token: TOKEN, category: CATEGORY } : { email: EMAIL, token: TOKEN })
         });
 
         if (response.ok) {

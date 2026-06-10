@@ -273,7 +273,7 @@ export function FirstJobStep() {
         <button
           type="button"
           onClick={handleSkip}
-          className="block w-full text-center text-sm text-muted-foreground hover:text-foreground"
+          className="block w-full min-h-[44px] text-center text-sm text-muted-foreground hover:text-foreground"
         >
           Skip for now
         </button>

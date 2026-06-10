@@ -40,10 +40,10 @@ export async function fetchApplicationEmailRows(
   let from = 0;
 
   for (;;) {
-    const query = applyFilters(supabase.from('applications').select(SELECT)).range(
-      from,
-      from + PAGE_SIZE - 1
-    );
+    // Stable order so .range() pages don't skip or duplicate rows.
+    const query = applyFilters(supabase.from('applications').select(SELECT))
+      .order('id', { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
     const { data, error } = await query;
 
     if (error) {
@@ -51,7 +51,9 @@ export async function fetchApplicationEmailRows(
         category: LogCategory.EMAIL,
         action: failureAction,
       });
-      break;
+      // Abort instead of returning a partial recipient set — the cron run
+      // should fail and retry rather than silently email a subset of users.
+      throw new Error(failureAction);
     }
 
     const batch = (data ?? []) as Record<string, unknown>[];

@@ -52,6 +52,20 @@ describe('buildDigestGroups', () => {
     const groups = buildDigestGroups([row({ status: 'Hired' })], NOW);
     expect(groups).toHaveLength(0);
   });
+
+  it('excludes terminal applications from newThisWeek', () => {
+    const groups = buildDigestGroups(
+      [
+        row({ id: 'a1', status: 'Applied', created_at: '2026-06-05T12:00:00Z' }),
+        // rejected this week — should not count as "new"
+        row({ id: 'a2', status: 'Rejected', created_at: '2026-06-06T12:00:00Z' }),
+      ],
+      NOW
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].summary.newThisWeek).toBe(1); // only the active a1
+  });
 });
 
 describe('buildDigestInsightPrompt', () => {

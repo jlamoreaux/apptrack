@@ -12,6 +12,19 @@ export type { BaseTemplateParams };
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
 
 /**
+ * Escape HTML entities so user-provided values (names, companies, roles) and
+ * LLM output can be interpolated into email markup safely.
+ */
+export function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Common email wrapper with header, content area, and footer
  */
 export function wrapEmail(content: string, params: BaseTemplateParams): string {

@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
         { status: 429 }
       );
     }
+  } else {
+    // This rate limit is the only cost control on an LLM-backed route open to
+    // all authenticated users — running without it must not pass silently.
+    loggerService.warn('extract-job rate limiter unavailable; requests are unthrottled', {
+      category: LogCategory.SECURITY,
+      action: 'extract_job_rate_limiter_missing',
+    });
   }
 
   let url: unknown;

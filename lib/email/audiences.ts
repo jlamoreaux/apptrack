@@ -327,6 +327,59 @@ export async function unsubscribeContact(email: string): Promise<{ success: bool
 }
 
 /**
+ * Re-subscribe a contact — mirror of unsubscribeContact for when a user turns
+ * marketing email back on from their preferences.
+ */
+export async function resubscribeContact(email: string): Promise<{ success: boolean }> {
+  const normalizedEmail = email.trim().toLowerCase();
+  const supabase = createAdminClient();
+
+  const { data: member } = await supabase
+    .from('audience_members')
+    .select('current_audience, resend_contact_id')
+    .eq('email', normalizedEmail)
+    .single();
+
+  if (member?.resend_contact_id && resend) {
+    const resendAudienceId = getAudienceId(member.current_audience as AudienceId);
+    if (resendAudienceId) {
+      try {
+        await resend.contacts.update({
+          audienceId: resendAudienceId,
+          id: member.resend_contact_id,
+          unsubscribed: false,
+        });
+      } catch (error) {
+        loggerService.error('Error updating resubscribe status in Resend', error, {
+          category: LogCategory.EMAIL,
+          action: 'resend_resubscribe_error',
+          metadata: { email: normalizedEmail },
+        });
+      }
+    }
+  }
+
+  const { error } = await supabase
+    .from('audience_members')
+    .update({
+      subscribed: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('email', normalizedEmail);
+
+  if (error) {
+    loggerService.error('Error resubscribing contact in database', error, {
+      category: LogCategory.EMAIL,
+      action: 'audience_resubscribe_db_failed',
+      metadata: { email: normalizedEmail },
+    });
+    return { success: false };
+  }
+
+  return { success: true };
+}
+
+/**
  * Check if a contact is subscribed
  */
 export async function isSubscribed(email: string): Promise<boolean> {

@@ -24,6 +24,24 @@ describe('staleReminderTemplate', () => {
     expect(html).toContain('Ada');
   });
 
+  it('escapes HTML in user-provided values', () => {
+    const html = staleReminderTemplate({
+      ...base,
+      jobs: [
+        {
+          applicationId: 'app-1',
+          company: 'Acme <img src=x onerror=alert(1)>',
+          role: 'SRE & Ops',
+          status: 'Applied',
+          daysSinceUpdate: 7,
+        },
+      ],
+    });
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('Acme &lt;img');
+    expect(html).toContain('SRE &amp; Ops');
+  });
+
   it('uses a plural lead for multiple stale jobs', () => {
     const html = staleReminderTemplate({
       ...base,

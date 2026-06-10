@@ -28,7 +28,7 @@ export const DEFAULT_EMAIL_PREFERENCES: EmailPreferences = {
   unsubscribed_all: false,
 };
 
-const CATEGORY_COLUMN: Record<EmailCategory, keyof EmailPreferences> = {
+export const CATEGORY_COLUMN: Record<EmailCategory, keyof EmailPreferences> = {
   drip: 'drip_enabled',
   reminders: 'reminders_enabled',
   digest: 'digest_enabled',
@@ -49,6 +49,8 @@ export function isCategoryEnabledFor(
 
 /**
  * Fetch a user's preferences, or null if no row exists yet.
+ * Throws on query failure so callers can fail closed instead of treating a
+ * transient error as "no row → opted in".
  */
 export async function getEmailPreferences(
   userId: string
@@ -66,7 +68,7 @@ export async function getEmailPreferences(
       action: 'email_preferences_fetch_failed',
       metadata: { userId },
     });
-    return null;
+    throw new Error('Failed to fetch email preferences');
   }
 
   return data as EmailPreferences | null;
@@ -104,13 +106,81 @@ export async function updateEmailPreferences(
 /**
  * Whether a lifecycle email of the given category may be sent to this user.
  * Honors both the per-category preference and the master audience suppression.
+ * Fails closed: a preferences load error means "do not send".
  */
 export async function canSendCategory(
   userId: string,
   email: string,
   category: EmailCategory
 ): Promise<boolean> {
-  const prefs = await getEmailPreferences(userId);
+  let prefs: EmailPreferences | null;
+  try {
+    prefs = await getEmailPreferences(userId);
+  } catch {
+    return false;
+  }
   if (!isCategoryEnabledFor(prefs, category)) return false;
   return isUserSubscribed(email);
+}
+
+export type EmailRecipient = { userId: string; email: string };
+
+/**
+ * Batch variant of `canSendCategory` for the lifecycle crons: two queries
+ * total instead of two per recipient. Returns the userIds that may receive
+ * the category. Throws on query failure so the cron run aborts and retries
+ * rather than silently failing open or emailing a partial set.
+ */
+export async function filterSendableRecipients(
+  recipients: EmailRecipient[],
+  category: EmailCategory
+): Promise<Set<string>> {
+  if (recipients.length === 0) return new Set();
+
+  const supabase = createAdminClient();
+  const userIds = recipients.map((r) => r.userId);
+  const emails = recipients.map((r) => r.email.trim().toLowerCase());
+
+  const [prefsResult, audienceResult] = await Promise.all([
+    supabase
+      .from('email_preferences')
+      .select('user_id, drip_enabled, reminders_enabled, digest_enabled, unsubscribed_all')
+      .in('user_id', userIds),
+    supabase.from('audience_members').select('email, subscribed').in('email', emails),
+  ]);
+
+  if (prefsResult.error || audienceResult.error) {
+    loggerService.error(
+      'Failed to bulk-load email send eligibility',
+      prefsResult.error ?? audienceResult.error,
+      {
+        category: LogCategory.EMAIL,
+        action: 'email_eligibility_bulk_fetch_failed',
+        metadata: { recipients: recipients.length, emailCategory: category },
+      }
+    );
+    throw new Error('Failed to load email send eligibility');
+  }
+
+  const prefsByUser = new Map<string, EmailPreferences>();
+  for (const row of prefsResult.data ?? []) {
+    prefsByUser.set(row.user_id as string, row as unknown as EmailPreferences);
+  }
+  const subscribedByEmail = new Map<string, boolean>();
+  for (const row of audienceResult.data ?? []) {
+    subscribedByEmail.set(
+      (row.email as string).trim().toLowerCase(),
+      (row.subscribed as boolean) ?? true
+    );
+  }
+
+  const sendable = new Set<string>();
+  for (const { userId, email } of recipients) {
+    const prefs = prefsByUser.get(userId) ?? null;
+    if (!isCategoryEnabledFor(prefs, category)) continue;
+    // No audience row → assume subscribed, matching isUserSubscribed().
+    if (subscribedByEmail.get(email.trim().toLowerCase()) === false) continue;
+    sendable.add(userId);
+  }
+  return sendable;
 }

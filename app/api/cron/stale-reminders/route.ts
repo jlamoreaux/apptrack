@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendEmail } from '@/lib/email/client';
 import { getUnsubscribeUrl } from '@/lib/email/drip-scheduler';
-import { canSendCategory } from '@/lib/email/preferences';
+import { verifyCronAuth, runLifecycleSend } from '@/lib/email/lifecycle-cron';
 import { findStaleApplicationGroups } from '@/lib/email/stale-reminders';
 import { staleReminderTemplate } from '@/lib/email/templates/lifecycle';
 import { captureServerEvent } from '@/lib/analytics/posthog-server';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
+
+// One email per user with stale applications; runtime grows with the user
+// base, so allow the full Fluid Compute window.
+export const maxDuration = 300;
 
 /**
  * Stale Application Reminders Cron (retention Phase 2b)
@@ -18,73 +21,51 @@ import { LogCategory } from '@/lib/services/logger.types';
 export async function GET(request: NextRequest) {
   const startTime = Date.now();
 
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    loggerService.logSecurityEvent(
-      'cron_unauthorized_access',
-      'high',
-      { endpoint: '/api/cron/stale-reminders', providedAuth: authHeader ? 'present' : 'missing' },
-      {}
-    );
+  if (!verifyCronAuth(request, '/api/cron/stale-reminders')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
     const groups = await findStaleApplicationGroups();
-    let sent = 0;
-    let skipped = 0;
-    let failed = 0;
 
-    for (const group of groups) {
-      try {
-        if (!(await canSendCategory(group.userId, group.email, 'reminders'))) {
-          skipped++;
-          continue;
-        }
-
-        const html = staleReminderTemplate({
+    const counters = await runLifecycleSend({
+      groups,
+      category: 'reminders',
+      buildEmail: (group) => ({
+        subject:
+          group.jobs.length === 1
+            ? `Still waiting on ${group.jobs[0].company}?`
+            : `${group.jobs.length} applications need a status update`,
+        html: staleReminderTemplate({
           firstName: group.firstName,
           email: group.email,
-          unsubscribeUrl: getUnsubscribeUrl(group.email),
+          unsubscribeUrl: getUnsubscribeUrl(group.email, 'reminders'),
           jobs: group.jobs,
+        }),
+      }),
+      onSent: (group) => {
+        captureServerEvent(group.userId, 'email_sent', {
+          type: 'stale_reminder',
+          stale_count: group.jobs.length,
         });
-
-        const result = await sendEmail({
-          to: group.email,
-          subject:
-            group.jobs.length === 1
-              ? `Still waiting on ${group.jobs[0].company}?`
-              : `${group.jobs.length} applications need a status update`,
-          html,
-        });
-
-        if (result.success) {
-          sent++;
-          captureServerEvent(group.userId, 'email_sent', {
-            type: 'stale_reminder',
-            stale_count: group.jobs.length,
-          });
-        } else {
-          failed++;
-        }
-      } catch (error) {
-        failed++;
+      },
+      onError: (group, error) => {
         loggerService.error('Failed to send stale reminder', error, {
           category: LogCategory.EMAIL,
           action: 'stale_reminder_send_failed',
           metadata: { userId: group.userId },
         });
-      }
-    }
+      },
+    });
 
     loggerService.info('Stale reminders cron completed', {
       category: LogCategory.BUSINESS,
       action: 'stale_reminders_completed',
       duration: Date.now() - startTime,
-      metadata: { groups: groups.length, sent, skipped, failed },
+      metadata: { groups: groups.length, ...counters },
     });
 
-    return NextResponse.json({ success: true, groups: groups.length, sent, skipped, failed });
+    return NextResponse.json({ success: true, groups: groups.length, ...counters });
   } catch (error) {
     loggerService.error('Error processing stale reminders', error, {
       category: LogCategory.API,

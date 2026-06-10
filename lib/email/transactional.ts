@@ -8,21 +8,14 @@
 
 import { sendEmail } from './client';
 import { getUnsubscribeUrl } from './drip-scheduler';
+import { escapeHtml } from './templates/shared';
 
 const APP_URL =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   'https://www.apptrack.ing';
 
-/** Escape special HTML characters to prevent XSS via user-controlled strings. */
-export function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+export { escapeHtml };
 
 /**
  * Validate and return a safe URL for use in href attributes.

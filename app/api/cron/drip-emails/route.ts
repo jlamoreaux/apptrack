@@ -9,6 +9,8 @@ import {
 } from '@/lib/email/drip-scheduler';
 import { getTemplateById } from '@/lib/email/templates/drip';
 import { getAudienceMember } from '@/lib/email/audiences';
+import { verifyCronAuth } from '@/lib/email/lifecycle-cron';
+import { canSendCategory } from '@/lib/email/preferences';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
@@ -25,12 +27,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Security: Verify cron secret
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      loggerService.logSecurityEvent('cron_unauthorized_access', 'high', {
-        endpoint: '/api/cron/drip-emails',
-        providedAuth: authHeader ? 'present' : 'missing',
-      }, {});
+    if (!verifyCronAuth(request, '/api/cron/drip-emails')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -53,8 +50,12 @@ export async function GET(request: NextRequest) {
 
     for (const drip of pendingDrips) {
       try {
-        // Check if user is still subscribed
-        const subscribed = await isUserSubscribed(drip.email);
+        // Check if user is still subscribed and (for signed-up users) hasn't
+        // opted out of the drip category. Leads have no user_id/preferences,
+        // so only the audience subscription applies to them.
+        const subscribed = drip.user_id
+          ? await canSendCategory(drip.user_id, drip.email, 'drip')
+          : await isUserSubscribed(drip.email);
         if (!subscribed) {
           await markDripSent(drip.id); // Mark as sent to skip it
           skipped++;

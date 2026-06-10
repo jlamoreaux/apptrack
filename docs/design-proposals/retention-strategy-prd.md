@@ -23,6 +23,7 @@ acquisition pipeline but no retention loop. This PRD specifies the build to crea
 - Surface the AI Coach to every new user without breaking the paywall.
 
 ### Success Metrics (90-day, baselines confirmed)
+
 | Metric | Baseline | Target |
 |---|---|---|
 | Day-1 retention | 0% | 15% |
@@ -102,6 +103,7 @@ existing path (`hooks/use-supabase-applications.ts` → `POST /api/applications`
 
 **FR2.1** Trigger the drip on authenticated signup by enrolling the user into the `free-users` /
 `trial-users` audience and scheduling the existing templates:
+
 | Timing | Template | Status |
 |---|---|---|
 | +1h | "Your pipeline is started" | New (small) |

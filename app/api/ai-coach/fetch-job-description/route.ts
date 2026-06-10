@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
+import { htmlToText } from "@/lib/utils/html-to-text";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -80,13 +81,7 @@ export async function POST(request: NextRequest) {
     const html = await response.text();
 
     // Basic HTML parsing to extract text content
-    // Remove script and style tags
-    const cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const cleanHtml = htmlToText(html);
 
     // Try to find job-related content (this is a simple approach)
     // In a production app, you might want to use a more sophisticated parser

@@ -366,7 +366,7 @@ reason to check AppTrack daily independent of the user's own activity.
 
 ## 4. Implementation Timeline
 
-```
+```text
 Week 1-2:  Phase 1 — Guided first job import (LLM extraction + onboarding step)
 Week 2:    Phase 2a — Wire existing drip templates to authenticated signup
 Week 2-3:  Phase 2b/2c — Stale reminders + weekly digest (net-new crons)

@@ -6,7 +6,7 @@
  * than scheduled through the drip engine (which dedups one template per email).
  */
 
-import { wrapEmail, ctaButton, APP_URL } from './shared';
+import { wrapEmail, ctaButton, escapeHtml, APP_URL } from './shared';
 import type { BaseTemplateParams } from './shared';
 
 export type StaleJob = {
@@ -29,15 +29,15 @@ function applicationUrl(applicationId: string): string {
 
 export function staleReminderTemplate(params: StaleReminderParams): string {
   const { firstName, jobs } = params;
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi there,';
 
   const rows = jobs
     .map(
       (job) => `
       <tr>
         <td style="padding: 12px 16px; border-bottom: 1px solid #f1f1f1;">
-          <p style="margin: 0; font-size: 15px; color: #18181b; font-weight: 600;">${job.role}</p>
-          <p style="margin: 4px 0 0; font-size: 13px; color: #71717a;">${job.company} · no update in ${job.daysSinceUpdate} days</p>
+          <p style="margin: 0; font-size: 15px; color: #18181b; font-weight: 600;">${escapeHtml(job.role)}</p>
+          <p style="margin: 4px 0 0; font-size: 13px; color: #71717a;">${escapeHtml(job.company)} · no update in ${job.daysSinceUpdate} days</p>
           <p style="margin: 8px 0 0;">
             <a href="${applicationUrl(job.applicationId)}" style="font-size: 13px; color: #2563eb; text-decoration: none;">Update status &rarr;</a>
           </p>
@@ -48,7 +48,7 @@ export function staleReminderTemplate(params: StaleReminderParams): string {
 
   const lead =
     jobs.length === 1
-      ? `Still waiting to hear back on <strong>${jobs[0].role}</strong> at <strong>${jobs[0].company}</strong>?`
+      ? `Still waiting to hear back on <strong>${escapeHtml(jobs[0].role)}</strong> at <strong>${escapeHtml(jobs[0].company)}</strong>?`
       : `You have ${jobs.length} applications that haven't been updated in a while.`;
 
   return wrapEmail(
@@ -73,7 +73,7 @@ export type WeeklyDigestParams = BaseTemplateParams & {
 
 export function weeklyDigestTemplate(params: WeeklyDigestParams): string {
   const { firstName, activeCount, needsFollowUp, newThisWeek, insight } = params;
-  const greeting = firstName ? `Hi ${firstName},` : 'Hi there,';
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : 'Hi there,';
 
   const stat = (value: number, label: string) => `
     <td align="center" style="padding: 16px 8px;">
@@ -83,7 +83,7 @@ export function weeklyDigestTemplate(params: WeeklyDigestParams): string {
 
   const insightBlock = insight
     ? `<div style="margin: 16px 0; padding: 16px; background-color: #f5f8ff; border-radius: 6px;">
-         <p style="margin: 0; font-size: 14px; color: #1e3a8a;"><strong>AI Coach:</strong> ${insight}</p>
+         <p style="margin: 0; font-size: 14px; color: #1e3a8a;"><strong>AI Coach:</strong> ${escapeHtml(insight)}</p>
        </div>`
     : '';
 
