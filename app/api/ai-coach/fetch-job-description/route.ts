@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
+import { checkAICoachAccess, type AICoachAuthResult } from "@/lib/middleware/ai-coach-auth";
 import { htmlToText } from "@/lib/utils/html-to-text";
 import { fetchPublicUrl, readBodyCapped } from "@/lib/utils/safe-fetch";
 import { loggerService } from "@/lib/services/logger.service";
@@ -8,10 +8,13 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  // Declared outside the try so the catch block can log them.
+  let authResult: AICoachAuthResult | undefined;
+  let url: string | undefined;
+
   try {
     // Check authentication and AI Coach access
-    const authResult = await checkAICoachAccess('FETCH_JOB_DESCRIPTION');
+    authResult = await checkAICoachAccess('FETCH_JOB_DESCRIPTION');
     if (!authResult.authorized) {
       loggerService.warn('Unauthorized job description fetch attempt', {
         category: LogCategory.SECURITY,
@@ -26,7 +29,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const user = authResult.user;
 
-    const { url } = await request.json();
+    ({ url } = await request.json());
 
     if (!url || typeof url !== "string") {
       loggerService.warn('Job description fetch missing URL', {

@@ -112,8 +112,9 @@ export async function fetchPublicUrl(
 export async function readBodyCapped(response: Response, maxBytes: number): Promise<string> {
   const reader = response.body?.getReader();
   if (!reader) {
-    // No readable stream — still enforce the cap on whatever text() returns.
-    return (await response.text()).slice(0, maxBytes);
+    // No readable stream — enforce the cap on the buffered bytes.
+    const buffer = await response.arrayBuffer();
+    return new TextDecoder().decode(buffer.slice(0, maxBytes));
   }
 
   const decoder = new TextDecoder();
@@ -122,12 +123,14 @@ export async function readBodyCapped(response: Response, maxBytes: number): Prom
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    bytes += value.byteLength;
-    text += decoder.decode(value, { stream: true });
-    if (bytes >= maxBytes) {
+    const remaining = maxBytes - bytes;
+    if (value.byteLength >= remaining) {
+      text += decoder.decode(value.subarray(0, remaining), { stream: true });
       await reader.cancel();
       break;
     }
+    bytes += value.byteLength;
+    text += decoder.decode(value, { stream: true });
   }
   return text + decoder.decode();
 }

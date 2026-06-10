@@ -10,6 +10,8 @@ export interface AICoachAuthResult {
   user?: any;
   userId?: string;
   response?: NextResponse;
+  /** Optional denial reason for security logging. */
+  reason?: string;
 }
 
 /**

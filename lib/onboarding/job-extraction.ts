@@ -10,11 +10,7 @@
 import { callOpenAI } from '@/lib/openai/client';
 import { Models } from '@/lib/openai/models';
 import { htmlToText } from '@/lib/utils/html-to-text';
-import {
-  isBlockedHost,
-  assertResolvesPublic,
-  readBodyCapped,
-} from '@/lib/utils/safe-fetch';
+import { fetchPublicUrl, readBodyCapped } from '@/lib/utils/safe-fetch';
 
 // Re-export the SSRF guards under this module's public API.
 export { isBlockedHost, isBlockedIp } from '@/lib/utils/safe-fetch';
@@ -87,16 +83,11 @@ const SYSTEM_PROMPT =
  * Throws on fetch failure so the caller can fall back to manual entry.
  */
 export async function extractJobFromUrl(url: string): Promise<ExtractedJob> {
-  const hostname = new URL(url).hostname;
-  if (isBlockedHost(hostname)) {
-    throw new Error('Blocked host');
-  }
-  await assertResolvesPublic(hostname);
-
-  const response = await fetch(url, {
+  // fetchPublicUrl enforces http(s), the host blocklist, and the DNS-rebinding
+  // check on the initial URL and on every redirect hop.
+  const response = await fetchPublicUrl(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AppTrack/1.0)' },
-    redirect: 'error', // don't follow redirects into blocked hosts
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    timeoutMs: FETCH_TIMEOUT_MS,
   });
 
   if (!response.ok) {
