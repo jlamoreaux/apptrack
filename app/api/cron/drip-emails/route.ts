@@ -73,8 +73,8 @@ export async function GET(request: NextRequest) {
         // Get audience member data for personalization
         const member = await getAudienceMember(drip.email);
 
-        // Generate unsubscribe URL
-        const unsubscribeUrl = getUnsubscribeUrl(drip.email);
+        // Generate unsubscribe URL (per-category: drip)
+        const unsubscribeUrl = getUnsubscribeUrl(drip.email, 'drip');
 
         // Get roast URL if available (for leads from resume roast)
         const roastId = member?.metadata?.roastId || member?.metadata?.roast_id;

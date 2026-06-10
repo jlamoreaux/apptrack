@@ -113,7 +113,7 @@ export async function scheduleDripSequence({
       }
 
       // Generate unsubscribe URL
-      const unsubscribeUrl = getUnsubscribeUrl(normalizedEmail);
+      const unsubscribeUrl = getUnsubscribeUrl(normalizedEmail, 'drip');
 
       // Get roast URL if available
       const roastId = metadata?.roastId;

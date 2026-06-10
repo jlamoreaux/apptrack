@@ -2,6 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
 import { htmlToText } from "@/lib/utils/html-to-text";
+import {
+  isBlockedHost,
+  assertResolvesPublic,
+  readBodyCapped,
+} from "@/lib/utils/safe-fetch";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
@@ -38,8 +43,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate URL format
+    let parsedUrl: URL;
     try {
-      new URL(url);
+      parsedUrl = new URL(url);
     } catch {
       loggerService.warn('Job description fetch invalid URL', {
         category: LogCategory.API,
@@ -54,11 +60,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // SSRF guard: refuse internal hosts, including public hostnames that
+    // resolve to private addresses.
+    try {
+      if (isBlockedHost(parsedUrl.hostname)) {
+        throw new Error('Blocked host');
+      }
+      await assertResolvesPublic(parsedUrl.hostname);
+    } catch {
+      loggerService.warn('Job description fetch blocked host', {
+        category: LogCategory.SECURITY,
+        userId: user.id,
+        action: 'fetch_job_description_blocked_host',
+        duration: Date.now() - startTime,
+        metadata: { url }
+      });
+      return NextResponse.json(
+        { error: "This URL cannot be fetched" },
+        { status: 400 }
+      );
+    }
+
     // Fetch the webpage
     const response = await fetch(url, {
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; JobTracker/1.0)",
       },
+      signal: AbortSignal.timeout(10_000),
     });
 
     if (!response.ok) {
@@ -78,7 +106,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const html = await response.text();
+    const html = await readBodyCapped(response, 2 * 1024 * 1024);
 
     // Basic HTML parsing to extract text content
     const cleanHtml = htmlToText(html);

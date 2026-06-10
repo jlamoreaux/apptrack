@@ -25,6 +25,22 @@ export function escapeHtml(str: string): string {
 }
 
 /**
+ * Validate and return a safe URL for use in href attributes.
+ * Only allows http/https schemes; falls back to '#' for anything else.
+ */
+export function safeUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      return url;
+    }
+  } catch {
+    // invalid URL
+  }
+  return '#';
+}
+
+/**
  * Common email wrapper with header, content area, and footer
  */
 export function wrapEmail(content: string, params: BaseTemplateParams): string {
@@ -60,7 +76,7 @@ export function wrapEmail(content: string, params: BaseTemplateParams): string {
                 You're receiving this because you signed up for AppTrack updates.
               </p>
               <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
-                <a href="${params.unsubscribeUrl}" style="color: #71717a;">Unsubscribe</a>
+                <a href="${escapeHtml(params.unsubscribeUrl)}" style="color: #71717a;">Unsubscribe</a>
               </p>
             </td>
           </tr>
@@ -80,7 +96,7 @@ export function ctaButton(text: string, url: string): string {
 <table width="100%" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
   <tr>
     <td align="center">
-      <a href="${url}" style="display: inline-block; padding: 12px 32px; background-color: #18181b; color: #ffffff; text-decoration: none; font-weight: 500; border-radius: 6px;">${text}</a>
+      <a href="${escapeHtml(safeUrl(url))}" style="display: inline-block; padding: 12px 32px; background-color: #18181b; color: #ffffff; text-decoration: none; font-weight: 500; border-radius: 6px;">${escapeHtml(text)}</a>
     </td>
   </tr>
 </table>`;

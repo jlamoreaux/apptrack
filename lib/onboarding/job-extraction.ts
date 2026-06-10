@@ -7,10 +7,17 @@
  * user and returns typed JSON.
  */
 
-import { lookup } from 'dns/promises';
 import { callOpenAI } from '@/lib/openai/client';
 import { Models } from '@/lib/openai/models';
 import { htmlToText } from '@/lib/utils/html-to-text';
+import {
+  isBlockedHost,
+  assertResolvesPublic,
+  readBodyCapped,
+} from '@/lib/utils/safe-fetch';
+
+// Re-export the SSRF guards under this module's public API.
+export { isBlockedHost, isBlockedIp } from '@/lib/utils/safe-fetch';
 
 export interface ExtractedJob {
   company: string | null;
@@ -24,65 +31,6 @@ const MAX_TEXT_LENGTH = 6000;
 const FETCH_TIMEOUT_MS = 10_000;
 // Job postings are small; cap the body so a hostile server can't exhaust memory.
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
-
-/**
- * Reject IP addresses in loopback, private, link-local (cloud metadata), and
- * unique-local ranges. Covers IPv4, IPv6, and v4-mapped IPv6 literals.
- */
-export function isBlockedIp(address: string): boolean {
-  const ip = address.toLowerCase().replace(/^\[|\]$/g, '');
-  const v4 = ip.startsWith('::ffff:') ? ip.slice(7) : ip;
-  const ipv4 = v4.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (ipv4) {
-    const [a, b] = [Number(ipv4[1]), Number(ipv4[2])];
-    if (a === 127 || a === 10 || a === 0) return true;
-    if (a === 169 && b === 254) return true; // link-local incl. 169.254.169.254
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    return false;
-  }
-  if (ip === '::1' || ip === '::') return true; // loopback / unspecified
-  if (/^fe[89ab]/.test(ip)) return true; // link-local fe80::/10
-  if (/^f[cd]/.test(ip)) return true; // unique-local fc00::/7
-  return false;
-}
-
-/**
- * Reject hosts that could be used for SSRF (loopback, private ranges, link-local
- * cloud metadata). This route is authenticated but not paywalled, so it must not
- * become a proxy for reaching internal services.
- */
-export function isBlockedHost(hostname: string): boolean {
-  const host = hostname.toLowerCase();
-  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.internal')) {
-    return true;
-  }
-  return isBlockedIp(host);
-}
-
-/**
- * Read a response body as text, stopping at maxBytes so a malicious server
- * can't stream an unbounded payload.
- */
-async function readBodyCapped(response: Response, maxBytes: number): Promise<string> {
-  const reader = response.body?.getReader();
-  if (!reader) return response.text();
-
-  const decoder = new TextDecoder();
-  let text = '';
-  let bytes = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    bytes += value.byteLength;
-    text += decoder.decode(value, { stream: true });
-    if (bytes >= maxBytes) {
-      await reader.cancel();
-      break;
-    }
-  }
-  return text + decoder.decode();
-}
 
 /**
  * Parse the model's JSON response into a validated ExtractedJob.
@@ -143,18 +91,7 @@ export async function extractJobFromUrl(url: string): Promise<ExtractedJob> {
   if (isBlockedHost(hostname)) {
     throw new Error('Blocked host');
   }
-
-  // A public hostname can still resolve to an internal address (DNS
-  // rebinding); check what it actually points at before fetching.
-  try {
-    const addresses = await lookup(hostname.replace(/^\[|\]$/g, ''), { all: true });
-    if (addresses.some((entry) => isBlockedIp(entry.address))) {
-      throw new Error('Blocked host');
-    }
-  } catch (error) {
-    if (error instanceof Error && error.message === 'Blocked host') throw error;
-    // Resolution failure → let fetch produce the user-facing error below.
-  }
+  await assertResolvesPublic(hostname);
 
   const response = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AppTrack/1.0)' },

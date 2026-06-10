@@ -82,12 +82,21 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to update preferences' }, { status: 500 });
   }
 
-  // Keep the audience master switch in sync with the global flag.
+  // Keep the audience master switch in sync with the global flag. A failed
+  // sync must surface to the user (CAN-SPAM): the preference row is already
+  // saved, which fails safe (suppresses lifecycle email), but the Resend
+  // contact state would still be wrong.
   if (updates.unsubscribed_all === true) {
-    await unsubscribeContact(user.email);
+    const sync = await unsubscribeContact(user.email);
+    if (!sync.success) {
+      return NextResponse.json({ error: 'Failed to unsubscribe from emails' }, { status: 500 });
+    }
     await cancelPendingDrips(user.email);
   } else if (updates.unsubscribed_all === false) {
-    await resubscribeContact(user.email);
+    const sync = await resubscribeContact(user.email);
+    if (!sync.success) {
+      return NextResponse.json({ error: 'Failed to resubscribe to emails' }, { status: 500 });
+    }
   }
 
   loggerService.info('Email preferences updated', {

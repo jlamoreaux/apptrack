@@ -8,30 +8,14 @@
 
 import { sendEmail } from './client';
 import { getUnsubscribeUrl } from './drip-scheduler';
-import { escapeHtml } from './templates/shared';
+import { escapeHtml, safeUrl } from './templates/shared';
 
 const APP_URL =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
   'https://www.apptrack.ing';
 
-export { escapeHtml };
-
-/**
- * Validate and return a safe URL for use in href attributes.
- * Only allows http/https schemes; falls back to '#' for anything else.
- */
-export function safeUrl(url: string): string {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return url;
-    }
-  } catch {
-    // invalid URL
-  }
-  return '#';
-}
+export { escapeHtml, safeUrl };
 
 function wrapEmail(content: string, unsubscribeUrl: string): string {
   const safeUnsubscribeUrl = escapeHtml(unsubscribeUrl);
