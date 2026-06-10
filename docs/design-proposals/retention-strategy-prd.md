@@ -240,7 +240,7 @@ Shipped on branch `claude/apptrack-retention-rfc-F7imt`:
   `app/api/onboarding/extract-job`, UI `components/onboarding/first-job-step.tsx` rendered at
   `app/(app)/onboarding/first-job`. Free-plan selection now routes here
   (`lib/checkout/create-checkout.ts`).
-- **Phase 2:** migration `schemas/migrations/029_retention_email_preferences.sql`; preferences
+- **Phase 2:** migration `schemas/migrations/030_retention_email_preferences.sql`; preferences
   service `lib/email/preferences.ts` + API `app/api/email/preferences`; stale reminders
   (`lib/email/stale-reminders.ts` + cron) and weekly digest (`lib/email/weekly-digest.ts` + cron),
   templates in `lib/email/templates/lifecycle.ts`; paginated query helper

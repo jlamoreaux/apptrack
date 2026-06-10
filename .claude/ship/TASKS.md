@@ -8,7 +8,7 @@ Note: Phase 2a (signup → free-users drip enrollment) is ALREADY wired in
 
 ## Ordered tasks (each with tests)
 
-- [x] T1 — DB migration `schemas/migrations/029_retention_email_preferences.sql`
+- [x] T1 — DB migration `schemas/migrations/030_retention_email_preferences.sql`
       `email_preferences` table (RLS owner-select + service-role-all); add `opened_at`/`clicked_at`
       to `drip_emails`. (no code deps)
 - [x] T2 — Analytics events in `lib/analytics/conversion-events.ts`

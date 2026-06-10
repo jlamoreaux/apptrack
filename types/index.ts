@@ -80,6 +80,7 @@ export interface Subscription {
   billing_cycle: "monthly" | "yearly";
   current_period_start: string;
   current_period_end: string;
+  trial_ending_notified_at?: string | null;
   cancel_at_period_end: boolean;
   created_at: string;
   updated_at: string;

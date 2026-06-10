@@ -64,9 +64,16 @@ export function safeUrl(url: string): string {
 }
 
 export type WrapEmailParams = {
-  unsubscribeUrl: string;
+  /** Marketing unsubscribe target. Optional when `footerHtml` is supplied. */
+  unsubscribeUrl?: string;
   /** Overrides the default "signed up for AppTrack updates" footer line. */
   footerNote?: string;
+  /**
+   * Full custom footer markup, rendered in place of the default marketing
+   * footer. Used by transactional/billing notices that must not carry a
+   * marketing unsubscribe link (e.g. required pre-charge notices).
+   */
+  footerHtml?: string;
 };
 
 /**
@@ -77,6 +84,16 @@ export type WrapEmailParams = {
 export function wrapEmail(content: string, params: WrapEmailParams): string {
   const footerNote =
     params.footerNote ?? "You're receiving this because you signed up for AppTrack updates.";
+
+  const footer =
+    params.footerHtml ??
+    `
+              <p style="margin: 0 0 8px; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
+                ${footerNote}
+              </p>
+              <p style="margin: 0; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
+                <a href="${escapeHtml(safeUrl(params.unsubscribeUrl ?? '#'))}" style="color: ${EMAIL_THEME.muted};">Unsubscribe</a>
+              </p>`;
 
   return `
 <!DOCTYPE html>
@@ -105,13 +122,7 @@ export function wrapEmail(content: string, params: WrapEmailParams): string {
           </tr>
           <!-- Footer -->
           <tr>
-            <td style="padding: 24px 32px; background-color: ${EMAIL_THEME.panelBg}; border-top: 1px solid ${EMAIL_THEME.border};">
-              <p style="margin: 0 0 8px; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
-                ${footerNote}
-              </p>
-              <p style="margin: 0; font-size: 12px; color: ${EMAIL_THEME.muted}; text-align: center;">
-                <a href="${escapeHtml(safeUrl(params.unsubscribeUrl))}" style="color: ${EMAIL_THEME.muted};">Unsubscribe</a>
-              </p>
+            <td style="padding: 24px 32px; background-color: ${EMAIL_THEME.panelBg}; border-top: 1px solid ${EMAIL_THEME.border};">${footer}
             </td>
           </tr>
         </table>

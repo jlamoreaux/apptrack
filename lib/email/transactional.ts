@@ -15,6 +15,7 @@ import {
   safeUrl,
   EMAIL_THEME,
 } from './templates/shared';
+import { SUPPORT_EMAIL } from '@/lib/constants/site-config';
 
 const APP_URL =
   process.env.APP_URL ||
@@ -236,6 +237,105 @@ export async function sendTryResultsEmail({
     });
     return { success: result.success };
   } catch (err) {
+    return { success: false };
+  }
+}
+
+// ─── Trial Ending Email (pre-charge billing notice) ──────────
+
+const TRIAL_ENDING_REPLY_TO = SUPPORT_EMAIL;
+
+export type SendTrialEndingEmailOptions = {
+  email: string;
+  firstName?: string;
+  planName: string;
+  /** Formatted charge amount (e.g. "$9.00"); omitted for metered/$0 plans. */
+  amountFormatted?: string;
+  /** Cadence wording for the charge, e.g. "month", "year", "3 months". */
+  cadence: string;
+  /** Human-readable trial end date already formatted for display. */
+  trialEndDate: string;
+  /** Linkable self-serve manage/cancel page (not the POST-only Stripe portal). */
+  manageUrl: string;
+};
+
+/**
+ * Build the transactional footer for billing notices: explains why the email
+ * was received and links to the manage/cancel surface. No marketing
+ * unsubscribe link — this is a required pre-charge notice.
+ */
+function trialEndingFooter(manageUrl: string): string {
+  const safeManageUrl = safeUrl(manageUrl);
+  return `
+              <p style="margin: 0 0 8px; font-size: 12px; color: #71717a; text-align: center;">
+                You're receiving this because you have an active trial on AppTrack.
+              </p>
+              <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
+                <a href="${safeManageUrl}" style="color: #71717a;">Manage subscription</a>
+              </p>`;
+}
+
+/**
+ * Send the pre-charge "your trial is ending" notice for paid Stripe trials.
+ *
+ * Mirrors the other senders: returns `{ success }` and returns `false` (rather
+ * than throwing) when the send fails, so the caller decides how to react. The
+ * webhook handler treats a falsy `success` as a delivery failure and rethrows
+ * to trigger a Stripe webhook retry.
+ */
+export async function sendTrialEndingEmail({
+  email,
+  firstName,
+  planName,
+  amountFormatted,
+  cadence,
+  trialEndDate,
+  manageUrl,
+}: SendTrialEndingEmailOptions): Promise<{ success: boolean }> {
+  const safeName = firstName ? escapeHtml(firstName) : undefined;
+  const safePlanName = escapeHtml(planName);
+  const safeCadence = escapeHtml(cadence);
+  const safeTrialEndDate = escapeHtml(trialEndDate);
+  const safeAmount = amountFormatted ? escapeHtml(amountFormatted) : undefined;
+
+  const chargeLine = safeAmount
+    ? `When your trial ends, you'll be charged ${safeAmount} per ${safeCadence} for ${safePlanName}.`
+    : `When your trial ends, your ${safePlanName} plan will renew.`;
+
+  const subject = safeAmount
+    ? `Your AppTrack trial ends ${trialEndDate} — you'll be charged ${amountFormatted}`
+    : `Your AppTrack trial ends ${trialEndDate}`;
+
+  const html = wrapEmail(
+    `
+    <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
+      ${safeName ? `Hi ${safeName},` : 'Hi there,'}
+    </p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      Your AppTrack trial ends on ${safeTrialEndDate}.
+    </p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      ${chargeLine}
+    </p>
+    <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      To avoid being charged, cancel before ${safeTrialEndDate} from your subscription settings:
+    </p>
+    ${ctaButton('Manage subscription', manageUrl)}
+  `,
+    // Billing notices use the transactional footer, not the marketing one,
+    // so no unsubscribe URL is supplied.
+    { footerHtml: trialEndingFooter(manageUrl) }
+  );
+
+  try {
+    const result = await sendEmail({
+      to: email,
+      subject,
+      html,
+      replyTo: TRIAL_ENDING_REPLY_TO,
+    });
+    return { success: result.success };
+  } catch {
     return { success: false };
   }
 }
