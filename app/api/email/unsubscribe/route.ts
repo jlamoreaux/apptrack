@@ -4,6 +4,7 @@ import { unsubscribeContact } from '@/lib/email/audiences';
 import { cancelPendingDrips } from '@/lib/email/drip-scheduler';
 import { createAdminClient } from '@/lib/supabase/admin-client';
 import { updateEmailPreferences, CATEGORY_COLUMN, type EmailCategory } from '@/lib/email/preferences';
+import { EMAIL_THEME } from '@/lib/email/templates/shared';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
@@ -240,7 +241,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: #f5f5f5;
+      background-color: ${EMAIL_THEME.pageBg};
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -248,7 +249,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
       padding: 20px;
     }
     .container {
-      background: white;
+      background: ${EMAIL_THEME.cardBg};
       border-radius: 8px;
       padding: 40px;
       max-width: 400px;
@@ -256,28 +257,38 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
       text-align: center;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    h1 { font-size: 24px; color: #18181b; margin-bottom: 16px; }
-    p { font-size: 16px; color: #3f3f46; margin-bottom: 24px; line-height: 1.5; }
-    .email { font-weight: 600; color: #18181b; }
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: ${EMAIL_THEME.heading};
+      margin-bottom: 24px;
+    }
+    .brand img { vertical-align: -6px; margin-right: 8px; border-radius: 6px; }
+    h1 { font-size: 24px; color: ${EMAIL_THEME.heading}; margin-bottom: 16px; }
+    p { font-size: 16px; color: ${EMAIL_THEME.body}; margin-bottom: 24px; line-height: 1.5; }
+    .email { font-weight: 600; color: ${EMAIL_THEME.heading}; }
     button {
-      background: #18181b;
-      color: white;
+      background: ${EMAIL_THEME.cta};
+      color: ${EMAIL_THEME.ctaForeground};
       border: none;
       padding: 12px 24px;
       font-size: 16px;
+      font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
       width: 100%;
+      min-height: 44px;
       margin-bottom: 12px;
     }
-    button:hover { background: #27272a; }
-    button:disabled { background: #a1a1aa; cursor: not-allowed; }
+    button:hover { background: #ea580c; }
+    button:disabled { background: #fdba74; cursor: not-allowed; }
     .cancel {
       background: transparent;
-      color: #71717a;
-      border: 1px solid #e4e4e7;
+      color: ${EMAIL_THEME.muted};
+      border: 1px solid ${EMAIL_THEME.border};
+      font-weight: 400;
     }
-    .cancel:hover { background: #f4f4f5; }
+    .cancel:hover { background: ${EMAIL_THEME.panelBg}; }
     .success { display: none; }
     .success h1 { color: #16a34a; }
     .error { color: #dc2626; display: none; margin-top: 16px; }
@@ -285,6 +296,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
 </head>
 <body>
   <div class="container">
+    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">AppTrack</div>
     <div id="confirm">
       <h1>Unsubscribe</h1>
       <p>${confirmCopy}</p>
@@ -355,7 +367,7 @@ function getErrorPage(message: string): string {
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background-color: #f5f5f5;
+      background-color: ${EMAIL_THEME.pageBg};
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -363,7 +375,7 @@ function getErrorPage(message: string): string {
       padding: 20px;
     }
     .container {
-      background: white;
+      background: ${EMAIL_THEME.cardBg};
       border-radius: 8px;
       padding: 40px;
       max-width: 400px;
@@ -371,22 +383,32 @@ function getErrorPage(message: string): string {
       text-align: center;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
+    .brand {
+      font-size: 20px;
+      font-weight: 700;
+      color: ${EMAIL_THEME.heading};
+      margin-bottom: 24px;
+    }
+    .brand img { vertical-align: -6px; margin-right: 8px; border-radius: 6px; }
     h1 { font-size: 24px; color: #dc2626; margin-bottom: 16px; }
-    p { font-size: 16px; color: #3f3f46; margin-bottom: 24px; line-height: 1.5; }
+    p { font-size: 16px; color: ${EMAIL_THEME.body}; margin-bottom: 24px; line-height: 1.5; }
     button {
-      background: #18181b;
-      color: white;
+      background: ${EMAIL_THEME.cta};
+      color: ${EMAIL_THEME.ctaForeground};
       border: none;
       padding: 12px 24px;
       font-size: 16px;
+      font-weight: 600;
       border-radius: 6px;
       cursor: pointer;
+      min-height: 44px;
     }
-    button:hover { background: #27272a; }
+    button:hover { background: #ea580c; }
   </style>
 </head>
 <body>
   <div class="container">
+    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">AppTrack</div>
     <h1>Error</h1>
     <p>${safeMessage}</p>
     <button onclick="window.location.href='${APP_URL}'">Go to AppTrack</button>
