@@ -113,7 +113,7 @@ export async function scheduleDripSequence({
       }
 
       // Generate unsubscribe URL
-      const unsubscribeUrl = getUnsubscribeUrl(normalizedEmail);
+      const unsubscribeUrl = getUnsubscribeUrl(normalizedEmail, 'drip');
 
       // Get roast URL if available
       const roastId = metadata?.roastId;
@@ -327,8 +327,11 @@ export async function markDripFailed(id: string, errorMessage: string): Promise<
 /**
  * Generate unsubscribe URL for a user
  * Uses HMAC token for security (prevents forging unsubscribe links)
+ *
+ * Pass a category ('drip' | 'reminders' | 'digest') to link a per-category
+ * opt-out instead of the global one.
  */
-export function getUnsubscribeUrl(email: string): string {
+export function getUnsubscribeUrl(email: string, category?: string): string {
   // Import the token generator from unsubscribe route
   // We duplicate the logic here to avoid circular imports
   const crypto = require('crypto');
@@ -340,7 +343,8 @@ export function getUnsubscribeUrl(email: string): string {
     .digest('hex');
 
   const encoded = encodeURIComponent(normalizedEmail);
-  return `${APP_URL}/api/email/unsubscribe?email=${encoded}&token=${token}`;
+  const categoryParam = category ? `&category=${encodeURIComponent(category)}` : '';
+  return `${APP_URL}/api/email/unsubscribe?email=${encoded}&token=${token}${categoryParam}`;
 }
 
 /**

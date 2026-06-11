@@ -9,7 +9,7 @@
  */
 
 import type { AudienceId } from '../audiences';
-import { wrapEmail, ctaButton, APP_URL } from './shared';
+import { wrapEmail, ctaButton, escapeHtml, APP_URL, EMAIL_THEME } from './shared';
 import type { BaseTemplateParams } from './shared';
 
 export type DripTemplate = {
@@ -35,13 +35,13 @@ const leadsTemplates: DripTemplate[] = [
     preheader: 'Thanks for trying our AI tools',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thanks for trying our AI career tools. Here's what you can do with a free AppTrack account:
       </p>
-      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Track all your job applications in one place</li>
         <li style="margin-bottom: 8px;">Get AI-powered resume analysis and feedback</li>
         <li style="margin-bottom: 8px;">Visualize your application pipeline at a glance</li>
@@ -55,25 +55,25 @@ const leadsTemplates: DripTemplate[] = [
     preheader: 'Stand out from other applicants',
     dayOffset: 2,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here are 3 things that successful job seekers do differently:
       </p>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 12px; font-size: 14px; color: #18181b; font-weight: 600;">1. Track everything</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Keep notes on every application, interview, and follow-up. You'll spot patterns and never miss a deadline.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 12px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">1. Track everything</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Keep notes on every application, interview, and follow-up. You'll spot patterns and never miss a deadline.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 12px; font-size: 14px; color: #18181b; font-weight: 600;">2. Customize every application</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Tailor your resume and cover letter to each job. Generic applications rarely get callbacks.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 12px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">2. Customize every application</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Tailor your resume and cover letter to each job. Generic applications rarely get callbacks.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 12px; font-size: 14px; color: #18181b; font-weight: 600;">3. Prepare before interviews</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Research the company and practice answering common questions. Confidence comes from preparation.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 12px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">3. Prepare before interviews</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Research the company and practice answering common questions. Confidence comes from preparation.</p>
       </div>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         AppTrack helps you do all three, automatically.
       </p>
       ${ctaButton('Get Started Free', `${APP_URL}/signup`)}
@@ -85,35 +85,35 @@ const leadsTemplates: DripTemplate[] = [
     preheader: 'Your personal job search assistant',
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Still searching for your next role? Here's how AppTrack makes it easier:
       </p>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
         <tr>
-          <td style="padding: 12px 0; border-bottom: 1px solid #e4e4e7;">
-            <p style="margin: 0; font-size: 14px; color: #18181b; font-weight: 600;">AI Resume Analysis</p>
-            <p style="margin: 4px 0 0; font-size: 14px; color: #71717a;">Get detailed feedback on how to improve</p>
+          <td style="padding: 12px 0; border-bottom: 1px solid ${EMAIL_THEME.border};">
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">AI Resume Analysis</p>
+            <p style="margin: 4px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted};">Get detailed feedback on how to improve</p>
           </td>
         </tr>
         <tr>
-          <td style="padding: 12px 0; border-bottom: 1px solid #e4e4e7;">
-            <p style="margin: 0; font-size: 14px; color: #18181b; font-weight: 600;">Job Fit Analysis</p>
-            <p style="margin: 4px 0 0; font-size: 14px; color: #71717a;">See how well you match before applying</p>
+          <td style="padding: 12px 0; border-bottom: 1px solid ${EMAIL_THEME.border};">
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Job Fit Analysis</p>
+            <p style="margin: 4px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted};">See how well you match before applying</p>
           </td>
         </tr>
         <tr>
-          <td style="padding: 12px 0; border-bottom: 1px solid #e4e4e7;">
-            <p style="margin: 0; font-size: 14px; color: #18181b; font-weight: 600;">Interview Prep</p>
-            <p style="margin: 4px 0 0; font-size: 14px; color: #71717a;">Practice with AI-generated questions</p>
+          <td style="padding: 12px 0; border-bottom: 1px solid ${EMAIL_THEME.border};">
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Interview Prep</p>
+            <p style="margin: 4px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted};">Practice with AI-generated questions</p>
           </td>
         </tr>
         <tr>
           <td style="padding: 12px 0;">
-            <p style="margin: 0; font-size: 14px; color: #18181b; font-weight: 600;">Application Tracking</p>
-            <p style="margin: 4px 0 0; font-size: 14px; color: #71717a;">Never lose track of where you applied</p>
+            <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Application Tracking</p>
+            <p style="margin: 4px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted};">Never lose track of where you applied</p>
           </td>
         </tr>
       </table>
@@ -133,26 +133,26 @@ const freeUsersTemplates: DripTemplate[] = [
     preheader: 'Your job search just got easier',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Welcome, ${params.firstName}!` : 'Welcome!'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Welcome, ${escapeHtml(params.firstName || '')}!` : 'Welcome!'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thanks for signing up for AppTrack. We're here to help you land your next role.
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's how to get started:
       </p>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">Step 1: Upload your resume</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Our AI will analyze it and give you personalized insights.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Step 1: Upload your resume</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Our AI will analyze it and give you personalized insights.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">Step 2: Add your first job application</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Track applications, interviews, and offers in one place.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Step 2: Add your first job application</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Track applications, interviews, and offers in one place.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">Step 3: Try the AI features</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Get job fit analysis, interview prep, and more.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Step 3: Try the AI features</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Get job fit analysis, interview prep, and more.</p>
       </div>
       ${ctaButton('Go to Dashboard', `${APP_URL}/dashboard`)}
     `, params),
@@ -163,19 +163,19 @@ const freeUsersTemplates: DripTemplate[] = [
     preheader: 'Get personalized insights in seconds',
     dayOffset: 2,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Have you tried our AI features yet? Here's a quick one to start with:
       </p>
-      <div style="margin: 0 0 24px; padding: 20px; background-color: #fafafa; border-radius: 6px; border-left: 4px solid #18181b;">
-        <p style="margin: 0 0 8px; font-size: 16px; color: #18181b; font-weight: 600;">Job Fit Analysis</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">
+      <div style="margin: 0 0 24px; padding: 20px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px; border-left: 4px solid ${EMAIL_THEME.primary};">
+        <p style="margin: 0 0 8px; font-size: 16px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Job Fit Analysis</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">
           Paste a job description and see how well you match. Get specific suggestions on what to highlight in your application.
         </p>
       </div>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         It takes less than a minute and could make the difference in your next application.
       </p>
       ${ctaButton('Try Job Fit Analysis', `${APP_URL}/try/job-fit`)}
@@ -187,16 +187,16 @@ const freeUsersTemplates: DripTemplate[] = [
     preheader: 'Unlock the full power of AppTrack',
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Quick tip: uploading your resume unlocks personalized insights across all our AI features.
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         With your resume on file, you can:
       </p>
-      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Get tailored job match scores</li>
         <li style="margin-bottom: 8px;">See which skills to highlight for each role</li>
         <li style="margin-bottom: 8px;">Generate cover letters based on your experience</li>
@@ -211,23 +211,23 @@ const freeUsersTemplates: DripTemplate[] = [
     preheader: 'We want to help you succeed',
     dayOffset: 7,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         You've been using AppTrack for a week now. How's the job search going?
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         If you're finding the AI features helpful, you might want to check out our AI Coach plan for unlimited access to:
       </p>
-      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Unlimited AI analyses</li>
         <li style="margin-bottom: 8px;">Advanced interview prep</li>
         <li style="margin-bottom: 8px;">Custom cover letters</li>
         <li style="margin-bottom: 8px;">Job fit analysis</li>
       </ul>
       ${ctaButton('See AI Coach Features', `${APP_URL}/dashboard/upgrade`)}
-      <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
+      <p style="margin: 24px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted}; text-align: center;">
         Reply to this email if you have any questions. We're here to help!
       </p>
     `, params),
@@ -245,23 +245,23 @@ const trialUsersTemplates: DripTemplate[] = [
     preheader: 'Make the most of your trial period',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Your trial is now active! Here are the top features to try:
       </p>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">1. AI Resume Analysis</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Get detailed feedback on formatting, content, and impact.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">1. AI Resume Analysis</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Get detailed feedback on formatting, content, and impact.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">2. Interview Preparation</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Practice with AI-generated questions tailored to each role.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">2. Interview Preparation</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Practice with AI-generated questions tailored to each role.</p>
       </div>
-      <div style="margin: 0 0 16px; padding: 16px; background-color: #fafafa; border-radius: 6px;">
-        <p style="margin: 0 0 8px; font-size: 14px; color: #18181b; font-weight: 600;">3. Cover Letter Generator</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">Create customized cover letters for each application.</p>
+      <div style="margin: 0 0 16px; padding: 16px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px;">
+        <p style="margin: 0 0 8px; font-size: 14px; color: ${EMAIL_THEME.heading}; font-weight: 600;">3. Cover Letter Generator</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Create customized cover letters for each application.</p>
       </div>
       ${ctaButton('Start Exploring', `${APP_URL}/dashboard`)}
     `, params),
@@ -272,19 +272,19 @@ const trialUsersTemplates: DripTemplate[] = [
     preheader: 'Ace your next interview',
     dayOffset: 3,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Interview Prep can be a game-changer. Here's how it works:
       </p>
-      <ol style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+      <ol style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Paste the job description</li>
         <li style="margin-bottom: 8px;">Get 10+ tailored interview questions</li>
         <li style="margin-bottom: 8px;">See sample answers based on your resume</li>
         <li style="margin-bottom: 8px;">Practice until you feel confident</li>
       </ol>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Practice makes perfect - walk into your next interview feeling prepared and confident.
       </p>
       ${ctaButton('Try Interview Prep', `${APP_URL}/try/interview-prep`)}
@@ -303,16 +303,16 @@ const paidUsersTemplates: DripTemplate[] = [
     preheader: 'Thank you for upgrading',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thank you for upgrading to AppTrack Pro! You now have unlimited access to all our AI features.
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's what's included in your Pro subscription:
       </p>
-      <ul style="margin: 0 0 16px; padding-left: 20px; color: #3f3f46;">
+      <ul style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Unlimited AI resume analyses</li>
         <li style="margin-bottom: 8px;">Unlimited job fit analyses</li>
         <li style="margin-bottom: 8px;">Unlimited interview prep sessions</li>
@@ -320,7 +320,7 @@ const paidUsersTemplates: DripTemplate[] = [
         <li style="margin-bottom: 8px;">Priority support</li>
       </ul>
       ${ctaButton('Go to Dashboard', `${APP_URL}/dashboard`)}
-      <p style="margin: 24px 0 0; font-size: 14px; color: #71717a; text-align: center;">
+      <p style="margin: 24px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted}; text-align: center;">
         Have questions? Reply to this email anytime.
       </p>
     `, params),
@@ -331,19 +331,19 @@ const paidUsersTemplates: DripTemplate[] = [
     preheader: 'Maximize your subscription value',
     dayOffset: 3,
     getHtml: (params) => wrapEmail(`
-      <p style="margin: 0 0 16px; font-size: 16px; color: #18181b;">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's a pro tip to get more value from AppTrack:
       </p>
-      <div style="margin: 0 0 24px; padding: 20px; background-color: #fafafa; border-radius: 6px; border-left: 4px solid #18181b;">
-        <p style="margin: 0 0 8px; font-size: 16px; color: #18181b; font-weight: 600;">Run Job Fit Analysis Before Every Application</p>
-        <p style="margin: 0; font-size: 14px; color: #3f3f46;">
+      <div style="margin: 0 0 24px; padding: 20px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px; border-left: 4px solid ${EMAIL_THEME.primary};">
+        <p style="margin: 0 0 8px; font-size: 16px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Run Job Fit Analysis Before Every Application</p>
+        <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">
           Before applying to any job, run a quick fit analysis. It takes 30 seconds and tells you exactly what to emphasize in your cover letter and how to tailor your resume.
         </p>
       </div>
-      <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
+      <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         The AI spots things you might miss - give yourself an edge on every application.
       </p>
       ${ctaButton('Try It Now', `${APP_URL}/try/job-fit`)}

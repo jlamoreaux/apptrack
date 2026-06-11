@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/generate-changelog",
       "schedule": "0 9 * * 1"
+    },
+    {
+      "path": "/api/cron/stale-reminders",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-digest",
+      "schedule": "0 13 * * 1"
     }
   ]
 }

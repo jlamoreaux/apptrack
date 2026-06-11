@@ -10,6 +10,8 @@ export interface AICoachAuthResult {
   user?: any;
   userId?: string;
   response?: NextResponse;
+  /** Optional denial reason for security logging. */
+  reason?: string;
 }
 
 /**
@@ -39,6 +41,7 @@ export async function checkAICoachAccess(
       
       return {
         authorized: false,
+        reason: 'unauthenticated',
         response: NextResponse.json(
           { error: ERROR_MESSAGES.UNAUTHORIZED },
           { status: 401 }
@@ -67,10 +70,11 @@ export async function checkAICoachAccess(
       
       return {
         authorized: false,
+        reason: 'forbidden',
         user,
         userId: user.id,
         response: NextResponse.json(
-          { 
+          {
             error: permissionResult.message || ERROR_MESSAGES.AI_COACH_REQUIRED,
             userPlan: permissionResult.userPlan,
             requiredPlan: permissionResult.requiredPlan
@@ -109,6 +113,7 @@ export async function checkAICoachAccess(
     
     return {
       authorized: false,
+      reason: 'error',
       response: NextResponse.json(
         { error: ERROR_MESSAGES.UNEXPECTED },
         { status: 500 }
@@ -141,6 +146,7 @@ export async function checkAuthentication(): Promise<AICoachAuthResult> {
       
       return {
         authorized: false,
+        reason: 'unauthenticated',
         response: NextResponse.json(
           { error: ERROR_MESSAGES.UNAUTHORIZED },
           { status: 401 }
@@ -169,6 +175,7 @@ export async function checkAuthentication(): Promise<AICoachAuthResult> {
     
     return {
       authorized: false,
+      reason: 'error',
       response: NextResponse.json(
         { error: ERROR_MESSAGES.UNEXPECTED },
         { status: 500 }

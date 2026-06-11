@@ -11,6 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
 import { AccountInfoForm } from "@/components/forms/account-info-form";
+import { EmailPreferencesForm } from "@/components/forms/email-preferences-form";
 import { SubscriptionManagement } from "@/components/subscription-management";
 import { DangerZone, DangerZoneCard } from "@/components/danger-zone";
 import { ArrowLeft, Zap } from "lucide-react";
@@ -80,6 +81,21 @@ export default async function SettingsPage() {
 
             <Separator />
 
+            {/* Email Notifications */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Email Notifications</CardTitle>
+                <CardDescription>
+                  Choose which emails you receive from AppTrack
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EmailPreferencesForm />
+              </CardContent>
+            </Card>
+
+            <Separator />
+
             {/* AI Usage */}
             {(subscription?.subscription_plans?.name === "Pro" || 
               subscription?.subscription_plans?.name === "AI Coach") && (
@@ -102,8 +118,6 @@ export default async function SettingsPage() {
                     </Link>
                   </CardContent>
                 </Card>
-
-                <Separator />
               </>
             )}
 

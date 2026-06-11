@@ -1,15 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { checkAICoachAccess } from "@/lib/middleware/ai-coach-auth";
+import { checkAICoachAccess, type AICoachAuthResult } from "@/lib/middleware/ai-coach-auth";
+import { htmlToText } from "@/lib/utils/html-to-text";
+import { fetchPublicUrl, readBodyCapped } from "@/lib/utils/safe-fetch";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  
+  // Declared outside the try so the catch block can log them.
+  let authResult: AICoachAuthResult | undefined;
+  let url: string | undefined;
+
   try {
     // Check authentication and AI Coach access
-    const authResult = await checkAICoachAccess('FETCH_JOB_DESCRIPTION');
+    authResult = await checkAICoachAccess('FETCH_JOB_DESCRIPTION');
     if (!authResult.authorized) {
       loggerService.warn('Unauthorized job description fetch attempt', {
         category: LogCategory.SECURITY,
@@ -18,13 +23,18 @@ export async function POST(request: NextRequest) {
           reason: authResult.reason || 'unknown'
         }
       });
-      return authResult.response!;
+      // checkAICoachAccess always supplies a response on denial, but guard
+      // against a missing one so we never dereference null and leak access.
+      return (
+        authResult.response ??
+        NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      );
     }
 
     const supabase = await createClient();
     const user = authResult.user;
 
-    const { url } = await request.json();
+    ({ url } = await request.json());
 
     if (!url || typeof url !== "string") {
       loggerService.warn('Job description fetch missing URL', {
@@ -53,12 +63,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch the webpage
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; JobTracker/1.0)",
-      },
-    });
+    // Fetch the webpage. fetchPublicUrl re-validates every redirect hop
+    // against the SSRF guards (blocked hosts, DNS rebinding).
+    let response: Response;
+    try {
+      response = await fetchPublicUrl(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; JobTracker/1.0)",
+        },
+        timeoutMs: 10_000,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message === 'Blocked host' || message === 'Too many redirects') {
+        loggerService.warn('Job description fetch blocked', {
+          category: LogCategory.SECURITY,
+          userId: user.id,
+          action: 'fetch_job_description_blocked_host',
+          duration: Date.now() - startTime,
+          metadata: { url, reason: message }
+        });
+        return NextResponse.json(
+          { error: "This URL cannot be fetched" },
+          { status: 400 }
+        );
+      }
+      throw error;
+    }
 
     if (!response.ok) {
       loggerService.error('Failed to fetch webpage', new Error(`HTTP ${response.status}`), {
@@ -77,16 +108,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const html = await response.text();
+    const html = await readBodyCapped(response, 2 * 1024 * 1024);
 
     // Basic HTML parsing to extract text content
-    // Remove script and style tags
-    const cleanHtml = html
-      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    const cleanHtml = htmlToText(html);
 
     // Try to find job-related content (this is a simple approach)
     // In a production app, you might want to use a more sophisticated parser

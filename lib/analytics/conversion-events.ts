@@ -21,7 +21,22 @@ export const CONVERSION_EVENTS = {
   FIRST_APPLICATION_ADDED: "first_application_added",
   THIRD_APPLICATION_ADDED: "third_application_added",
   FIFTH_APPLICATION_ADDED: "fifth_application_added",
-  
+
+  // Guided first-job import (retention Phase 1)
+  ONBOARDING_JOB_IMPORT_STARTED: "onboarding_job_import_started",
+  ONBOARDING_JOB_IMPORT_COMPLETED: "onboarding_job_import_completed",
+  ONBOARDING_JOB_IMPORT_SKIPPED: "onboarding_job_import_skipped",
+
+  // Lifecycle emails (retention Phase 2)
+  EMAIL_SENT: "email_sent",
+  EMAIL_OPENED: "email_opened",
+  EMAIL_CLICKED: "email_clicked",
+  EMAIL_UNSUBSCRIBED: "email_unsubscribed",
+
+  // AI Coach onboarding anchor (retention Phase 3)
+  AI_COACH_ONBOARDING_SHOWN: "ai_coach_onboarding_shown",
+  AI_COACH_ONBOARDING_CTA_CLICKED: "ai_coach_onboarding_cta_clicked",
+
   // AI feature discovery
   AI_FEATURE_DISCOVERED: "ai_feature_discovered",
   AI_TEASER_VIEWED: "ai_feature_teaser_viewed",
@@ -102,7 +117,16 @@ export interface ConversionEventProperties {
   // Application properties
   application_count?: number;
   application_id?: string;
-  
+
+  // Onboarding job-import properties
+  method?: "url_paste" | "manual";
+  extraction_success?: boolean;
+
+  // Lifecycle email properties
+  type?: string;
+  cta_target?: string;
+  category?: "drip" | "reminders" | "digest" | "all";
+
   // Upgrade properties
   plan_name?: string;
   price?: number;
