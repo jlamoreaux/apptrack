@@ -118,8 +118,6 @@ export default async function SettingsPage() {
                     </Link>
                   </CardContent>
                 </Card>
-
-                <Separator />
               </>
             )}
 

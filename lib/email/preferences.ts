@@ -164,7 +164,12 @@ export async function filterSendableRecipients(
 
   const prefsByUser = new Map<string, EmailPreferences>();
   for (const row of prefsResult.data ?? []) {
-    prefsByUser.set(row.user_id as string, row as unknown as EmailPreferences);
+    prefsByUser.set(row.user_id, {
+      drip_enabled: row.drip_enabled,
+      reminders_enabled: row.reminders_enabled,
+      digest_enabled: row.digest_enabled,
+      unsubscribed_all: row.unsubscribed_all,
+    });
   }
   const subscribedByEmail = new Map<string, boolean>();
   for (const row of audienceResult.data ?? []) {
