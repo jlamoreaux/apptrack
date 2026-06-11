@@ -23,7 +23,12 @@ export async function POST(request: NextRequest) {
           reason: authResult.reason || 'unknown'
         }
       });
-      return authResult.response!;
+      // checkAICoachAccess always supplies a response on denial, but guard
+      // against a missing one so we never dereference null and leak access.
+      return (
+        authResult.response ??
+        NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      );
     }
 
     const supabase = await createClient();

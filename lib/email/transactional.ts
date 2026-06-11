@@ -87,8 +87,6 @@ export async function sendPasswordResetEmail({
   email: string;
   resetUrl: string;
 }): Promise<{ success: boolean }> {
-  const safeResetUrl = safeUrl(resetUrl);
-
   const html = wrapEmail(
     `
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
@@ -97,7 +95,7 @@ export async function sendPasswordResetEmail({
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
       We received a request to reset your password. Click the button below to choose a new one.
     </p>
-    ${ctaButton('Reset Password', safeResetUrl)}
+    ${ctaButton('Reset Password', resetUrl)}
     <p style="margin: 0 0 16px; font-size: 14px; color: ${EMAIL_THEME.muted};">
       This link will expire in 24 hours. If you didn't request a password reset, you can safely ignore this email.
     </p>

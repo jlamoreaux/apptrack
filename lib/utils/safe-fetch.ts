@@ -85,6 +85,13 @@ export async function fetchPublicUrl(
     if (isBlockedHost(parsed.hostname)) {
       throw new Error('Blocked host');
     }
+    // DNS-rebinding TOCTOU: the hostname is resolved and validated here, but
+    // fetch() resolves it again, so an attacker controlling DNS could return a
+    // public IP now and a private one to fetch(). Full mitigation needs DNS
+    // pinning or passing a resolved IP to the transport, which the standard
+    // Fetch API doesn't support. The layered guards above (protocol check,
+    // isBlockedHost blocklist, and per-hop re-validation) are intentional
+    // fallback mitigations for this threat model.
     await assertResolvesPublic(parsed.hostname);
 
     const response = await fetch(current, {

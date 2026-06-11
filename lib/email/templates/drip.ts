@@ -9,7 +9,7 @@
  */
 
 import type { AudienceId } from '../audiences';
-import { wrapEmail, ctaButton, APP_URL, EMAIL_THEME } from './shared';
+import { wrapEmail, ctaButton, escapeHtml, APP_URL, EMAIL_THEME } from './shared';
 import type { BaseTemplateParams } from './shared';
 
 export type DripTemplate = {
@@ -36,7 +36,7 @@ const leadsTemplates: DripTemplate[] = [
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thanks for trying our AI career tools. Here's what you can do with a free AppTrack account:
@@ -56,7 +56,7 @@ const leadsTemplates: DripTemplate[] = [
     dayOffset: 2,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here are 3 things that successful job seekers do differently:
@@ -86,7 +86,7 @@ const leadsTemplates: DripTemplate[] = [
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Still searching for your next role? Here's how AppTrack makes it easier:
@@ -134,7 +134,7 @@ const freeUsersTemplates: DripTemplate[] = [
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Welcome, ${params.firstName}!` : 'Welcome!'}
+        ${params.firstName ? `Welcome, ${escapeHtml(params.firstName || '')}!` : 'Welcome!'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thanks for signing up for AppTrack. We're here to help you land your next role.
@@ -164,7 +164,7 @@ const freeUsersTemplates: DripTemplate[] = [
     dayOffset: 2,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Have you tried our AI features yet? Here's a quick one to start with:
@@ -188,7 +188,7 @@ const freeUsersTemplates: DripTemplate[] = [
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Quick tip: uploading your resume unlocks personalized insights across all our AI features.
@@ -212,7 +212,7 @@ const freeUsersTemplates: DripTemplate[] = [
     dayOffset: 7,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         You've been using AppTrack for a week now. How's the job search going?
@@ -246,7 +246,7 @@ const trialUsersTemplates: DripTemplate[] = [
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Your trial is now active! Here are the top features to try:
@@ -273,7 +273,7 @@ const trialUsersTemplates: DripTemplate[] = [
     dayOffset: 3,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Interview Prep can be a game-changer. Here's how it works:
@@ -304,7 +304,7 @@ const paidUsersTemplates: DripTemplate[] = [
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Thank you for upgrading to AppTrack Pro! You now have unlimited access to all our AI features.
@@ -332,7 +332,7 @@ const paidUsersTemplates: DripTemplate[] = [
     dayOffset: 3,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
-        ${params.firstName ? `Hi ${params.firstName},` : 'Hi there,'}
+        ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's a pro tip to get more value from AppTrack:
