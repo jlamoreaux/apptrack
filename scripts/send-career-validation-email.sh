@@ -37,7 +37,7 @@ MODE="${1:-dry-run}"
 
 post() {
   # $1 = JSON body
-  curl -sS -X POST "$ENDPOINT" \
+  curl -sS --connect-timeout 10 --max-time 60 --fail-with-body -X POST "$ENDPOINT" \
     -H "Authorization: Bearer ${CRON_SECRET}" \
     -H "Content-Type: application/json" \
     -d "$1"
@@ -53,6 +53,12 @@ case "$MODE" in
     TEST_EMAIL="${2:-}"
     if [ -z "$TEST_EMAIL" ]; then
       echo "Usage: $0 test you@example.com" >&2
+      exit 1
+    fi
+    # Validate before interpolating into the JSON body: a strict address has no
+    # quotes/backslashes/spaces, so it can't break out of the JSON string.
+    if ! printf '%s' "$TEST_EMAIL" | grep -qE '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'; then
+      echo "Error: '$TEST_EMAIL' is not a valid email address." >&2
       exit 1
     fi
     echo "Sending ONE test email to ${TEST_EMAIL}:"
