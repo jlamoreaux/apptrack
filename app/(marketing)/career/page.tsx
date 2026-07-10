@@ -45,11 +45,6 @@ export default async function CareerPage() {
             <div className="max-w-md mx-auto mt-10">
               <CareerWaitlistForm userEmail={userEmail} />
             </div>
-
-            {/* What to expect */}
-            <p className="max-w-md mx-auto mt-6 text-center text-sm text-muted-foreground">
-              We&apos;ll keep you posted as we build it.
-            </p>
           </div>
         </section>
       </main>
