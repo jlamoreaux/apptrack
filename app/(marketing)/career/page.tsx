@@ -7,7 +7,7 @@ import { CareerWaitlistForm } from "./career-waitlist-form";
 export const metadata: Metadata = {
   title: "Get promoted faster | AppTrack.ing",
   description:
-    "We're building a career companion for AppTrack: track your wins, get an AI-built case for your next review, and know your gaps before your manager does. Join the early-access waitlist.",
+    "We're building a career companion for AppTrack: track your wins, turn them into a clear, evidence-backed case for your next review, and know your gaps before your manager does. Join the early-access waitlist.",
   openGraph: {
     title: "Get promoted faster with AppTrack.ing",
     description:
@@ -35,10 +35,10 @@ export default async function CareerPage() {
               </h1>
               <p className="text-lg text-muted-foreground">
                 We&apos;re building a career companion for AppTrack: track your
-                wins as they happen, get an AI-built case for your next
-                performance review, and know your gaps before your manager
-                does. It doesn&apos;t exist yet &mdash; we&apos;re building it now and
-                inviting early users to shape it. No fake pricing, no fake
+                wins as they happen, turn them into a clear, evidence-backed
+                case when review time comes, and know your gaps before your
+                manager does. It doesn&apos;t exist yet, but we&apos;re building it now
+                and inviting early users to shape it. No fake pricing, no fake
                 feature list. Just an honest heads-up when it&apos;s ready to try.
               </p>
             </div>

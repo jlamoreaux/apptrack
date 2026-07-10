@@ -94,8 +94,8 @@ export function CareerWaitlistBanner({
                 Planning your next raise or promotion?
               </p>
               <p className="text-sm text-muted-foreground">
-                We&apos;re building a career companion — track your wins and
-                build the case for your next review.
+                We&apos;re building a career companion to help you track your
+                wins and build the case for your next review.
               </p>
             </div>
           </div>

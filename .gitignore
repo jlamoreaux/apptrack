@@ -59,3 +59,4 @@ coverage/
 
 # Local Claude Code agent worktrees (never commit)
 .claude/worktrees/
+ui-screenshots/
