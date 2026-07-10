@@ -37,9 +37,7 @@ export default async function CareerPage() {
                 We&apos;re building a career companion for AppTrack: track your
                 wins as they happen, turn them into a clear, evidence-backed
                 case when review time comes, and know your gaps before your
-                manager does. It doesn&apos;t exist yet, but we&apos;re building it now
-                and inviting early users to shape it. No fake pricing, no fake
-                feature list. Just an honest heads-up when it&apos;s ready to try.
+                manager does. Join the waitlist for early access.
               </p>
             </div>
 
@@ -50,8 +48,7 @@ export default async function CareerPage() {
 
             {/* What to expect */}
             <p className="max-w-md mx-auto mt-6 text-center text-sm text-muted-foreground">
-              We&apos;ll email you once when there&apos;s something real to try. No drip
-              sequence, no spam, and you can ignore it if the timing isn&apos;t right.
+              We&apos;ll email you once, when it&apos;s ready to try.
             </p>
           </div>
         </section>
