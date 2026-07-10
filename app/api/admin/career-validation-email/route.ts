@@ -25,6 +25,8 @@ import type { BroadcastResult, SentRecipient } from '@/lib/email/broadcast';
 import type { AudienceId } from '@/lib/email/audiences';
 import { createAdminClient } from '@/lib/supabase/admin-client';
 import { CAREER_CAMPAIGN } from '@/lib/constants/career';
+import { CAREER_EVENT_NAMES } from '@/lib/analytics/career-event-names';
+import { emailDistinctId } from '@/lib/analytics/anonymize';
 import {
   DEFAULT_CAREER_VALIDATION_FROM,
   DEFAULT_CAREER_VALIDATION_REPLY_TO,
@@ -37,10 +39,6 @@ import { LogCategory } from '@/lib/services/logger.types';
 export const maxDuration = 300;
 
 const ENDPOINT = '/api/admin/career-validation-email';
-
-// Mirrors CAREER_EVENTS.EMAIL_SENT in lib/analytics/career-events.ts, which
-// can't be imported here: it pulls in a "use client" hook module.
-const CAREER_EMAIL_SENT_EVENT = 'career_email_sent';
 
 // Owner-confirmed (2026-07-10): send to the entire list, leads included.
 const DEFAULT_AUDIENCES: AudienceId[] = ['leads', 'free-users', 'trial-users', 'paid-users'];
@@ -121,9 +119,10 @@ async function claimCampaignMarker(
 
 /**
  * Fire career_email_sent per successful recipient through a local batched
- * PostHog client. Distinct id is user_id when known, else the email address
- * (audience_members.user_id is nullable) — the gate insight reads counts,
- * not identity joins. Never throws: emails are already out at this point.
+ * PostHog client. Distinct id is user_id when known, else a SHA-256 hash of
+ * the email (audience_members.user_id is nullable) so PostHog never stores a
+ * raw email as an identifier. The gate insight reads counts, not identity
+ * joins. Never throws: emails are already out at this point.
  */
 async function captureEmailSentEvents(recipients: SentRecipient[]): Promise<void> {
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
@@ -145,8 +144,8 @@ async function captureEmailSentEvents(recipients: SentRecipient[]): Promise<void
   try {
     for (const recipient of recipients) {
       client.capture({
-        distinctId: recipient.userId ?? recipient.email,
-        event: CAREER_EMAIL_SENT_EVENT,
+        distinctId: recipient.userId ?? emailDistinctId(recipient.email),
+        event: CAREER_EVENT_NAMES.EMAIL_SENT,
         properties: { campaign: CAREER_CAMPAIGN },
       });
     }

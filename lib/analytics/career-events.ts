@@ -4,23 +4,17 @@
  */
 
 import { capturePostHogEvent } from "./posthog";
+import { CAREER_EVENT_NAMES } from "./career-event-names";
 import { getStoredUTMParams } from "@/lib/hooks/use-utm-tracking";
 
 /**
- * Central registry of Career Companion event names.
+ * Central registry of Career Companion event names. Re-exported from the
+ * framework-agnostic career-event-names module so server routes (which can't
+ * import this "use client"-adjacent module) share the same source of truth.
  * `EMAIL_SENT` and `WAITLIST_JOINED` are fired server-side (validation email
- * route and waitlist API respectively) — listed here so the full funnel has a
- * single source of truth, but they have no client track functions.
+ * route and waitlist API respectively) and have no client track functions.
  */
-export const CAREER_EVENTS = {
-  WAITLIST_VIEWED: "career_waitlist_viewed",
-  EMAIL_CLICKED: "career_email_clicked",
-  BANNER_CLICKED: "career_banner_clicked",
-  BANNER_DISMISSED: "career_banner_dismissed",
-  // Server-fired only:
-  EMAIL_SENT: "career_email_sent",
-  WAITLIST_JOINED: "career_waitlist_joined",
-} as const;
+export const CAREER_EVENTS = CAREER_EVENT_NAMES;
 
 /** Session-scoped de-dupe marker for career_email_clicked */
 const EMAIL_CLICKED_SESSION_KEY = "apptrack_career_email_clicked";

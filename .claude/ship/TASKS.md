@@ -8,7 +8,7 @@ Prior `TASKS.md` (retention strategy) was fully complete and is superseded by th
 ## Task 1: Migration 031 — `career_waitlist` + `campaign_sends`
 - [ ] 1.1: Write `schemas/migrations/031_career_waitlist.sql`: `career_waitlist` (unique email, nullable user_id FK, `review_timing` CHECK, `source` CHECK in ('email','banner','direct'), `utm` jsonb, created_at) + `campaign_sends` (campaign PK, sent_at, recipient_count, metadata). RLS service-role only on both.
 - [ ] 1.2: Add shared constants `lib/constants/career.ts`: `REVIEW_TIMING_OPTIONS` (values + labels), `CAREER_CAMPAIGN` id, waitlist source enum — single source of truth mirrored by the SQL CHECKs.
-- [ ] 1.3: Apply via `./scripts/run-schema.sh schemas/migrations/031_career_waitlist.sql` (runs against the live DB — verify SQL by review first).
+- [ ] 1.3: Validate the migration against a local Supabase/Postgres instance first, then apply to production via `./scripts/run-schema.sh schemas/migrations/031_career_waitlist.sql` (that script targets the live DB — review the SQL and verify locally before running it).
 - [ ] 1.4: Write tests for Task 1: constants shape/values match the SQL CHECK lists (guards drift).
 
 ## Task 2: Career analytics module

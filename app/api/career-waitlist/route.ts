@@ -22,14 +22,10 @@ import { rateLimitService } from "@/lib/services/rate-limit.service";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { CAREER_EVENT_NAMES } from "@/lib/analytics/career-event-names";
+import { emailDistinctId } from "@/lib/analytics/anonymize";
 
-/**
- * Mirrors CAREER_EVENTS.WAITLIST_JOINED in lib/analytics/career-events.ts.
- * Not imported from there because that module pulls in "use client"
- * dependencies (use-utm-tracking) that don't belong in a route handler.
- * Drift is guarded by __tests__/api/career-waitlist.test.ts.
- */
-const CAREER_WAITLIST_JOINED_EVENT = "career_waitlist_joined";
+const CAREER_WAITLIST_JOINED_EVENT = CAREER_EVENT_NAMES.WAITLIST_JOINED;
 
 // Upstash sliding-window limit: joins per IP per hour. Kept generous because
 // legitimate joiners share egress IPs (corporate NAT, campus, mobile CGNAT)
@@ -100,10 +96,11 @@ function getClientIp(request: NextRequest): string {
 
 /**
  * Distinct id precedence: session user id (trusted) → client-forwarded
- * ph_distinct_id → normalized email. The session id wins so an authenticated
- * join is never mis-attributed by a spoofed ph_distinct_id in the payload;
- * the client value is only used for anonymous joins, where it stitches the
- * event to the same browser session as career_waitlist_viewed.
+ * ph_distinct_id → SHA-256 hash of the email. The session id wins so an
+ * authenticated join is never mis-attributed by a spoofed ph_distinct_id in
+ * the payload; the client value is only used for anonymous joins, where it
+ * stitches the event to the same browser session as career_waitlist_viewed.
+ * The email is hashed so PostHog never stores it as a raw identifier.
  */
 function resolveDistinctId(
   phDistinctId: unknown,
@@ -120,28 +117,28 @@ function resolveDistinctId(
   ) {
     return phDistinctId;
   }
-  return email;
+  return emailDistinctId(email);
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Always rate-limit: requests with no forwardable IP fall back to a shared
+    // "unknown" bucket (getClientIp) rather than bypassing the only abuse
+    // control on this public endpoint. On Vercel real browser traffic always
+    // carries x-forwarded-for, so legitimate users don't land in that bucket.
+    // checkIpRateLimit fails open internally if the limiter store errors.
     const ip = getClientIp(request);
-    // Only rate-limit when we have a real client IP. A missing IP resolves to
-    // the literal "unknown", which would otherwise collapse every such visitor
-    // into one shared bucket and lock them all out after a few joins.
-    if (ip !== "unknown") {
-      const rateLimit = await rateLimitService.checkIpRateLimit(
-        ip,
-        RATE_LIMIT_SCOPE,
-        RATE_LIMIT_MAX_REQUESTS,
-        RATE_LIMIT_WINDOW_SECONDS
+    const rateLimit = await rateLimitService.checkIpRateLimit(
+      ip,
+      RATE_LIMIT_SCOPE,
+      RATE_LIMIT_MAX_REQUESTS,
+      RATE_LIMIT_WINDOW_SECONDS
+    );
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many attempts. Please try again in an hour." },
+        { status: 429 }
       );
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: "Too many attempts. Please try again in an hour." },
-          { status: 429 }
-        );
-      }
     }
 
     let body: Record<string, unknown>;

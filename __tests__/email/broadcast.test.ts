@@ -99,6 +99,22 @@ describe("sendBroadcast sentRecipients", () => {
     expect(result.failed).toBe(50);
   });
 
+  it("records only the accepted count when Resend creates fewer messages than the batch", async () => {
+    // error null but data.data reports fewer created messages than sent.
+    mockAudienceMembers([member(1, true), member(2, true)]);
+    mockBatchSend.mockResolvedValue({
+      data: { data: [{ id: "msg-1" }] },
+      error: null,
+    });
+
+    const result = await sendBroadcast(baseOptions);
+
+    expect(result.sent).toBe(1);
+    expect(result.sentRecipients).toEqual([
+      { email: "user1@example.com", userId: "user-id-1" },
+    ]);
+  });
+
   it("testEmail path reports the single recipient with null userId and skips the DB", async () => {
     const result = await sendBroadcast({ ...baseOptions, testEmail: "Owner@Example.com " });
 

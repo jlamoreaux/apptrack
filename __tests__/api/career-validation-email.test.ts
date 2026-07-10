@@ -42,6 +42,7 @@ import { verifyCronAuth } from "@/lib/email/lifecycle-cron";
 import { sendBroadcast, getAudienceCount } from "@/lib/email/broadcast";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { CAREER_CAMPAIGN } from "@/lib/constants/career";
+import { emailDistinctId } from "@/lib/analytics/anonymize";
 
 const mockVerifyCronAuth = verifyCronAuth as jest.MockedFunction<typeof verifyCronAuth>;
 const mockSendBroadcast = sendBroadcast as jest.MockedFunction<typeof sendBroadcast>;
@@ -244,7 +245,7 @@ describe("POST /api/admin/career-validation-email", () => {
     expect(data).toMatchObject({ total: 4, sent: 4, failed: 0 });
   });
 
-  it("captures career_email_sent per successful recipient with userId ?? email distinct id", async () => {
+  it("captures career_email_sent per recipient using userId, else the hashed email", async () => {
     const supabase = setupSupabaseMock();
 
     const res = await POST(makeRequest());
@@ -257,8 +258,10 @@ describe("POST /api/admin/career-validation-email", () => {
       event: "career_email_sent",
       properties: { campaign: CAREER_CAMPAIGN },
     });
+    // Anonymous recipient (no userId): distinct id is the hashed email, never
+    // the raw address.
     expect(posthogCapture).toHaveBeenCalledWith({
-      distinctId: "free-users-b@example.com",
+      distinctId: emailDistinctId("free-users-b@example.com"),
       event: "career_email_sent",
       properties: { campaign: CAREER_CAMPAIGN },
     });

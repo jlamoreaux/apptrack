@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Flame, Copy, Share2, X, TrendingUp, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
+import {
+  useRoastAnalytics,
+  ROAST_EVENTS,
+  type RoastSignupPlacement,
+} from "@/lib/roast/analytics";
 import { RoastConversionModule, ROAST_SIGNUP_URL, ROAST_VISITOR_SIGNUP_URL } from "@/components/roast/roast-conversion-cta";
 
 interface RoastData {
@@ -222,7 +226,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                   <Button
                     size="lg"
                     onClick={() => {
-                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "results_page", placement: "page_end" });
+                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "results_page", placement: "page_end" satisfies RoastSignupPlacement });
                       router.push(ROAST_SIGNUP_URL);
                     }}
                   >
@@ -262,7 +266,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                     variant="outline"
                     size="lg"
                     onClick={() => {
-                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "visitor_view", placement: "visitor_view" });
+                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "visitor_view", placement: "visitor_view" satisfies RoastSignupPlacement });
                       router.push(ROAST_VISITOR_SIGNUP_URL);
                     }}
                   >

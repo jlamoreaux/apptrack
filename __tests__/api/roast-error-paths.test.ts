@@ -1,10 +1,9 @@
 /**
  * Tests for the roast API error paths.
  *
- * Regression coverage for the catch-block ReferenceErrors: `user` (POST
- * /api/roast) and `id` (GET /api/roast/[id]) were declared inside the try,
- * so any failure crashed the catch instead of returning the designed JSON
- * error and firing the `api_error` analytics capture.
+ * When a roast request fails, POST /api/roast and GET /api/roast/[id] must
+ * return their designed JSON error responses and POST must still fire the
+ * `api_error` analytics capture with a defined distinct id.
  */
 
 // next/server is mocked globally in jest.setup.js; its `after` mock runs

@@ -1,6 +1,6 @@
 /**
- * Tests for the roast landing-page instrumentation gap (Task 8.2):
- * roast_file_selected fires when a file is picked on both landing pages.
+ * Selecting a file emits roast_file_selected on both roast landing-page
+ * variants (v1 and v2).
  */
 
 import { render, screen, fireEvent } from "@testing-library/react";
@@ -56,9 +56,12 @@ describe.each([
 ])("roast-my-resume landing page %s", (_variant, Page) => {
   it("fires roast_file_selected when a file is picked", () => {
     render(<Page />);
+    // Clear so this parameterized case can't pass on a prior variant's call.
+    mockTrackEvent.mockClear();
 
     fireEvent.click(screen.getByText("mock-select-file"));
 
+    expect(mockTrackEvent).toHaveBeenCalledTimes(1);
     expect(mockTrackEvent).toHaveBeenCalledWith("roast_file_selected", {
       fileType: "application/pdf",
       fileSize: expect.any(Number),

@@ -15,6 +15,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { rateLimitService } from "@/lib/services/rate-limit.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREER_EVENTS } from "@/lib/analytics/career-events";
+import { emailDistinctId } from "@/lib/analytics/anonymize";
 import { REVIEW_TIMING_OPTIONS } from "@/lib/constants/career";
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -343,11 +344,12 @@ describe("POST /api/career-waitlist", () => {
         );
       });
 
-      it("falls back to the normalized email when anonymous with no ph_distinct_id", async () => {
+      it("falls back to a hashed email when anonymous with no ph_distinct_id", async () => {
         await POST(makeRequest(validBody({ email: "  Anon@Example.COM " })));
 
+        // Hashed, not raw email — PostHog never stores the address as an id.
         expect(mockCaptureServerEvent).toHaveBeenCalledWith(
-          "anon@example.com",
+          emailDistinctId("anon@example.com"),
           CAREER_EVENTS.WAITLIST_JOINED,
           expect.any(Object)
         );
@@ -359,7 +361,7 @@ describe("POST /api/career-waitlist", () => {
         );
 
         expect(mockCaptureServerEvent).toHaveBeenCalledWith(
-          "jordan@example.com",
+          emailDistinctId("jordan@example.com"),
           CAREER_EVENTS.WAITLIST_JOINED,
           expect.any(Object)
         );
@@ -369,7 +371,7 @@ describe("POST /api/career-waitlist", () => {
         await POST(makeRequest(validBody({ ph_distinct_id: 12345 })));
 
         expect(mockCaptureServerEvent).toHaveBeenCalledWith(
-          "jordan@example.com",
+          emailDistinctId("jordan@example.com"),
           CAREER_EVENTS.WAITLIST_JOINED,
           expect.any(Object)
         );
