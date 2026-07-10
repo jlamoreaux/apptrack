@@ -45,11 +45,16 @@ export function trackRoastEvent(event: string, properties?: Record<string, any>)
 }
 
 export const ROAST_EVENTS = {
+  FILE_SELECTED: "roast_file_selected",
   UPLOAD_STARTED: "roast_upload_started",
   UPLOAD_COMPLETED: "roast_upload_completed",
   UPLOAD_FAILED: "roast_upload_failed",
   ROAST_VIEWED: "roast_viewed",
   ROAST_SHARED: "roast_shared",
   SIGNUP_CLICKED: "roast_signup_clicked",
+  TRY_ANOTHER: "roast_try_another",
   LIMIT_REACHED: "roast_limit_reached",
 } as const;
+
+// Distinguishes which results-page CTA produced a roast_signup_clicked event.
+export type RoastSignupPlacement = "after_score" | "page_end" | "visitor_view";

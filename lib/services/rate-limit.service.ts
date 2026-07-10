@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { redis, isRedisAvailable } from "@/lib/redis/client";
+import { redis, isRedisAvailable, createRateLimiter } from "@/lib/redis/client";
 import { Ratelimit } from "@upstash/ratelimit";
 
 export type AIFeature =
@@ -97,6 +97,68 @@ export class RateLimitService {
         reset: new Date(Date.now() + 3600000),
       };
     }
+  }
+
+  /**
+   * IP-based rate limiting for public, unauthenticated endpoints
+   * (e.g. waitlist joins) via an Upstash sliding window.
+   *
+   * Fails open when Redis is unavailable or errors — consistent with
+   * checkLimit(): an infrastructure outage should never block a public form.
+   */
+  public async checkIpRateLimit(
+    ip: string,
+    scope: string,
+    maxRequests: number,
+    windowSeconds: number
+  ): Promise<RateLimitResult> {
+    const failOpenResult: RateLimitResult = {
+      allowed: true,
+      limit: maxRequests,
+      remaining: maxRequests,
+      reset: new Date(Date.now() + windowSeconds * 1000),
+    };
+
+    const limiter = this.getIpRateLimiter(scope, maxRequests, windowSeconds);
+    if (!limiter) {
+      return failOpenResult;
+    }
+
+    try {
+      const result = await limiter.limit(`ip:${scope}:${ip}`);
+      return {
+        allowed: result.success,
+        limit: result.limit,
+        remaining: result.remaining,
+        reset: new Date(result.reset),
+        retryAfter: result.success
+          ? undefined
+          : Math.max(1, Math.ceil((result.reset - Date.now()) / 1000)),
+      };
+    } catch (error) {
+      console.error(`[rate-limit] IP rate limit check failed for ${scope}:`, error);
+      return failOpenResult;
+    }
+  }
+
+  private getIpRateLimiter(
+    scope: string,
+    maxRequests: number,
+    windowSeconds: number
+  ): Ratelimit | null {
+    const cacheKey = `ip:${scope}:${maxRequests}:${windowSeconds}`;
+    const cached = this.rateLimiters.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const limiter = createRateLimiter(maxRequests, `${windowSeconds} s`);
+    if (!limiter) {
+      return null;
+    }
+
+    this.rateLimiters.set(cacheKey, limiter);
+    return limiter;
   }
 
   /**

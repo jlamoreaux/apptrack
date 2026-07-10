@@ -21,6 +21,7 @@ import { validateEmail } from "@/lib/email/validate";
 import { scheduleDripSequence } from "@/lib/email/drip-scheduler";
 import { sendRoastReadyEmail } from "@/lib/email/transactional";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import type { User } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 30; // 30 seconds timeout
@@ -48,7 +49,9 @@ function hashEmail(email: string): string {
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
-  
+  // Declared outside the try so the catch block can attribute errors to the user
+  let user: User | null = null;
+
   try {
     // Normalize version for metadata tracking (v1 is deprecated, default is v2)
     const url = new URL(req.url);
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
     const browserFingerprint = await generateBrowserFingerprint(req);
     
     // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser();
+    ({ data: { user } } = await supabase.auth.getUser());
     // Check rate limiting (version-agnostic to prevent bypass on default changes)
     if (user) {
       // Authenticated user rate limiting
@@ -103,7 +106,8 @@ export async function POST(req: NextRequest) {
             ipHash,
             browserFingerprint,
             version,
-            userTier: user?.id ? 'authenticated' : 'guest',
+            // This branch only runs for unauthenticated requests
+            userTier: 'guest',
             limit: guestRateLimit.limit,
             resetAt: guestRateLimit.resetAt
           }

@@ -15,6 +15,12 @@ import type { AudienceId } from './audiences';
 type BroadcastRecipient = {
   email: string;
   first_name: string | null;
+  user_id: string | null;
+};
+
+export type SentRecipient = {
+  email: string;
+  userId: string | null;
 };
 
 export type BroadcastOptions = {
@@ -22,6 +28,7 @@ export type BroadcastOptions = {
   subject: string;
   getHtml: (params: { email: string; firstName?: string; unsubscribeUrl: string }) => string;
   from?: string;
+  replyTo?: string; // Route replies to a real inbox (e.g. a founder's address)
   testEmail?: string; // Send to a single email instead of the full audience
 };
 
@@ -32,16 +39,31 @@ export type BroadcastResult = {
   failed: number;
 };
 
+export type BroadcastSendResult = BroadcastResult & {
+  /**
+   * Recipients of batches Resend accepted. resend.batch.send succeeds or
+   * fails per batch of BATCH_SIZE, so success granularity is per batch,
+   * not per individual recipient.
+   */
+  sentRecipients: SentRecipient[];
+};
+
 const BATCH_SIZE = 100; // Resend batch limit
 
 /**
  * Send a broadcast email to all subscribed members of an audience
  */
-export async function sendBroadcast(options: BroadcastOptions): Promise<BroadcastResult> {
-  const { audience, subject, getHtml, testEmail } = options;
+export async function sendBroadcast(options: BroadcastOptions): Promise<BroadcastSendResult> {
+  const { audience, subject, getHtml, testEmail, replyTo } = options;
   const from = options.from || process.env.FROM_EMAIL || 'AppTrack <onboarding@resend.dev>';
 
-  const result: BroadcastResult = { audience, total: 0, sent: 0, failed: 0 };
+  const result: BroadcastSendResult = {
+    audience,
+    total: 0,
+    sent: 0,
+    failed: 0,
+    sentRecipients: [],
+  };
 
   if (!resend) {
     throw new Error('Resend not configured for email broadcast');
@@ -51,7 +73,7 @@ export async function sendBroadcast(options: BroadcastOptions): Promise<Broadcas
   let recipients: BroadcastRecipient[];
 
   if (testEmail) {
-    recipients = [{ email: testEmail.trim().toLowerCase(), first_name: null }];
+    recipients = [{ email: testEmail.trim().toLowerCase(), first_name: null, user_id: null }];
   } else {
     recipients = await getSubscribedMembers(audience);
   }
@@ -80,6 +102,7 @@ export async function sendBroadcast(options: BroadcastOptions): Promise<Broadcas
           to: recipient.email,
           subject,
           html,
+          ...(replyTo ? { replyTo } : {}),
         };
       });
 
@@ -93,7 +116,17 @@ export async function sendBroadcast(options: BroadcastOptions): Promise<Broadcas
         });
         result.failed += batch.length;
       } else {
-        result.sent += data?.data?.length || batch.length;
+        // Resend preserves order, so the first `acceptedCount` recipients map
+        // to the created messages. Keep sent and sentRecipients derived from
+        // the same count so downstream per-recipient analytics can't exceed
+        // the recorded sent total.
+        const acceptedCount = data?.data?.length || batch.length;
+        result.sent += acceptedCount;
+        result.sentRecipients.push(
+          ...batch
+            .slice(0, acceptedCount)
+            .map((recipient) => ({ email: recipient.email, userId: recipient.user_id }))
+        );
       }
     } catch (error) {
       loggerService.error('Unexpected error in batch send', error, {
@@ -122,7 +155,7 @@ async function getSubscribedMembers(audience: AudienceId): Promise<BroadcastReci
 
   const { data, error } = await supabase
     .from('audience_members')
-    .select('email, first_name')
+    .select('email, first_name, user_id')
     .eq('current_audience', audience)
     .eq('subscribed', true);
 
@@ -168,7 +201,14 @@ export async function broadcastChangelog(options: {
         }),
     });
 
-    results.push(result);
+    // Keep counts only: these results flow into the changelog cron's JSON
+    // response and logs, where recipient email lists don't belong.
+    results.push({
+      audience: result.audience,
+      total: result.total,
+      sent: result.sent,
+      failed: result.failed,
+    });
   }
 
   const totals = results.reduce(
