@@ -41,8 +41,8 @@ export function getCareerValidationHtml(params: CareerValidationTemplateParams):
       review time comes, and know your gaps before your manager does.
     </p>
     <p style="margin: 0 0 8px; font-size: 16px; color: ${EMAIL_THEME.body};">
-      It doesn't exist yet, but I'm building it now, and I want the people it's
-      for to shape it. Want in?
+      It's early and still coming together, and I want to build it with the
+      people it's for. Want in?
     </p>
     ${ctaButton('Join the waitlist', CAREER_VALIDATION_CTA_URL)}
     <p style="margin: 24px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted}; text-align: center;">
