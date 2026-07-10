@@ -51,6 +51,10 @@ export default function RoastMyResumePage() {
   const handleFileSelect = (selectedFile: File) => {
     setError(null);
     setFile(selectedFile);
+    trackEvent(ROAST_EVENTS.FILE_SELECTED, {
+      fileType: selectedFile.type,
+      fileSize: selectedFile.size,
+    });
   };
 
   const validateFile = (file: File) => {

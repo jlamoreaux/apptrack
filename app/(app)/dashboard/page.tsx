@@ -14,6 +14,7 @@ import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
 import { HiredSubscriptionBanner } from "@/components/hired-subscription-banner";
+import { CareerWaitlistBanner } from "@/components/career-waitlist-banner";
 import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
 import { DashboardLayoutWrapper } from "@/components/dashboard-layout-wrapper";
 import { getServerFeatureFlag } from "@/lib/analytics/posthog-server";
@@ -99,13 +100,31 @@ export default async function DashboardPage() {
             <SubscriptionUsageBannerServer userId={user.id} />
 
             {/* Hired Subscription Cancellation Banner */}
-            <HiredSubscriptionBanner
-              hasHiredApplication={applications.some(
+            {(() => {
+              const hasHiredApplication = applications.some(
                 (a) => a.status === "Hired"
-              )}
-              isPaidSubscriber={isOnProOrHigher(planName || "Free")}
-              userId={user.id}
-            />
+              );
+              const isPaidSubscriber = isOnProOrHigher(planName || "Free");
+              // The hired banner renders only when both are true. The career
+              // banner defers to it while it is visible, but the coordination
+              // happens client-side (accounting for the hired banner's own
+              // dismissal) so hired+paid users aren't permanently excluded.
+              const hiredBannerEligible =
+                hasHiredApplication && isPaidSubscriber;
+              return (
+                <>
+                  <HiredSubscriptionBanner
+                    hasHiredApplication={hasHiredApplication}
+                    isPaidSubscriber={isPaidSubscriber}
+                    userId={user.id}
+                  />
+                  <CareerWaitlistBanner
+                    userId={user.id}
+                    hiredBannerEligible={hiredBannerEligible}
+                  />
+                </>
+              );
+            })()}
 
             <DashboardLayoutWrapper
               userId={user.id}

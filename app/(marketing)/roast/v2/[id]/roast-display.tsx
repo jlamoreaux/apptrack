@@ -6,7 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Flame, Copy, Share2, X, TrendingUp, AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useRoastAnalytics, ROAST_EVENTS } from "@/lib/roast/analytics";
+import {
+  useRoastAnalytics,
+  ROAST_EVENTS,
+  type RoastSignupPlacement,
+} from "@/lib/roast/analytics";
+import { RoastConversionModule, ROAST_SIGNUP_URL, ROAST_VISITOR_SIGNUP_URL } from "@/components/roast/roast-conversion-cta";
 
 interface RoastData {
   content: string;
@@ -129,6 +134,9 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
           </div>
         </Card>
 
+        {/* Primary conversion module for the roast creator */}
+        {isCreator && <RoastConversionModule roastId={roastId} />}
+
         {/* Categories */}
         {activeCategories.length > 0 && (
           <Card className="p-6 mb-6">
@@ -218,8 +226,8 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                   <Button
                     size="lg"
                     onClick={() => {
-                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "results_page" });
-                      router.push("/signup");
+                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "results_page", placement: "page_end" satisfies RoastSignupPlacement });
+                      router.push(ROAST_SIGNUP_URL);
                     }}
                   >
                     Start Landing Interviews
@@ -228,7 +236,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                     variant="outline"
                     size="lg"
                     onClick={() => {
-                      trackEvent("roast_try_another", { roastId });
+                      trackEvent(ROAST_EVENTS.TRY_ANOTHER, { roastId });
                       router.push("/roast-my-resume/v2");
                     }}
                   >
@@ -258,8 +266,8 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                     variant="outline"
                     size="lg"
                     onClick={() => {
-                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "visitor_view" });
-                      router.push("/signup");
+                      trackEvent(ROAST_EVENTS.SIGNUP_CLICKED, { roastId, source: "visitor_view", placement: "visitor_view" satisfies RoastSignupPlacement });
+                      router.push(ROAST_VISITOR_SIGNUP_URL);
                     }}
                   >
                     Sign Up for AppTrack

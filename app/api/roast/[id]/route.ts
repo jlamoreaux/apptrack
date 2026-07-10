@@ -8,10 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
-  
+  // Declared outside the try so the catch block can log which roast failed
+  let id: string | undefined;
+
   try {
     const supabase = await createClient();
-    const { id } = await params;
+    ({ id } = await params);
     
     // Fetch the roast by shareable_id
     const { data: roast, error } = await supabase

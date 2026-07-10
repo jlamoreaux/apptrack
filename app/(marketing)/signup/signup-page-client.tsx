@@ -16,9 +16,13 @@ import { SignUpForm } from "@/components/forms/sign-up-form";
 import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { Gift, Sparkles, HeartHandshake, Tag } from "lucide-react";
 import { trackCampaignSignupIntent } from "@/lib/analytics/campaign-events";
+import { useUTMTracking } from "@/lib/hooks/use-utm-tracking";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
+  // Persist incoming UTM params (sessionStorage + apptrack_utm cookie) so
+  // /auth/callback can attribute user_signed_up — e.g. roast-funnel CTAs.
+  useUTMTracking();
   const intent = searchParams.get("intent");
   const sessionId = searchParams.get("session");
   const isAICoachTrial = intent === "ai-coach-trial";
