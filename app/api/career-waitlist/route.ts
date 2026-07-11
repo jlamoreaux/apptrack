@@ -24,6 +24,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role-client";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREER_EVENT_NAMES } from "@/lib/analytics/career-event-names";
 import { emailDistinctId } from "@/lib/analytics/anonymize";
+import { verifyWaitlistToken } from "@/lib/career/waitlist-token";
 
 const CAREER_WAITLIST_JOINED_EVENT = CAREER_EVENT_NAMES.WAITLIST_JOINED;
 
@@ -54,15 +55,18 @@ function isReviewTiming(value: unknown): value is ReviewTiming {
   return typeof value === "string" && REVIEW_TIMING_VALUES.includes(value);
 }
 
-/** Unknown or missing sources are coerced to 'direct' (never a 400 or DB CHECK 500). */
-function coerceSource(value: unknown): CareerWaitlistSource {
+/** Unknown or missing sources are coerced to a caller-provided default (never a 400 or DB CHECK 500). */
+function coerceSource(
+  value: unknown,
+  fallback: CareerWaitlistSource = "direct"
+): CareerWaitlistSource {
   if (
     typeof value === "string" &&
     (CAREER_WAITLIST_SOURCES as readonly string[]).includes(value)
   ) {
     return value as CareerWaitlistSource;
   }
-  return "direct";
+  return fallback;
 }
 
 /**
@@ -157,38 +161,60 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawEmail = body.email;
-    if (typeof rawEmail !== "string" || rawEmail.trim() === "") {
-      return NextResponse.json({ error: "Email is required" }, { status: 400 });
-    }
+    const serviceClient = createServiceRoleClient();
 
-    const email = normalizeEmail(rawEmail);
-    const emailValidation = validateEmail(email);
-    if (!emailValidation.valid) {
-      return NextResponse.json(
-        { error: emailValidation.message ?? "Please enter a valid email address" },
-        { status: 400 }
-      );
-    }
-
-    if (!isReviewTiming(body.review_timing)) {
-      return NextResponse.json(
-        { error: "Please select when your next performance review is" },
-        { status: 400 }
-      );
-    }
-    const reviewTiming = body.review_timing;
-    const source = coerceSource(body.source);
+    // review_timing is optional (the one-click flow drops the question). When
+    // present and valid it's recorded; otherwise it's null.
+    const reviewTiming: ReviewTiming | null = isReviewTiming(body.review_timing)
+      ? body.review_timing
+      : null;
     const utm = whitelistUtmParams(body.utm);
 
-    // user_id comes ONLY from the server session — never from the payload.
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const userId = user?.id ?? null;
+    let email: string;
+    let userId: string | null;
+    let source: CareerWaitlistSource;
 
-    const serviceClient = createServiceRoleClient();
+    if (body.token !== undefined) {
+      // One-click join from a signed email link. The token authenticates the
+      // recipient's email, so it's trusted (no disposable-domain check) and the
+      // user is resolved by looking the email up in profiles rather than by
+      // session (the click is usually logged out).
+      const tokenEmail = verifyWaitlistToken(body.token);
+      if (!tokenEmail) {
+        return NextResponse.json({ error: "Invalid or expired link." }, { status: 400 });
+      }
+      email = normalizeEmail(tokenEmail);
+      source = coerceSource(body.source, "email");
+      const { data: profile } = await serviceClient
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+      userId = profile?.id ?? null;
+    } else {
+      // Form join (direct/banner): email is required and fully validated.
+      const rawEmail = body.email;
+      if (typeof rawEmail !== "string" || rawEmail.trim() === "") {
+        return NextResponse.json({ error: "Email is required" }, { status: 400 });
+      }
+      email = normalizeEmail(rawEmail);
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.valid) {
+        return NextResponse.json(
+          { error: emailValidation.message ?? "Please enter a valid email address" },
+          { status: 400 }
+        );
+      }
+      source = coerceSource(body.source);
+
+      // user_id comes ONLY from the server session — never from the payload.
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      userId = user?.id ?? null;
+    }
+
     const { data: insertedRows, error: insertError } = await serviceClient
       .from("career_waitlist")
       .upsert(

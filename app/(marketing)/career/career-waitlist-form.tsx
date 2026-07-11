@@ -7,18 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  REVIEW_TIMING_OPTIONS,
-  CAREER_CAMPAIGN,
-  type CareerWaitlistSource,
-} from "@/lib/constants/career";
+import { CAREER_CAMPAIGN, type CareerWaitlistSource } from "@/lib/constants/career";
 import {
   trackCareerWaitlistViewed,
   trackCareerEmailClicked,
@@ -56,6 +45,9 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
   // Persist UTMs from the email/banner link into sessionStorage for this session.
   useUTMTracking();
 
+  // Signed one-click token from the email link. Present → join automatically.
+  const joinToken = searchParams.get("t");
+
   const source: CareerWaitlistSource = useMemo(() => {
     const medium = searchParams.get("utm_medium");
     const utmSource = searchParams.get("utm_source");
@@ -65,12 +57,13 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
   }, [searchParams]);
 
   const [email, setEmail] = useState(userEmail ?? "");
-  const [reviewTiming, setReviewTiming] = useState("");
   const [emailError, setEmailError] = useState("");
-  const [timingError, setTimingError] = useState("");
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [joined, setJoined] = useState(false);
+  // True while the token is being redeemed. Starts true when a token is present
+  // so scanners that don't run JS never trigger a join (the POST is what joins).
+  const [autoJoining, setAutoJoining] = useState(Boolean(joinToken));
 
   // Fire viewed once on mount; email_clicked only when arriving from the
   // validation email (utm_campaign match). Both are de-duped downstream.
@@ -83,6 +76,38 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
       trackCareerEmailClicked();
     }
   }, [source, searchParams]);
+
+  // One-click join: redeem the token via a POST on mount. Runs only in a real
+  // browser, so email link-scanners that prefetch the URL don't create joins.
+  const autoJoinRef = useRef(false);
+  useEffect(() => {
+    if (!joinToken || autoJoinRef.current) return;
+    autoJoinRef.current = true;
+    (async () => {
+      try {
+        const phDistinctId = await getPhDistinctId();
+        const response = await fetch("/api/career-waitlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: joinToken,
+            source,
+            utm: getStoredUTMParams(),
+            ph_distinct_id: phDistinctId,
+          }),
+        });
+        if (response.ok) {
+          setJoined(true);
+          return;
+        }
+        // Invalid/expired token or a transient failure: fall back to the manual
+        // form so the visitor can still join by typing their email.
+        setAutoJoining(false);
+      } catch {
+        setAutoJoining(false);
+      }
+    })();
+  }, [joinToken, source]);
 
   // Success state replaces the form entirely — no silent failures, no lingering form.
   if (joined) {
@@ -101,11 +126,22 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
     );
   }
 
+  // Redeeming the one-click token.
+  if (autoJoining) {
+    return (
+      <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
+        <div className="flex flex-col items-center gap-3">
+          <Spinner size="sm" />
+          <p className="text-sm text-muted-foreground">Adding you to the list…</p>
+        </div>
+      </div>
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError("");
     setEmailError("");
-    setTimingError("");
 
     // Client-side quick checks before hitting the network.
     if (!email.trim()) {
@@ -114,10 +150,6 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
     }
     if (!isValidEmailFormat(email.trim())) {
       setEmailError("Please enter a valid email address");
-      return;
-    }
-    if (!reviewTiming) {
-      setTimingError("Please select when your next review is");
       return;
     }
 
@@ -129,7 +161,6 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim(),
-          review_timing: reviewTiming,
           source,
           utm: getStoredUTMParams(),
           ph_distinct_id: phDistinctId,
@@ -187,41 +218,6 @@ export function CareerWaitlistForm({ userEmail }: CareerWaitlistFormProps) {
         {emailError && (
           <p id="career-email-error" className="text-sm text-destructive">
             {emailError}
-          </p>
-        )}
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="review-timing">
-          When is your next performance review?
-        </Label>
-        <Select
-          value={reviewTiming}
-          onValueChange={(value) => {
-            setReviewTiming(value);
-            if (timingError) setTimingError("");
-          }}
-          disabled={isSubmitting}
-        >
-          <SelectTrigger
-            id="review-timing"
-            className="min-h-[44px]"
-            aria-invalid={timingError ? true : undefined}
-            aria-describedby={timingError ? "review-timing-error" : undefined}
-          >
-            <SelectValue placeholder="Select timing" />
-          </SelectTrigger>
-          <SelectContent>
-            {REVIEW_TIMING_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {timingError && (
-          <p id="review-timing-error" className="text-sm text-destructive">
-            {timingError}
           </p>
         )}
       </div>

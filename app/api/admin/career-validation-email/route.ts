@@ -204,7 +204,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const getHtml = (params: { email: string; firstName?: string; unsubscribeUrl: string }) =>
-    getCareerValidationHtml({ firstName: params.firstName, unsubscribeUrl: params.unsubscribeUrl });
+    getCareerValidationHtml({
+      firstName: params.firstName,
+      email: params.email,
+      unsubscribeUrl: params.unsubscribeUrl,
+    });
 
   if (body.testEmail !== undefined) {
     // Untrusted JSON: reject a non-string testEmail before it reaches

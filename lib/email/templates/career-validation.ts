@@ -6,11 +6,24 @@
  */
 
 import { CAREER_CAMPAIGN } from '@/lib/constants/career';
+import { generateWaitlistToken } from '@/lib/career/waitlist-token';
 import { APP_URL, ctaButton, escapeHtml, EMAIL_THEME, wrapEmail } from './shared';
 
 export const CAREER_VALIDATION_SUBJECT = "Let's build a case for your next raise.";
 
 export const CAREER_VALIDATION_CTA_URL = `${APP_URL}/career?utm_source=email&utm_medium=email&utm_campaign=${CAREER_CAMPAIGN}`;
+
+/**
+ * Per-recipient CTA: appends a signed token so clicking joins the recipient in
+ * one click (no form) without a raw email in the URL. Falls back to the plain
+ * form URL when the email is unknown.
+ */
+export function careerValidationCtaUrl(email?: string): string {
+  if (!email) {
+    return CAREER_VALIDATION_CTA_URL;
+  }
+  return `${CAREER_VALIDATION_CTA_URL}&t=${encodeURIComponent(generateWaitlistToken(email))}`;
+}
 
 // Sent personally from the founder so it reads as a direct note, not a
 // company blast, with replies routed to a real inbox. The route resolves
@@ -22,11 +35,14 @@ export const DEFAULT_CAREER_VALIDATION_REPLY_TO = 'jordan@apptrack.ing';
 
 export type CareerValidationTemplateParams = {
   firstName?: string;
+  /** Recipient email — signs the one-click join token on the CTA. */
+  email?: string;
   unsubscribeUrl: string;
 };
 
 export function getCareerValidationHtml(params: CareerValidationTemplateParams): string {
   const greeting = params.firstName ? `Hi ${escapeHtml(params.firstName)},` : 'Hi there,';
+  const ctaUrl = careerValidationCtaUrl(params.email);
 
   const content = `
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
@@ -44,7 +60,7 @@ export function getCareerValidationHtml(params: CareerValidationTemplateParams):
       It's early and still coming together, and I want to build it with the
       people it's for. Want in?
     </p>
-    ${ctaButton('Join the waitlist', CAREER_VALIDATION_CTA_URL)}
+    ${ctaButton('Join the waitlist', ctaUrl)}
     <p style="margin: 24px 0 0; font-size: 14px; color: ${EMAIL_THEME.muted}; text-align: center;">
       Just reply if you have questions. I read every one.
     </p>`;

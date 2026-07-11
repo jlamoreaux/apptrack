@@ -17,6 +17,7 @@ import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREER_EVENTS } from "@/lib/analytics/career-events";
 import { emailDistinctId } from "@/lib/analytics/anonymize";
 import { REVIEW_TIMING_OPTIONS } from "@/lib/constants/career";
+import { generateWaitlistToken } from "@/lib/career/waitlist-token";
 
 jest.mock("@/lib/supabase/server", () => ({
   createClient: jest.fn(),
@@ -46,6 +47,7 @@ const VALID_REVIEW_TIMING = REVIEW_TIMING_OPTIONS[0].value; // 'lt_3_months'
 let mockUpsert: jest.Mock;
 let mockUpsertSelect: jest.Mock;
 let mockGetUser: jest.Mock;
+let mockProfileMaybeSingle: jest.Mock;
 
 function makeRequest(body: unknown, ip = "203.0.113.10") {
   return new NextRequest("http://localhost:3000/api/career-waitlist", {
@@ -91,8 +93,19 @@ beforeEach(() => {
     .fn()
     .mockResolvedValue({ data: [{ id: "new-row-id" }], error: null });
   mockUpsert = jest.fn(() => ({ select: mockUpsertSelect }));
+  // Default: token path finds no matching profile (anonymous recipient).
+  mockProfileMaybeSingle = jest
+    .fn()
+    .mockResolvedValue({ data: null, error: null });
   mockCreateServiceRoleClient.mockReturnValue({
-    from: jest.fn(() => ({ upsert: mockUpsert })),
+    from: jest.fn((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: () => ({ eq: () => ({ maybeSingle: mockProfileMaybeSingle }) }),
+        };
+      }
+      return { upsert: mockUpsert };
+    }),
   });
 
   mockCaptureServerEvent.mockResolvedValue(undefined);
@@ -139,22 +152,20 @@ describe("POST /api/career-waitlist", () => {
       expect(mockUpsert).not.toHaveBeenCalled();
     });
 
-    it("rejects an unknown review_timing instead of letting the DB CHECK 500", async () => {
+    it("stores null (not a 400 or DB CHECK 500) for an unknown review_timing", async () => {
       const res = await POST(
         makeRequest(validBody({ review_timing: "next_century" }))
       );
-      const data = await res.json();
 
-      expect(res.status).toBe(400);
-      expect(data.error).toContain("performance review");
-      expect(mockUpsert).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(upsertedRow().review_timing).toBeNull();
     });
 
-    it("rejects a missing review_timing", async () => {
+    it("accepts a missing review_timing (the question is optional now)", async () => {
       const res = await POST(makeRequest({ email: "jordan@example.com" }));
 
-      expect(res.status).toBe(400);
-      expect(mockUpsert).not.toHaveBeenCalled();
+      expect(res.status).toBe(200);
+      expect(upsertedRow().review_timing).toBeNull();
     });
   });
 
@@ -180,6 +191,68 @@ describe("POST /api/career-waitlist", () => {
         expect.any(Number)
       );
       expect(mockUpsert).not.toHaveBeenCalled();
+      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("one-click token join", () => {
+    it("joins the token's email with null review_timing and source 'email'", async () => {
+      const token = generateWaitlistToken("Recipient@Example.com");
+      const res = await POST(makeRequest({ token }));
+
+      expect(res.status).toBe(200);
+      const row = upsertedRow();
+      expect(row.email).toBe("recipient@example.com");
+      expect(row.review_timing).toBeNull();
+      expect(row.source).toBe("email");
+    });
+
+    it("resolves user_id by looking the token email up in profiles", async () => {
+      mockProfileMaybeSingle.mockResolvedValue({
+        data: { id: "profile-user-9" },
+        error: null,
+      });
+      const token = generateWaitlistToken("member@example.com");
+
+      await POST(makeRequest({ token }));
+
+      expect(upsertedRow().user_id).toBe("profile-user-9");
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(
+        "profile-user-9",
+        CAREER_EVENTS.WAITLIST_JOINED,
+        expect.any(Object)
+      );
+    });
+
+    it("falls back to a hashed-email distinct id when the recipient isn't a user", async () => {
+      const token = generateWaitlistToken("stranger@example.com");
+
+      await POST(makeRequest({ token }));
+
+      expect(mockCaptureServerEvent).toHaveBeenCalledWith(
+        emailDistinctId("stranger@example.com"),
+        CAREER_EVENTS.WAITLIST_JOINED,
+        expect.any(Object)
+      );
+    });
+
+    it("rejects a forged/invalid token with 400 and never inserts", async () => {
+      const res = await POST(makeRequest({ token: "not-a-real-token.deadbeef" }));
+      const data = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(data.error).toContain("Invalid");
+      expect(mockUpsert).not.toHaveBeenCalled();
+      expect(mockCaptureServerEvent).not.toHaveBeenCalled();
+    });
+
+    it("is idempotent: a re-click (conflict) succeeds with no event", async () => {
+      mockUpsertSelect.mockResolvedValue({ data: [], error: null });
+      const token = generateWaitlistToken("repeat@example.com");
+
+      const res = await POST(makeRequest({ token }));
+
+      expect(res.status).toBe(200);
       expect(mockCaptureServerEvent).not.toHaveBeenCalled();
     });
   });
