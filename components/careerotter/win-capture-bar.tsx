@@ -12,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
-import { trackWinLogged } from "@/lib/analytics/careerotter-events";
 
 export interface LoggedWin {
   id: string;
@@ -56,7 +55,8 @@ export function WinCaptureBar({
       });
       if (res.ok) {
         const { win } = await res.json();
-        trackWinLogged({ tag: tag || "untagged", source: "manual" });
+        // win_logged is emitted server-side by POST /api/wins (authoritative,
+        // keyed to user.id) — no client emit here, to avoid double counting.
         setText("");
         setTag("");
         onLogged?.(win);
