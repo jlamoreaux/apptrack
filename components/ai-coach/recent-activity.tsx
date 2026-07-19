@@ -102,10 +102,10 @@ export function RecentActivity({ userId }: RecentActivityProps) {
             {[1, 2, 3].map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-200 rounded-lg" />
+                  <div className="w-10 h-10 bg-muted rounded-lg" />
                   <div className="flex-1">
-                    <div className="h-4 bg-gray-200 rounded w-1/3 mb-2" />
-                    <div className="h-3 bg-gray-100 rounded w-1/4" />
+                    <div className="h-4 bg-muted rounded w-1/3 mb-2" />
+                    <div className="h-3 bg-muted/60 rounded w-1/4" />
                   </div>
                 </div>
               </div>
@@ -151,7 +151,7 @@ export function RecentActivity({ userId }: RecentActivityProps) {
           {activities.map((activity) => {
             const Icon = featureIcons[activity.feature_name] || Target;
             const name = featureNames[activity.feature_name] || activity.feature_name;
-            const colorClass = featureColors[activity.feature_name] || "bg-gray-100 text-gray-700";
+            const colorClass = featureColors[activity.feature_name] || "bg-muted text-muted-foreground";
 
             return (
               <div
