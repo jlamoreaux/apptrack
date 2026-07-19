@@ -2,7 +2,6 @@
 import {
   LayoutDashboard,
   Building2,
-  Brain,
   BarChart3,
   Settings,
   Trophy,
@@ -17,21 +16,18 @@ import { UI_CONSTANTS } from "./ui";
 import { AI_THEME } from "./ai-theme";
 import type { NavItem, PermissionLevel } from "@/types";
 
-// Navigation items configuration
+// Navigation items configuration — CareerOtter redesign nav.
+// Today is the career home; Job search consolidates the application tracker and
+// the job-hunt AI tools (the legacy "AI Coach" hub). There is one "Coach" (the
+// grounded career coach); the legacy AI hub is reachable from Job search, not
+// the top nav.
 export const NAV_ITEMS: readonly NavItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
+    id: "today",
+    label: "Today",
     href: APP_ROUTES.DASHBOARD.ROOT,
     icon: LayoutDashboard,
-    description: "Overview of your job search progress",
-  },
-  {
-    id: "applications",
-    label: "Applications",
-    href: APP_ROUTES.DASHBOARD.APPLICATIONS,
-    icon: Building2,
-    description: "Manage your job applications",
+    description: "Your review countdown, case coverage, and this week",
   },
   {
     id: "wins",
@@ -52,6 +48,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
     label: "Coach",
     href: "/dashboard/coach",
     icon: MessageSquareText,
+    highlight: true,
     description: "Coaching grounded in your logged wins",
   },
   {
@@ -62,12 +59,11 @@ export const NAV_ITEMS: readonly NavItem[] = [
     description: "Assemble your wins into a review-ready case",
   },
   {
-    id: "ai-coach",
-    label: "AI Coach",
-    href: APP_ROUTES.DASHBOARD.AI_COACH,
-    icon: Brain,
-    highlight: true,
-    description: "AI-powered career coaching and insights",
+    id: "job-search",
+    label: "Job search",
+    href: APP_ROUTES.DASHBOARD.APPLICATIONS,
+    icon: Building2,
+    description: "Track applications and job-hunt tools",
   },
 ];
 
