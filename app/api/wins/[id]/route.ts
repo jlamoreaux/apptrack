@@ -87,6 +87,19 @@ export async function PATCH(
     }
   }
 
+  // A PATCH with no editable field would still bump edited_at, recording an edit
+  // that never happened. Reject it.
+  if (
+    update.text === undefined &&
+    update.impact_number === undefined &&
+    update.tag === undefined
+  ) {
+    return NextResponse.json(
+      { error: "No editable fields provided" },
+      { status: 400 }
+    );
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("wins")
@@ -96,9 +109,11 @@ export async function PATCH(
     .select("id, text, impact_number, tag, source, created_at, edited_at")
     .single();
 
-  if (error || !data) {
-    // No row (wrong id or not the owner) surfaces as 404, not 500.
-    if (error?.code === "PGRST116" || !data) {
+  // Handle real DB errors before the not-found branch, so a genuine failure
+  // isn't masked as 404 (errors generally arrive with data: null).
+  if (error) {
+    if (error.code === "PGRST116") {
+      // No row matched: wrong id or not the caller's win.
       return NextResponse.json({ error: "Win not found" }, { status: 404 });
     }
     loggerService.error("Failed to update win", error, {
@@ -107,6 +122,9 @@ export async function PATCH(
       action: "win_update_failed",
     });
     return NextResponse.json({ error: "Failed to update win" }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: "Win not found" }, { status: 404 });
   }
 
   return NextResponse.json({ win: data });

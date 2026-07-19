@@ -15,7 +15,6 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import {
   WIN_TAGS,
-  WIN_SOURCES,
   WIN_LIMITS,
   type WinTag,
   type WinSource,
@@ -58,7 +57,6 @@ type PostBody = {
   text?: unknown;
   impact_number?: unknown;
   tag?: unknown;
-  source?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -110,14 +108,10 @@ export async function POST(request: NextRequest) {
     tag = body.tag as WinTag;
   }
 
-  // source — optional, defaults to manual (the capture bar).
-  let source: WinSource = "manual";
-  if (body.source != null && body.source !== "") {
-    if (!(WIN_SOURCES as readonly string[]).includes(body.source as string)) {
-      return NextResponse.json({ error: "Invalid source" }, { status: 400 });
-    }
-    source = body.source as WinSource;
-  }
+  // Provenance is server-authoritative: this manual endpoint always records
+  // "manual". Client-supplied `source` is ignored so callers can't forge
+  // "zero_to_case"/"recap"/"import".
+  const source: WinSource = "manual";
 
   const admin = createAdminClient();
   const { data, error } = await admin
