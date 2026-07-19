@@ -127,7 +127,7 @@
   "testimonials": {
     "badge": "What Our Users Say",
     "title": "Real Results from Job Seekers",
-    "subtitle": "See how AppTrack is helping job seekers stay organized and land interviews faster.",
+    "subtitle": "See how CareerOtter is helping job seekers stay organized and land interviews faster.",
     "placeholders": [
       {
         "name": "Sarah M.",
@@ -177,11 +177,11 @@
       },
       {
         "question": "How does the browser extension work?",
-        "answer": "Install the AppTrack extension for Chrome or Firefox. When you're on a job posting, click the extension to save the job details (company, role, description) to your tracker with one click. No copy-pasting needed."
+        "answer": "Install the CareerOtter extension for Chrome or Firefox. When you're on a job posting, click the extension to save the job details (company, role, description) to your tracker with one click. No copy-pasting needed."
       },
       {
         "question": "Why not just use a spreadsheet?",
-        "answer": "Spreadsheets work for a few applications but break down fast. AppTrack gives you pipeline visualization (see where applications drop off), AI-powered resume feedback, automated status tracking, and follow-up reminders — things a spreadsheet can't do."
+        "answer": "Spreadsheets work for a few applications but break down fast. CareerOtter gives you pipeline visualization (see where applications drop off), AI-powered resume feedback, automated status tracking, and follow-up reminders — things a spreadsheet can't do."
       },
       {
         "question": "Can I try the AI tools before signing up?",
