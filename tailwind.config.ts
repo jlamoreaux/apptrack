@@ -45,6 +45,18 @@ const config = {
         tertiary: "hsl(var(--tertiary-foreground))",
 
         // ─── Brand colors ───
+        // primary/secondary are mapped to the CSS vars here (after the
+        // generateTailwindColors() spread) so bg-primary/text-primary follow the
+        // CareerOtter amber + kelp tokens instead of accessible-colors' hardcoded
+        // blue. No numeric primary/secondary shades are used in the app.
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        secondary: {
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))",
+        },
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
