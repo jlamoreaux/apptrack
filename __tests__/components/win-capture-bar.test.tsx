@@ -1,17 +1,14 @@
 /**
  * Tests for the win capture bar (M2b): required text, successful POST contract
- * + optimistic hand-up + win_logged, and inline error on failure.
+ * + optimistic hand-up, and inline error on failure. (win_logged is emitted
+ * server-side by /api/wins, not from the client, so there's no client-event
+ * assertion here.)
  */
 
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { WinCaptureBar } from "@/components/careerotter/win-capture-bar";
 import { WIN_TAG_OPTIONS } from "@/lib/constants/careerotter";
-
-const mockTrackWinLogged = jest.fn();
-jest.mock("@/lib/analytics/careerotter-events", () => ({
-  trackWinLogged: (...args: unknown[]) => mockTrackWinLogged(...args),
-}));
 
 // Radix Select -> lightweight testable equivalent (captures onValueChange).
 let selectOnValueChange: ((value: string) => void) | undefined;
@@ -77,7 +74,6 @@ it("posts the win, clears, hands it up, and fires win_logged", async () => {
     text: "shipped it",
     tag: WIN_TAG_OPTIONS[0].value,
   });
-  expect(mockTrackWinLogged).toHaveBeenCalled();
   expect(screen.getByLabelText("Log a win")).toHaveValue("");
 });
 
