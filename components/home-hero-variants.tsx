@@ -13,19 +13,19 @@ const AI_COACH_PRICE = copyData.pricing.plans.ai_coach.price;
  */
 export const HERO_VARIANTS = {
   control: {
-    title: "See exactly where your job search wins and loses",
-    subtitle: "Track every application, visualize your pipeline, and get AI coaching for resumes, cover letters, and interviews.",
+    title: "Build the case for your next raise. Then win it.",
+    subtitle: "Log your wins in ten seconds. CareerOtter maps them to your next review, names the gaps while there's still time to close them, and hands you the doc to walk in with.",
     stats: "Free forever • No credit card required",
   },
   outcome_focused: {
-    title: "Turn applications into interviews with AI coaching",
-    subtitle: "Get personalized resume feedback and custom cover letters that help you stand out. Professional career coaching at a fraction of the cost.",
-    stats: "Optimize every application • Stand out to recruiters • Interview with confidence",
+    title: "Walk into your review with the receipts",
+    subtitle: "Track your wins as they happen and let the AI turn them into a promotion case, review doc, and negotiation plan. Career coaching at a fraction of a coach's cost.",
+    stats: "Log wins in seconds • Know your gaps early • Ask with evidence",
   },
   problem_focused: {
-    title: "Stop losing dream jobs to bad resumes",
-    subtitle: "Our AI catches every ATS-blocking mistake and writes tailored cover letters in seconds. Land interviews at top companies.",
-    stats: "Beat ATS filters • Stand out from other applicants • Get noticed by recruiters",
+    title: "Your best work is invisible by review season",
+    subtitle: "Six months of wins, forgotten when it counts. CareerOtter keeps the receipts and builds the case, so you ask for the raise with proof instead of hope.",
+    stats: "Keep every win • Close the gaps • Make the ask",
   },
 } as const;
 
