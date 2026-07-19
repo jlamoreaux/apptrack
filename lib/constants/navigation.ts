@@ -6,6 +6,9 @@ import {
   BarChart3,
   Settings,
   Trophy,
+  MessageSquareText,
+  DollarSign,
+  FileText,
 } from "lucide-react";
 import { PLAN_NAMES } from "./plans";
 import { PLAN_THEMES } from "./plan-themes";
@@ -36,6 +39,27 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: "/dashboard/wins",
     icon: Trophy,
     description: "Log your wins and build your case",
+  },
+  {
+    id: "comp",
+    label: "Comp",
+    href: "/dashboard/comp",
+    icon: DollarSign,
+    description: "Track your compensation against the market",
+  },
+  {
+    id: "coach",
+    label: "Coach",
+    href: "/dashboard/coach",
+    icon: MessageSquareText,
+    description: "Coaching grounded in your logged wins",
+  },
+  {
+    id: "review-prep",
+    label: "Review prep",
+    href: "/dashboard/review-prep",
+    icon: FileText,
+    description: "Assemble your wins into a review-ready case",
   },
   {
     id: "ai-coach",
