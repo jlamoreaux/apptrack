@@ -17,8 +17,8 @@ export const CAREER_VALIDATION_CTA_URL = `${APP_URL}/career?utm_source=email&utm
 // these against CAREER_VALIDATION_FROM / CAREER_VALIDATION_REPLY_TO env vars
 // at request time. The address MUST be a verified Resend sender — confirm
 // before sending.
-export const DEFAULT_CAREER_VALIDATION_FROM = 'Jordan at AppTrack <jordan@apptrack.ing>';
-export const DEFAULT_CAREER_VALIDATION_REPLY_TO = 'jordan@apptrack.ing';
+export const DEFAULT_CAREER_VALIDATION_FROM = 'Jordan at CareerOtter <jordan@careerotter.io>';
+export const DEFAULT_CAREER_VALIDATION_REPLY_TO = 'jordan@careerotter.io';
 
 export type CareerValidationTemplateParams = {
   firstName?: string;
@@ -33,7 +33,7 @@ export function getCareerValidationHtml(params: CareerValidationTemplateParams):
       ${greeting}
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-      I'm Jordan, the founder of AppTrack.
+      I'm Jordan, the founder of CareerOtter.
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
       I'm building a career companion for your next raise or promotion: track

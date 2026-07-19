@@ -34,11 +34,11 @@ function lastSendEmailCall(): SendEmailArgs {
 const BASE_OPTIONS = {
   email: 'user@example.com',
   firstName: 'Jordan',
-  planName: 'AppTrack Pro',
+  planName: 'CareerOtter Pro',
   amountFormatted: '$9.00',
   cadence: 'month',
   trialEndDate: 'June 5, 2026',
-  manageUrl: 'https://www.apptrack.ing/dashboard/settings',
+  manageUrl: 'https://careerotter.io/dashboard/settings',
 };
 
 // Matches the emoji ranges that would appear in marketing-style copy.
@@ -51,12 +51,12 @@ describe('sendTrialEndingEmail', () => {
     mockSendEmail.mockResolvedValue({ success: true });
   });
 
-  it('sends to the user with replyTo support@apptrack.ing', async () => {
+  it('sends to the user with replyTo jordan@careerotter.io', async () => {
     await sendTrialEndingEmail(BASE_OPTIONS);
 
     const call = lastSendEmailCall();
     expect(call.to).toBe('user@example.com');
-    expect(call.replyTo).toBe('support@apptrack.ing');
+    expect(call.replyTo).toBe('jordan@careerotter.io');
   });
 
   it('includes the trial end date, amount, cadence, plan name, and manage URL in the html', async () => {
@@ -66,8 +66,8 @@ describe('sendTrialEndingEmail', () => {
     expect(html).toContain('June 5, 2026');
     expect(html).toContain('$9.00');
     expect(html).toContain('month');
-    expect(html).toContain('AppTrack Pro');
-    expect(html).toContain('https://www.apptrack.ing/dashboard/settings');
+    expect(html).toContain('CareerOtter Pro');
+    expect(html).toContain('https://careerotter.io/dashboard/settings');
     // States the cancellation mechanism, not just a link.
     expect(html).toContain('cancel before');
   });
@@ -76,7 +76,7 @@ describe('sendTrialEndingEmail', () => {
     await sendTrialEndingEmail(BASE_OPTIONS);
 
     const { html } = lastSendEmailCall();
-    expect(html).toContain('you have an active trial on AppTrack');
+    expect(html).toContain('you have an active trial on CareerOtter');
     expect(html).toContain('Manage subscription');
     expect(html).not.toContain('Resume Roast');
     expect(html).not.toContain('Unsubscribe');
@@ -87,7 +87,7 @@ describe('sendTrialEndingEmail', () => {
 
     const { subject } = lastSendEmailCall();
     expect(subject).toBe(
-      "Your AppTrack trial ends June 5, 2026 — you'll be charged $9.00"
+      "Your CareerOtter trial ends June 5, 2026 — you'll be charged $9.00"
     );
     expect(subject).toContain('—');
   });
@@ -99,7 +99,7 @@ describe('sendTrialEndingEmail', () => {
     });
 
     const call = lastSendEmailCall();
-    expect(call.subject).toBe('Your AppTrack trial ends June 5, 2026');
+    expect(call.subject).toBe('Your CareerOtter trial ends June 5, 2026');
     expect(call.subject).not.toContain("you'll be charged");
     expect(call.html).toContain('will renew');
     expect(call.html).not.toContain("you'll be charged");
@@ -147,9 +147,9 @@ describe('wrapEmail footer regression', () => {
 
     const { html } = lastSendEmailCall();
     expect(html).toContain(
-      "You're receiving this because you used Resume Roast on AppTrack."
+      "You're receiving this because you used Resume Roast on CareerOtter."
     );
     expect(html).toContain('Unsubscribe');
-    expect(html).not.toContain('you have an active trial on AppTrack');
+    expect(html).not.toContain('you have an active trial on CareerOtter');
   });
 });

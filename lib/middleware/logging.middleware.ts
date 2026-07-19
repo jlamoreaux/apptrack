@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Logging middleware for request tracking
- * Follows AppTrack middleware patterns
+ * Follows CareerOtter middleware patterns
  */
 export function withLogging(request: NextRequest): NextResponse {
   const requestId = uuidv4();

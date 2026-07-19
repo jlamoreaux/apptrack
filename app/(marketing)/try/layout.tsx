@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { NavigationStatic } from "@/components/navigation-static";
 
 export const metadata: Metadata = {
-  title: "Try AI Tools Free | AppTrack",
+  title: "Try AI Tools Free | CareerOtter",
   description:
     "Try our AI-powered job search tools with one free trial daily. Get job fit analysis, cover letter generation, and interview prep questions instantly.",
   keywords: [
@@ -15,16 +15,16 @@ export const metadata: Metadata = {
     "resume analysis",
   ],
   openGraph: {
-    title: "Try AI Job Search Tools Free | AppTrack",
+    title: "Try AI Job Search Tools Free | CareerOtter",
     description:
       "Try our AI-powered job search tools with one free trial daily. Get instant insights.",
-    url: "https://www.apptrack.ing/try",
-    siteName: "AppTrack",
+    url: "https://careerotter.io/try",
+    siteName: "CareerOtter",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Try AI Job Search Tools Free | AppTrack",
+    title: "Try AI Job Search Tools Free | CareerOtter",
     description:
       "Try our AI-powered job search tools with one free trial daily.",
   },

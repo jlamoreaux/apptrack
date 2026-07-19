@@ -158,7 +158,7 @@ export default function OnboardingWelcomePage() {
       monthlyPrice: plan.price_monthly || 0,
       yearlyPrice: plan.price_yearly || 0,
       description:
-        plan.name === PLAN_NAMES.FREE ? "Perfect for trying out AppTrack" :
+        plan.name === PLAN_NAMES.FREE ? "Perfect for trying out CareerOtter" :
         "Your AI-powered career assistant",
       features: plan.features || [],
       buttonText: plan.name === PLAN_NAMES.FREE ? "Start Free" : `Start with ${plan.name}`,
@@ -172,7 +172,7 @@ export default function OnboardingWelcomePage() {
       title: "Free",
       monthlyPrice: 0,
       yearlyPrice: 0,
-      description: "Perfect for trying out AppTrack",
+      description: "Perfect for trying out CareerOtter",
       features: [
         `Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications`,
         "Basic interview notes",
@@ -264,7 +264,7 @@ export default function OnboardingWelcomePage() {
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-            Welcome to AppTrack{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ""}!
+            Welcome to CareerOtter{user?.user_metadata?.full_name ? `, ${user.user_metadata.full_name.split(' ')[0]}` : ""}!
           </h1>
           <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto px-4 sm:px-0">
             You're one step away from supercharging your job search. Choose the

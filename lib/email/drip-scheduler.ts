@@ -15,7 +15,7 @@ import { sendEmail } from './client';
 import { loggerService } from '@/lib/services/logger.service';
 import { LogCategory } from '@/lib/services/logger.types';
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://careerotter.io';
 
 export type ScheduleDripOptions = {
   email: string;

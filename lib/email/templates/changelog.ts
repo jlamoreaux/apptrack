@@ -53,7 +53,7 @@ export function getChangelogHtml(params: ChangelogTemplateParams): string {
       ${greeting}
     </p>
     <p style="margin: 0 0 24px; font-size: 16px; color: ${EMAIL_THEME.body};">
-      Here's what's new in AppTrack this week.
+      Here's what's new in CareerOtter this week.
     </p>
     ${categoriesHtml}
     ${ctaButton(ctaText, ctaUrl)}

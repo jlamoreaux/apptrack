@@ -5,7 +5,7 @@ import { OG_COLORS, OG_SIZE } from "@/components/og"
 import { getPostBySlug, getAllPosts } from "@/lib/blog"
 
 export const runtime = "nodejs"
-export const alt = "AppTrack Blog"
+export const alt = "CareerOtter Blog"
 export const size = OG_SIZE
 export const contentType = "image/png"
 
@@ -21,7 +21,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const { slug } = await params
   const post = getPostBySlug(slug)
 
-  const title = post?.title ?? "AppTrack Blog"
+  const title = post?.title ?? "CareerOtter Blog"
 
   return new ImageResponse(
     (
@@ -58,7 +58,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               letterSpacing: "-0.5px",
             }}
           >
-            AppTrack
+            CareerOtter
           </span>
         </div>
 
@@ -111,7 +111,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
               fontWeight: "500",
             }}
           >
-            apptrack.ing
+            careerotter.io
           </span>
         </div>
       </div>

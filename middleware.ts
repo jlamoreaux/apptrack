@@ -1,14 +1,18 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
 
 export async function middleware(request: NextRequest) {
   const hostname = request.headers.get("host") || ""
 
-  // Redirect non-www to www for canonical URL consistency
-  if (hostname === "apptrack.ing") {
-    const url = request.nextUrl.clone()
-    url.hostname = "www.apptrack.ing"
-    return NextResponse.redirect(url, 301)
+  // Brand migration: any legacy apptrack.ing host 301s to CareerOtter,
+  // page-for-page. This is what keeps shared roast permalinks alive.
+  const legacyRedirect = resolveLegacyRedirect(
+    hostname,
+    request.nextUrl.pathname + request.nextUrl.search
+  )
+  if (legacyRedirect) {
+    return NextResponse.redirect(legacyRedirect, 301)
   }
 
   let supabaseResponse = NextResponse.next({

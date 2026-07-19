@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | AppTrack',
+  title: 'Privacy Policy | CareerOtter',
   alternates: {
     canonical: `${SITE_CONFIG.url}/privacy`,
   },
@@ -20,12 +20,12 @@ export default function PrivacyPolicy() {
         <div style={{lineHeight: 1.5}}><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}} data-custom-class="body_text">This Privacy Notice for Jordan Lamoreaux (&quot;<strong>we</strong>,&quot; &quot;<strong>us</strong>,&quot; or &quot;<strong>our</strong>&quot;) describes how and why we might access, collect, store, use, and/or share (&quot;<strong>process</strong>&quot;) your personal information when you use our services (&quot;<strong>Services</strong>&quot;), including when you:</span></div>
 
         <ul>
-          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Visit our website at <a target="_blank" data-custom-class="link" href="https://www.apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>https://www.apptrack.ing</a></span></li>
-          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Use the AppTrack Chrome extension</span></li>
+          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Visit our website at <a target="_blank" data-custom-class="link" href="https://careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>https://careerotter.io</a></span></li>
+          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Use the CareerOtter Chrome extension</span></li>
           <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Engage with us in other related ways, including sales, marketing, or events</span></li>
         </ul>
 
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text"><strong>Questions or concerns?</strong> If you do not agree with our policies and practices, please do not use our Services. If you have questions, contact us at <a data-custom-class="link" href="mailto:support@apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>support@apptrack.ing</a>.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text"><strong>Questions or concerns?</strong> If you do not agree with our policies and practices, please do not use our Services. If you have questions, contact us at <a data-custom-class="link" href="mailto:support@careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>support@careerotter.io</a>.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
@@ -94,7 +94,7 @@ export default function PrivacyPolicy() {
           <strong><span style={{fontSize: '15px'}}><h2 data-custom-class="heading_1">3. CHROME EXTENSION</h2></span></strong>
         </div>
 
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">The AppTrack Chrome extension is a browser tool that helps you save job listings directly from job boards into your AppTrack account.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">The CareerOtter Chrome extension is a browser tool that helps you save job listings directly from job boards into your CareerOtter account.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
@@ -120,12 +120,12 @@ export default function PrivacyPolicy() {
         <div style={{lineHeight: 1.5}}><br /></div>
 
         <div style={{lineHeight: 1.5}}><strong><span style={{fontSize: '15px'}} data-custom-class="heading_2">Where the data goes</span></strong></div>
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">Job listing data read by the extension is sent to apptrack.ing servers and stored in your AppTrack account. It is used solely to populate your job application tracker. You can delete any saved application at any time from your AppTrack dashboard, which permanently removes that data.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">Job listing data read by the extension is sent to careerotter.io servers and stored in your CareerOtter account. It is used solely to populate your job application tracker. You can delete any saved application at any time from your CareerOtter dashboard, which permanently removes that data.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
         <div style={{lineHeight: 1.5}}><strong><span style={{fontSize: '15px'}} data-custom-class="heading_2">Permissions</span></strong></div>
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">The extension requests access to read page content on job board sites in order to extract job listing information. It also communicates with apptrack.ing to save data to your account. No other hosts or services are contacted.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">The extension requests access to read page content on job board sites in order to extract job listing information. It also communicates with careerotter.io to save data to your account. No other hosts or services are contacted.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
@@ -169,7 +169,7 @@ export default function PrivacyPolicy() {
           <strong><span style={{fontSize: '15px'}}><h2 data-custom-class="heading_1">7. HOW DO WE KEEP YOUR INFORMATION SAFE?</h2></span></strong>
         </div>
 
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">We use industry-standard technical and organizational measures to protect your personal information, including encryption in transit (TLS) and at rest. That said, no system is perfectly secure. We encourage you to use a strong password and to notify us immediately at <a data-custom-class="link" href="mailto:support@apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>support@apptrack.ing</a> if you suspect unauthorized access to your account.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">We use industry-standard technical and organizational measures to protect your personal information, including encryption in transit (TLS) and at rest. That said, no system is perfectly secure. We encourage you to use a strong password and to notify us immediately at <a data-custom-class="link" href="mailto:support@careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>support@careerotter.io</a> if you suspect unauthorized access to your account.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
@@ -185,7 +185,7 @@ export default function PrivacyPolicy() {
           <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Request deletion of your data</span></li>
           <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Opt out of marketing emails (unsubscribe link in every email)</span></li>
         </ul>
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">To exercise any of these rights, email us at <a data-custom-class="link" href="mailto:support@apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>support@apptrack.ing</a>.</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">To exercise any of these rights, email us at <a data-custom-class="link" href="mailto:support@careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>support@careerotter.io</a>.</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
@@ -194,11 +194,11 @@ export default function PrivacyPolicy() {
           <strong><span style={{fontSize: '15px'}}><h2 data-custom-class="heading_1">9. HOW CAN YOU CONTACT US ABOUT THIS NOTICE?</h2></span></strong>
         </div>
 
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">If you have questions or comments about this notice, you may email us at <a data-custom-class="link" href="mailto:support@apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>support@apptrack.ing</a> or contact us at:</span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">If you have questions or comments about this notice, you may email us at <a data-custom-class="link" href="mailto:support@careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>support@careerotter.io</a> or contact us at:</span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">Jordan Lamoreaux<br />United States<br /><a data-custom-class="link" href="mailto:support@apptrack.ing" style={{color: 'rgb(0, 58, 250)'}}>support@apptrack.ing</a></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}} data-custom-class="body_text">Jordan Lamoreaux<br />United States<br /><a data-custom-class="link" href="mailto:support@careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>support@careerotter.io</a></span></div>
       </div>
     </div>
   );

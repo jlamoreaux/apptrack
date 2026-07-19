@@ -5,11 +5,11 @@ import { getUser } from "@/lib/supabase/queries";
 import { CareerWaitlistForm } from "./career-waitlist-form";
 
 export const metadata: Metadata = {
-  title: "Get promoted faster | AppTrack.ing",
+  title: "Get promoted faster | CareerOtter.ing",
   description:
-    "We're building a career companion for AppTrack: track your wins, turn them into a clear, evidence-backed case for your next review, and know your gaps before your manager does. Join the early-access waitlist.",
+    "We're building a career companion for CareerOtter: track your wins, turn them into a clear, evidence-backed case for your next review, and know your gaps before your manager does. Join the early-access waitlist.",
   openGraph: {
-    title: "Get promoted faster with AppTrack.ing",
+    title: "Get promoted faster with CareerOtter.ing",
     description:
       "Track your wins, build the case for your next review, and close your gaps before review season. Join the early-access waitlist.",
   },
@@ -34,7 +34,7 @@ export default async function CareerPage() {
                 Get promoted faster.
               </h1>
               <p className="text-lg text-muted-foreground">
-                We&apos;re building a career companion for AppTrack: track your
+                We&apos;re building a career companion for CareerOtter: track your
                 wins as they happen, turn them into a clear, evidence-backed
                 case when review time comes, and know your gaps before your
                 manager does. Join the waitlist for early access.

@@ -6,7 +6,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apptrack.ing";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://careerotter.io";
 
   try {
     const { email } = await request.json();

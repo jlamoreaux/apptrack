@@ -2,7 +2,7 @@ import type { OnboardingFlow } from "./types";
 
 export const NEW_USER_FLOW: OnboardingFlow = {
   id: "new-user-onboarding",
-  name: "Welcome to AppTrack",
+  name: "Welcome to CareerOtter",
   description: "Initial onboarding for new users",
   version: 1,
   triggers: ["first_login"],
@@ -11,7 +11,7 @@ export const NEW_USER_FLOW: OnboardingFlow = {
     {
       id: "welcome",
       type: "modal",
-      title: "Welcome to AppTrack!",
+      title: "Welcome to CareerOtter!",
       content:
         "Your job search just got a whole lot easier. Let's take a quick tour to help you get started.",
       position: "center",

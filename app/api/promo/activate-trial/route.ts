@@ -341,7 +341,7 @@ async function sendWelcomeEmail(email: string, endDate: Date, days: number, code
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h1 style="color: #1a1a1a; font-size: 24px; margin-bottom: 24px;">Welcome to Your ${days}-Day ${planName} ${accessType}! 🎉</h1>
       
-      <p style="color: #4a4a4a; font-size: 16px; line-height: 24px;">Congratulations! You now have full access to AppTrack's ${planName} features for the next ${days} days.</p>
+      <p style="color: #4a4a4a; font-size: 16px; line-height: 24px;">Congratulations! You now have full access to CareerOtter's ${planName} features for the next ${days} days.</p>
       
       <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 24px 0;">
         <h2 style="color: #1a1a1a; font-size: 18px; margin-top: 0;">What's Included:</h2>
@@ -370,7 +370,7 @@ async function sendWelcomeEmail(email: string, endDate: Date, days: number, code
       
       <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
         <p style="color: #6b7280; font-size: 12px; line-height: 18px;">
-          You're receiving this email because you activated a ${isTrial ? 'trial' : 'premium access code'} for AppTrack. If you have any questions, feel free to reply to this email.
+          You're receiving this email because you activated a ${isTrial ? 'trial' : 'premium access code'} for CareerOtter. If you have any questions, feel free to reply to this email.
         </p>
       </div>
     </div>

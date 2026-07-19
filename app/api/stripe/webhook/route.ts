@@ -672,11 +672,11 @@ async function handlePaymentFailed(
 const APP_URL =
   process.env.APP_URL ||
   process.env.NEXT_PUBLIC_APP_URL ||
-  "https://www.apptrack.ing";
+  "https://careerotter.io";
 
 // Bare label so the email's "your ${planName} plan" / "for ${planName}" copy
 // reads correctly (a real plan name is also bare, e.g. "AI Coach").
-const TRIAL_PLAN_NAME_FALLBACK = "AppTrack";
+const TRIAL_PLAN_NAME_FALLBACK = "CareerOtter";
 
 /**
  * Build human-readable charge cadence wording from a Stripe recurring price.

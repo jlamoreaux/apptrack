@@ -54,7 +54,7 @@ function AuthErrorContent() {
             <p className="text-sm text-muted-foreground">
               Need help?{" "}
               <a
-                href="mailto:support@apptrack.ing"
+                href="mailto:support@careerotter.io"
                 className="text-primary hover:underline inline-flex items-center gap-1"
               >
                 <Mail className="h-3 w-3" />

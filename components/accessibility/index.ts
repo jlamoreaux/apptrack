@@ -2,7 +2,7 @@
  * Accessibility Components Index
  * 
  * Centralized exports for all accessibility-related components
- * and utilities in the AppTrack application.
+ * and utilities in the CareerOtter application.
  */
 
 // Skip navigation components

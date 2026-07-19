@@ -5,7 +5,7 @@ import { ForgotPasswordForm } from "@/components/forms/forgot-password-form";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Forgot Password | AppTrack",
+  title: "Forgot Password | CareerOtter",
   robots: {
     index: false,
     follow: false,

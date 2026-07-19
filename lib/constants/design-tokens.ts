@@ -1,5 +1,5 @@
 /**
- * AppTrack Design Token Reference
+ * CareerOtter Design Token Reference
  *
  * This file documents the semantic token system.
  * Actual values are defined as CSS variables in globals.css.

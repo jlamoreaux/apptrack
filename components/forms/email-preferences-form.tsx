@@ -14,7 +14,7 @@ const CATEGORY_ROWS: {
   {
     key: "drip_enabled",
     label: "Tips and onboarding",
-    description: "Occasional emails to help you get the most out of AppTrack",
+    description: "Occasional emails to help you get the most out of CareerOtter",
   },
   {
     key: "reminders_enabled",

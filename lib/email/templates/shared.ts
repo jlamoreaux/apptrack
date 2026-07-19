@@ -11,7 +11,7 @@ import type { BaseTemplateParams } from '@/types';
 // Re-export for consumers that import from here
 export type { BaseTemplateParams };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://careerotter.io';
 
 /**
  * Email-safe hex equivalents of the app's CSS variables. Email clients can't
@@ -66,7 +66,7 @@ export function safeUrl(url: string): string {
 export type WrapEmailParams = {
   /** Marketing unsubscribe target. Optional when `footerHtml` is supplied. */
   unsubscribeUrl?: string;
-  /** Overrides the default "signed up for AppTrack updates" footer line. */
+  /** Overrides the default "signed up for CareerOtter updates" footer line. */
   footerNote?: string;
   /**
    * Full custom footer markup, rendered in place of the default marketing
@@ -83,7 +83,7 @@ export type WrapEmailParams = {
  */
 export function wrapEmail(content: string, params: WrapEmailParams): string {
   const footerNote =
-    params.footerNote ?? "You're receiving this because you signed up for AppTrack updates.";
+    params.footerNote ?? "You're receiving this because you signed up for CareerOtter updates.";
 
   const footer =
     params.footerHtml ??
@@ -101,7 +101,7 @@ export function wrapEmail(content: string, params: WrapEmailParams): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AppTrack</title>
+  <title>CareerOtter</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${EMAIL_THEME.pageBg};">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${EMAIL_THEME.pageBg}; padding: 40px 20px;">
@@ -111,7 +111,7 @@ export function wrapEmail(content: string, params: WrapEmailParams): string {
           <!-- Header -->
           <tr>
             <td style="padding: 32px 32px 24px; text-align: center;">
-              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: ${EMAIL_THEME.heading};"><img src="${APP_URL}/logo_square.png" alt="" width="28" height="28" style="border: 0; border-radius: 6px; vertical-align: -5px; margin-right: 10px;">AppTrack</h1>
+              <h1 style="margin: 0; font-size: 24px; font-weight: 700; color: ${EMAIL_THEME.heading};"><img src="${APP_URL}/logo_square.png" alt="" width="28" height="28" style="border: 0; border-radius: 6px; vertical-align: -5px; margin-right: 10px;">CareerOtter</h1>
             </td>
           </tr>
           <!-- Content -->
