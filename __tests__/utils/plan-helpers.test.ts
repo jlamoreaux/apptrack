@@ -10,6 +10,7 @@ import {
   isOnProOrHigher,
   isOnAICoachPlan,
   isOnPaidPlan,
+  isPro,
   getPlanDisplayName,
   getPlanLevel,
   isPlanDowngrade,
@@ -184,11 +185,28 @@ describe('getPlanButtonText', () => {
   });
 });
 
+describe('isPro (single entitlement line)', () => {
+  it('returns true for Pro plan', () => {
+    expect(isPro(PLANS.PRO)).toBe(true);
+  });
+
+  it('returns true for AI Coach plan (same tier, pre-rename)', () => {
+    expect(isPro(PLANS.AI_COACH)).toBe(true);
+  });
+
+  it('returns false for Free plan', () => {
+    expect(isPro(PLANS.FREE)).toBe(false);
+  });
+
+  it('returns false for an unknown plan', () => {
+    expect(isPro('enterprise')).toBe(false);
+  });
+});
+
 describe('getApplicationLimit', () => {
-  it('returns a number (the free limit) for Free plan', () => {
-    const limit = getApplicationLimit(PLANS.FREE);
-    expect(typeof limit).toBe('number');
-    expect(limit).toBeGreaterThan(0);
+  // Tracking is unlimited on every tier now — the paywall is AI, not count.
+  it('returns null (unlimited) for Free plan', () => {
+    expect(getApplicationLimit(PLANS.FREE)).toBeNull();
   });
 
   it('returns null (unlimited) for Pro plan', () => {
@@ -205,26 +223,20 @@ describe('canAccessAIFeatures', () => {
     expect(canAccessAIFeatures(PLANS.AI_COACH)).toBe(true);
   });
 
-  it('returns false for Free plan', () => {
-    expect(canAccessAIFeatures(PLANS.FREE)).toBe(false);
+  it('returns true for Pro plan (Pro unlocks every AI tool)', () => {
+    expect(canAccessAIFeatures(PLANS.PRO)).toBe(true);
   });
 
-  it('returns false for Pro plan', () => {
-    expect(canAccessAIFeatures(PLANS.PRO)).toBe(false);
+  it('returns false for Free plan', () => {
+    expect(canAccessAIFeatures(PLANS.FREE)).toBe(false);
   });
 });
 
 describe('canAccessUnlimitedApplications', () => {
-  it('returns true for Pro plan', () => {
+  it('returns true for every tier (unlimited tracking for all)', () => {
+    expect(canAccessUnlimitedApplications(PLANS.FREE)).toBe(true);
     expect(canAccessUnlimitedApplications(PLANS.PRO)).toBe(true);
-  });
-
-  it('returns true for AI Coach plan', () => {
     expect(canAccessUnlimitedApplications(PLANS.AI_COACH)).toBe(true);
-  });
-
-  it('returns false for Free plan', () => {
-    expect(canAccessUnlimitedApplications(PLANS.FREE)).toBe(false);
   });
 });
 
@@ -258,7 +270,7 @@ describe('hasFeatureAccess', () => {
     expect(hasFeatureAccess(PLANS.FREE, 'RESUME_ANALYSIS')).toBe(false);
   });
 
-  it('returns false for Pro plan accessing CAREER_ADVICE', () => {
-    expect(hasFeatureAccess(PLANS.PRO, 'CAREER_ADVICE')).toBe(false);
+  it('returns true for Pro plan accessing CAREER_ADVICE (Pro = every AI tool)', () => {
+    expect(hasFeatureAccess(PLANS.PRO, 'CAREER_ADVICE')).toBe(true);
   });
 });

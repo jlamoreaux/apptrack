@@ -17,11 +17,7 @@ export function getPlanFeatures(plan: SubscriptionPlan): string[] {
   // Add plan-specific features based on plan name
   switch (plan.name) {
     case PLAN_NAMES.FREE:
-      features.unshift(
-        `Up to ${
-          plan.max_applications || PLAN_LIMITS.FREE_MAX_APPLICATIONS
-        } applications`
-      );
+      features.unshift("Unlimited application tracking");
       break;
 
     case PLAN_NAMES.PRO:
@@ -133,6 +129,14 @@ export const isOnPaidPlan = (userPlan: string): boolean => {
 };
 
 /**
+ * CareerOtter's single entitlement boolean: "does this user get the AI tools?"
+ * True for any paid plan — the go-forward Pro tier and the pre-rename AI Coach
+ * tier (and legacy grandfathered Pro). The line is AI; everything model-calling
+ * except the roast gates on this.
+ */
+export const isPro = (userPlan: string): boolean => isOnPaidPlan(userPlan);
+
+/**
  * Check if user is on Pro or higher plan
  */
 export const isOnProOrHigher = (userPlan: string): boolean => {
@@ -201,7 +205,7 @@ export const getUpgradeMessage = (
   currentPlan: string
 ): string => {
   if (isAICoachFeature(feature)) {
-    return "This feature requires an AI Coach subscription";
+    return "This feature requires Pro";
   }
 
   return "This feature is not available on your current plan";
@@ -212,34 +216,31 @@ export const getUpgradeMessage = (
  */
 export const getRequiredPlan = (feature: string): string => {
   if (isAICoachFeature(feature)) {
-    return PLAN_NAMES.AI_COACH;
+    return PLAN_NAMES.PRO;
   }
 
   return PLAN_NAMES.FREE;
 };
 
 /**
- * Check if user can access unlimited applications
+ * Every tier now tracks unlimited applications — the paywall is AI, not count.
  */
-export const canAccessUnlimitedApplications = (userPlan: string): boolean => {
-  return isOnProOrHigher(userPlan);
+export const canAccessUnlimitedApplications = (_userPlan: string): boolean => {
+  return true;
 };
 
 /**
- * Check if user can access AI features
+ * Check if user can access AI features — true for any paid plan (isPro).
  */
 export const canAccessAIFeatures = (userPlan: string): boolean => {
-  return isOnAICoachPlan(userPlan);
+  return isPro(userPlan);
 };
 
 /**
- * Get application limit for user plan
+ * Get application limit for user plan. Null = unlimited, which is now every tier.
  */
-export const getApplicationLimit = (userPlan: string): number | null => {
-  if (isOnFreePlan(userPlan)) {
-    return PLAN_LIMITS.FREE_MAX_APPLICATIONS;
-  }
-  return null; // Unlimited for paid plans
+export const getApplicationLimit = (_userPlan: string): number | null => {
+  return null;
 };
 
 /**

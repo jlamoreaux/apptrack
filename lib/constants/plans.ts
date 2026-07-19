@@ -1,6 +1,8 @@
 // Plan configuration constants
+// CareerOtter pricing model (D2): the line is AI, not tracking. Every tier gets
+// unlimited application tracking; Pro unlocks the model-calling features.
 export const PLAN_LIMITS = {
-  FREE_MAX_APPLICATIONS: 100, // Updated to 100 for generous free tier
+  FREE_MAX_APPLICATIONS: -1, // Unlimited tracking for all tiers (the wall is AI, not count)
   GRANDFATHERED_PRO_MAX_APPLICATIONS: -1, // Unlimited for grandfathered Pro users
 } as const;
 
@@ -37,32 +39,34 @@ export const FEATURE_ACCESS = {
     EXPORT: [PLAN_NAMES.FREE, PLAN_NAMES.PRO, PLAN_NAMES.AI_COACH],
   },
 
-  // AI Coach features (only available to AI Coach plan)
+  // AI (model-calling) features. CareerOtter's single entitlement line: any paid
+  // plan unlocks these. PRO is the go-forward name; AI_COACH is the same tier
+  // pre-rename, kept so existing DB rows and subscribers keep access.
   AI_COACH_FEATURES: {
-    RESUME_ANALYSIS: [PLAN_NAMES.AI_COACH],
-    INTERVIEW_PREP: [PLAN_NAMES.AI_COACH],
-    CAREER_ADVICE: [PLAN_NAMES.AI_COACH],
-    COVER_LETTER_GENERATION: [PLAN_NAMES.AI_COACH],
-    JOB_FIT_ANALYSIS: [PLAN_NAMES.AI_COACH],
-    UNLIMITED_APPLICATIONS: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO], // Pro users are grandfathered
+    RESUME_ANALYSIS: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
+    INTERVIEW_PREP: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
+    CAREER_ADVICE: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
+    COVER_LETTER_GENERATION: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
+    JOB_FIT_ANALYSIS: [PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
+    // Unlimited tracking is now every tier, Free included — the wall is AI, not count.
+    UNLIMITED_APPLICATIONS: [PLAN_NAMES.FREE, PLAN_NAMES.AI_COACH, PLAN_NAMES.PRO],
   },
 } as const;
 
 export const PLAN_FEATURES = {
-  // Free tier features
+  // Free tier features (every non-AI tool)
   FREE: [
-    "Up to 100 applications",
-    "All tracking features",
-    "Sankey charts & analytics", 
+    "Unlimited application tracking",
+    "Roast My Resume",
+    "Sankey charts & analytics",
     "Interview notes",
     "Contact management",
     "Export capabilities",
   ],
 
-  // AI Coach features
+  // Pro features (every AI tool). Same list surfaced for AI_COACH pre-rename.
   AI_COACH: [
     "Everything in Free",
-    "Unlimited applications",
     "AI resume analysis",
     "AI interview preparation",
     "AI job fit analysis",

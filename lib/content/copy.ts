@@ -1,5 +1,4 @@
 import copyData from "@/content/copy.json";
-import { PLAN_LIMITS } from "@/lib/constants/plans";
 import { Brain, FileText, MessageSquare, Target, BarChart3 } from "lucide-react";
 
 // Type-safe access to copy with validation
@@ -14,7 +13,7 @@ export const COPY = {
       free: {
         ...copyData.pricing.plans.free,
         features: [
-          `Up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications`,
+          "Unlimited application tracking",
           ...copyData.pricing.plans.free.features.slice(1),
         ],
       },
