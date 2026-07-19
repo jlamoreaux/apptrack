@@ -5,11 +5,11 @@ import { getUser } from "@/lib/supabase/queries";
 import { CareerWaitlistForm } from "./career-waitlist-form";
 
 export const metadata: Metadata = {
-  title: "Get promoted faster | CareerOtter.ing",
+  title: "Get promoted faster | CareerOtter",
   description:
     "We're building a career companion for CareerOtter: track your wins, turn them into a clear, evidence-backed case for your next review, and know your gaps before your manager does. Join the early-access waitlist.",
   openGraph: {
-    title: "Get promoted faster with CareerOtter.ing",
+    title: "Get promoted faster with CareerOtter",
     description:
       "Track your wins, build the case for your next review, and close your gaps before review season. Join the early-access waitlist.",
   },
