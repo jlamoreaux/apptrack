@@ -105,6 +105,18 @@ describe("POST /api/wins", () => {
       expect.objectContaining({ tag: "delivery", source: "manual" })
     );
   });
+
+  it("ignores a forged source and records manual", async () => {
+    adminReturning({ data: { id: "w1", text: "x", source: "manual" }, error: null });
+    const res = await POST(req({ text: "x", source: "zero_to_case" }));
+    expect(res.status).toBe(201);
+    // Server-authoritative provenance: the event (and insert) use "manual".
+    expect(mockCapture).toHaveBeenCalledWith(
+      USER.id,
+      CAREEROTTER_EVENT_NAMES.WIN_LOGGED,
+      expect.objectContaining({ source: "manual" })
+    );
+  });
 });
 
 describe("GET /api/wins", () => {
@@ -138,6 +150,18 @@ describe("PATCH/DELETE /api/wins/:id", () => {
     const res = await PATCH(req({ text: "edited" }, "PATCH"), ctx);
     expect(res.status).toBe(200);
     expect((await res.json()).win.text).toBe("edited");
+  });
+
+  it("400 on a PATCH with no editable fields (no phantom edited_at bump)", async () => {
+    adminReturning({ data: null, error: null });
+    const res = await PATCH(req({}, "PATCH"), ctx);
+    expect(res.status).toBe(400);
+  });
+
+  it("500 (not 404) when the PATCH hits a real DB error", async () => {
+    adminReturning({ data: null, error: { code: "08006", message: "connection failure" } });
+    const res = await PATCH(req({ text: "edited" }, "PATCH"), ctx);
+    expect(res.status).toBe(500);
   });
 
   it("404 deleting a win that isn't the caller's", async () => {

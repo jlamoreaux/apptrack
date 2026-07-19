@@ -24,6 +24,8 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export const maxDuration = 60;
 
+const PG_UNIQUE_VIOLATION = "23505";
+
 type Body = {
   mode?: unknown;
   role?: unknown;
@@ -35,6 +37,19 @@ type Body = {
 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+// Regex alone accepts calendar-invalid values like 2026-02-30; round-trip the
+// parsed components to reject them (a bare `new Date` silently rolls over).
+function isValidCalendarDate(s: string): boolean {
+  if (!ISO_DATE.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
+}
 
 function str(v: unknown, max = 300): string | null {
   if (typeof v !== "string") return null;
@@ -104,9 +119,9 @@ export async function POST(request: NextRequest) {
   const target = str(body.target, 500);
   let reviewDate: string | null = null;
   if (body.review_date != null && body.review_date !== "") {
-    if (typeof body.review_date !== "string" || !ISO_DATE.test(body.review_date)) {
+    if (typeof body.review_date !== "string" || !isValidCalendarDate(body.review_date)) {
       return NextResponse.json(
-        { error: "review_date must be YYYY-MM-DD" },
+        { error: "review_date must be a valid YYYY-MM-DD date" },
         { status: 400 }
       );
     }
@@ -121,23 +136,61 @@ export async function POST(request: NextRequest) {
     : [];
 
   const admin = createAdminClient();
+  const nowIso = new Date().toISOString();
+  const goalFrame = {
+    mode: mode as CareerMode,
+    role,
+    level,
+    time_in_role: timeInRole,
+    target,
+    review_date: reviewDate,
+    updated_at: nowIso,
+  };
 
-  // Idempotent: if already completed, return the stored case (no second call).
-  const { data: existing } = await admin
+  // Atomically claim the one free Zero-to-Case run so two concurrent requests
+  // can't both spend a model call and seed duplicate wins. Either we create the
+  // row already-claimed, or we flip an existing row's completed_at from null.
+  let claimed = false;
+  const insert = await admin
     .from("career_profiles")
-    .select("zero_to_case_completed_at, starter_case, mode")
-    .eq("user_id", user.id)
+    .insert({ user_id: user.id, ...goalFrame, zero_to_case_completed_at: nowIso })
+    .select("user_id")
     .maybeSingle();
+  if (!insert.error) {
+    claimed = true;
+  } else if (insert.error.code === PG_UNIQUE_VIOLATION) {
+    const claim = await admin
+      .from("career_profiles")
+      .update({ ...goalFrame, zero_to_case_completed_at: nowIso })
+      .eq("user_id", user.id)
+      .is("zero_to_case_completed_at", null)
+      .select("user_id")
+      .maybeSingle();
+    claimed = Boolean(claim.data);
+  } else {
+    loggerService.error("Failed to claim career profile", insert.error, {
+      category: LogCategory.DATABASE,
+      userId: user.id,
+      action: "career_profile_claim_failed",
+    });
+    return NextResponse.json({ error: "Failed to save your case" }, { status: 500 });
+  }
 
-  if (existing?.zero_to_case_completed_at && existing.starter_case) {
+  if (!claimed) {
+    // Already completed by a prior/concurrent run — return the stored case.
+    const { data: existing } = await admin
+      .from("career_profiles")
+      .select("starter_case")
+      .eq("user_id", user.id)
+      .maybeSingle();
     return NextResponse.json({
-      starterCase: existing.starter_case,
+      starterCase: existing?.starter_case ?? "",
       alreadyCompleted: true,
     });
   }
 
-  // Generate the starter case. If the model call fails, still persist the goal
-  // frame so onboarding isn't lost — the user can generate later.
+  // We own the claim. Generate the case; on failure, release the claim so the
+  // user can retry rather than being permanently marked complete with no case.
   let starterCase = "";
   try {
     starterCase = await callOpenAI({
@@ -164,34 +217,25 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       action: "ztc_generation_failed",
     });
+    await admin
+      .from("career_profiles")
+      .update({ zero_to_case_completed_at: null })
+      .eq("user_id", user.id);
     return NextResponse.json(
       { error: "Could not generate your case right now. Please try again." },
       { status: 502 }
     );
   }
 
-  const nowIso = new Date().toISOString();
-  const { error: upsertError } = await admin.from("career_profiles").upsert(
-    {
-      user_id: user.id,
-      mode: mode as CareerMode,
-      role,
-      level,
-      time_in_role: timeInRole,
-      target,
-      review_date: reviewDate,
-      zero_to_case_completed_at: nowIso,
-      starter_case: starterCase,
-      updated_at: nowIso,
-    },
-    { onConflict: "user_id" }
-  );
-
-  if (upsertError) {
-    loggerService.error("Failed to save career profile", upsertError, {
+  const { error: saveError } = await admin
+    .from("career_profiles")
+    .update({ starter_case: starterCase, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id);
+  if (saveError) {
+    loggerService.error("Failed to save starter case", saveError, {
       category: LogCategory.DATABASE,
       userId: user.id,
-      action: "career_profile_upsert_failed",
+      action: "career_profile_save_failed",
     });
     return NextResponse.json({ error: "Failed to save your case" }, { status: 500 });
   }

@@ -38,13 +38,24 @@ function setUser(user: unknown) {
   });
 }
 
-function adminReturning(result: { data: unknown; error: unknown }) {
-  const builder: Record<string, unknown> = {};
-  for (const m of ["from", "select", "insert", "update", "upsert", "eq", "maybeSingle", "single"]) {
-    builder[m] = jest.fn(() => builder);
-  }
-  (builder as { then: unknown }).then = (resolve: (v: unknown) => void) => resolve(result);
-  mockCreateAdminClient.mockReturnValue(builder);
+type OpResult = { data: unknown; error: unknown };
+function chain(result: OpResult) {
+  const b: Record<string, unknown> = {};
+  for (const m of ["select", "eq", "is", "maybeSingle", "single"]) b[m] = () => b;
+  (b as { then: unknown }).then = (res: (v: OpResult) => void) => res(result);
+  return b;
+}
+// Per-operation admin mock: the zero-to-case claim flow issues insert (claim),
+// update (claim/save), and select (stored-case fetch) with different results.
+function adminOps(ops: { insert?: OpResult; update?: OpResult; select?: OpResult }) {
+  const none: OpResult = { data: null, error: null };
+  mockCreateAdminClient.mockReturnValue({
+    from: () => ({
+      insert: () => chain(ops.insert ?? none),
+      update: () => chain(ops.update ?? none),
+      select: () => chain(ops.select ?? none),
+    }),
+  });
 }
 
 function req(body: unknown) {
@@ -67,20 +78,26 @@ it("401 when unauthenticated", async () => {
 });
 
 it("400 on an invalid mode", async () => {
-  adminReturning({ data: null, error: null });
+  adminOps({});
   const res = await POST(req({ mode: "world-domination" }));
   expect(res.status).toBe(400);
   expect(mockCallOpenAI).not.toHaveBeenCalled();
 });
 
+it("400 on a calendar-invalid review_date (2026-02-30)", async () => {
+  adminOps({});
+  const res = await POST(req({ mode: "promotion", review_date: "2026-02-30" }));
+  expect(res.status).toBe(400);
+  expect(mockCallOpenAI).not.toHaveBeenCalled();
+});
+
 it("is idempotent: returns the stored case without a new model call", async () => {
-  adminReturning({
-    data: {
-      zero_to_case_completed_at: "2026-07-01T00:00:00Z",
-      starter_case: "stored case",
-      mode: "promotion",
-    },
-    error: null,
+  // insert conflicts (row exists), claim-update flips nothing (already complete),
+  // then the stored case is returned.
+  adminOps({
+    insert: { data: null, error: { code: "23505" } },
+    update: { data: null, error: null },
+    select: { data: { starter_case: "stored case" }, error: null },
   });
   const res = await POST(req({ mode: "promotion", wins: ["a"] }));
   expect(res.status).toBe(200);
@@ -91,7 +108,11 @@ it("is idempotent: returns the stored case without a new model call", async () =
 });
 
 it("generates a starter case, returns 201, and fires ztc_completed", async () => {
-  adminReturning({ data: null, error: null }); // no existing profile; upserts ok
+  // insert claims the run (row created); save-update succeeds.
+  adminOps({
+    insert: { data: { user_id: "user-1" }, error: null },
+    update: { data: null, error: null },
+  });
   mockCallOpenAI.mockResolvedValue("your generated starter case");
 
   const res = await POST(
@@ -116,7 +137,7 @@ it("generates a starter case, returns 201, and fires ztc_completed", async () =>
 });
 
 it("400 on an invalid review_date format", async () => {
-  adminReturning({ data: null, error: null });
+  adminOps({});
   const res = await POST(req({ mode: "promotion", review_date: "next tuesday" }));
   expect(res.status).toBe(400);
 });
