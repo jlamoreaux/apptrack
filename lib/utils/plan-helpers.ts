@@ -118,6 +118,11 @@ export const hasFeatureAccess = (
  * Check if a feature is exclusive to AI Coach plan
  */
 export const isAICoachFeature = (feature: string): boolean => {
+  // UNLIMITED_APPLICATIONS lives under AI_COACH_FEATURES for the access-map, but
+  // tracking is free on every tier — it is NOT an AI-gated feature. Excluding it
+  // keeps getRequiredPlan/getUpgradeMessage from telling Free users that
+  // unlimited tracking requires Pro.
+  if (feature === "UNLIMITED_APPLICATIONS") return false;
   return Object.keys(FEATURE_ACCESS.AI_COACH_FEATURES).includes(feature);
 };
 

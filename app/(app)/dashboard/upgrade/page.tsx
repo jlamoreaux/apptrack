@@ -262,12 +262,21 @@ export default function UpgradePage() {
   if (!user) return null;
 
   const freePlan = plans.find((plan) => plan.name === PLAN_NAMES.FREE);
-  // The single active paid plan — resolved by "not Free" rather than by name, so
-  // this keeps working whether the DB plan is still "AI Coach" or renamed "Pro".
-  const paidPlan = plans.find((plan) => plan.name !== PLAN_NAMES.FREE);
+  // Deterministic paid-plan selection: prefer the go-forward paid row by explicit
+  // name (AI Coach today, or Pro post-rename), never the first non-Free row —
+  // otherwise a grandfathered "Pro" could be shown as the advertised paid plan.
+  const paidPlan =
+    plans.find((plan) => plan.name === PLAN_NAMES.AI_COACH) ??
+    plans.find((plan) => plan.name === PLAN_NAMES.PRO) ??
+    plans.find((plan) => plan.name !== PLAN_NAMES.FREE);
   const paidYearlySavings = paidPlan
     ? Math.max(0, paidPlan.price_monthly * 12 - paidPlan.price_yearly)
     : 0;
+  // Derive the "N months free" claim from the actual prices instead of hardcoding.
+  const monthsFree =
+    paidPlan && paidPlan.price_monthly > 0
+      ? Math.round(paidYearlySavings / paidPlan.price_monthly)
+      : 0;
 
   // Handle both possible subscription structures
   const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
@@ -335,9 +344,11 @@ export default function UpgradePage() {
                   className="text-xs sm:text-sm"
                 >
                   Yearly
-                  <Badge className="ml-1 sm:ml-2 text-xs bg-white/20 text-white border-0 hover:bg-white/20">
-                    2 months free
-                  </Badge>
+                  {monthsFree > 0 && (
+                    <Badge className="ml-1 sm:ml-2 text-xs bg-white/20 text-white border-0 hover:bg-white/20">
+                      {monthsFree} {monthsFree === 1 ? "month" : "months"} free
+                    </Badge>
+                  )}
                 </Button>
               </div>
               
@@ -418,7 +429,8 @@ export default function UpgradePage() {
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
-              Save with yearly billing: Pro is ${paidYearlySavings}/year cheaper (2 months free)
+              Save with yearly billing: Pro is ${paidYearlySavings}/year cheaper
+              {monthsFree > 0 && ` (${monthsFree} ${monthsFree === 1 ? "month" : "months"} free)`}
             </p>
           </div>
 

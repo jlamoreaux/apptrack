@@ -75,8 +75,9 @@ export const PLAN_FEATURES = {
   ],
   
   // Grandfathered Pro features (not shown to new users)
+  // Grandfathered Pro. Tracking is unlimited on every tier now, so it's not
+  // listed here as a paid differentiator.
   PRO: [
-    "Unlimited applications",
     "All tracking features",
     "Priority support",
   ],
