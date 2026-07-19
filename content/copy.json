@@ -10,7 +10,7 @@
     }
   },
   "problemSolution": {
-    "title": "Job searching is overwhelming. We make it simple.",
+    "title": "Your wins, tracked. Your case, built.",
     "problems": [
       "Forgetting which jobs you've applied to",
       "Losing track of interview stages and outcomes",
@@ -25,13 +25,13 @@
     ]
   },
   "pricing": {
-    "title": "Simple pricing that works for your job search",
-    "subtitle": "Choose the plan that works best for your job search",
-    "ethicalPromise": "We'll remind you to cancel when you get hired. We don't want you paying for something you no longer need.",
+    "title": "Simple pricing that works for your career",
+    "subtitle": "Choose the plan that fits your career",
+    "ethicalPromise": "Got the raise? Tell us and we'll pause you. Paying out of habit isn't the business we want to run.",
     "plans": {
       "free": {
         "title": "Free Forever",
-        "subtitle": "Everything you need to track your job search",
+        "subtitle": "Everything you need to build your case",
         "price": "$0/month",
         "features": [
           "Track up to 100 applications",
@@ -107,7 +107,7 @@
     ]
   },
   "socialProof": {
-    "title": "Built for job seekers, by job seekers",
+    "title": "Built for people who do the work",
     "testimonials": [],
     "stats": [
       {
@@ -126,8 +126,8 @@
   },
   "testimonials": {
     "badge": "What Our Users Say",
-    "title": "Real Results from Job Seekers",
-    "subtitle": "See how CareerOtter is helping job seekers stay organized and land interviews faster.",
+    "title": "Real results",
+    "subtitle": "See how CareerOtter helps people track their work and make their case.",
     "placeholders": [
       {
         "name": "Sarah M.",
@@ -194,12 +194,12 @@
     ]
   },
   "finalCta": {
-    "title": "Ready to take control of your job search?",
-    "subtitle": "Get organized, stay on track, and land your dream role with AI-powered assistance.",
+    "title": "Ready to build the case for your next raise?",
+    "subtitle": "Log your wins, close your gaps, and walk into your review with proof, not hope.",
     "cta": {
       "text": "Start Your Free Account",
       "href": "/signup"
     },
-    "supportingText": "Start free • Upgrade anytime • Cancel when you get hired"
+    "supportingText": "Start free • Upgrade anytime • Pause when you get the raise"
   }
 }

@@ -171,7 +171,7 @@ export default async function HomePage() {
                   Everything you need, nothing you don't
                 </h2>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  One place to organize your applications, track your progress, and get AI-powered career coaching.
+                  One place to log your wins, track your job search, and turn your work into the case for your next raise.
                 </p>
               </div>
             </ScrollReveal>
@@ -195,7 +195,7 @@ export default async function HomePage() {
                   Your AI career coach, on demand
                 </h2>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Get expert help with every step of your job search. Try our free tools or upgrade to AI Coach for unlimited access.
+                  From the job hunt to your next raise. Free AI tools to land the role, Pro coaching that turns your wins into the case.
                 </p>
               </div>
             </ScrollReveal>
@@ -273,10 +273,10 @@ export default async function HomePage() {
           <div className="container mx-auto max-w-3xl text-center">
             <ScrollReveal>
               <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
-                Ready to take control of your job search?
+                Ready to build the case for your next raise?
               </h2>
               <p className="text-lg text-section-cta-muted mb-8">
-                Get organized, stay on track, and land your dream role with AI-powered assistance.
+                Log your wins, close your gaps, and walk into your review with proof, not hope.
               </p>
               <ButtonLink
                 href="/signup"
@@ -287,7 +287,7 @@ export default async function HomePage() {
                 <ArrowRight className="ml-2 h-5 w-5" />
               </ButtonLink>
               <p className="text-sm text-section-cta-muted mt-6">
-                Start free • Upgrade anytime • Cancel when you get hired
+                Start free • Upgrade anytime • Pause when you get the raise
               </p>
             </ScrollReveal>
           </div>

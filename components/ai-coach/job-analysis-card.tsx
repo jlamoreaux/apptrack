@@ -135,7 +135,7 @@ export function JobAnalysisCard({ jobUrl, userId, companyName, roleName }: JobAn
                 <Badge variant="outline" className={getScoreColor(analysis.overallScore)}>
                   {analysis.scoreLabel}
                 </Badge>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${getScoreBarColor(analysis.overallScore)}`}
                     style={{ width: `${analysis.overallScore}%` }}

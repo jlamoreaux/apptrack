@@ -38,8 +38,8 @@ const scoreConfig = {
   dead: {
     icon: Skull,
     label: "Dead on Arrival",
-    color: "text-gray-800",
-    bgColor: "bg-gray-100",
+    color: "text-foreground",
+    bgColor: "bg-muted",
   },
   nauseous: {
     icon: AlertCircle,
@@ -93,7 +93,7 @@ const scoreConfig = {
     icon: Trash2,
     label: "Straight to Trash",
     color: "text-gray-600",
-    bgColor: "bg-gray-50",
+    bgColor: "bg-muted",
   },
 };
 

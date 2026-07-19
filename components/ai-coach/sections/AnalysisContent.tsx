@@ -75,7 +75,7 @@ export function AnalysisContent({
       {status === "idle" && (
         <div className="text-center py-8 space-y-4">
           <div className="space-y-2">
-            <h3 className="font-semibold text-gray-900">
+            <h3 className="font-semibold text-foreground">
               {currentTabConfig?.label}
             </h3>
             <p className="text-sm text-gray-600">
