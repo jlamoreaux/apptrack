@@ -5,6 +5,7 @@ import {
   Brain,
   BarChart3,
   Settings,
+  Trophy,
 } from "lucide-react";
 import { PLAN_NAMES } from "./plans";
 import { PLAN_THEMES } from "./plan-themes";
@@ -28,6 +29,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
     href: APP_ROUTES.DASHBOARD.APPLICATIONS,
     icon: Building2,
     description: "Manage your job applications",
+  },
+  {
+    id: "wins",
+    label: "Wins",
+    href: "/dashboard/wins",
+    icon: Trophy,
+    description: "Log your wins and build your case",
   },
   {
     id: "ai-coach",
