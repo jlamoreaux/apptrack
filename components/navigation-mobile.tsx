@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
-import Image from "next/image";
+import { CareerOtterLogo } from "@/components/careerotter-logo";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 export function NavigationMobile() {
@@ -15,13 +15,7 @@ export function NavigationMobile() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container flex h-14 items-center justify-between px-4">
           <Link href="/" className="flex items-center space-x-2">
-            <Image
-              src="/logo_square.png"
-              alt="AppTrack Logo"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-            />
+            <CareerOtterLogo className="h-6 w-auto" />
             <span className="font-bold text-xl text-primary">
               {SITE_CONFIG.name}
             </span>

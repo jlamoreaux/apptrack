@@ -3,7 +3,7 @@ import { getAllPosts, formatPostDate } from "@/lib/blog";
 import { generatePageMetadata } from "@/lib/metadata";
 import { NavigationStatic } from "@/components/navigation-static";
 
-const BLOG_DESCRIPTION = "Job search tips, product updates, and advice from the team at AppTrack.";
+const BLOG_DESCRIPTION = "Job search tips, product updates, and advice from the team at CareerOtter.";
 
 export const metadata = generatePageMetadata("Blog", BLOG_DESCRIPTION, "/blog");
 
@@ -16,7 +16,7 @@ export default function BlogPage() {
       <main className="container mx-auto px-4 py-16 max-w-2xl">
         <h1 className="text-3xl font-bold mb-2">Blog</h1>
         <p className="text-muted-foreground mb-12">
-          Job search tips and advice from the team at AppTrack.
+          Job search tips and advice from the team at CareerOtter.
         </p>
 
         {posts.length === 0 ? (

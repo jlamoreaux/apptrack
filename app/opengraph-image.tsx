@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og"
 import { OG_COLORS, OG_SIZE } from "@/components/og"
 
 export const runtime = "edge"
-export const alt = "AppTrack - Smart Job Application Tracker"
+export const alt = "CareerOtter - Smart Job Application Tracker"
 export const size = OG_SIZE
 export const contentType = "image/png"
 
@@ -52,7 +52,7 @@ export default async function Image() {
               letterSpacing: "-0.5px",
             }}
           >
-            AppTrack
+            CareerOtter
           </span>
         </div>
 
@@ -106,7 +106,7 @@ export default async function Image() {
               fontWeight: "500",
             }}
           >
-            apptrack.ing
+            careerotter.io
           </span>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { CareerOtterLogo } from "@/components/careerotter-logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -72,14 +72,8 @@ export function NavigationClient() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Image
-              src="/logo_square.png"
-              alt="AppTrack Logo"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-            />
-            <span className="font-bold text-xl text-foreground">AppTrack</span>
+            <CareerOtterLogo className="h-6 w-auto" />
+            <span className="font-bold text-xl text-foreground">CareerOtter</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
             <Button variant="ghost" asChild>
@@ -98,14 +92,8 @@ export function NavigationClient() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <Image
-            src="/logo_square.png"
-            alt="AppTrack Logo"
-            width={24}
-            height={24}
-            className="h-6 w-6"
-          />
-          <span className="font-bold text-xl text-foreground">AppTrack</span>
+          <CareerOtterLogo className="h-6 w-auto" />
+          <span className="font-bold text-xl text-foreground">CareerOtter</span>
         </Link>
 
         <div className="ml-auto flex items-center space-x-2">

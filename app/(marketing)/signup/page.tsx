@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import SignUpPageClient from "./signup-page-client"
 
 export const metadata: Metadata = {
-  title: "Sign Up | AppTrack",
+  title: "Sign Up | CareerOtter",
   robots: {
     index: false,
     follow: false,

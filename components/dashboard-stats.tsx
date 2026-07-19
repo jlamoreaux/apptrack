@@ -80,7 +80,7 @@ export function DashboardStats({ userId }: DashboardStatsProps) {
           <CardContent className="py-8 text-center">
             <Building2 className="h-10 w-10 text-primary mx-auto mb-3" />
             <h3 className="text-lg font-semibold font-display mb-2">
-              Welcome to AppTrack
+              Welcome to CareerOtter
             </h3>
             <p className="text-muted-foreground mb-4 max-w-md mx-auto">
               Add your first application to start tracking your job search progress.

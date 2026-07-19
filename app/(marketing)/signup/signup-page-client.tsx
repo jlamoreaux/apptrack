@@ -154,7 +154,7 @@ export default function SignUpPageClient() {
                 ? "Claim Your Free Month"
                 : isAICoachTrial
                 ? "Start Your Free Trial"
-                : "Join AppTrack"}
+                : "Join CareerOtter"}
             </CardTitle>
             <CardDescription>
               {hasPreviewSession

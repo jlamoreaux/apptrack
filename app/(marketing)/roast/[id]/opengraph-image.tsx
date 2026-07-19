@@ -144,7 +144,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
               display: "flex",
             }}
           >
-            apptrack.ing
+            careerotter.io
           </div>
         </div>
       </div>

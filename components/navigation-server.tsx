@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { CareerOtterLogo } from "@/components/careerotter-logo";
 import { Button } from "@/components/ui/button";
 import { Crown } from "lucide-react";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
@@ -45,15 +45,9 @@ export async function NavigationServer({ variant = "default" }: NavigationServer
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Top Header */}
       <nav aria-label="Site header" className="container flex h-14 items-center px-4 sm:px-8">
-        <Link href="/dashboard" className="mr-6 flex items-center space-x-2" aria-label="AppTrack Dashboard">
-          <Image
-            src="/logo_square.png"
-            alt="AppTrack Logo"
-            width={24}
-            height={24}
-            className="h-6 w-6"
-          />
-          <span className="font-bold text-xl text-foreground">AppTrack</span>
+        <Link href="/dashboard" className="mr-6 flex items-center space-x-2" aria-label="CareerOtter Dashboard">
+          <CareerOtterLogo className="h-6 w-auto" />
+          <span className="font-bold text-xl text-foreground">CareerOtter</span>
         </Link>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3" role="toolbar" aria-label="User actions">

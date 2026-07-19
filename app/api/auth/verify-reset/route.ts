@@ -11,7 +11,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const tokenHash = requestUrl.searchParams.get("token");
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.apptrack.ing";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://careerotter.io";
 
   if (!tokenHash) {
     return NextResponse.redirect(

@@ -153,7 +153,7 @@ export default function RoastMyResumePage() {
             href="/"
             className="text-sm text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300"
           >
-            Back to AppTrack
+            Back to CareerOtter
           </Link>
         </div>
         </div>

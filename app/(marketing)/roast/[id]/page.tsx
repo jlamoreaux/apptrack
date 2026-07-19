@@ -32,11 +32,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       title,
       description,
       type: "website",
-      url: `https://www.apptrack.ing/roast/${id}`,
-      siteName: "AppTrack",
+      url: `https://careerotter.io/roast/${id}`,
+      siteName: "CareerOtter",
       images: [
         {
-          url: `https://www.apptrack.ing/roast/${id}/opengraph-image`,
+          url: `https://careerotter.io/roast/${id}/opengraph-image`,
           width: 1200,
           height: 630,
           alt: "Resume Roast Results",
@@ -47,7 +47,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       card: "summary_large_image",
       title,
       description,
-      images: [`https://www.apptrack.ing/roast/${id}/opengraph-image`],
+      images: [`https://careerotter.io/roast/${id}/opengraph-image`],
       creator: "@apptrack",
     },
   };

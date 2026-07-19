@@ -13,12 +13,12 @@ export function AuthLayout({ children }: AuthLayoutProps) {
         <Link href="/" className="flex items-center gap-2 min-h-11">
           <Image
             src="/logo_square.png"
-            alt="AppTrack Logo"
+            alt="CareerOtter Logo"
             width={28}
             height={28}
             className="rounded"
           />
-          <span className="font-semibold text-foreground">AppTrack</span>
+          <span className="font-semibold text-foreground">CareerOtter</span>
         </Link>
       </div>
 
@@ -28,13 +28,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           <Link href="/" className="flex items-center gap-2 min-h-11">
             <Image
               src="/logo_square.png"
-              alt="AppTrack Logo"
+              alt="CareerOtter Logo"
               width={32}
               height={32}
               className="rounded"
             />
             <span className="text-xl font-bold text-section-cta-foreground">
-              AppTrack
+              CareerOtter
             </span>
           </Link>
         </div>

@@ -6,11 +6,11 @@ import { NavigationStatic } from "@/components/navigation-static";
 import { CheckList } from "@/components/ui/check-list";
 
 export const metadata: Metadata = {
-  title: "Free Job Search Tools for Laid-Off Workers | AppTrack.ing",
+  title: "Free Job Search Tools for Laid-Off Workers | CareerOtter.ing",
   description:
-    "If you were recently laid off, we're giving you 30 days of AppTrack.ing Pro for free. AI-powered job tracking, resume feedback, cover letters, and interview prep.",
+    "If you were recently laid off, we're giving you 30 days of CareerOtter.ing Pro for free. AI-powered job tracking, resume feedback, cover letters, and interview prep.",
   openGraph: {
-    title: "Free Month of AppTrack.ing for Laid-Off Workers",
+    title: "Free Month of CareerOtter.ing for Laid-Off Workers",
     description:
       "Getting laid off is hard. The job search doesn't have to be chaos. Free 30-day access, no credit card.",
   },
@@ -33,7 +33,7 @@ export default function LayoffsPage() {
             Not in a panic.
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto">
-            If you were recently laid off, we're giving you 30 days of AppTrack.ing Pro for free.
+            If you were recently laid off, we're giving you 30 days of CareerOtter.ing Pro for free.
             No credit card. No strings.
           </p>
           <ButtonLink href="/signup?intent=layoff-offer" size="lg" className="mt-2">
@@ -43,7 +43,7 @@ export default function LayoffsPage() {
           <div className="mt-8 rounded-xl overflow-hidden border shadow-md">
             <Image
               src="/screenshots/features/sankey-chart-light.png"
-              alt="AppTrack job application pipeline visualization"
+              alt="CareerOtter job application pipeline visualization"
               width={2698}
               height={1048}
               className="w-full h-auto dark:hidden"
@@ -51,7 +51,7 @@ export default function LayoffsPage() {
             />
             <Image
               src="/screenshots/features/sankey-chart-dark.png"
-              alt="AppTrack job application pipeline visualization"
+              alt="CareerOtter job application pipeline visualization"
               width={2698}
               height={1048}
               className="w-full h-auto hidden dark:block"

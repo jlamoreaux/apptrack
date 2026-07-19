@@ -55,7 +55,7 @@ const BATCH_SIZE = 100; // Resend batch limit
  */
 export async function sendBroadcast(options: BroadcastOptions): Promise<BroadcastSendResult> {
   const { audience, subject, getHtml, testEmail, replyTo } = options;
-  const from = options.from || process.env.FROM_EMAIL || 'AppTrack <onboarding@resend.dev>';
+  const from = options.from || process.env.FROM_EMAIL || 'CareerOtter <onboarding@resend.dev>';
 
   const result: BroadcastSendResult = {
     audience,
@@ -190,7 +190,7 @@ export async function broadcastChangelog(options: {
 
     const result = await sendBroadcast({
       audience,
-      subject: `What's New in AppTrack -- Week of ${changelog.weekOf}`,
+      subject: `What's New in CareerOtter -- Week of ${changelog.weekOf}`,
       testEmail,
       getHtml: (params) =>
         getChangelogHtml({
