@@ -73,37 +73,44 @@ export function WinCaptureBar({
 
   return (
     <form onSubmit={submit} className="space-y-2">
+      {/* Width lives on the wrapper divs, not the shadcn components: the Input's
+          flex-1 was being starved by SelectTrigger's built-in w-full at sm+, which
+          collapsed the text field. Wrapping isolates each control's sizing. */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Input
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            if (error) setError("");
-          }}
-          placeholder="What did you ship? One line is enough."
-          disabled={submitting}
-          aria-label="Log a win"
-          className="min-h-[44px] flex-1"
-        />
-        <Select value={tag} onValueChange={setTag} disabled={submitting}>
-          <SelectTrigger
-            className="min-h-[44px] sm:w-44"
-            aria-label="Impact area (optional)"
-          >
-            <SelectValue placeholder="Area (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            {WIN_TAG_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="w-full sm:flex-1 sm:min-w-0">
+          <Input
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              if (error) setError("");
+            }}
+            placeholder="What did you ship? One line is enough."
+            disabled={submitting}
+            aria-label="Log a win"
+            className="min-h-[44px] w-full"
+          />
+        </div>
+        <div className="w-full sm:w-44 sm:shrink-0">
+          <Select value={tag} onValueChange={setTag} disabled={submitting}>
+            <SelectTrigger
+              className="min-h-[44px] w-full"
+              aria-label="Impact area (optional)"
+            >
+              <SelectValue placeholder="Area (optional)" />
+            </SelectTrigger>
+            <SelectContent>
+              {WIN_TAG_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <Button
           type="submit"
           disabled={submitting}
-          className="min-h-[44px] sm:w-28"
+          className="min-h-[44px] w-full sm:w-28 sm:shrink-0"
         >
           {submitting ? <Spinner size="sm" /> : "Log it"}
         </Button>
