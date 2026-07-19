@@ -262,7 +262,9 @@ export class PermissionMiddleware {
   static async requirePro(userId: string): Promise<void> {
     const result = await this.getUserPlanInfo(userId);
 
-    if (!result.isPro) {
+    // Require an active entitlement, not just a paid plan name: a retained but
+    // inactive (past_due/canceled) row must not grant access.
+    if (!result.isActive || !result.isPro) {
       loggerService.warn('Pro subscription required', {
         category: LogCategory.SECURITY,
         userId,

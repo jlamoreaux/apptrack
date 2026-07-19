@@ -148,4 +148,11 @@ describe("PermissionMiddleware AI gating — the isPro line", () => {
       /Pro/
     );
   });
+
+  it("requirePro throws for a paid plan that is not active (past_due)", async () => {
+    // A retained paid-plan row with a non-entitled status must not grant access:
+    // getUserPlanInfo yields isPro:true, isActive:false.
+    mockGetSubscription.mockResolvedValue(planSubscription(PLAN_NAMES.AI_COACH, "past_due"));
+    await expect(PermissionMiddleware.requirePro(USER_ID)).rejects.toThrow(/Pro/);
+  });
 });
