@@ -11,24 +11,24 @@
      * ═══════════════════════════════════════════════════════
      */
 
-    /* ─── Surfaces (elevation hierarchy) ─── */
-    --background: 40 6% 97%;          /* Page bg: warm off-white */
-    --foreground: 20 15% 12%;         /* Primary text: warm near-black */
-    --card: 0 0% 100%;                /* Surface-1: white cards */
-    --card-foreground: 20 15% 12%;
-    --popover: 0 0% 100%;             /* Surface-2: modals/popovers */
-    --popover-foreground: 20 15% 12%;
-    --surface-raised: 40 10% 96%;     /* Icon badge containers */
+    /* ─── Surfaces — CareerOtter light: stone paper, never pure white ─── */
+    --background: 40 30% 96%;         /* Stone paper, warmer than white */
+    --foreground: 195 12% 12%;        /* Warm ink */
+    --card: 40 33% 98%;               /* #FAF8F4 raised paper */
+    --card-foreground: 195 12% 12%;
+    --popover: 40 33% 98%;
+    --popover-foreground: 195 12% 12%;
+    --surface-raised: 40 25% 94%;     /* Icon badge containers */
 
-    /* ─── Brand colors ─── */
-    --primary: 243 55% 50%;           /* Indigo-700 #4338CA */
-    --primary-foreground: 0 0% 100%;
-    --accent: 24 95% 53%;             /* Coral #F97316 — ALL CTAs */
-    --accent-foreground: 0 0% 100%;
-    --secondary: 160 84% 39%;         /* Emerald-600 — success */
-    --secondary-foreground: 0 0% 100%;
-    --destructive: 347 77% 50%;       /* Rose-600 — errors */
-    --destructive-foreground: 0 0% 100%;
+    /* ─── Brand colors — amber signal + kelp evidence ─── */
+    --primary: 31 75% 45%;            /* Burnt amber (deeper for light-bg contrast) */
+    --primary-foreground: 195 12% 10%; /* Ink — amber fill carries ink text */
+    --accent: 31 75% 45%;             /* Amber (single accent) */
+    --accent-foreground: 195 12% 10%;
+    --secondary: 112 20% 38%;         /* Kelp green — success/evidence */
+    --secondary-foreground: 40 33% 98%;
+    --destructive: 10 55% 48%;        /* Warm red — errors */
+    --destructive-foreground: 40 33% 98%;
     --warning: 33 100% 50%;            /* Amber-500 — warnings */
     --warning-foreground: 21 100% 32%; /* #E65100 — 6.8:1 on light bg */
     --info: 210 79% 46%;              /* Blue-600 #1976D2 — info */
@@ -38,16 +38,16 @@
     --ai-brand-light: 33 100% 95%;    /* Subtle AI bg */
 
     /* ─── Text ─── */
-    --muted: 30 6% 96%;
-    --muted-foreground: 20 5% 42%;    /* Secondary text */
-    --tertiary-foreground: 20 5% 55%; /* Captions, timestamps */
+    --muted: 38 18% 91%;
+    --muted-foreground: 90 5% 38%;    /* Secondary text */
+    --tertiary-foreground: 90 4% 50%; /* Captions, timestamps */
 
     /* ─── Borders ─── */
-    --border: 30 8% 88%;              /* Default card borders */
-    --border-subtle: 30 6% 93%;       /* Subtle dividers */
-    --border-strong: 243 55% 50%;     /* Focus/active borders */
-    --input: 30 8% 88%;
-    --ring: 243 55% 50%;
+    --border: 35 18% 85%;             /* Default card borders */
+    --border-subtle: 38 15% 90%;      /* Subtle dividers */
+    --border-strong: 31 75% 45%;      /* Focus/active borders */
+    --input: 35 18% 85%;
+    --ring: 31 75% 45%;
 
     /* ─── Icon badge backgrounds ─── */
     --badge-indigo: 226 100% 95%;     /* #EEF2FF */
@@ -93,43 +93,43 @@
      * ═══════════════════════════════════════════════════════
      */
 
-    /* ─── Surfaces (4-step elevation) ─── */
-    --background: 220 16% 8%;         /* Darkest: page bg */
-    --foreground: 220 10% 92%;        /* Off-white text (not pure white) */
-    --card: 220 16% 12%;              /* Surface-1: cards (+4% lighter) */
-    --card-foreground: 220 10% 92%;
-    --popover: 220 16% 16%;           /* Surface-2: modals (+4% more) */
-    --popover-foreground: 220 10% 92%;
-    --surface-raised: 220 16% 20%;    /* Surface-3: badges, chips (+4% more) */
+    /* ─── Surfaces — CareerOtter warm river-slate (dark-first) ─── */
+    --background: 195 9% 9%;          /* #16191A deep river slate */
+    --foreground: 38 23% 93%;         /* #F2EFEA warm off-white */
+    --card: 200 9% 14%;               /* #202426 surface */
+    --card-foreground: 38 23% 93%;
+    --popover: 200 9% 16%;            /* Surface-2 */
+    --popover-foreground: 38 23% 93%;
+    --surface-raised: 200 9% 20%;     /* Surface-3: badges, chips */
 
-    /* ─── Brand colors (desaturated 10-15% for dark bg) ─── */
-    --primary: 239 70% 75%;           /* Indigo — light enough for dark bg */
-    --primary-foreground: 0 0% 100%;
-    --accent: 24 90% 55%;             /* Coral slightly lighter */
-    --accent-foreground: 0 0% 100%;
-    --secondary: 160 70% 48%;         /* Emerald desaturated */
-    --secondary-foreground: 0 0% 100%;
-    --destructive: 347 65% 58%;       /* Rose desaturated */
-    --destructive-foreground: 0 0% 100%;
-    --warning: 33 90% 55%;            /* Amber lighter for dark bg */
-    --warning-foreground: 33 90% 70%; /* Readable on dark surfaces */
-    --info: 210 70% 60%;             /* Blue lighter for dark bg */
-    --info-foreground: 210 70% 75%;  /* Readable on dark surfaces */
-    --ai-brand: 33 90% 55%;          /* Amber/orange lighter */
-    --ai-brand-foreground: 0 0% 100%;
-    --ai-brand-light: 33 50% 15%;    /* Subtle AI bg on dark */
+    /* ─── Brand colors — amber signal + kelp evidence ─── */
+    --primary: 31 75% 49%;            /* #D97E1F burnt amber — CTAs, key numbers */
+    --primary-foreground: 195 9% 9%;  /* Ink — amber fill always carries ink text */
+    --accent: 31 75% 49%;             /* Amber (single accent) */
+    --accent-foreground: 195 9% 9%;
+    --secondary: 112 17% 43%;         /* #5F7F5A kelp green — evidence/positive */
+    --secondary-foreground: 38 23% 93%;
+    --destructive: 10 50% 53%;        /* #C25E4A warm red */
+    --destructive-foreground: 38 23% 93%;
+    --warning: 31 81% 55%;            /* Amber lighter for warnings */
+    --warning-foreground: 38 23% 93%;
+    --info: 112 17% 55%;             /* Kelp lighter for info */
+    --info-foreground: 38 23% 93%;
+    --ai-brand: 31 75% 49%;          /* Amber for AI features */
+    --ai-brand-foreground: 195 9% 9%;
+    --ai-brand-light: 31 40% 16%;    /* Subtle amber bg on dark */
 
     /* ─── Text ─── */
-    --muted: 220 14% 16%;
-    --muted-foreground: 220 10% 60%;  /* Secondary text */
-    --tertiary-foreground: 220 8% 48%; /* Captions */
+    --muted: 200 9% 14%;
+    --muted-foreground: 80 4% 65%;    /* #A8ABA3 secondary text */
+    --tertiary-foreground: 90 4% 52%; /* Captions */
 
-    /* ─── Borders (visible but not harsh) ─── */
-    --border: 220 14% 20%;            /* Default borders (+12% from bg) */
-    --border-subtle: 220 14% 15%;     /* Subtle dividers */
-    --border-strong: 239 70% 65%;     /* Focus/active = primary */
-    --input: 220 14% 20%;
-    --ring: 239 70% 65%;
+    /* ─── Borders ─── */
+    --border: 195 8% 22%;             /* #333A3C */
+    --border-subtle: 200 9% 16%;      /* Subtle dividers */
+    --border-strong: 31 75% 49%;      /* Focus/active = amber */
+    --input: 195 8% 22%;
+    --ring: 31 75% 49%;
 
     /* ─── Icon badge backgrounds (clearly visible on cards) ─── */
     --badge-indigo: 239 50% 25%;      /* Visible indigo on 12% card */
