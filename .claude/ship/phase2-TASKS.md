@@ -14,7 +14,7 @@ Legend: 🟢 = I can do in code · 🟠 = needs owner live action (Stripe/DNS/em
 - [ ] M0.4 🟢 Pricing page: rebuild `app/(app)/dashboard/upgrade/page.tsx` + `components/shared/plan-card.tsx` around Free / Pro ($9·$90) using the design-system pricing card. Roast listed under Free, no asterisk.
 - [ ] M0.5 🟢 Fix hardcoded/stale price copy: `components/social-proof-bar.tsx:32`, `app/(marketing)/signup/signup-page-client.tsx:117,126`, `try/job-fit/page.tsx:49-50,202-203`, `components/ai-coach/trial-budget-nudge.tsx:71` ("$10/month" → $9).
 - [ ] M0.6 🟠 OWNER: in Stripe, create/confirm Pro $9/$90 product+prices; archive retired tier/prices; update `subscription_plans` rows (`price_monthly/yearly`, `stripe_*_price_id`, `is_active`).
-- [ ] M0.7 🟢 Re-point webhook price-ID→plan lookup (`app/api/stripe/webhook/route.ts:430-451,728-747`) to the new IDs; verify `checkout.session.completed` + `subscription.updated` map to Pro.
+- [ ] M0.7 🟢 Webhook resolves plan by matching the Stripe price ID against the `subscription_plans` rows (the DB is the source of truth for price IDs — no hardcoded IDs in code). After the owner updates those rows (M0.6), the lookup at `app/api/stripe/webhook/route.ts:430-451,728-747` maps to Pro automatically; verify `checkout.session.completed` + `subscription.updated` classify correctly.
 - [ ] M0.8 🟢 Tests: `isPro` truth table (new Pro, grandfathered, free, trialing, canceled); a free user is not blocked by any tracking limit; an AI route 403s for free and 200s for Pro.
 
 ## M1 — Rebrand migration
