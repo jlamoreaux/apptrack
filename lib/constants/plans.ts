@@ -118,5 +118,9 @@ export const hasFeatureAccess = (
 };
 
 export const isAICoachFeature = (feature: string): boolean => {
+  // UNLIMITED_APPLICATIONS is grouped under AI_COACH_FEATURES for the access map,
+  // but tracking is free on every tier — it is not an AI-gated feature. Kept
+  // consistent with the same exclusion in lib/utils/plan-helpers.ts.
+  if (feature === "UNLIMITED_APPLICATIONS") return false;
   return Object.keys(FEATURE_ACCESS.AI_COACH_FEATURES).includes(feature);
 };
