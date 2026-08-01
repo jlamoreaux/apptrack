@@ -29,7 +29,7 @@ Legend: 🟢 = I can do in code · 🟠 = needs owner live action (Stripe/DNS/em
 
 ## M2 — Evidence loop (Zero to Case + wins + weekly recap) — THE BET
 
-- [ ] M2.1 🟢 Migration `032_careerotter_evidence.sql`: career profile fields (mode/role/level/target/review_date — verify `schemas/profiles.sql` for extend-vs-new-table), `wins`, `weekly_recaps`. RLS service-role; constants in `lib/constants/careerotter.ts` mirroring SQL CHECKs.
+- [ ] M2.1 🟢 Migration `032_careerotter_evidence.sql`: career profile fields (mode/role/level/target/review_date — verify `schemas/profiles.sql` for extend-vs-new-table), `wins`, `weekly_recaps`. RLS service-role; every API route ALSO scopes by session `user_id` (`.eq("user_id", user.id)`, never a client-supplied id; non-owned row → 404); account deletion cascades (`on delete cascade` to `profiles`). Constants in `lib/constants/careerotter.ts` mirroring SQL CHECKs.
 - [ ] M2.2 🟢 Shared voice fragment `lib/ai/voice-guardrails.ts` (banned-construction list, versioned) imported by every model-facing prompt.
 - [ ] M2.3 🟢 Zero to Case: onboarding flow (3 questions, fork), `POST /api/careerotter/zero-to-case` → AI starter case (free once). Events `ztc_started`/`ztc_completed`.
 - [ ] M2.4 🟢 Wins tracker: capture bar component + `POST/GET/PATCH/DELETE /api/wins`; free (no model). Event `win_logged`. Free-user preview-of-Pro surface.
@@ -37,7 +37,7 @@ Legend: 🟢 = I can do in code · 🟠 = needs owner live action (Stripe/DNS/em
 - [ ] M2.6 🟢 Review countdown + coverage meter v1 (tag balance) on the "Today" dashboard per redesign. Flat counts only.
 - [ ] M2.7 🟢 Privacy: encryption-at-rest posture, plain-language data page, one-click export (JSON + case doc).
 - [ ] M2.8 🟢 Wire "Today" dashboard (redesign Screen B) — replace/augment `app/(app)/dashboard/page.tsx`; nav = Today/Wins/Comp/Coach/Review prep/Job search with review-countdown chip.
-- [ ] M2.9 🟢 Tests: wins CRUD + RLS, ZtC contract + event firing, coverage calc, recap generation gating on wins, export completeness.
+- [ ] M2.9 🟢 Tests: wins CRUD + RLS + cross-user denial (a row owned by another user → 404, not only privileged service-role access), ZtC contract + event firing, coverage calc, recap generation gating on wins, export completeness.
 
 ## M3 — Coach v1
 - [ ] M3.1 🟢 Coach chat grounded only in wins/goal/review; seeded starters; gap = named gap + receipt + next action.
