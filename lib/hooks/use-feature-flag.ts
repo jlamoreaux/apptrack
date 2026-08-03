@@ -21,6 +21,11 @@ export const FEATURE_FLAGS = {
   ONBOARDING_V2: "onboarding-v2",
   ENHANCED_ANALYTICS: "enhanced-analytics",
   SHOW_TESTIMONIALS: "show-testimonials",
+
+  // CareerOtter Phase 2 — single switch gating the net-new evidence-loop
+  // surfaces (M2b wins UI, M3 coach, M4 case builder, M5 comp, M7 nav entries).
+  // Default OFF everywhere; wired into surfaces per-PR as they merge.
+  CAREEROTTER_EVIDENCE: "careerotter-evidence",
 } as const;
 
 export type FeatureFlag = typeof FEATURE_FLAGS[keyof typeof FEATURE_FLAGS];

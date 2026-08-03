@@ -1,4 +1,5 @@
 import { Footer } from "@/components/footer";
+import { RebrandBanner } from "@/components/rebrand-banner";
 
 export default function AppLayout({
   children,
@@ -7,6 +8,7 @@ export default function AppLayout({
 }) {
   return (
     <>
+      <RebrandBanner />
       {children}
       <Footer />
     </>
