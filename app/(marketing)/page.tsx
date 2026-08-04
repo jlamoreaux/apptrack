@@ -1,33 +1,8 @@
 import Link from "next/link"
 import { NavigationServer } from "@/components/navigation-server"
-import { HomePricingSection } from "@/components/home-pricing-section"
-import { HomeFaq } from "@/components/home-faq"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { CareerOtterLogo } from "@/components/careerotter-logo"
-import { COPY } from "@/lib/content/copy"
-import { createClient } from "@/lib/supabase/server-client"
-import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
-
-async function getPlans() {
-  try {
-    const supabase = await createClient()
-    const { data: plans, error } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("is_active", true)
-      .order("price_monthly", { ascending: true })
-
-    if (error) {
-      console.error("Failed to fetch subscription plans:", error)
-      return []
-    }
-
-    return plans || []
-  } catch (error) {
-    console.error("Failed to fetch subscription plans:", error)
-    return []
-  }
-}
+import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/structured-data"
 
 const CASE_COVERAGE_BARS = [
   { label: "Delivery", value: 92, fill: "bg-secondary" },
@@ -59,14 +34,11 @@ const VALUE_PROPS = [
   },
 ] as const
 
-export default async function HomePage() {
-  const plans = await getPlans()
-
+export default function HomePage() {
   return (
     <HomepageClientWrapper>
       <OrganizationSchema />
       <SoftwareApplicationSchema />
-      <FAQSchema faqs={COPY.faq.items} />
       <div className="min-h-screen flex flex-col bg-background">
         <NavigationServer variant="marketing" />
         <main id="main-content" className="flex-1">
@@ -191,7 +163,7 @@ export default async function HomePage() {
         {/* ============================================================
             SECTION 3: PRICING BAR
             ============================================================ */}
-        <section className="border-t border-border py-16">
+        <section id="pricing" className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
               <p className="font-semibold text-foreground">
@@ -206,16 +178,6 @@ export default async function HomePage() {
             </div>
           </div>
         </section>
-
-        {/* ============================================================
-            SECTION 4: PRICING
-            ============================================================ */}
-        <HomePricingSection plans={plans} />
-
-        {/* ============================================================
-            SECTION 5: FAQ
-            ============================================================ */}
-        <HomeFaq />
 
       </main>
     </div>
