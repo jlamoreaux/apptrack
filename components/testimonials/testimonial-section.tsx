@@ -1,7 +1,6 @@
 "use client";
 
 import { TestimonialCard } from "./testimonial-card";
-import { Badge } from "@/components/ui/badge";
 import { COPY } from "@/lib/content/copy";
 import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal";
 
@@ -37,9 +36,6 @@ export function TestimonialSection() {
         {/* Section Header */}
         <ScrollReveal>
           <div className="text-center mb-12">
-            <Badge className="bg-badge-indigo text-badge-indigo-fg border-badge-indigo mb-4">
-              {testimonialCopy.badge}
-            </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold font-display mb-4">
               {testimonialCopy.title}
             </h2>
