@@ -48,7 +48,7 @@ create index if not exists wins_user_created_idx
 create table if not exists public.weekly_recaps (
   id uuid primary key default gen_random_uuid (),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  week_start date not null,
+  week_start date not null check (extract(isodow from week_start) = 1),
   generated_text text,
   wins_included int not null default 0,
   created_at timestamptz not null default now(),

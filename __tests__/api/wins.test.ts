@@ -107,10 +107,15 @@ describe("POST /api/wins", () => {
   });
 
   it("ignores a forged source and records manual", async () => {
-    adminReturning({ data: { id: "w1", text: "x", source: "manual" }, error: null });
+    const builder = adminReturning({ data: { id: "w1", text: "x", source: "manual" }, error: null });
     const res = await POST(req({ text: "x", source: "zero_to_case" }));
     expect(res.status).toBe(201);
-    // Server-authoritative provenance: the event (and insert) use "manual".
+    // Server-authoritative provenance: the persisted row uses "manual", not the
+    // forged client value.
+    expect(builder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "manual" })
+    );
+    // ...and the analytics event reports the same authoritative source.
     expect(mockCapture).toHaveBeenCalledWith(
       USER.id,
       CAREEROTTER_EVENT_NAMES.WIN_LOGGED,
