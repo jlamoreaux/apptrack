@@ -116,12 +116,12 @@ export default function HomePage() {
                   className="font-display font-bold text-foreground leading-[1.05]"
                   style={{ fontSize: "clamp(2.5rem, 5vw, 3.75rem)", letterSpacing: "-0.02em" }}
                 >
-                  Build the case for your next raise. Then win it.
+                  Your companion for every stage of your career.
                 </h1>
                 <p className="text-[18px] leading-relaxed text-muted-foreground max-w-[520px]">
-                  Log wins in ten seconds. CareerOtter maps them to your review,
-                  names the gaps while there&apos;s time to close them, and hands you
-                  the doc to walk in with.
+                  Land the job, log the wins, and make the case for what&apos;s
+                  next — CareerOtter is with you from first application to
+                  promotion.
                 </p>
                 <div className="flex flex-col gap-4 sm:flex-row">
                   <Link
