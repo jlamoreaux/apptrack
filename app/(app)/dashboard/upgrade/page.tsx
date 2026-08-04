@@ -38,7 +38,6 @@ import {
   getPlanFeatures,
   getPlanPrice,
   getYearlySavings,
-  getPlanDisplayLimit,
   getPlanButtonText,
   isPlanDowngrade,
 } from "@/lib/utils/plan-helpers";
@@ -61,7 +60,6 @@ export default function UpgradePage() {
   const { user, loading: authLoading } = useSupabaseAuth();
   const {
     subscription,
-    usage,
     plans,
     loading: subLoading,
   } = useSubscription(user?.id || null);
@@ -142,7 +140,7 @@ export default function UpgradePage() {
       setPromoError(null);
 
       // Determine which plan to apply the promo to
-      let targetPlanId = aiCoachPlan?.id;
+      let targetPlanId = paidPlan?.id;
       if (promo.applicable_plans && promo.applicable_plans.length > 0) {
         const applicablePlan = plans.find((p: any) => promo.applicable_plans.includes(p.name));
         if (applicablePlan) {
@@ -264,9 +262,22 @@ export default function UpgradePage() {
   if (!user) return null;
 
   const freePlan = plans.find((plan) => plan.name === PLAN_NAMES.FREE);
-  const proPlan = plans.find((plan) => plan.name === PLAN_NAMES.PRO);
-  const aiCoachPlan = plans.find((plan) => plan.name === PLAN_NAMES.AI_COACH);
-  
+  // Deterministic paid-plan selection: prefer the go-forward paid row by explicit
+  // name (AI Coach today, or Pro post-rename), never the first non-Free row —
+  // otherwise a grandfathered "Pro" could be shown as the advertised paid plan.
+  const paidPlan =
+    plans.find((plan) => plan.name === PLAN_NAMES.AI_COACH) ??
+    plans.find((plan) => plan.name === PLAN_NAMES.PRO) ??
+    plans.find((plan) => plan.name !== PLAN_NAMES.FREE);
+  const paidYearlySavings = paidPlan
+    ? Math.max(0, paidPlan.price_monthly * 12 - paidPlan.price_yearly)
+    : 0;
+  // Derive the "N months free" claim from the actual prices instead of hardcoding.
+  const monthsFree =
+    paidPlan && paidPlan.price_monthly > 0
+      ? Math.round(paidYearlySavings / paidPlan.price_monthly)
+      : 0;
+
   // Handle both possible subscription structures
   const currentPlanName = subscription?.subscription_plans?.name || subscription?.plan;
   const currentPlan = currentPlanName ? { name: currentPlanName } : undefined;
@@ -296,18 +307,11 @@ export default function UpgradePage() {
               Choose Your Plan
             </h1>
             <p className="text-muted-foreground">
-              {"You're currently using "}
+              {"The line is simple: Free covers every non-AI tool, Pro unlocks every AI tool. You're on the "}
               <span className="font-semibold">
-                {usage?.applications_count || 0}
-              </span>
-              {" out of "}
-              <span className="font-semibold">
-                {currentPlanName === PLAN_NAMES.PRO ? "Unlimited" : 
-                 currentPlanName === PLAN_NAMES.AI_COACH ? "Unlimited" : "100"}
-              </span>
-              {" applications on the "}
-              <span className="font-semibold">
-                {currentPlanName || PLAN_NAMES.FREE}
+                {currentPlanName && currentPlanName !== PLAN_NAMES.FREE
+                  ? "Pro"
+                  : "Free"}
               </span>{" "}
               plan.
             </p>
@@ -340,9 +344,11 @@ export default function UpgradePage() {
                   className="text-xs sm:text-sm"
                 >
                   Yearly
-                  <Badge className="ml-1 sm:ml-2 text-xs bg-white/20 text-white border-0 hover:bg-white/20">
-                    Save 33%
-                  </Badge>
+                  {monthsFree > 0 && (
+                    <Badge className="ml-1 sm:ml-2 text-xs bg-white/20 text-white border-0 hover:bg-white/20">
+                      {monthsFree} {monthsFree === 1 ? "month" : "months"} free
+                    </Badge>
+                  )}
                 </Button>
               </div>
               
@@ -423,14 +429,15 @@ export default function UpgradePage() {
 
           <div className="text-center mt-4">
             <p className="text-sm text-muted-foreground">
-              💰 Save with yearly billing: AI Coach saves ${getYearlySavings(PLAN_NAMES.AI_COACH)}/year (2 months free)
+              Save with yearly billing: Pro is ${paidYearlySavings}/year cheaper
+              {monthsFree > 0 && ` (${monthsFree} ${monthsFree === 1 ? "month" : "months"} free)`}
             </p>
           </div>
 
           {/* Pricing Cards - 2-tier structure */}
           {/* AI Coach first on mobile, Free first on desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {[freePlan, aiCoachPlan].filter(plan => plan && plan.name !== PLAN_NAMES.PRO).map((plan) => {
+            {[freePlan, paidPlan].filter(Boolean).map((plan) => {
               if (!plan) return null;
 
               const originalPrice = getPlanPrice(plan, selectedBilling);
@@ -457,11 +464,13 @@ export default function UpgradePage() {
               const isDowngrade =
                 currentPlanName &&
                 isPlanDowngrade(currentPlanName, plan.name);
+              // Level logic uses the real DB plan names; only the label maps to
+              // the "Pro" brand so a still-"AI Coach" DB row reads correctly.
               const buttonText = getPlanButtonText(
                 currentPlanName || PLAN_NAMES.FREE,
                 plan.name,
                 isCurrentPlan
-              );
+              ).replace("AI Coach", "Pro");
               
 
               return (
@@ -482,11 +491,11 @@ export default function UpgradePage() {
                 >
                   <PlanCard
                     planName={plan.name}
-                    title={plan.name}
+                    title={plan.name === PLAN_NAMES.FREE ? "Free" : "Pro"}
                     subtitle={
                       plan.name === PLAN_NAMES.FREE
-                        ? "Perfect for getting started"
-                        : "AI-powered career coaching"
+                        ? "Every non-AI tool, free forever"
+                        : "Every AI tool"
                     }
                     price={
                       plan.name === PLAN_NAMES.FREE
@@ -526,7 +535,7 @@ export default function UpgradePage() {
                 },
                 {
                   q: "What happens to my data?",
-                  a: "Your data is always yours. Even if you downgrade to the free plan, you'll keep access to your first 100 applications and all your notes.",
+                  a: "Your data is always yours. Even if you downgrade to the free plan, you keep unlimited application tracking and all your notes.",
                 },
                 {
                   q: "How does AI coaching work?",

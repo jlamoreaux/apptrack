@@ -47,10 +47,10 @@ export class PermissionMiddleware {
       const result = {
         allowed,
         userPlan,
-        requiredPlan: allowed ? undefined : PLAN_NAMES.AI_COACH,
+        requiredPlan: allowed ? undefined : PLAN_NAMES.PRO,
         message: allowed
           ? undefined
-          : "AI Coach features require an AI Coach subscription",
+          : "This feature requires Pro",
       };
 
       loggerService.debug(`API permission check: ${endpoint}`, {
@@ -74,7 +74,7 @@ export class PermissionMiddleware {
           metadata: {
             endpoint,
             userPlan,
-            requiredPlan: PLAN_NAMES.AI_COACH,
+            requiredPlan: PLAN_NAMES.PRO,
             type: 'api'
           }
         });
@@ -117,10 +117,10 @@ export class PermissionMiddleware {
       const result = {
         allowed,
         userPlan,
-        requiredPlan: allowed ? undefined : PLAN_NAMES.AI_COACH,
+        requiredPlan: allowed ? undefined : PLAN_NAMES.PRO,
         message: allowed
           ? undefined
-          : "This feature requires an AI Coach subscription",
+          : "This feature requires Pro",
       };
 
       loggerService.debug(`UI permission check: ${section}`, {
@@ -144,7 +144,7 @@ export class PermissionMiddleware {
           metadata: {
             section,
             userPlan,
-            requiredPlan: PLAN_NAMES.AI_COACH,
+            requiredPlan: PLAN_NAMES.PRO,
             type: 'ui'
           }
         });
@@ -186,10 +186,10 @@ export class PermissionMiddleware {
       return {
         allowed,
         userPlan,
-        requiredPlan: allowed ? undefined : PLAN_NAMES.AI_COACH,
+        requiredPlan: allowed ? undefined : PLAN_NAMES.PRO,
         message: allowed
           ? undefined
-          : "This feature requires an AI Coach subscription",
+          : "This feature requires Pro",
       };
     } catch (error) {
       throw new PermissionServiceError(
@@ -255,27 +255,36 @@ export class PermissionMiddleware {
   }
 
   /**
-   * Require AI Coach subscription - throws error if user doesn't have it
+   * Require Pro (any paid plan) - throws if the user is on Free.
+   * Canonical name for the single entitlement line. `requireAICoach` is kept
+   * as a back-compat alias.
    */
-  static async requireAICoach(userId: string): Promise<void> {
+  static async requirePro(userId: string): Promise<void> {
     const result = await this.getUserPlanInfo(userId);
 
-    if (!result.isAICoach) {
-      loggerService.warn('AI Coach subscription required', {
+    // Require an active entitlement, not just a paid plan name: a retained but
+    // inactive (past_due/canceled) row must not grant access.
+    if (!result.isActive || !result.isPro) {
+      loggerService.warn('Pro subscription required', {
         category: LogCategory.SECURITY,
         userId,
         action: 'subscription_required',
         metadata: {
-          requiredPlan: PLAN_NAMES.AI_COACH,
+          requiredPlan: PLAN_NAMES.PRO,
           currentPlan: result.plan,
-          type: 'ai_coach'
+          type: 'pro'
         }
       });
 
       throw new PermissionServiceError(
-        "AI Coach features require an AI Coach subscription"
+        "This feature requires Pro"
       );
     }
+  }
+
+  /** @deprecated Use requirePro — the AI Coach tier is now just Pro. */
+  static async requireAICoach(userId: string): Promise<void> {
+    return this.requirePro(userId);
   }
 
   /**
@@ -286,7 +295,7 @@ export class PermissionMiddleware {
 
     if (!result.isPro && !result.isAICoach) {
       throw new PermissionServiceError(
-        "This feature requires a Pro or AI Coach subscription"
+        "This feature requires Pro"
       );
     }
   }
@@ -384,7 +393,7 @@ export class PermissionMiddleware {
       return {
         allowed: false,
         userPlan,
-        requiredPlan: PLAN_NAMES.AI_COACH,
+        requiredPlan: PLAN_NAMES.PRO,
         reason: 'trial_exhausted',
         message: `You've used all ${TRIAL_BUDGET.LIMIT} free analyses. Upgrade to Pro for unlimited access.`,
         usedFreeTier: false,
