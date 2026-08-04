@@ -162,6 +162,10 @@ export function CompTracker() {
   }
 
   async function deleteEntry(id: string) {
+    // One delete at a time: the controls are disabled while a delete is in flight,
+    // but guard here too so a stray call can't start an overlapping request that
+    // would 404 once the row is already gone.
+    if (deletingId) return;
     setDeletingId(id);
     setError("");
     try {
@@ -439,7 +443,7 @@ export function CompTracker() {
                         type="button"
                         variant="ghost"
                         onClick={() => deleteEntry(e.id)}
-                        disabled={deletingId === e.id}
+                        disabled={deletingId !== null}
                         aria-label={`Confirm delete comp entry from ${e.effective_date}`}
                         className="h-11 px-3 text-destructive hover:text-destructive"
                       >
@@ -449,7 +453,7 @@ export function CompTracker() {
                         type="button"
                         variant="ghost"
                         onClick={() => setConfirmId(null)}
-                        disabled={deletingId === e.id}
+                        disabled={deletingId !== null}
                         aria-label="Cancel delete"
                         className="h-11 px-3 text-muted-foreground"
                       >
@@ -462,6 +466,7 @@ export function CompTracker() {
                       variant="ghost"
                       size="icon"
                       onClick={() => setConfirmId(e.id)}
+                      disabled={deletingId !== null}
                       aria-label={`Delete comp entry from ${e.effective_date}`}
                       className="h-11 w-11 text-muted-foreground hover:text-destructive"
                     >
