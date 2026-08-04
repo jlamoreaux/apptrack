@@ -1,45 +1,59 @@
 # CareerOtter Phase 2 — Launch Go/No-Go Checklist
 
-> **As of:** 2026-08-03T22:39:20Z · base `origin/main` @ `78f089e`
+> **As of:** 2026-08-04T01:33:04Z · base `origin/main` @ `78f089e`
 > **Snapshot — RE-RUN before launch.** PR state changes continuously; a stale
 > checklist reads "ready" after it no longer is. Regenerate the table below
 > (read-only `gh`) immediately before flipping anything.
 
-## Verdict: NOT READY TO SHIP
+## Verdict: NOT READY — but the review-feedback gate is nearly clear
 
-Two gate conditions from the ship request:
-
-1. **"All PR feedback addressed" — ❌ FALSE.** 20 unresolved review threads remain
-   across 3 PRs (#183: 15, #184: 4, #190: 1). Must be resolved or explicitly waived.
-2. **"Properly gated" — ⚠️ PARTIAL.** The `careerotter_evidence` flag primitive now
-   exists and defaults OFF, but it is **not yet wired** into the M2b–M5 surfaces
-   (those branches are unmerged). Wiring happens per-PR at merge. Until then, flipping
-   the flag does nothing — there is no working switch yet.
+1. **"All PR feedback addressed" — ⚠️ NEARLY.** 34 CodeRabbit threads were triaged
+   and resolved across #183/#184/#190/#192. **4 remain, all owner-decisions** (no clear
+   code fix — they need your call): #183 ×3, #192 ×1. See "Owner decisions" below.
+2. **"Properly gated" — ⚠️ PARTIAL (by design).** The `careerotter-evidence` flag now
+   exists in PostHog (id 797754, **disabled, 0% rollout** → evaluates false everywhere).
+   It is intentionally **not yet wired** into the M2b–M5 surfaces — that happens per-PR
+   as those branches merge onto M2a (wiring an unmerged branch just creates merge churn).
 
 ## PR state (snapshot)
 
 | PR | Milestone | Mergeable | Failing checks | Unresolved threads | Ready? |
 |----|-----------|-----------|----------------|--------------------|--------|
 | #182 | M0 pricing | ✅ | 0 | 0 | ✅ ready |
-| #183 | M1 rebrand | ✅ | 0 | **15** | ❌ feedback |
-| #184 | M2a evidence data/API | ✅ | 0 | **4** | ❌ feedback |
-| #185 | M2b evidence UI | ✅ | 0 | 0 | ⚠️ needs flag wiring |
-| #186 | M3 coach | ✅ | 0 | 0 | ⚠️ needs flag wiring |
-| #187 | M4 case builder | ✅ | 0 | 0 | ⚠️ needs flag wiring |
-| #188 | M5 comp tracker | ✅ | 0 | 0 | ⚠️ needs flag wiring |
-| #189 | M2c ZtC/recap/privacy | ✅ | 0 | 0 | ⚠️ needs flag wiring |
-| #190 | M6 visual identity | ✅ | 0 | **1** | ❌ feedback |
-| #191 | M7 nav/IA | ✅ | 0 | 0 | ⚠️ needs flag wiring |
+| #183 | M1 rebrand | ✅ | 0 | **3 (owner-decision)** | ⚠️ decisions |
+| #184 | M2a evidence data/API | ✅ | 0 | 0 | ✅ feedback clear |
+| #185 | M2b evidence UI | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #186 | M3 coach | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #187 | M4 case builder | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #188 | M5 comp tracker | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #189 | M2c ZtC/recap/privacy | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #190 | M6 visual identity | ✅ | 0 | 0 | ✅ feedback clear |
+| #191 | M7 nav/IA | ✅ | 0 | 0 | ⚠️ flag wiring at merge |
+| #192 | Launch-readiness kit | ✅ | 0 | **1 (owner-decision)** | ⚠️ decision |
 
-## Blocking work before launch
+## Owner decisions (block full "feedback addressed" — need your call)
 
-- [ ] Resolve the 15 unresolved threads on **#183 (M1 rebrand)** — the highest-risk PR
-      (domain, strings, emails, 301s).
-- [ ] Resolve the 4 unresolved threads on **#184 (M2a)**.
-- [ ] Resolve the 1 unresolved thread on **#190 (M6)**.
-- [ ] Wire `careerotter_evidence` into the entry points of #185–#189 and the #191 nav as
-      each merges (client `useFeatureFlag` / server `getServerFeatureFlag`, default OFF).
-- [ ] Re-run this audit; confirm all three feedback PRs show 0 unresolved.
+- **#183 — webhook `APP_URL` precedence** (`stripe/webhook/route.ts:675`): drop the
+  runtime `APP_URL` fallback repo-wide, or keep the deliberate `getAppUrl` pattern? The
+  fix must be consistent app-wide, not just the webhook.
+- **#183 — centralize the canonical origin** (`auth.ts` + ~11 files, heavy lift): real
+  duplication with subtly different env precedence (`APP_URL` / `VERCEL_URL` / none).
+  Scope this refactor or defer.
+- **#183 — Zero-to-Case idempotency failure-safety** (M2a design): the marker-first
+  claim is race-safe but not failure-safe (model call failing after the claim leaves a
+  completed marker with no case). Pending/completed states vs transaction vs compensating
+  retry — a design call.
+- **#192 — banner client-side eligibility** (`rebrand-banner.tsx`): reads `created_at`
+  via `useSupabaseAuth` (touches CLAUDE.md "no Supabase in client components"). Keep the
+  app-wide client-auth pattern, or rework to server/API-resolved eligibility?
+
+## Remaining path
+
+- [ ] Owner: decide the 4 items above (I implement whatever you choose).
+- [ ] Merge in ROLLOUT order; wire `careerotter-evidence` into #185–#189 + #191 entry
+      points **as each merges** onto M2a (client `useFeatureFlag` / server
+      `getServerFeatureFlag`, default OFF).
+- [ ] Re-run this audit immediately before launch.
 
 ## Owner-only launch steps (after the above is green)
 
