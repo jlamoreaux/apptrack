@@ -224,28 +224,9 @@ export default function HomePage() {
         <TestimonialSection />
 
         {/* ============================================================
-            SECTION 4: PRICING BAR
+            SECTION 4: PRICING
             ============================================================ */}
-        <section className="border-t border-border py-16">
-          <div className="container mx-auto px-4 max-w-6xl">
-            <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
-              <p className="font-semibold text-foreground">
-                Free covers every non-AI tool. Pro is $9/month for every AI tool.
-              </p>
-              <p className="text-muted-foreground">
-                Got the raise? Tell us and we&apos;ll pause you.
-              </p>
-              <span className="ml-auto font-mono text-sm text-muted-foreground">
-                careerotter.io
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* ============================================================
-            SECTION 5: PRICING
-            ============================================================ */}
-        <section id="pricing" className="py-16">
+        <section id="pricing" className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
             <h2 className="font-display text-3xl font-bold text-foreground">Pricing</h2>
             <div className="mt-8 grid gap-6 md:grid-cols-2">
@@ -304,7 +285,7 @@ export default function HomePage() {
         </section>
 
         {/* ============================================================
-            SECTION 6: FAQ
+            SECTION 5: FAQ
             ============================================================ */}
         <section className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
