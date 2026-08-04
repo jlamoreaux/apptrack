@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { SubscriptionService } from "@/services/subscriptions";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import { PLAN_LIMITS } from "@/lib/constants/plans";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
 
 // This should be called by a cron job (e.g., Vercel Cron or external service)
@@ -221,11 +220,11 @@ async function sendNotificationEmail(
         <p>Thank you for trying AppTrack's AI Coach features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
-          <li>Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications</li>
+          <li>Unlimited application tracking</li>
           <li>Manage interviews and contacts</li>
           <li>Take interview notes</li>
         </ul>
-        <p>Ready for more? You can upgrade to AI Coach anytime to regain access to all AI-powered features.</p>
+        <p>Ready for more? You can upgrade to Pro anytime to regain access to all AI-powered features.</p>
         <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Plans</a>
       `,
     },
@@ -266,7 +265,7 @@ async function sendNotificationEmail(
         <p>Thank you for using AppTrack's premium features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
-          <li>Track up to ${PLAN_LIMITS.FREE_MAX_APPLICATIONS} applications</li>
+          <li>Unlimited application tracking</li>
           <li>Manage interviews and contacts</li>
           <li>Take interview notes</li>
         </ul>

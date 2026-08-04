@@ -68,7 +68,7 @@ export function TrialBudgetNudge({ budget, onDismiss }: TrialBudgetNudgeProps) {
             <DialogTitle>That was your last free analysis.</DialogTitle>
             <DialogDescription>
               You&apos;ve used Job Fit, Interview Prep, and Cover Letter. Pro
-              gives you unlimited access to all three — for $10/month.
+              gives you unlimited access to all three — for $9/month.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
