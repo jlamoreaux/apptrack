@@ -49,7 +49,9 @@ function resolveRoleFamily(title: string): string {
   if (!t) return "";
   const match = COMP_ROLE_FAMILIES.find((r) => {
     const label = r.label.toLowerCase();
-    return t === label || t === r.value || t.includes(label) || label.includes(t);
+    // Exact match always wins; substring matching only for meaningful lengths so
+    // a single letter like "d" can't resolve to the first family that contains it.
+    return t === label || t === r.value || (t.length >= 3 && (t.includes(label) || label.includes(t)));
   });
   return match ? match.value : title.trim();
 }
@@ -72,22 +74,35 @@ export function CompTracker() {
   const [saving, setSaving] = useState(false);
   const [scenarioPrice, setScenarioPrice] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     const roleFamily = resolveRoleFamily(roleTitle);
     const qs = new URLSearchParams();
     if (roleFamily) qs.set("roleFamily", roleFamily);
     if (level) qs.set("level", level);
-    const res = await fetch(`/api/careerotter/comp?${qs.toString()}`);
-    if (res.ok) {
-      const data = await res.json();
-      setEntries(data.entries);
-      setMarketRange(data.marketRange);
-      setIsPro(data.isPro);
+    try {
+      const res = await fetch(`/api/careerotter/comp?${qs.toString()}`, { signal });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries);
+        setMarketRange(data.marketRange);
+        setIsPro(data.isPro);
+      }
+    } catch (err) {
+      // A superseded or unmounted lookup aborts; ignore it. Other network errors
+      // leave the prior state in place — the next successful load recovers.
+      if ((err as Error)?.name !== "AbortError") return;
     }
   }, [roleTitle, level]);
 
+  // Debounce the free-text role lookup and abort the in-flight request, so a slow
+  // older response can't overwrite a newer one (roleTitle changes per keystroke).
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    const timer = setTimeout(() => load(controller.signal), 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [load]);
 
   // Reset the scenario price back to the anchor whenever the latest entry changes.
@@ -229,7 +244,7 @@ export function CompTracker() {
             <p className="text-sm text-muted-foreground">
               The market benchmark is a Pro feature. Your own history is tracked below.
             </p>
-          ) : roleTitle && level ? (
+          ) : roleTitle.trim().length > 0 && level ? (
             <p className="text-sm text-muted-foreground">
               No market data for that role and level yet. Showing your own history only.
             </p>

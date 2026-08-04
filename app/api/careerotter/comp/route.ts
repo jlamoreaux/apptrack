@@ -100,7 +100,26 @@ export async function POST(request: NextRequest) {
     typeof body.ticker === "string"
       ? body.ticker.trim().toUpperCase().slice(0, 10) || null
       : null;
-  const shares = num(body.shares);
+
+  // shares is optional, but if supplied it must be a storable non-negative number.
+  // numeric(14,4) tops out at 9,999,999,999.9999; reject rather than silently drop
+  // an invalid value (num() would map -1 / "abc" to null and lose the input).
+  const SHARES_MAX = 9_999_999_999.9999;
+  let shares: number | null = null;
+  if (body.shares !== undefined && body.shares !== null) {
+    if (
+      typeof body.shares !== "number" ||
+      !Number.isFinite(body.shares) ||
+      body.shares < 0 ||
+      body.shares > SHARES_MAX
+    ) {
+      return NextResponse.json(
+        { error: "shares must be a non-negative number no larger than 9,999,999,999.9999" },
+        { status: 400 }
+      );
+    }
+    shares = body.shares;
+  }
 
   const admin = createAdminClient();
   const { data, error } = await admin
