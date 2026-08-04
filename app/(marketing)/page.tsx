@@ -1,295 +1,181 @@
 import Link from "next/link"
-import { ArrowRight, FileText, MessageSquare, Brain, Target, Users, Sparkles, Check } from "lucide-react"
-import { ButtonLink } from "@/components/ui/button-link"
 import { NavigationServer } from "@/components/navigation-server"
-import { HomePricingSection } from "@/components/home-pricing-section"
-import { HomeFaq } from "@/components/home-faq"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
-import { TestimonialSection } from "@/components/testimonials"
-import { HeroContent } from "@/components/home-hero-variants"
-import { COPY } from "@/lib/content/copy"
-import { createClient } from "@/lib/supabase/server-client"
-import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
-import { ScrollReveal, StaggerContainer, StaggerItem } from "@/components/ui/scroll-reveal"
-import { HeroImageAnimated } from "@/components/hero-image-animated"
-import { ProductShowcase } from "@/components/product-showcase"
+import { CareerOtterLogo } from "@/components/careerotter-logo"
+import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/structured-data"
 
-async function getPlans() {
-  try {
-    const supabase = await createClient()
-    const { data: plans, error } = await supabase
-      .from("subscription_plans")
-      .select("*")
-      .eq("is_active", true)
-      .order("price_monthly", { ascending: true })
+const CASE_COVERAGE_BARS = [
+  { label: "Delivery", value: 92, fill: "bg-secondary" },
+  { label: "Cross-team", value: 58, fill: "bg-secondary" },
+  { label: "Leadership", value: 4, fill: "bg-destructive" },
+] as const
 
-    if (error) {
-      console.error("Failed to fetch subscription plans:", error)
-      return []
-    }
-
-    return plans || []
-  } catch (error) {
-    console.error("Failed to fetch subscription plans:", error)
-    return []
-  }
-}
-
-const AI_TOOLS = [
+const VALUE_PROPS = [
   {
-    id: "resume",
-    title: "Resume Analysis",
-    description: "Get AI-powered feedback with specific improvement suggestions",
-    icon: Brain,
-    href: "/signup",
-    features: ["ATS optimization tips", "Keyword analysis", "Format recommendations"],
-    badgeColor: "bg-badge-indigo",
-    iconColor: "text-badge-indigo-fg",
-    cta: "Get started free",
-    bentoSpan: "lg:col-span-2" as const,  // Hero card
+    label: "LAND IT",
+    labelColor: "text-primary",
+    title: "Get the job",
+    description:
+      "Unlimited application tracking, free forever. Roast My Resume tells you what's broken before recruiters do.",
   },
   {
-    id: "cover-letter",
-    title: "Cover Letter Generator",
-    description: "Create compelling, customized cover letters in seconds",
-    icon: FileText,
-    href: "/try/cover-letter",
-    features: ["Personalized to job description", "Professional formatting"],
-    badgeColor: "bg-badge-emerald",
-    iconColor: "text-badge-emerald-fg",
-    cta: "Try it free",
-    bentoSpan: "" as const,
+    label: "TRACK IT",
+    labelColor: "text-secondary",
+    title: "Keep the receipts",
+    description:
+      "Ten-second win logging, comp history, a Friday recap that writes itself. Months of evidence no fresh chatbot session can fake.",
   },
   {
-    id: "interview",
-    title: "Interview Prep",
-    description: "Practice with AI-generated questions tailored to your role",
-    icon: MessageSquare,
-    href: "/try/interview-prep",
-    features: ["Role-specific questions", "STAR format guidance"],
-    badgeColor: "bg-badge-orange",
-    iconColor: "text-badge-orange-fg",
-    cta: "Try it free",
-    bentoSpan: "" as const,
-  },
-  {
-    id: "job-fit",
-    title: "Job Fit Analysis",
-    description: "See how well your profile matches any job posting",
-    icon: Target,
-    href: "/try/job-fit",
-    features: ["Skills match percentage", "Actionable next steps"],
-    badgeColor: "bg-badge-violet",
-    iconColor: "text-badge-violet-fg",
-    cta: "Try it free",
-    bentoSpan: "lg:col-span-2" as const,  // Wide card
+    label: "WIN IT",
+    labelColor: "text-primary",
+    title: "Get paid for it",
+    description:
+      "The coach turns your logged wins into a promo case, a review doc, and a negotiation plan. Walk in prepared.",
   },
 ] as const
 
-export default async function HomePage() {
-  const plans = await getPlans()
-
+export default function HomePage() {
   return (
     <HomepageClientWrapper>
       <OrganizationSchema />
       <SoftwareApplicationSchema />
-      <FAQSchema faqs={COPY.faq.items} />
-      <div className="min-h-screen flex flex-col">
+      <div className="min-h-screen flex flex-col bg-background">
         <NavigationServer variant="marketing" />
         <main id="main-content" className="flex-1">
 
         {/* ============================================================
             SECTION 1: HERO
             ============================================================ */}
-        <section className="relative overflow-hidden">
-          {/* Warm gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-background via-surface-1 to-badge-indigo/40" />
-          <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-badge-indigo/30 to-transparent" />
-
-          <div className="relative container mx-auto px-4 py-16 sm:py-20 lg:py-28">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+        <section className="py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_1fr]">
               {/* Left: Copy */}
-              <div className="text-center lg:text-left space-y-8 max-w-2xl mx-auto lg:mx-0">
-                <div className="space-y-6">
-                  <HeroContent />
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <ButtonLink
-                    href="/signup"
-                    size="lg"
-                    className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg shadow-accent/25 hover:shadow-xl hover:shadow-accent/30 transition-all duration-200 active:scale-[0.98] text-base px-8"
-                  >
-                    Start your case — free
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </ButtonLink>
-                  <ButtonLink
-                    href="/login"
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto border-border text-foreground hover:bg-interactive-hover"
-                  >
-                    Sign In
-                  </ButtonLink>
-                </div>
-              </div>
-
-              {/* Right: Sankey chart screenshot */}
-              <HeroImageAnimated />
-            </div>
-          </div>
-        </section>
-
-        {/* ============================================================
-            SECTION 2: SOCIAL PROOF BAR
-            ============================================================ */}
-        <section className="border-y border-border bg-surface-1">
-          <ScrollReveal direction="none">
-            <div className="container mx-auto px-4 py-6">
-              <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
-                <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-primary" />
-                  Your wins, tracked and turned into your case
-                </span>
-                <span className="hidden sm:inline text-border">|</span>
-                <span>Free forever plan available</span>
-                <span className="hidden sm:inline text-border">|</span>
-                <span>AI coaching from $9/month</span>
-              </div>
-            </div>
-          </ScrollReveal>
-        </section>
-
-        {/* ============================================================
-            SECTION 3: PRODUCT SHOWCASE
-            ============================================================ */}
-        <section className="py-16 sm:py-20 px-4">
-          <div className="container mx-auto max-w-6xl">
-            <ScrollReveal>
-              <div className="text-center mb-12">
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
-                  Everything you need, nothing you don't
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  One place to organize your applications, track your progress, and get AI-powered career coaching.
+              <div className="space-y-6">
+                <p className="font-mono text-sm text-secondary">
+                  AppTrack is now CareerOtter.
                 </p>
-              </div>
-            </ScrollReveal>
-
-            <ProductShowcase />
-          </div>
-        </section>
-
-        {/* ============================================================
-            SECTION 4: AI TOOLS — BENTO GRID
-            ============================================================ */}
-        <section className="py-16 sm:py-20 px-4 bg-section-ai-tools">
-          <div className="container mx-auto max-w-6xl">
-            <ScrollReveal>
-              <div className="text-center mb-12">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-sm font-medium rounded-full bg-badge-violet text-badge-violet-fg mb-4">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  AI Powered
-                </span>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
-                  Your AI career coach, on demand
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Get expert help with every step of your job search. Try our free tools or upgrade to AI Coach for unlimited access.
-                </p>
-              </div>
-            </ScrollReveal>
-
-            <StaggerContainer staggerDelay={0.08} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {AI_TOOLS.map((tool) => (
-                <StaggerItem key={tool.id} className={tool.bentoSpan}>
-                  <Link
-                    href={"ctaHref" in tool ? (tool as any).ctaHref : tool.href}
-                    className="group block h-full rounded-2xl border border-border bg-surface-1 p-5 lg:p-6 hover:shadow-card-hover transition-all duration-200 hover:-translate-y-0.5"
-                  >
-                    <div className={`rounded-xl ${tool.badgeColor} p-2.5 w-fit mb-3`}>
-                      <tool.icon className={`h-5 w-5 ${tool.iconColor}`} />
-                    </div>
-                    <h3 className="font-semibold font-display text-base mb-1 group-hover:text-primary transition-colors">
-                      {tool.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {tool.description}
-                    </p>
-                    <ul className="space-y-1.5 mb-3">
-                      {tool.features.map((f) => (
-                        <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Check className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                    <span className="inline-flex items-center text-sm font-medium text-primary group-hover:text-primary/80">
-                      {tool.cta}
-                      <ArrowRight className="ml-1.5 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                    </span>
-                  </Link>
-                </StaggerItem>
-              ))}
-            </StaggerContainer>
-
-            <ScrollReveal delay={0.3}>
-              <div className="text-center mt-10">
-                <p className="text-sm text-muted-foreground mb-4">
-                  Like what you see? Sign up to save your results and unlock unlimited access.
-                </p>
-                <ButtonLink
-                  href="/signup"
-                  size="lg"
-                  className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg shadow-accent/20"
+                <h1
+                  className="font-display font-bold text-foreground leading-[1.05]"
+                  style={{ fontSize: "clamp(2.5rem, 5vw, 3.75rem)", letterSpacing: "-0.02em" }}
                 >
-                  Create Free Account
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </ButtonLink>
+                  Build the case for your next raise. Then win it.
+                </h1>
+                <p className="text-[18px] leading-relaxed text-muted-foreground max-w-[520px]">
+                  Log wins in ten seconds. CareerOtter maps them to your review,
+                  names the gaps while there&apos;s time to close them, and hands you
+                  the doc to walk in with.
+                </p>
+                <div className="flex flex-col gap-4 sm:flex-row">
+                  <Link
+                    href="/signup"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-8 text-base font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                  >
+                    Start your case
+                  </Link>
+                  <Link
+                    href="/roast-my-resume"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-card px-8 text-base font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background"
+                  >
+                    Roast my resume
+                  </Link>
+                </div>
+                <p className="font-mono text-sm text-muted-foreground">
+                  Two minutes to a real first draft. No credit card.
+                </p>
               </div>
-            </ScrollReveal>
+
+              {/* Right: Otter illustration + Case coverage card */}
+              <div className="space-y-6">
+                <div className="flex justify-center">
+                  <CareerOtterLogo
+                    decorative
+                    width={240}
+                    height={136}
+                    className="text-foreground"
+                  />
+                </div>
+
+                <div className="rounded-xl border border-border bg-card p-6">
+                  <div className="flex items-baseline justify-between">
+                    <span className="font-mono text-sm text-muted-foreground">
+                      Case coverage
+                    </span>
+                    <span className="font-mono text-3xl font-bold text-primary">
+                      60%
+                    </span>
+                  </div>
+                  <div className="mt-5 space-y-3">
+                    {CASE_COVERAGE_BARS.map((bar) => (
+                      <div key={bar.label} className="flex items-center gap-3">
+                        <span className="w-[76px] flex-shrink-0 font-mono text-xs text-muted-foreground">
+                          {bar.label}
+                        </span>
+                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-background">
+                          <div
+                            className={`h-full rounded-full ${bar.fill}`}
+                            style={{ width: `${bar.value}%` }}
+                          />
+                        </div>
+                        <span className="w-10 flex-shrink-0 text-right font-mono text-xs text-muted-foreground">
+                          {bar.value}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-5 text-sm text-muted-foreground">
+                    Your case is 60% built. The gap is leadership evidence. Close
+                    it before the meeting, not during it.
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
         {/* ============================================================
-            SECTION 5: TESTIMONIALS
+            SECTION 2: THREE VALUE PROPS
             ============================================================ */}
-        <TestimonialSection />
+        <section className="py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <div className="grid gap-6 md:grid-cols-3">
+              {VALUE_PROPS.map((prop) => (
+                <div
+                  key={prop.title}
+                  className="rounded-xl border border-border bg-card p-6"
+                >
+                  <p
+                    className={`font-mono text-xs font-medium tracking-[0.1em] ${prop.labelColor}`}
+                  >
+                    {prop.label}
+                  </p>
+                  <h2 className="mt-3 font-display text-xl font-bold text-foreground">
+                    {prop.title}
+                  </h2>
+                  <p className="mt-2 text-muted-foreground">
+                    {prop.description}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
 
         {/* ============================================================
-            SECTION 6: PRICING
+            SECTION 3: PRICING BAR
             ============================================================ */}
-        <ScrollReveal>
-          <HomePricingSection plans={plans} />
-        </ScrollReveal>
-
-        {/* ============================================================
-            SECTION 7: FAQ + FINAL CTA
-            ============================================================ */}
-        <HomeFaq />
-
-        {/* Final CTA — Dark indigo section */}
-        <section className="py-16 sm:py-20 px-4 bg-section-cta text-section-cta-foreground">
-          <div className="container mx-auto max-w-3xl text-center">
-            <ScrollReveal>
-              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold font-display mb-4">
-                Ready to take control of your job search?
-              </h2>
-              <p className="text-lg text-section-cta-muted mb-8">
-                Get organized, stay on track, and land your dream role with AI-powered assistance.
+        <section id="pricing" className="border-t border-border py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
+              <p className="font-semibold text-foreground">
+                Free covers every non-AI tool. Pro is $9/month for every AI tool.
               </p>
-              <ButtonLink
-                href="/signup"
-                size="lg"
-                className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg shadow-accent/25 text-base px-8"
-              >
-                Start Your Free Account
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </ButtonLink>
-              <p className="text-sm text-section-cta-muted mt-6">
-                Start free • Upgrade anytime • Cancel when you get hired
+              <p className="text-muted-foreground">
+                Got the raise? Tell us and we&apos;ll pause you.
               </p>
-            </ScrollReveal>
+              <span className="ml-auto font-mono text-sm text-muted-foreground">
+                careerotter.io
+              </span>
+            </div>
           </div>
         </section>
 
