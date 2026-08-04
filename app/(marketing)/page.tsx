@@ -3,6 +3,7 @@ import { Check } from "lucide-react"
 import { NavigationServer } from "@/components/navigation-server"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { CareerOtterLogo } from "@/components/careerotter-logo"
+import { TestimonialSection } from "@/components/testimonials"
 import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
 
 const CASE_COVERAGE_BARS = [
@@ -69,11 +70,6 @@ const PRICING_TIERS = [
 
 const FAQS = [
   {
-    question: "I had an AppTrack account — what happens to it?",
-    answer:
-      "Same account, same data, same login. AppTrack is now CareerOtter; only the name changed.",
-  },
-  {
     question: "What's the difference between Free and Pro?",
     answer:
       "Free covers every non-AI tool — unlimited tracking, win logging, Roast My Resume, interview notes. Pro ($9/month) unlocks every AI tool: resume analysis, the coach, the case builder, and comp coaching.",
@@ -92,11 +88,6 @@ const FAQS = [
     question: "Is my data private?",
     answer:
       "Yes. We don't train on your data, you can export it anytime, and delete means delete.",
-  },
-  {
-    question: "Got the raise or the job?",
-    answer:
-      "Tell us and we'll pause your subscription — pick it back up when the next review comes around.",
   },
 ]
 
@@ -228,7 +219,12 @@ export default function HomePage() {
         </section>
 
         {/* ============================================================
-            SECTION 3: PRICING BAR
+            SECTION 3: TESTIMONIALS
+            ============================================================ */}
+        <TestimonialSection />
+
+        {/* ============================================================
+            SECTION 4: PRICING BAR
             ============================================================ */}
         <section className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
