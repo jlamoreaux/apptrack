@@ -8,6 +8,7 @@ import type Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { getAppUrl } from "@/lib/constants/site-config";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { sendTrialEndingEmail } from "@/lib/email/transactional";
@@ -669,10 +670,7 @@ async function handlePaymentFailed(
   }
 }
 
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  "https://careerotter.io";
+const APP_URL = getAppUrl();
 
 // Bare label so the email's "your ${planName} plan" / "for ${planName}" copy
 // reads correctly (a real plan name is also bare, e.g. "AI Coach").

@@ -5,21 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { signUpSchema, signInSchema, profileUpdateSchema } from "./schemas";
 import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
-
-/**
- * Returns the canonical app URL for the current environment.
- * Priority: NEXT_PUBLIC_APP_URL > VERCEL_URL (auto-set on preview) > production fallback.
- * VERCEL_URL has no protocol, so we prefix https://.
- */
-function getAppUrl(): string {
-  // APP_URL is a server-only env var read at runtime (no build-time baking).
-  // NEXT_PUBLIC_APP_URL is baked at build time and may be undefined if not
-  // set when the build ran — so we check APP_URL first.
-  if (process.env.APP_URL) return process.env.APP_URL;
-  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  return "https://careerotter.io";
-}
+import { getAppUrl } from "@/lib/constants/site-config";
 
 // Form-based auth actions
 export async function signUpAction(formData: FormData) {

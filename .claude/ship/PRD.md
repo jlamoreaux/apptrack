@@ -78,8 +78,10 @@ Fixes grouped by owning branch (fix there → push → re-merge into `careerotte
     `new Date("2026-02-30")` rolls over and must not be accepted). Make idempotency an **atomic
     conditional claim**: `UPDATE career_profiles SET zero_to_case_completed_at=now() WHERE user_id=?
     AND zero_to_case_completed_at IS NULL` and only spend the model call / seed wins when a row was
-    affected; otherwise return the stored case. If full atomicity is deferred, log it as a known
-    trade-off in TASKS.
+    affected; otherwise return the stored case. **Failure-safety:** if generation throws after the
+    claim, release it (`zero_to_case_completed_at=NULL`) so a failed run leaves the user retryable
+    rather than permanently marked complete with no case — the claim is race-safe AND failure-safe,
+    not merely race-safe.
   - `app/api/wins/route.ts`: force `source = "manual"` (ignore client `source`) on this manual
     endpoint (the capture bar sends none). Keep the single server-authoritative `win_logged`.
   - `app/api/wins/[id]/route.ts`: reject a PATCH with no editable fields (400, no `edited_at` bump);
