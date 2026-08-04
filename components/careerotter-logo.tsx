@@ -10,11 +10,15 @@ import { cn } from "@/lib/utils";
  */
 export function CareerOtterLogo({
   className,
+  decorative = false,
   title = "CareerOtter",
   width = 34,
   height = 19,
 }: {
   className?: string;
+  // When adjacent text already names the brand, mark the mark decorative so
+  // screen readers don't announce "CareerOtter" twice.
+  decorative?: boolean;
   title?: string;
   width?: number;
   height?: number;
@@ -24,8 +28,9 @@ export function CareerOtterLogo({
       width={width}
       height={height}
       viewBox="0 0 120 68"
-      role="img"
-      aria-label={title}
+      role={decorative ? undefined : "img"}
+      aria-label={decorative ? undefined : title}
+      aria-hidden={decorative || undefined}
       className={cn("text-foreground", className)}
     >
       <g

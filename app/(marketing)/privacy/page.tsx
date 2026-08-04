@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
         <div style={{lineHeight: 1.5}}><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}} data-custom-class="body_text">This Privacy Notice for Jordan Lamoreaux (&quot;<strong>we</strong>,&quot; &quot;<strong>us</strong>,&quot; or &quot;<strong>our</strong>&quot;) describes how and why we might access, collect, store, use, and/or share (&quot;<strong>process</strong>&quot;) your personal information when you use our services (&quot;<strong>Services</strong>&quot;), including when you:</span></div>
 
         <ul>
-          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Visit our website at <a target="_blank" data-custom-class="link" href="https://careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>https://careerotter.io</a></span></li>
+          <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Visit our website at <a target="_blank" rel="noopener noreferrer" data-custom-class="link" href="https://careerotter.io" style={{color: 'rgb(0, 58, 250)'}}>https://careerotter.io</a></span></li>
           <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Use the CareerOtter Chrome extension</span></li>
           <li data-custom-class="body_text" style={{lineHeight: 1.5}}><span style={{fontSize: '15px', color: 'rgb(89, 89, 89)'}}>Engage with us in other related ways, including sales, marketing, or events</span></li>
         </ul>

@@ -2,9 +2,15 @@
 // NEXT_PUBLIC_APP_URL so preview/staging can differ; defaults to the go-forward
 // CareerOtter domain. apptrack.ing 301-redirects here (see next.config.mjs +
 // middleware.ts). No trailing slash.
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL || "https://careerotter.io"
-).replace(/\/+$/, "");
+const configuredUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://careerotter.io";
+const parsedUrl = new URL(configuredUrl);
+
+if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+  throw new Error("NEXT_PUBLIC_APP_URL must be an HTTP(S) URL");
+}
+
+export const SITE_URL = parsedUrl.origin;
 
 export const SITE_CONFIG = {
   name: "CareerOtter",

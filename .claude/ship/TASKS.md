@@ -59,7 +59,7 @@ findings with a logged reason. Gates run per touched branch AND on integration (
 - [ ] 5.2: No test (visual/token); record the measured ratios in the commit message.
 
 ## Task 6: Docs sweep
-- [ ] 6.1: `.claude/ship/phase2-TASKS.md` / `phase2-PRD.md` — reflect CodeRabbit's doc findings: the
+- [ ] 6.1: `.claude/ship/TASKS.md` / `.claude/ship/PRD.md` — reflect CodeRabbit's doc findings: the
   `isPro(plan-name)` contract (canceled/trialing behavior), and a Free-user Zero-to-Case acceptance
   line (starter case is free once for everyone). Only fix inaccuracies; no new docs.
   (No README/CLAUDE.md/.env.example changes — these fixes add no conventions or env vars.)
@@ -67,11 +67,15 @@ findings with a logged reason. Gates run per touched branch AND on integration (
 ## Task 7: Reconcile + verify + reply
 - [ ] 7.1: Re-merge fix commits into `careerotter/phase2-integration` in order: m0 → m1 → m2a → m2b
   → m6. Resolve any conflicts (watch `plans.ts`, `upgrade/page.tsx`); re-run gates after each.
-- [ ] 7.2: Gates on integration: `npx tsc --noEmit` (≤378), `pnpm test`, `next lint`.
+- [ ] 7.2: Run the gates (`npx tsc --noEmit` (≤378), `pnpm test`, `next lint`) on **every touched
+  milestone branch** (m0, m1, m2a, m2b, m6) as well as on `careerotter/phase2-integration`, so
+  branch-specific TypeScript/test/lint failures surface before merge, not after.
 - [ ] 7.3: Reply to each addressed CodeRabbit thread on #182/#183/#184/#190 (fixed / skipped-with-
   reason), and post a short "addressed" summary comment per PR.
-- [ ] 7.4: Append/refresh the owner deploy checklist (Stripe M0, DNS/email M1, apply migrations
-  032/033/034, logo PNG, enable recap email) to the memory + a PR comment. (Owner-only; documented.)
+- [ ] 7.4: Maintain the owner deploy checklist (Stripe M0, DNS/email M1, apply migrations
+  032/033/034, logo PNG, enable recap email) in **one canonical location** (this file, `## Owner
+  deploy checklist`); link to it from anywhere else it's referenced (e.g. a PR comment) rather than
+  duplicating the steps, to prevent drift. (Owner-only; documented.)
 
 ## Known trade-offs (to confirm/log during implementation)
 - If zero-to-case atomicity can't be made a single conditional UPDATE cleanly, the residual

@@ -21,7 +21,7 @@ export default function TermsOfService() {
         
         <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We are Jordan Lamoreaux ("<strong>Company</strong>," "<strong>we</strong>," "<strong>us</strong>," "<strong>our</strong>").</span></span></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We operate the website <a target="_blank" data-custom-class="link" href="http://careerotter.io">http://careerotter.io</a> (the "<strong>Site</strong>"), as well as any other related products and services that refer or link to these legal terms (the "<strong>Legal Terms</strong>") (collectively, the "<strong>Services</strong>").</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We operate the website <a target="_blank" rel="noopener noreferrer" data-custom-class="link" href="https://careerotter.io">https://careerotter.io</a> (the "<strong>Site</strong>"), as well as any other related products and services that refer or link to these legal terms (the "<strong>Legal Terms</strong>") (collectively, the "<strong>Services</strong>").</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
@@ -255,7 +255,7 @@ export default function TermsOfService() {
         
         <div id="ppyes" style={{lineHeight: 1.5}}><strong><span data-custom-class="heading_1"><h2>12. PRIVACY POLICY</h2></span></strong></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We care about data privacy and security. Please review our Privacy Policy: <a href="/privacy">http://careerotter.io/privacy</a>. By using the Services, you agree to be bound by our Privacy Policy, which is incorporated into these Legal Terms. Please be advised the Services are hosted in the United States. If you access the Services from any other region of the world with laws or other requirements governing personal data collection, use, or disclosure that differ from applicable laws in the United States, then through your continued use of the Services, you are transferring your data to the United States, and you expressly consent to have your data transferred to and processed in the United States.</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We care about data privacy and security. Please review our Privacy Policy: <a href="/privacy">https://careerotter.io/privacy</a>. By using the Services, you agree to be bound by our Privacy Policy, which is incorporated into these Legal Terms. Please be advised the Services are hosted in the United States. If you access the Services from any other region of the world with laws or other requirements governing personal data collection, use, or disclosure that differ from applicable laws in the United States, then through your continued use of the Services, you are transferring your data to the United States, and you expressly consent to have your data transferred to and processed in the United States.</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         

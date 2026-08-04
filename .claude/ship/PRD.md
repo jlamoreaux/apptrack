@@ -110,8 +110,9 @@ Data flow unchanged; these are correctness/robustness fixes on existing paths.
 - **Branch reconciliation:** editing files on milestone branches then re-merging can conflict
   (e.g., `plans.ts`, `upgrade/page.tsx` touched on multiple). Merge carefully; re-run gates on
   integration after each.
-- **Migration amend:** 032 is not applied to prod (verified earlier), so amending it is safe; if it
-  had been applied, this would need a new migration instead.
+- **Migration amend:** 032 is immutable — 033 already exists, so 032 is applied in at least one
+  environment, and its `CREATE TABLE IF NOT EXISTS` would silently skip a late-added CHECK anywhere
+  it already ran. Any required change ships as a new migration (034), never as an amendment to 032.
 - **Analytics change:** removing the client `win_logged` means the event is server-only — confirm
   the server emit covers all logging paths (capture bar posts to `/api/wins`, which emits).
 
