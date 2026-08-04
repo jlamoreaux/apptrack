@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -76,6 +77,10 @@ export function CompTracker() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [scenarioPrice, setScenarioPrice] = useState<number | null>(null);
+  // Two-step delete: first click arms confirmId, second confirms. Avoids a modal
+  // dependency while still guarding against an accidental permanent delete.
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     const roleFamily = resolveRoleFamily(roleTitle);
@@ -153,6 +158,29 @@ export function CompTracker() {
       }
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteEntry(id: string) {
+    // One delete at a time: the controls are disabled while a delete is in flight,
+    // but guard here too so a stray call can't start an overlapping request that
+    // would 404 once the row is already gone.
+    if (deletingId) return;
+    setDeletingId(id);
+    setError("");
+    try {
+      const res = await fetch(`/api/careerotter/comp/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setEntries((prev) => prev.filter((entry) => entry.id !== id));
+      } else {
+        const data = await res.json().catch(() => null);
+        setError(data?.error || "Could not delete that entry.");
+      }
+    } catch {
+      setError("Could not delete that entry.");
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
     }
   }
 
@@ -405,9 +433,47 @@ export function CompTracker() {
           <h3 className="text-sm font-semibold">Your trajectory</h3>
           <ul className="space-y-1">
             {[...entries].reverse().map((e) => (
-              <li key={e.id} className="flex items-center justify-between border-b py-2 text-sm">
+              <li key={e.id} className="flex items-center justify-between gap-2 border-b py-2 text-sm">
                 <span className="text-muted-foreground">{e.effective_date}</span>
-                <span className="tabular-nums font-medium">{usd(total(e))}</span>
+                <div className="flex items-center gap-2">
+                  <span className="tabular-nums font-medium">{usd(total(e))}</span>
+                  {confirmId === e.id ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => deleteEntry(e.id)}
+                        disabled={deletingId !== null}
+                        aria-label={`Confirm delete comp entry from ${e.effective_date}`}
+                        className="h-11 px-3 text-destructive hover:text-destructive"
+                      >
+                        {deletingId === e.id ? "Deleting…" : "Delete"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setConfirmId(null)}
+                        disabled={deletingId !== null}
+                        aria-label="Cancel delete"
+                        className="h-11 px-3 text-muted-foreground"
+                      >
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setConfirmId(e.id)}
+                      disabled={deletingId !== null}
+                      aria-label={`Delete comp entry from ${e.effective_date}`}
+                      className="h-11 w-11 text-muted-foreground hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
