@@ -73,7 +73,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
     <nav id="main-navigation" className={`sticky top-0 z-50 transition-all duration-normal bg-background border-b ${isScrolled ? "shadow-sm border-border" : "border-transparent"}`}>
       <div className="container flex h-14 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
-          <CareerOtterLogo className="h-6 w-auto" />
+          <CareerOtterLogo className="h-8 w-auto" />
           <span className="font-bold text-lg sm:text-xl text-primary">
             {SITE_CONFIG.name}
           </span>

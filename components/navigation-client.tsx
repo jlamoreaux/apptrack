@@ -72,7 +72,7 @@ export function NavigationClient() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <CareerOtterLogo className="h-6 w-auto" />
+            <CareerOtterLogo className="h-8 w-auto" />
             <span className="font-bold text-xl text-foreground">CareerOtter</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
@@ -92,7 +92,7 @@ export function NavigationClient() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <CareerOtterLogo className="h-6 w-auto" />
+          <CareerOtterLogo className="h-8 w-auto" />
           <span className="font-bold text-xl text-foreground">CareerOtter</span>
         </Link>
 
