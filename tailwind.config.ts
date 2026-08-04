@@ -50,12 +50,12 @@ const config = {
         // CareerOtter amber + kelp tokens instead of accessible-colors' hardcoded
         // blue. No numeric primary/secondary shades are used in the app.
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground) / <alpha-value>)",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
+          foreground: "hsl(var(--secondary-foreground) / <alpha-value>)",
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
