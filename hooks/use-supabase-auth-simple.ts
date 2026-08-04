@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
-import { dedupedGetJson, clearGetCache } from "@/lib/utils/deduped-get";
+import { dedupedGetJson, clearGetCache, getGetCacheEpoch } from "@/lib/utils/deduped-get";
 
 export function useSupabaseAuthSimple() {
   const [user, setUser] = useState<User | null>(null);
@@ -57,7 +57,11 @@ export function useSupabaseAuthSimple() {
     try {
       // Deduped: many components mount this hook and Supabase fires an initial
       // auth event, so the raw fetch ran several times per load. See deduped-get.
+      const startEpoch = getGetCacheEpoch();
       const { ok, body } = await dedupedGetJson("/api/auth/profile");
+      // Auth turned over while this was in flight (sign-out, or a different user
+      // signed in): the response belongs to the previous session — ignore it.
+      if (getGetCacheEpoch() !== startEpoch) return;
       // Any non-ok (incl. 404 "profile not found") is fine — just don't set it.
       if (!ok) return;
       const profile = (body as { profile?: Profile } | null)?.profile;
