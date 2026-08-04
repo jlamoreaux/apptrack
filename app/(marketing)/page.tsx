@@ -147,9 +147,8 @@ export default function HomePage() {
                 <div className="flex justify-center">
                   <CareerOtterLogo
                     decorative
-                    width={240}
-                    height={136}
-                    className="text-foreground"
+                    width={220}
+                    height={220}
                   />
                 </div>
 
