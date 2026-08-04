@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { CareerOtterLogo } from "@/components/careerotter-logo";
+import { CareerOtterMark } from "@/components/careerotter-mark";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ButtonLink } from "@/components/ui/button-link";
@@ -73,7 +73,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
     <nav id="main-navigation" className={`sticky top-0 z-50 transition-all duration-normal bg-background border-b ${isScrolled ? "shadow-sm border-border" : "border-transparent"}`}>
       <div className="container flex h-14 items-center px-4">
         <Link href="/" className="flex items-center space-x-2">
-          <CareerOtterLogo className="h-8 w-auto" />
+          <CareerOtterMark className="h-8 w-8" />
           <span className="font-bold text-lg sm:text-xl text-primary">
             {SITE_CONFIG.name}
           </span>
