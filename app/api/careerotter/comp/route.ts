@@ -43,10 +43,31 @@ export async function GET(request: NextRequest) {
   // Benchmark is Pro-only; entry/history is free.
   const marketRange = plan.isPro ? lookupMarketRange(roleFamily, level) : null;
 
+  // Live cached prices for the tickers this user tracks (feature is dark until the
+  // polling cron populates stock_prices; absent tickers simply won't appear).
+  const tickers = [
+    ...new Set(
+      (entries ?? [])
+        .map((e) => (typeof e.ticker === "string" ? e.ticker.trim() : ""))
+        .filter((t) => t.length > 0)
+    ),
+  ];
+  const prices: Record<string, { price: number; as_of: string }> = {};
+  if (tickers.length > 0) {
+    const { data: priceRows } = await admin
+      .from("stock_prices")
+      .select("ticker, price, as_of")
+      .in("ticker", tickers);
+    for (const row of priceRows ?? []) {
+      prices[row.ticker] = { price: Number(row.price), as_of: row.as_of };
+    }
+  }
+
   return NextResponse.json({
     entries: entries ?? [],
     marketRange,
     isPro: plan.isPro,
+    prices,
   });
 }
 
