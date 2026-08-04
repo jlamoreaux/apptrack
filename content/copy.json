@@ -127,7 +127,7 @@
   "testimonials": {
     "badge": "What Our Users Say",
     "title": "Real Results from Job Seekers",
-    "subtitle": "See how AppTrack is helping job seekers stay organized and land interviews faster.",
+    "subtitle": "See how CareerOtter is helping people land the job and build the case for what's next.",
     "placeholders": [
       {
         "name": "Sarah M.",
@@ -137,18 +137,20 @@
         "rating": 5
       },
       {
-        "name": "Alex T.",
+        "name": "Danni P.",
         "role": "Customer Support Manager",
         "highlight": "I can finally retire my doom spreadsheet",
         "content": "Having all my applications in one place with the pipeline chart saved me from reapplying to the same company twice.",
-        "rating": 5
+        "rating": 5,
+        "avatarUrl": "/images/testimonials/danni.png"
       },
       {
-        "name": "Emily R.",
+        "name": "Paulene N.",
         "role": "Product Manager",
-        "highlight": "The pipeline view changed how I think about my job search",
-        "content": "Seeing where my applications were dropping off helped me focus on improving my interview skills.",
-        "rating": 5
+        "highlight": "It turned interviewing prep from stressful to strategic without having to spend hours on it!",
+        "content": "",
+        "rating": 5,
+        "avatarUrl": "/images/testimonials/paulene.jpg"
       }
     ]
   },
