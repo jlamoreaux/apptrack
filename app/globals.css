@@ -109,12 +109,16 @@
     --accent-foreground: 195 9% 9%;
     --secondary: 112 17% 43%;         /* #5F7F5A kelp green — evidence/positive */
     --secondary-foreground: 38 23% 93%;
-    --destructive: 10 50% 53%;        /* #C25E4A warm red */
-    --destructive-foreground: 38 23% 93%;
-    --warning: 31 81% 55%;            /* Amber lighter for warnings */
-    --warning-foreground: 38 23% 93%;
-    --info: 112 17% 55%;             /* Kelp lighter for info */
-    --info-foreground: 38 23% 93%;
+    /* Colored fills carry ink text (AA-verified): off-white foregrounds fail on
+       these accents (warning 2.15, info 2.52, destructive 3.59), ink passes
+       (7.17 / 6.11 / 5.79). Destructive lightened to 62% so text-destructive on
+       the dark card also clears AA (was 3.73, now 5.02). */
+    --destructive: 10 55% 62%;        /* warm red, lightened for AA on dark */
+    --destructive-foreground: 195 9% 9%;
+    --warning: 31 81% 55%;            /* amber */
+    --warning-foreground: 195 9% 9%;
+    --info: 112 17% 55%;             /* kelp */
+    --info-foreground: 195 9% 9%;
     --ai-brand: 31 75% 49%;          /* Amber for AI features */
     --ai-brand-foreground: 195 9% 9%;
     --ai-brand-light: 31 40% 16%;    /* Subtle amber bg on dark */

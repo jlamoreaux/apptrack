@@ -2,9 +2,32 @@
 // NEXT_PUBLIC_APP_URL so preview/staging can differ; defaults to the go-forward
 // CareerOtter domain. apptrack.ing 301-redirects here (see next.config.mjs +
 // middleware.ts). No trailing slash.
-export const SITE_URL = (
-  process.env.NEXT_PUBLIC_APP_URL || "https://careerotter.io"
-).replace(/\/+$/, "");
+const configuredUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://careerotter.io";
+const parsedUrl = new URL(configuredUrl);
+
+if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+  throw new Error("NEXT_PUBLIC_APP_URL must be an HTTP(S) URL");
+}
+
+export const SITE_URL = parsedUrl.origin;
+
+/**
+ * Canonical runtime origin resolver — the single source of truth for building
+ * absolute URLs anywhere in the app (auth redirects, emails, webhooks, crons).
+ *
+ * Order: NEXT_PUBLIC_APP_URL (via the validated SITE_URL) > VERCEL_URL on
+ * preview deploys where it isn't set > the CareerOtter production default.
+ * A bare `APP_URL` env is deliberately NOT honored — a stale AppTrack value must
+ * never win over the canonical origin.
+ */
+export function getAppUrl(): string {
+  // Resolved at call time (not module load) so runtime env drives URL building.
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://careerotter.io";
+}
 
 export const SITE_CONFIG = {
   name: "CareerOtter",

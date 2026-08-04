@@ -2,7 +2,40 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
 
+// CareerOtter Phase 2 surfaces (merged to main ahead of launch) stay hidden
+// until the launch switch is flipped. Matched with segment boundaries so a route
+// like /dashboard/companies could never be caught by /dashboard/comp.
+function isCareerotterSurface(pathname: string): boolean {
+  const pageRoutes = [
+    "/dashboard/start", // Zero-to-Case onboarding
+    "/dashboard/wins",
+    "/dashboard/coach",
+    "/dashboard/comp",
+    "/dashboard/data", // privacy/data page
+    "/dashboard/review-prep",
+  ]
+  if (pageRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    return true
+  }
+  return (
+    pathname.startsWith("/api/careerotter/") ||
+    pathname.startsWith("/api/wins/") ||
+    pathname === "/api/wins" ||
+    pathname === "/api/cron/careerotter-recap"
+  )
+}
+
 export async function middleware(request: NextRequest) {
+  // Hard launch gate, evaluated before anything else: 404 the not-yet-launched
+  // CareerOtter routes unless CAREEROTTER_ENABLED=1. Keeps them unreachable in
+  // production while their code sits merged-but-dark on main.
+  if (
+    process.env.CAREEROTTER_ENABLED !== "1" &&
+    isCareerotterSurface(request.nextUrl.pathname)
+  ) {
+    return new NextResponse("Not Found", { status: 404 })
+  }
+
   const hostname = request.headers.get("host") || ""
 
   // Brand migration: any legacy apptrack.ing host 301s to CareerOtter,
@@ -79,5 +112,10 @@ export const config = {
      * - api routes (handled separately)
      */
     "/((?!_next/static|_next/image|favicon.ico|api/).*)",
+    // CareerOtter API + cron surfaces are excluded by the pattern above (api/),
+    // so match them explicitly for the launch gate.
+    "/api/careerotter/:path*",
+    "/api/wins/:path*",
+    "/api/cron/careerotter-recap",
   ],
 }

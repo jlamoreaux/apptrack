@@ -21,6 +21,9 @@ import {
   canAccessUnlimitedApplications,
   getPlanFeaturesByName,
   hasFeatureAccess,
+  isAICoachFeature,
+  getRequiredPlan,
+  getUpgradeMessage,
 } from '@/lib/utils/plan-helpers';
 
 // Plan name constants matching the source
@@ -272,5 +275,24 @@ describe('hasFeatureAccess', () => {
 
   it('returns true for Pro plan accessing CAREER_ADVICE (Pro = every AI tool)', () => {
     expect(hasFeatureAccess(PLANS.PRO, 'CAREER_ADVICE')).toBe(true);
+  });
+});
+
+describe('UNLIMITED_APPLICATIONS is not an AI-gated feature', () => {
+  it('isAICoachFeature returns false for it (tracking is free on all tiers)', () => {
+    expect(isAICoachFeature('UNLIMITED_APPLICATIONS')).toBe(false);
+  });
+
+  it('getRequiredPlan does not require Pro for unlimited tracking', () => {
+    expect(getRequiredPlan('UNLIMITED_APPLICATIONS')).toBe(PLANS.FREE);
+  });
+
+  it('getUpgradeMessage does not claim unlimited tracking requires Pro', () => {
+    expect(getUpgradeMessage('UNLIMITED_APPLICATIONS', PLANS.FREE)).not.toMatch(/requires Pro/i);
+  });
+
+  it('still classifies real AI features as AI-gated', () => {
+    expect(isAICoachFeature('RESUME_ANALYSIS')).toBe(true);
+    expect(getRequiredPlan('RESUME_ANALYSIS')).toBe(PLANS.PRO);
   });
 });

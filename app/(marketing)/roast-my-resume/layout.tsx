@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     title: "Resume Roast - Get Brutally Honest AI Feedback",
     description: "Upload your resume and get hilariously savage feedback. Find out what recruiters really think!",
     images: ["https://careerotter.io/roast-my-resume/opengraph-image"],
-    creator: "@apptrack",
+    creator: "@careerotter",
   },
   alternates: {
     canonical: "https://careerotter.io/roast-my-resume",

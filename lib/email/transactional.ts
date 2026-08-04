@@ -15,12 +15,9 @@ import {
   safeUrl,
   EMAIL_THEME,
 } from './templates/shared';
-import { SUPPORT_EMAIL } from '@/lib/constants/site-config';
+import { SUPPORT_EMAIL, getAppUrl } from '@/lib/constants/site-config';
 
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  'https://careerotter.io';
+const APP_URL = getAppUrl();
 
 export { escapeHtml, safeUrl };
 
