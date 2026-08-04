@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSupabaseAuthSimple } from '@/hooks/use-supabase-auth-simple'
 import { useOnboarding } from '@/lib/onboarding/context'
+import { dedupedGetJson } from '@/lib/utils/deduped-get'
 
 export function useOnboardingTrigger() {
   const { user } = useSupabaseAuthSimple()
@@ -14,18 +15,20 @@ export function useOnboardingTrigger() {
 
     const checkUserStatus = async () => {
       try {
-        // Call API route to check onboarding status
-        const response = await fetch('/api/onboarding/status')
-        
-        if (!response.ok) {
+        // Call API route to check onboarding status. Deduped because this effect
+        // re-runs as the auth `user` reference settles, firing several times per
+        // load. See lib/utils/deduped-get.
+        const { ok, body } = await dedupedGetJson('/api/onboarding/status')
+
+        if (!ok) {
           console.error('Failed to check onboarding status')
           return
         }
-        
-        const data = await response.json()
-        
+
+        const data = (body ?? {}) as { shouldStartOnboarding?: boolean }
+
         console.log('Onboarding check:', data)
-        
+
         if (data.shouldStartOnboarding) {
           console.log('Starting onboarding flow...')
           await startFlow('new-user-onboarding')

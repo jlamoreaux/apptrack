@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
+import { dedupedGetJson, invalidateGet } from "@/lib/utils/deduped-get";
 
 export function useSupabaseAuthSimple() {
   const [user, setUser] = useState<User | null>(null);
@@ -40,6 +41,8 @@ export function useSupabaseAuthSimple() {
       if (session?.user) {
         await fetchProfile(session.user.id);
       } else {
+        // Signed out: drop the cached profile so a later sign-in refetches fresh.
+        invalidateGet("/api/auth/profile");
         setProfile(null);
       }
 
@@ -51,20 +54,12 @@ export function useSupabaseAuthSimple() {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const response = await fetch("/api/auth/profile", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          // Profile not found, which is okay
-          return;
-        }
-        return;
-      }
-
-      const { profile } = await response.json();
+      // Deduped: many components mount this hook and Supabase fires an initial
+      // auth event, so the raw fetch ran several times per load. See deduped-get.
+      const { ok, body } = await dedupedGetJson("/api/auth/profile");
+      // Any non-ok (incl. 404 "profile not found") is fine — just don't set it.
+      if (!ok) return;
+      const profile = (body as { profile?: Profile } | null)?.profile;
       if (profile) {
         setProfile(profile);
       }
