@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CareerOtterLogo } from "@/components/careerotter-logo";
+import { CareerOtterMark } from "@/components/careerotter-mark";
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { User, LogOut, Crown, Flame } from "lucide-react"
@@ -42,7 +42,7 @@ export function Navigation() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <CareerOtterLogo decorative className="h-8 w-auto" />
+            <CareerOtterMark decorative className="h-8 w-8" />
             <span className="font-bold text-xl">CareerOtter</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
@@ -62,7 +62,7 @@ export function Navigation() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <CareerOtterLogo decorative className="h-8 w-auto" />
+          <CareerOtterMark decorative className="h-8 w-8" />
           <span className="font-bold text-xl">CareerOtter</span>
         </Link>
 

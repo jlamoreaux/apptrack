@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CareerOtterLogo } from "@/components/careerotter-logo";
+import { CareerOtterMark } from "@/components/careerotter-mark";
 import { Button } from "@/components/ui/button";
 import { Crown } from "lucide-react";
 import { getUser, getProfile, getSubscription } from "@/lib/supabase/server";
@@ -46,7 +46,7 @@ export async function NavigationServer({ variant = "default" }: NavigationServer
       {/* Top Header */}
       <nav aria-label="Site header" className="container flex h-14 items-center px-4 sm:px-8">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2" aria-label="CareerOtter Dashboard">
-          <CareerOtterLogo className="h-8 w-auto" />
+          <CareerOtterMark className="h-8 w-8" />
           <span className="font-bold text-xl text-foreground">CareerOtter</span>
         </Link>
 

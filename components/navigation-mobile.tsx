@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
-import { CareerOtterLogo } from "@/components/careerotter-logo";
+import { CareerOtterMark } from "@/components/careerotter-mark";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 export function NavigationMobile() {
@@ -15,7 +15,7 @@ export function NavigationMobile() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="container flex h-14 items-center justify-between px-4">
           <Link href="/" className="flex items-center space-x-2">
-            <CareerOtterLogo className="h-8 w-auto" />
+            <CareerOtterMark className="h-8 w-8" />
             <span className="font-bold text-xl text-primary">
               {SITE_CONFIG.name}
             </span>
