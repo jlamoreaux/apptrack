@@ -5,6 +5,11 @@ import { SubscriptionService } from "@/services/subscriptions";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { transitionAudience } from "@/lib/email/drip-scheduler";
+import { getAppUrl } from "@/lib/constants/site-config";
+
+// Canonical origin for links in these emails. Previously interpolated
+// process.env.NEXT_PUBLIC_APP_URL directly, which rendered "undefined/..." if unset.
+const APP_URL = getAppUrl();
 
 // This should be called by a cron job (e.g., Vercel Cron or external service)
 // Run daily to process trial notifications and expirations
@@ -188,11 +193,11 @@ async function sendNotificationEmail(
       preview: "Make the most of your remaining trial time",
       content: `
         <h2>Your AI Coach trial ends in 7 days</h2>
-        <p>We hope you're enjoying the AI-powered features in AppTrack!</p>
+        <p>We hope you're enjoying the AI-powered features in CareerOtter!</p>
         <p>Your trial will end in 7 days, after which you'll automatically return to the free tier.</p>
         <p><strong>Want to continue with AI Coach?</strong></p>
         <p>Upgrade now to keep all your AI-powered features without interruption.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Upgrade Options</a>
+        <a href="${APP_URL}/dashboard/upgrade">View Upgrade Options</a>
       `,
     },
     trial_ending_1_day: {
@@ -209,7 +214,7 @@ async function sendNotificationEmail(
           <li>Cover Letter Generation</li>
         </ul>
         <p><strong>Don't lose your AI coaching!</strong></p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">Upgrade Now</a>
+        <a href="${APP_URL}/dashboard/upgrade">Upgrade Now</a>
       `,
     },
     trial_ended: {
@@ -217,7 +222,7 @@ async function sendNotificationEmail(
       preview: "You can upgrade anytime to regain AI features",
       content: `
         <h2>Your AI Coach trial has ended</h2>
-        <p>Thank you for trying AppTrack's AI Coach features!</p>
+        <p>Thank you for trying CareerOtter's AI Coach features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
           <li>Unlimited application tracking</li>
@@ -225,7 +230,7 @@ async function sendNotificationEmail(
           <li>Take interview notes</li>
         </ul>
         <p>Ready for more? You can upgrade to Pro anytime to regain access to all AI-powered features.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Plans</a>
+        <a href="${APP_URL}/dashboard/upgrade">View Plans</a>
       `,
     },
     premium_ending_7_days: {
@@ -233,11 +238,11 @@ async function sendNotificationEmail(
       preview: "Make the most of your remaining premium time",
       content: `
         <h2>Your premium access ends in 7 days</h2>
-        <p>We hope you're enjoying the premium features in AppTrack!</p>
+        <p>We hope you're enjoying the premium features in CareerOtter!</p>
         <p>Your premium access will end in 7 days, after which you'll automatically return to the free tier.</p>
         <p><strong>Want to continue with premium features?</strong></p>
         <p>Upgrade now to keep all your premium features without interruption.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Upgrade Options</a>
+        <a href="${APP_URL}/dashboard/upgrade">View Upgrade Options</a>
       `,
     },
     premium_ending_1_day: {
@@ -254,7 +259,7 @@ async function sendNotificationEmail(
           <li>Cover Letter Generation</li>
         </ul>
         <p><strong>Don't lose your premium features!</strong></p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">Upgrade Now</a>
+        <a href="${APP_URL}/dashboard/upgrade">Upgrade Now</a>
       `,
     },
     premium_ended: {
@@ -262,7 +267,7 @@ async function sendNotificationEmail(
       preview: "You can upgrade anytime to regain premium features",
       content: `
         <h2>Your premium access has ended</h2>
-        <p>Thank you for using AppTrack's premium features!</p>
+        <p>Thank you for using CareerOtter's premium features!</p>
         <p>You've been automatically moved to the free tier, where you can still:</p>
         <ul>
           <li>Unlimited application tracking</li>
@@ -270,7 +275,7 @@ async function sendNotificationEmail(
           <li>Take interview notes</li>
         </ul>
         <p>Ready for more? You can upgrade anytime to regain access to all premium features.</p>
-        <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade">View Plans</a>
+        <a href="${APP_URL}/dashboard/upgrade">View Plans</a>
       `,
     },
   };
@@ -288,7 +293,7 @@ async function sendNotificationEmail(
         ${template.content}
         <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
           <p style="color: #6b7280; font-size: 12px; line-height: 18px;">
-            You're receiving this email about your AppTrack trial status. To unsubscribe or manage preferences, visit your account settings.
+            You're receiving this email about your CareerOtter trial status. To unsubscribe or manage preferences, visit your account settings.
           </p>
         </div>
       </div>

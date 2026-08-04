@@ -86,7 +86,7 @@ export async function extractJobFromUrl(url: string): Promise<ExtractedJob> {
   // fetchPublicUrl enforces http(s), the host blocklist, and the DNS-rebinding
   // check on the initial URL and on every redirect hop.
   const response = await fetchPublicUrl(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; AppTrack/1.0)' },
+    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CareerOtter/1.0)' },
     timeoutMs: FETCH_TIMEOUT_MS,
   });
 

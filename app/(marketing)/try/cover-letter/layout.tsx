@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Free AI Cover Letter Generator | AppTrack",
+  title: "Free AI Cover Letter Generator | CareerOtter",
   description:
     "Generate a professional, personalized cover letter in 30 seconds. Our AI analyzes the job description and your experience to create compelling cover letters that get interviews.",
   keywords: [
@@ -14,11 +14,11 @@ export const metadata: Metadata = {
     "professional cover letter",
   ],
   openGraph: {
-    title: "Free AI Cover Letter Generator | AppTrack",
+    title: "Free AI Cover Letter Generator | CareerOtter",
     description:
       "Generate a professional cover letter in 30 seconds. AI-powered, personalized to each job.",
-    url: "https://www.apptrack.ing/try/cover-letter",
-    siteName: "AppTrack",
+    url: "https://careerotter.io/try/cover-letter",
+    siteName: "CareerOtter",
     type: "website",
   },
   twitter: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Generate a professional cover letter in 30 seconds with AI.",
   },
   alternates: {
-    canonical: "https://www.apptrack.ing/try/cover-letter",
+    canonical: "https://careerotter.io/try/cover-letter",
   },
 }
 

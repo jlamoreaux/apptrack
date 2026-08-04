@@ -15,12 +15,9 @@ import {
   safeUrl,
   EMAIL_THEME,
 } from './templates/shared';
-import { SUPPORT_EMAIL } from '@/lib/constants/site-config';
+import { SUPPORT_EMAIL, getAppUrl } from '@/lib/constants/site-config';
 
-const APP_URL =
-  process.env.APP_URL ||
-  process.env.NEXT_PUBLIC_APP_URL ||
-  'https://www.apptrack.ing';
+const APP_URL = getAppUrl();
 
 export { escapeHtml, safeUrl };
 
@@ -54,14 +51,14 @@ export async function sendRoastReadyEmail({
     </p>
     ${ctaButton('View Your Roast', roastUrl)}
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-      Want to take your job search further? AppTrack helps you track applications,
+      Want to take your job search further? CareerOtter helps you track applications,
       prep for interviews, and analyze job fit — all in one place.
     </p>
-    ${ctaButton('Try AppTrack Free', `${APP_URL}/signup`)}
+    ${ctaButton('Try CareerOtter Free', `${APP_URL}/signup`)}
   `,
     {
       unsubscribeUrl,
-      footerNote: "You're receiving this because you used Resume Roast on AppTrack.",
+      footerNote: "You're receiving this because you used Resume Roast on CareerOtter.",
     }
   );
 
@@ -103,14 +100,14 @@ export async function sendPasswordResetEmail({
     {
       unsubscribeUrl: getUnsubscribeUrl(email),
       footerNote:
-        "You're receiving this because a password reset was requested for your AppTrack account.",
+        "You're receiving this because a password reset was requested for your CareerOtter account.",
     }
   );
 
   try {
     const result = await sendEmail({
       to: email,
-      subject: 'Reset your AppTrack password',
+      subject: 'Reset your CareerOtter password',
       html,
     });
     return { success: result.success };
@@ -213,7 +210,7 @@ export async function sendTryResultsEmail({
       ${safeName ? `Hi ${safeName},` : 'Hi there,'}
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-      Here are your ${label.toLowerCase()} results from AppTrack:
+      Here are your ${label.toLowerCase()} results from CareerOtter:
     </p>
     ${resultsHtml}
     <p style="margin: 16px 0; font-size: 16px; color: ${EMAIL_THEME.body};">
@@ -223,14 +220,14 @@ export async function sendTryResultsEmail({
   `,
     {
       unsubscribeUrl,
-      footerNote: "You're receiving this because you tried AppTrack's AI tools.",
+      footerNote: "You're receiving this because you tried CareerOtter's AI tools.",
     }
   );
 
   try {
     const result = await sendEmail({
       to: email,
-      subject: `Your ${label} from AppTrack`,
+      subject: `Your ${label} from CareerOtter`,
       html,
     });
     return { success: result.success };
@@ -266,7 +263,7 @@ function trialEndingFooter(manageUrl: string): string {
   const safeManageUrl = safeUrl(manageUrl);
   return `
               <p style="margin: 0 0 8px; font-size: 12px; color: #71717a; text-align: center;">
-                You're receiving this because you have an active trial on AppTrack.
+                You're receiving this because you have an active trial on CareerOtter.
               </p>
               <p style="margin: 0; font-size: 12px; color: #71717a; text-align: center;">
                 <a href="${safeManageUrl}" style="color: #71717a;">Manage subscription</a>
@@ -301,8 +298,8 @@ export async function sendTrialEndingEmail({
     : `When your trial ends, your ${safePlanName} plan will renew.`;
 
   const subject = safeAmount
-    ? `Your AppTrack trial ends ${trialEndDate} — you'll be charged ${amountFormatted}`
-    : `Your AppTrack trial ends ${trialEndDate}`;
+    ? `Your CareerOtter trial ends ${trialEndDate} — you'll be charged ${amountFormatted}`
+    : `Your CareerOtter trial ends ${trialEndDate}`;
 
   const html = wrapEmail(
     `
@@ -310,7 +307,7 @@ export async function sendTrialEndingEmail({
       ${safeName ? `Hi ${safeName},` : 'Hi there,'}
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
-      Your AppTrack trial ends on ${safeTrialEndDate}.
+      Your CareerOtter trial ends on ${safeTrialEndDate}.
     </p>
     <p style="margin: 0 0 16px; font-size: 16px; color: #3f3f46;">
       ${chargeLine}

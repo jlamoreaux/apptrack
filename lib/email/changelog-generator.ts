@@ -37,7 +37,7 @@ export async function fetchRecentCommits(days: number): Promise<string[]> {
 
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
-    'User-Agent': 'AppTrack-Changelog',
+    'User-Agent': 'CareerOtter-Changelog',
   };
 
   const token = process.env.GITHUB_API_KEY;
@@ -88,7 +88,7 @@ export async function generateChangelogDraft(commitMessages: string[]): Promise<
     year: 'numeric',
   });
 
-  const systemPrompt = `You are a product marketing writer for AppTrack, a job application tracking tool with AI-powered career features (resume roasts, job fit analysis, interview prep, cover letters).
+  const systemPrompt = `You are a product marketing writer for CareerOtter, a job application tracking tool with AI-powered career features (resume roasts, job fit analysis, interview prep, cover letters).
 
 Your job is to turn developer commit messages into a concise, customer-friendly weekly changelog.
 

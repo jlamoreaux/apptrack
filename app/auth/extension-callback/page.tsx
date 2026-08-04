@@ -60,7 +60,7 @@ function getExtensionId(): string | null {
   const envExtensionId = process.env.NEXT_PUBLIC_EXTENSION_ID;
   if (envExtensionId) {
     if (!isValidExtensionId(envExtensionId)) {
-      if (isDev) console.error("[AppTrack] Invalid extension ID format in NEXT_PUBLIC_EXTENSION_ID");
+      if (isDev) console.error("[CareerOtter] Invalid extension ID format in NEXT_PUBLIC_EXTENSION_ID");
       return null;
     }
     return envExtensionId;
@@ -73,10 +73,10 @@ function getExtensionId(): string | null {
     const paramExtensionId = params.get("extensionId");
     if (paramExtensionId) {
       if (!isValidExtensionId(paramExtensionId)) {
-        console.error("[AppTrack] Invalid extension ID format in URL parameter");
+        console.error("[CareerOtter] Invalid extension ID format in URL parameter");
         return null;
       }
-      console.warn("[AppTrack] Using extension ID from URL parameter - development mode only");
+      console.warn("[CareerOtter] Using extension ID from URL parameter - development mode only");
       return paramExtensionId;
     }
   }
@@ -353,7 +353,7 @@ export default function ExtensionCallbackPage() {
           {state === "loading" && (
             <div className="text-center space-y-2">
               <p className="text-muted-foreground">
-                Generating secure token for the AppTrack extension...
+                Generating secure token for the CareerOtter extension...
               </p>
               <p className="text-sm text-muted-foreground">
                 This window will close automatically.
@@ -364,7 +364,7 @@ export default function ExtensionCallbackPage() {
           {state === "success" && (
             <div className="text-center space-y-4">
               <p className="text-muted-foreground">
-                Your AppTrack extension is now connected to your account.
+                Your CareerOtter extension is now connected to your account.
               </p>
               <p className="text-sm text-muted-foreground">
                 This window will close automatically in a moment.
@@ -397,11 +397,11 @@ export default function ExtensionCallbackPage() {
             <div className="space-y-4">
               <div className="bg-muted/50 rounded-lg p-4 space-y-3">
                 <p className="text-muted-foreground">
-                  This page is used to connect the AppTrack browser extension to
+                  This page is used to connect the CareerOtter browser extension to
                   your account.
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  To use this page, please open it from within the AppTrack
+                  To use this page, please open it from within the CareerOtter
                   browser extension by clicking "Sign In".
                 </p>
               </div>

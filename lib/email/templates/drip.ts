@@ -31,7 +31,7 @@ export type TemplateParams = BaseTemplateParams & {
 const leadsTemplates: DripTemplate[] = [
   {
     templateId: 'lead_day_0',
-    subject: 'Your AppTrack results are ready',
+    subject: 'Your CareerOtter results are ready',
     preheader: 'Thanks for trying our AI tools',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
@@ -39,7 +39,7 @@ const leadsTemplates: DripTemplate[] = [
         ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        Thanks for trying our AI career tools. Here's what you can do with a free AppTrack account:
+        Thanks for trying our AI career tools. Here's what you can do with a free CareerOtter account:
       </p>
       <ul style="margin: 0 0 16px; padding-left: 20px; color: ${EMAIL_THEME.body};">
         <li style="margin-bottom: 8px;">Track all your job applications in one place</li>
@@ -74,14 +74,14 @@ const leadsTemplates: DripTemplate[] = [
         <p style="margin: 0; font-size: 14px; color: ${EMAIL_THEME.body};">Research the company and practice answering common questions. Confidence comes from preparation.</p>
       </div>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        AppTrack helps you do all three, automatically.
+        CareerOtter helps you do all three, automatically.
       </p>
       ${ctaButton('Get Started Free', `${APP_URL}/signup`)}
     `, params),
   },
   {
     templateId: 'lead_day_5',
-    subject: 'See How AppTrack Can Help',
+    subject: 'See How CareerOtter Can Help',
     preheader: 'Your personal job search assistant',
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
@@ -89,7 +89,7 @@ const leadsTemplates: DripTemplate[] = [
         ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        Still searching for your next role? Here's how AppTrack makes it easier:
+        Still searching for your next role? Here's how CareerOtter makes it easier:
       </p>
       <table width="100%" cellpadding="0" cellspacing="0" style="margin: 0 0 24px;">
         <tr>
@@ -129,7 +129,7 @@ const leadsTemplates: DripTemplate[] = [
 const freeUsersTemplates: DripTemplate[] = [
   {
     templateId: 'free_day_0',
-    subject: 'Welcome to AppTrack',
+    subject: 'Welcome to CareerOtter',
     preheader: 'Your job search just got easier',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
@@ -137,7 +137,7 @@ const freeUsersTemplates: DripTemplate[] = [
         ${params.firstName ? `Welcome, ${escapeHtml(params.firstName || '')}!` : 'Welcome!'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        Thanks for signing up for AppTrack. We're here to help you land your next role.
+        Thanks for signing up for CareerOtter. We're here to help you land your next role.
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's how to get started:
@@ -184,7 +184,7 @@ const freeUsersTemplates: DripTemplate[] = [
   {
     templateId: 'free_day_5',
     subject: 'Add Your Resume for Personalized Insights',
-    preheader: 'Unlock the full power of AppTrack',
+    preheader: 'Unlock the full power of CareerOtter',
     dayOffset: 5,
     getHtml: (params) => wrapEmail(`
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.heading};">
@@ -215,7 +215,7 @@ const freeUsersTemplates: DripTemplate[] = [
         ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        You've been using AppTrack for a week now. How's the job search going?
+        You've been using CareerOtter for a week now. How's the job search going?
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         If you're finding the AI features helpful, you might want to check out our AI Coach plan for unlimited access to:
@@ -299,7 +299,7 @@ const trialUsersTemplates: DripTemplate[] = [
 const paidUsersTemplates: DripTemplate[] = [
   {
     templateId: 'paid_day_0',
-    subject: 'Welcome to AppTrack Pro',
+    subject: 'Welcome to CareerOtter Pro',
     preheader: 'Thank you for upgrading',
     dayOffset: 0,
     getHtml: (params) => wrapEmail(`
@@ -307,7 +307,7 @@ const paidUsersTemplates: DripTemplate[] = [
         ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        Thank you for upgrading to AppTrack Pro! You now have unlimited access to all our AI features.
+        Thank you for upgrading to CareerOtter Pro! You now have unlimited access to all our AI features.
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
         Here's what's included in your Pro subscription:
@@ -335,7 +335,7 @@ const paidUsersTemplates: DripTemplate[] = [
         ${params.firstName ? `Hi ${escapeHtml(params.firstName || '')},` : 'Hi there,'}
       </p>
       <p style="margin: 0 0 16px; font-size: 16px; color: ${EMAIL_THEME.body};">
-        Here's a pro tip to get more value from AppTrack:
+        Here's a pro tip to get more value from CareerOtter:
       </p>
       <div style="margin: 0 0 24px; padding: 20px; background-color: ${EMAIL_THEME.panelBg}; border-radius: 6px; border-left: 4px solid ${EMAIL_THEME.primary};">
         <p style="margin: 0 0 8px; font-size: 16px; color: ${EMAIL_THEME.heading}; font-weight: 600;">Run Job Fit Analysis Before Every Application</p>

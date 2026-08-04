@@ -71,7 +71,7 @@ const BENEFIT_BULLETS = [
 
 describe("ROAST_SIGNUP_URL", () => {
   it("targets /signup and carries the roast-funnel UTM params", () => {
-    const url = new URL(ROAST_SIGNUP_URL, "https://apptrack.ing");
+    const url = new URL(ROAST_SIGNUP_URL, "https://careerotter.io");
     expect(url.pathname).toBe("/signup");
     expect(url.searchParams.get("utm_source")).toBe("roast");
     expect(url.searchParams.get("utm_medium")).toBe("results_page");
@@ -81,7 +81,7 @@ describe("ROAST_SIGNUP_URL", () => {
 
 describe("ROAST_VISITOR_SIGNUP_URL", () => {
   it("uses a distinct visitor_view medium so it doesn't conflate with the creator funnel", () => {
-    const url = new URL(ROAST_VISITOR_SIGNUP_URL, "https://apptrack.ing");
+    const url = new URL(ROAST_VISITOR_SIGNUP_URL, "https://careerotter.io");
     expect(url.pathname).toBe("/signup");
     expect(url.searchParams.get("utm_source")).toBe("roast");
     expect(url.searchParams.get("utm_medium")).toBe("visitor_view");
@@ -181,13 +181,13 @@ describe.each([
 
       expect(screen.getByText("Think You Can Do Better?")).toBeInTheDocument();
       expect(screen.getByText("Roast My Resume Now")).toBeInTheDocument();
-      expect(screen.getByText("Sign Up for AppTrack")).toBeInTheDocument();
+      expect(screen.getByText("Sign Up for CareerOtter")).toBeInTheDocument();
     });
 
     it("fires roast_signup_clicked with placement visitor_view and navigates with UTMs", () => {
       render(<RoastDisplay roast={roast} roastId={roastId} isCreator={false} />);
 
-      fireEvent.click(screen.getByText("Sign Up for AppTrack"));
+      fireEvent.click(screen.getByText("Sign Up for CareerOtter"));
 
       expect(mockTrackEvent).toHaveBeenCalledWith("roast_signup_clicked", {
         roastId,

@@ -114,6 +114,13 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-primary/5">
+      {/* Brand transition: shared apptrack.ing/roast links 301 here, so returning
+          visitors land on a renamed page. One quiet line, no dual branding. */}
+      <div className="w-full border-b border-border/60 bg-muted/40">
+        <p className="container mx-auto px-4 py-2 text-center text-xs text-muted-foreground max-w-4xl">
+          AppTrack is now CareerOtter. Same roast, new name.
+        </p>
+      </div>
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-8">
@@ -281,7 +288,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                       router.push(ROAST_VISITOR_SIGNUP_URL);
                     }}
                   >
-                    Sign Up for AppTrack
+                    Sign Up for CareerOtter
                   </Button>
                 </div>
               </>
@@ -292,7 +299,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
             href="/"
             className="text-sm text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300 inline-block"
           >
-            Back to AppTrack
+            Back to CareerOtter
           </Link>
         </div>
       </div>

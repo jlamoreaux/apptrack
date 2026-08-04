@@ -5,9 +5,9 @@ export const siteMetadata: Metadata = {
   title: SITE_CONFIG.title,
   description: SITE_CONFIG.description,
   keywords: ["job tracker", "job search", "application tracker", "AI resume", "cover letter generator", "interview prep", "career coaching"],
-  authors: [{ name: "AppTrack" }],
-  creator: "AppTrack",
-  publisher: "AppTrack",
+  authors: [{ name: "CareerOtter" }],
+  creator: "CareerOtter",
+  publisher: "CareerOtter",
   formatDetection: {
     email: false,
     address: false,
@@ -24,7 +24,7 @@ export const siteMetadata: Metadata = {
         url: SITE_CONFIG.ogImage,
         width: 1200,
         height: 630,
-        alt: "AppTrack - Smart Job Application Tracker",
+        alt: "CareerOtter - Smart Job Application Tracker",
       },
     ],
     locale: "en_US",
@@ -32,9 +32,9 @@ export const siteMetadata: Metadata = {
   },
   other: {
     "og:logo": `${SITE_CONFIG.url}/logo_square.png`,
-    "og:email": "support@apptrack.ing",
+    "og:email": "support@careerotter.io",
     "og:country-name": "USA",
-    "twitter:domain": "apptrack.ing",
+    "twitter:domain": "careerotter.io",
   },
   twitter: {
     card: "summary_large_image",

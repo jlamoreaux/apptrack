@@ -149,7 +149,7 @@ export default async function Image() {
               opacity: 0.8,
             }}
           >
-            apptrack.ing
+            careerotter.io
           </span>
         </div>
       </div>

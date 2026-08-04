@@ -11,7 +11,7 @@ export async function sendEmail({
   to,
   subject,
   html,
-  from = process.env.FROM_EMAIL || 'AppTrack <onboarding@resend.dev>',
+  from = process.env.FROM_EMAIL || 'CareerOtter <onboarding@resend.dev>',
   replyTo,
 }: {
   to: string;

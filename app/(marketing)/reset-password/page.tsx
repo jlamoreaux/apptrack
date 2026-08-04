@@ -4,7 +4,7 @@ import { NavigationStatic } from "@/components/navigation-static";
 import { ResetPasswordForm } from "@/components/forms/reset-password-form";
 
 export const metadata: Metadata = {
-  title: "Reset Password | AppTrack",
+  title: "Reset Password | CareerOtter",
   robots: {
     index: false,
     follow: false,

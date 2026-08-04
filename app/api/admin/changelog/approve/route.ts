@@ -201,7 +201,7 @@ function htmlResponse(title: string, body: string, status: number): NextResponse
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title)} - AppTrack Changelog</title>
+  <title>${escapeHtml(title)} - CareerOtter Changelog</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 80px auto; padding: 0 20px; color: #18181b; }
     h1 { font-size: 24px; margin-bottom: 16px; }

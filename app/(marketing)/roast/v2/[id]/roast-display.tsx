@@ -61,7 +61,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
 
   const shareUrl = typeof window !== "undefined" 
     ? `${window.location.origin}/roast/${roastId}`
-    : `https://www.apptrack.ing/roast/${roastId}`;
+    : `https://careerotter.io/roast/${roastId}`;
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -270,7 +270,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
                       router.push(ROAST_VISITOR_SIGNUP_URL);
                     }}
                   >
-                    Sign Up for AppTrack
+                    Sign Up for CareerOtter
                   </Button>
                 </div>
               </>
@@ -281,7 +281,7 @@ export default function RoastDisplay({ roast, roastId, isCreator = false }: { ro
             href="/"
             className="text-sm text-gray-500 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-300 inline-block"
           >
-            Back to AppTrack
+            Back to CareerOtter
           </Link>
         </div>
       </div>

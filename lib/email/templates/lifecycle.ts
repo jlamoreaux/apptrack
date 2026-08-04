@@ -99,7 +99,7 @@ export function weeklyDigestTemplate(params: WeeklyDigestParams): string {
       </tr>
     </table>
     ${insightBlock}
-    ${ctaButton('Open AppTrack', `${APP_URL}/dashboard`)}
+    ${ctaButton('Open CareerOtter', `${APP_URL}/dashboard`)}
   `,
     params
   );

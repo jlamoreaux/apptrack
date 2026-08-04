@@ -129,7 +129,7 @@ export function HomeAIExamples() {
 
         <div className="text-center mt-8">
           <p className="text-sm text-muted-foreground">
-            All examples are from real AppTrack users (details anonymized)
+            All examples are from real CareerOtter users (details anonymized)
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Free AI Interview Questions Generator | AppTrack",
+  title: "Free AI Interview Questions Generator | CareerOtter",
   description:
     "Get personalized interview questions based on the job description and your experience. Prepare for behavioral, technical, and role-specific questions with AI-generated practice prompts.",
   keywords: [
@@ -14,11 +14,11 @@ export const metadata: Metadata = {
     "mock interview",
   ],
   openGraph: {
-    title: "Free AI Interview Questions Generator | AppTrack",
+    title: "Free AI Interview Questions Generator | CareerOtter",
     description:
       "Get personalized interview questions for any job. Practice with AI-generated prompts.",
-    url: "https://www.apptrack.ing/try/interview-prep",
-    siteName: "AppTrack",
+    url: "https://careerotter.io/try/interview-prep",
+    siteName: "CareerOtter",
     type: "website",
   },
   twitter: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Get personalized interview questions for any job.",
   },
   alternates: {
-    canonical: "https://www.apptrack.ing/try/interview-prep",
+    canonical: "https://careerotter.io/try/interview-prep",
   },
 }
 

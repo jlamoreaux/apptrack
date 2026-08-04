@@ -66,7 +66,7 @@ export async function createCheckoutSession(options: CreateCheckoutOptions): Pro
         throw new Error(data.error || "Failed to apply promo code");
       } else {
         toast({
-          title: "Welcome to AppTrack Premium!",
+          title: "Welcome to CareerOtter Premium!",
           description: "Your premium access has been activated.",
         });
         if (onSuccess) onSuccess();

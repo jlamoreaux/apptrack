@@ -41,7 +41,7 @@ async function unsubscribeCategory(
   return result.success ? 'updated' : 'error';
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.apptrack.ing';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://careerotter.io';
 const UNSUBSCRIBE_SECRET = process.env.UNSUBSCRIBE_SECRET || process.env.CRON_SECRET || 'fallback-secret-change-me';
 
 /**
@@ -225,10 +225,10 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
 
   const confirmCopy = category
     ? `Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from ${CATEGORY_LABEL[category]}?`
-    : `Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from AppTrack emails?`;
+    : `Are you sure you want to unsubscribe <span class="email">${safeEmail}</span> from CareerOtter emails?`;
   const successCopy = category
-    ? `You've been unsubscribed from ${CATEGORY_LABEL[category]}. Other AppTrack emails are unaffected.`
-    : `You've been unsubscribed from AppTrack marketing emails. You'll still receive transactional emails about your account.`;
+    ? `You've been unsubscribed from ${CATEGORY_LABEL[category]}. Other CareerOtter emails are unaffected.`
+    : `You've been unsubscribed from CareerOtter marketing emails. You'll still receive transactional emails about your account.`;
 
   return `
 <!DOCTYPE html>
@@ -236,7 +236,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Unsubscribe - AppTrack</title>
+  <title>Unsubscribe - CareerOtter</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -296,7 +296,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
 </head>
 <body>
   <div class="container">
-    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">AppTrack</div>
+    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">CareerOtter</div>
     <div id="confirm">
       <h1>Unsubscribe</h1>
       <p>${confirmCopy}</p>
@@ -307,7 +307,7 @@ function getConfirmationPage(email: string, token: string, category: EmailCatego
     <div id="success" class="success">
       <h1>Unsubscribed</h1>
       <p>${successCopy}</p>
-      <button onclick="window.location.href='${APP_URL}'">Go to AppTrack</button>
+      <button onclick="window.location.href='${APP_URL}'">Go to CareerOtter</button>
     </div>
   </div>
   <script>
@@ -362,7 +362,7 @@ function getErrorPage(message: string): string {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Error - AppTrack</title>
+  <title>Error - CareerOtter</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -408,10 +408,10 @@ function getErrorPage(message: string): string {
 </head>
 <body>
   <div class="container">
-    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">AppTrack</div>
+    <div class="brand"><img src="${APP_URL}/logo_square.png" alt="" width="24" height="24">CareerOtter</div>
     <h1>Error</h1>
     <p>${safeMessage}</p>
-    <button onclick="window.location.href='${APP_URL}'">Go to AppTrack</button>
+    <button onclick="window.location.href='${APP_URL}'">Go to CareerOtter</button>
   </div>
 </body>
 </html>

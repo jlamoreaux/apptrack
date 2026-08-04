@@ -120,7 +120,7 @@ export default async function HomePage() {
                     size="lg"
                     className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg shadow-accent/25 hover:shadow-xl hover:shadow-accent/30 transition-all duration-200 active:scale-[0.98] text-base px-8"
                   >
-                    Start Free — See Your Pipeline
+                    Start your case — free
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </ButtonLink>
                   <ButtonLink
@@ -149,7 +149,7 @@ export default async function HomePage() {
               <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-primary" />
-                  Track your job search in one place
+                  Your wins, tracked and turned into your case
                 </span>
                 <span className="hidden sm:inline text-border">|</span>
                 <span>Free forever plan available</span>

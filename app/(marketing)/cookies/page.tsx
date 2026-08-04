@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 export const metadata: Metadata = {
-  title: 'Cookie Policy | AppTrack',
+  title: 'Cookie Policy | CareerOtter',
   alternates: {
     canonical: `${SITE_CONFIG.url}/cookies`,
   },
@@ -17,7 +17,7 @@ export default function CookiePolicy() {
         <div><span style={{color: 'rgb(127, 127, 127)'}}><strong><span style={{fontSize: '15px'}}><span data-custom-class="subtitle">Last updated September 17, 2025</span></span></strong></span></div>
         <div><br /></div>
 
-        <div style={{lineHeight: 1.5}}><span style={{color: 'rgb(127, 127, 127)'}}><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}}><span data-custom-class="body_text">This Cookie Policy explains how Jordan Lamoreaux ("<strong>Company</strong>," "<strong>we</strong>," "<strong>us</strong>," and "<strong>our</strong>") uses cookies and similar technologies to recognize you when you visit our website at </span></span><span style={{color: 'rgb(0, 58, 250)', fontSize: '15px'}}><span data-custom-class="body_text"><a target="_blank" data-custom-class="link" href="http://www.apptrack.ing">http://www.apptrack.ing</a></span></span><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}}><span data-custom-class="body_text"> ("<strong>Website</strong>"). It explains what these technologies are and why we use them, as well as your rights to control our use of them.</span></span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{color: 'rgb(127, 127, 127)'}}><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}}><span data-custom-class="body_text">This Cookie Policy explains how Jordan Lamoreaux ("<strong>Company</strong>," "<strong>we</strong>," "<strong>us</strong>," and "<strong>our</strong>") uses cookies and similar technologies to recognize you when you visit our website at </span></span><span style={{color: 'rgb(0, 58, 250)', fontSize: '15px'}}><span data-custom-class="body_text"><a target="_blank" rel="noopener noreferrer" data-custom-class="link" href="https://careerotter.io">https://careerotter.io</a></span></span><span style={{color: 'rgb(89, 89, 89)', fontSize: '15px'}}><span data-custom-class="body_text"> ("<strong>Website</strong>"). It explains what these technologies are and why we use them, as well as your rights to control our use of them.</span></span></span></div>
 
         <div style={{lineHeight: 1.5}}><br /></div>
 

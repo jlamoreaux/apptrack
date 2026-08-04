@@ -6,7 +6,7 @@ import { SignInForm } from "@/components/forms/sign-in-form"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
 
 export const metadata: Metadata = {
-  title: "Login | AppTrack",
+  title: "Login | CareerOtter",
   robots: {
     index: false,
     follow: false,
@@ -18,7 +18,7 @@ export default function LoginPage() {
     <AuthLayout>
       <Card>
         <CardHeader className="text-center">
-          <CardTitle>Welcome back to AppTrack</CardTitle>
+          <CardTitle>Welcome back to CareerOtter</CardTitle>
           <CardDescription>Sign in to your account to continue tracking</CardDescription>
         </CardHeader>
         <CardContent>

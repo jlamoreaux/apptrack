@@ -86,7 +86,7 @@ export default async function SettingsPage() {
               <CardHeader>
                 <CardTitle>Email Notifications</CardTitle>
                 <CardDescription>
-                  Choose which emails you receive from AppTrack
+                  Choose which emails you receive from CareerOtter
                 </CardDescription>
               </CardHeader>
               <CardContent>

@@ -1,10 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import Image from "next/image"
+import { CareerOtterLogo } from "@/components/careerotter-logo";
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
-import { User, LogOut, Crown, Flame, BarChart3 } from "lucide-react"
+import { User, LogOut, Crown, Flame } from "lucide-react"
 
 import { useSupabaseAuthSimple } from "@/hooks/use-supabase-auth-simple"
 import { useSubscription } from "@/hooks/use-subscription"
@@ -42,14 +42,8 @@ export function Navigation() {
       <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <Image
-              src="/logo_square.png"
-              alt="AppTrack Logo"
-              width={24}
-              height={24}
-              className="h-6 w-6"
-            />
-            <span className="font-bold text-xl">AppTrack</span>
+            <CareerOtterLogo decorative className="h-6 w-auto" />
+            <span className="font-bold text-xl">CareerOtter</span>
           </Link>
           <div className="ml-auto flex items-center space-x-4">
             <Link href="/login">
@@ -68,8 +62,8 @@ export function Navigation() {
     <nav className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link href="/dashboard" className="mr-6 flex items-center space-x-2">
-          <BarChart3 className="h-6 w-6 text-primary" />
-          <span className="font-bold text-xl">AppTrack</span>
+          <CareerOtterLogo decorative className="h-6 w-auto" />
+          <span className="font-bold text-xl">CareerOtter</span>
         </Link>
 
         <div className="ml-auto flex items-center space-x-2">

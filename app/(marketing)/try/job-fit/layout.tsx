@@ -1,7 +1,7 @@
 import { Metadata } from "next"
 
 export const metadata: Metadata = {
-  title: "Free Job Fit Analysis | Check Resume Match | AppTrack",
+  title: "Free Job Fit Analysis | Check Resume Match | CareerOtter",
   description:
     "Instantly analyze how well your resume matches a job description. Get an AI-powered fit score, identify missing keywords, and receive actionable suggestions to improve your application.",
   keywords: [
@@ -14,11 +14,11 @@ export const metadata: Metadata = {
     "job application tips",
   ],
   openGraph: {
-    title: "Free Job Fit Analysis | AppTrack",
+    title: "Free Job Fit Analysis | CareerOtter",
     description:
       "Check how well your resume matches a job. Get fit score and improvement tips.",
-    url: "https://www.apptrack.ing/try/job-fit",
-    siteName: "AppTrack",
+    url: "https://careerotter.io/try/job-fit",
+    siteName: "CareerOtter",
     type: "website",
   },
   twitter: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     description: "Check how well your resume matches a job description.",
   },
   alternates: {
-    canonical: "https://www.apptrack.ing/try/job-fit",
+    canonical: "https://careerotter.io/try/job-fit",
   },
 }
 

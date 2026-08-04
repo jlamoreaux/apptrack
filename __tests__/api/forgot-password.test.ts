@@ -51,7 +51,9 @@ jest.mock('@/lib/email/client', () => ({
 }));
 
 jest.mock('@/lib/email/drip-scheduler', () => ({
-  getUnsubscribeUrl: (email: string) => `https://www.apptrack.ing/unsubscribe?email=${email}`,
+  // Mirror the production shape: /api/email/unsubscribe with an email + signed token.
+  getUnsubscribeUrl: (email: string) =>
+    `https://careerotter.io/api/email/unsubscribe?email=${encodeURIComponent(email)}&token=test-token`,
 }));
 
 jest.mock('@/lib/services/logger.service', () => ({
@@ -126,7 +128,7 @@ describe('POST /api/auth/forgot-password', () => {
     expect(mockSendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'test@example.com',
-        subject: 'Reset your AppTrack password',
+        subject: 'Reset your CareerOtter password',
       })
     );
 

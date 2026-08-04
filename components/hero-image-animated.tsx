@@ -17,7 +17,7 @@ export function HeroImageAnimated() {
         {/* Light mode image */}
         <Image
           src="/screenshots/features/sankey-chart-light.png"
-          alt="AppTrack pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
+          alt="CareerOtter pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
           width={2698}
           height={1048}
           className="w-full h-auto dark:hidden"
@@ -28,7 +28,7 @@ export function HeroImageAnimated() {
         {/* Dark mode image */}
         <Image
           src="/screenshots/features/sankey-chart-dark.png"
-          alt="AppTrack pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
+          alt="CareerOtter pipeline visualization showing how applications flow from Applied through Interview to Offer and Hired stages"
           width={2698}
           height={1048}
           className="w-full h-auto hidden dark:block"

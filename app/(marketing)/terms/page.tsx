@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | AppTrack',
+  title: 'Terms of Service | CareerOtter',
   alternates: {
     canonical: `${SITE_CONFIG.url}/terms`,
   },
@@ -21,11 +21,11 @@ export default function TermsOfService() {
         
         <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We are Jordan Lamoreaux ("<strong>Company</strong>," "<strong>we</strong>," "<strong>us</strong>," "<strong>our</strong>").</span></span></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We operate the website <a target="_blank" data-custom-class="link" href="http://www.apptrack.ing">http://www.apptrack.ing</a> (the "<strong>Site</strong>"), as well as any other related products and services that refer or link to these legal terms (the "<strong>Legal Terms</strong>") (collectively, the "<strong>Services</strong>").</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We operate the website <a target="_blank" rel="noopener noreferrer" data-custom-class="link" href="https://careerotter.io">https://careerotter.io</a> (the "<strong>Site</strong>"), as well as any other related products and services that refer or link to these legal terms (the "<strong>Legal Terms</strong>") (collectively, the "<strong>Services</strong>").</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">You can contact us by email at <a href="mailto:support@apptrack.ing">support@apptrack.ing</a> or by mail to United States.</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">You can contact us by email at <a href="mailto:support@careerotter.io">support@careerotter.io</a> or by mail to United States.</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
@@ -167,7 +167,7 @@ export default function TermsOfService() {
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">If you wish to make any use of the Services, Content, or Marks other than as set out in this section or elsewhere in our Legal Terms, please address your request to: <a href="mailto:support@apptrack.ing">support@apptrack.ing</a>.</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">If you wish to make any use of the Services, Content, or Marks other than as set out in this section or elsewhere in our Legal Terms, please address your request to: <a href="mailto:support@careerotter.io">support@careerotter.io</a>.</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
@@ -208,7 +208,7 @@ export default function TermsOfService() {
         
         <div style={{lineHeight: 1.5}}><strong><span data-custom-class="heading_2"><h3>Cancellation</h3></span></strong></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">You can cancel your subscription at any time by logging into your account. Your cancellation will take effect at the end of the current paid term. If you have any questions or are unsatisfied with our Services, please email us at <a href="mailto:support@apptrack.ing">support@apptrack.ing</a>.</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">You can cancel your subscription at any time by logging into your account. Your cancellation will take effect at the end of the current paid term. If you have any questions or are unsatisfied with our Services, please email us at <a href="mailto:support@careerotter.io">support@careerotter.io</a>.</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
@@ -255,7 +255,7 @@ export default function TermsOfService() {
         
         <div id="ppyes" style={{lineHeight: 1.5}}><strong><span data-custom-class="heading_1"><h2>12. PRIVACY POLICY</h2></span></strong></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We care about data privacy and security. Please review our Privacy Policy: <a href="/privacy">http://www.apptrack.ing/privacy</a>. By using the Services, you agree to be bound by our Privacy Policy, which is incorporated into these Legal Terms. Please be advised the Services are hosted in the United States. If you access the Services from any other region of the world with laws or other requirements governing personal data collection, use, or disclosure that differ from applicable laws in the United States, then through your continued use of the Services, you are transferring your data to the United States, and you expressly consent to have your data transferred to and processed in the United States.</span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">We care about data privacy and security. Please review our Privacy Policy: <a href="/privacy">https://careerotter.io/privacy</a>. By using the Services, you agree to be bound by our Privacy Policy, which is incorporated into these Legal Terms. Please be advised the Services are hosted in the United States. If you access the Services from any other region of the world with laws or other requirements governing personal data collection, use, or disclosure that differ from applicable laws in the United States, then through your continued use of the Services, you are transferring your data to the United States, and you expressly consent to have your data transferred to and processed in the United States.</span></span></div>
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
@@ -347,7 +347,7 @@ export default function TermsOfService() {
         
         <div style={{lineHeight: 1.5}}><br /></div>
         
-        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">Jordan Lamoreaux<br />United States<br /><a href="mailto:support@apptrack.ing">support@apptrack.ing</a></span></span></div>
+        <div style={{lineHeight: 1.5}}><span style={{fontSize: '15px'}}><span data-custom-class="body_text">Jordan Lamoreaux<br />United States<br /><a href="mailto:support@careerotter.io">support@careerotter.io</a></span></span></div>
       </div>
     </div>
   )

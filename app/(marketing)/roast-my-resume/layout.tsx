@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Resume Roast - Get Brutally Honest AI Feedback | AppTrack",
+  title: "Resume Roast - Get Brutally Honest AI Feedback | CareerOtter",
   description: "Upload your resume and get hilariously savage (but honest) feedback from our AI roaster. Find out what recruiters really think. Free, private, and shareable!",
   keywords: [
     "resume review",
@@ -16,12 +16,12 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Resume Roast - Get Brutally Honest AI Feedback",
     description: "Upload your resume and get hilariously savage feedback. Find out what recruiters really think!",
-    url: "https://www.apptrack.ing/roast-my-resume",
-    siteName: "AppTrack",
+    url: "https://careerotter.io/roast-my-resume",
+    siteName: "CareerOtter",
     type: "website",
     images: [
       {
-        url: "https://www.apptrack.ing/roast-my-resume/opengraph-image",
+        url: "https://careerotter.io/roast-my-resume/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Resume Roast - Get Brutally Honest AI Feedback",
@@ -32,11 +32,11 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Resume Roast - Get Brutally Honest AI Feedback",
     description: "Upload your resume and get hilariously savage feedback. Find out what recruiters really think!",
-    images: ["https://www.apptrack.ing/roast-my-resume/opengraph-image"],
-    creator: "@apptrack",
+    images: ["https://careerotter.io/roast-my-resume/opengraph-image"],
+    creator: "@careerotter",
   },
   alternates: {
-    canonical: "https://www.apptrack.ing/roast-my-resume",
+    canonical: "https://careerotter.io/roast-my-resume",
   },
 };
 

@@ -64,7 +64,7 @@ describe("signUpWithPassword", () => {
   });
 
   it("uses NEXT_PUBLIC_APP_URL when set", async () => {
-    process.env.NEXT_PUBLIC_APP_URL = "https://staging.apptrack.ing";
+    process.env.NEXT_PUBLIC_APP_URL = "https://staging.careerotter.io";
     mockSignUp.mockResolvedValue({
       data: { user: { id: "u1" }, session: null },
       error: null,
@@ -76,7 +76,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://staging.apptrack.ing/auth/callback",
+            "https://staging.careerotter.io/auth/callback",
         }),
       })
     );
@@ -103,7 +103,7 @@ describe("signUpWithPassword", () => {
     delete process.env.VERCEL_URL;
   });
 
-  it("falls back to apptrack.ing when no env vars are set", async () => {
+  it("falls back to careerotter.io when no env vars are set", async () => {
     mockSignUp.mockResolvedValue({
       data: { user: { id: "u1" }, session: null },
       error: null,
@@ -115,7 +115,7 @@ describe("signUpWithPassword", () => {
       expect.objectContaining({
         options: expect.objectContaining({
           emailRedirectTo:
-            "https://www.apptrack.ing/auth/callback",
+            "https://careerotter.io/auth/callback",
         }),
       })
     );

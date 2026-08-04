@@ -30,7 +30,7 @@ interface ErrorDetails {
 
 /**
  * Logger service for comprehensive application logging
- * Follows AppTrack service patterns and conventions
+ * Follows CareerOtter service patterns and conventions
  */
 export class LoggerService {
   private static instance: LoggerService;

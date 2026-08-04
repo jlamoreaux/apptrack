@@ -1,13 +1,44 @@
+// Canonical origin — single source of truth for the whole app. Driven by
+// NEXT_PUBLIC_APP_URL so preview/staging can differ; defaults to the go-forward
+// CareerOtter domain. apptrack.ing 301-redirects here (see next.config.mjs +
+// middleware.ts). No trailing slash.
+const configuredUrl =
+  process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://careerotter.io";
+const parsedUrl = new URL(configuredUrl);
+
+if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+  throw new Error("NEXT_PUBLIC_APP_URL must be an HTTP(S) URL");
+}
+
+export const SITE_URL = parsedUrl.origin;
+
+/**
+ * Canonical runtime origin resolver — the single source of truth for building
+ * absolute URLs anywhere in the app (auth redirects, emails, webhooks, crons).
+ *
+ * Order: NEXT_PUBLIC_APP_URL (via the validated SITE_URL) > VERCEL_URL on
+ * preview deploys where it isn't set > the CareerOtter production default.
+ * A bare `APP_URL` env is deliberately NOT honored — a stale AppTrack value must
+ * never win over the canonical origin.
+ */
+export function getAppUrl(): string {
+  // Resolved at call time (not module load) so runtime env drives URL building.
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (explicit) return explicit.replace(/\/+$/, "");
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "https://careerotter.io";
+}
+
 export const SITE_CONFIG = {
-  name: "AppTrack",
-  title: "AppTrack - Smart Job Application Tracker with AI Coaching",
+  name: "CareerOtter",
+  title: "CareerOtter - Build the case for your next raise. Then win it.",
   description:
-    "Organize your job search with AI-powered tools. Track applications, generate cover letters, analyze resumes, and prep for interviews. Start free today!",
+    "Log your wins in ten seconds. CareerOtter maps them to your review, names the gaps while there's time to close them, and hands you the doc to walk in with.",
   shortDescription:
-    "The smart job application tracker with AI-powered career coaching",
-  tagline: "Never lose track of your dream job again",
-  url: "https://www.apptrack.ing",
-  ogImage: "https://www.apptrack.ing/opengraph-image",
+    "Build the case for your next raise or promotion, then win it.",
+  tagline: "Build the case for your next raise. Then win it.",
+  url: SITE_URL,
+  ogImage: `${SITE_URL}/opengraph-image`,
 
   // Brand colors (from your logo)
   brand: {
@@ -26,13 +57,13 @@ export const SITE_CONFIG = {
 
   // Social links
   links: {
-    twitter: "https://twitter.com/apptrack",
+    twitter: "https://twitter.com/careerotter",
   },
 } as const;
 
 export type SiteConfig = typeof SITE_CONFIG;
 
-export const SUPPORT_EMAIL = "support@apptrack.ing";
+export const SUPPORT_EMAIL = "jordan@careerotter.io";
 
 export const SUPPORT_CATEGORIES = [
   "Bug / something broke",

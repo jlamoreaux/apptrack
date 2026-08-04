@@ -218,7 +218,7 @@ describe('Analysis Export Utilities', () => {
       expect(result).toContain('Areas to Address');
       expect(result).toContain('Key Requirements');
       expect(result).toContain('Recommendations');
-      expect(result).toContain('AppTrack AI Coach');
+      expect(result).toContain('CareerOtter AI Coach');
     });
 
     it('should handle missing data gracefully in HTML format', () => {
