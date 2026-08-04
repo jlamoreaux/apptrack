@@ -98,7 +98,7 @@ export function RebrandBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss announcement"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-primary-foreground/10"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md hover:bg-primary-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>

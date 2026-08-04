@@ -72,6 +72,9 @@ beforeEach(() => {
   process.env.REBRAND_REPLY_TO = "jordan@apptrack.ing";
   process.env.COMPANY_POSTAL_ADDRESS = "123 Main St, Springfield, IL 62704";
   delete process.env.ALLOW_REAL_SEND;
+  // The send guard refuses when CI is set; clear it so real-send tests exercise
+  // the actual path even when this suite itself runs on a CI runner.
+  delete process.env.CI;
 });
 
 afterEach(() => {
@@ -118,6 +121,17 @@ describe("POST /api/admin/rebrand-email", () => {
     const prev = process.env.NODE_ENV;
     setNodeEnv("production");
     const res = await POST(req({ confirm: true }));
+    setNodeEnv(prev);
+    expect(res.status).toBe(403);
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses a real send when CI is set, even with prod + ALLOW_REAL_SEND", async () => {
+    const prev = process.env.NODE_ENV;
+    setNodeEnv("production");
+    process.env.ALLOW_REAL_SEND = "1";
+    process.env.CI = "1";
+    const res = await POST(req({ confirm: true, audiences: ["leads"] }));
     setNodeEnv(prev);
     expect(res.status).toBe(403);
     expect(mockSend).not.toHaveBeenCalled();

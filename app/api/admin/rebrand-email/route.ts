@@ -79,7 +79,12 @@ function parseAudiences(raw: unknown): AudienceId[] | null {
 }
 
 function realSendAllowed(): boolean {
-  return process.env.NODE_ENV === 'production' && process.env.ALLOW_REAL_SEND === '1';
+  // Refuse in CI even if NODE_ENV/ALLOW_REAL_SEND happen to be set on the runner.
+  return (
+    !process.env.CI &&
+    process.env.NODE_ENV === 'production' &&
+    process.env.ALLOW_REAL_SEND === '1'
+  );
 }
 
 type MarkerClaim = 'claimed' | 'already-sent' | 'error';

@@ -15,12 +15,12 @@ on + set one flag to 100%," and everything else has already landed dark.
 
 ## Flag inventory
 
-- `careerotter_evidence` (PostHog, add to `FEATURE_FLAGS`) — gates every net-new
+- `careerotter-evidence` (PostHog, add to `FEATURE_FLAGS`) — gates every net-new
   surface: M2b evidence UI, M3 coach, M4 case builder, M5 comp, M2c Zero-to-Case
   onboarding, and the M7 nav entries that point at them. This is THE switch.
   - Client `useFeatureFlag` hides UI. The real access boundary stays `isPro()`
     server-side for AI features — keep it; the flag is for surfacing, not security.
-  - localStorage override (`ff:careerotter_evidence`) already lets you dogfood locally.
+  - localStorage override (`ff:careerotter-evidence`) already lets you dogfood locally.
 - No flag for M0 pricing, M1 rebrand, M2a data, M6 visual (see below).
 
 ## PR disposition
@@ -29,40 +29,45 @@ on + set one flag to 100%," and everything else has already landed dark.
 |----|-----------|-------------|-----|
 | #182 | M0 pricing | **Dark-merge, live** | `isPro` grandfathers everyone; pricing page is brand-neutral and reflects the now-live $9/$90. DB repriced (done). |
 | #184 | M2a evidence data/API | **Dark-merge** | Inert — new tables/routes with no entry point. |
-| #185 | M2b evidence UI | **Flag** `careerotter_evidence` | Net-new surface. Stacked on M2a. |
+| #185 | M2b evidence UI | **Flag** `careerotter-evidence` | Net-new surface. Stacked on M2a. |
 | #186 | M3 coach | **Flag** | Net-new surface. Stacked on M2a. |
 | #187 | M4 case builder | **Flag** | Net-new surface. Stacked on M2a. |
 | #188 | M5 comp tracker | **Flag** | Net-new surface. Stacked on M2a. |
 | #189 | M2c ZtC/recap/privacy | **Flag** (cron/privacy page can be live) | Onboarding surface behind flag; recap cron + privacy page are safe live. |
 | #190 | M6 visual identity | **Dark-merge or cutover** | Global theme; cosmetic. Ship when brand cutover lands, or earlier if standalone. |
-| #191 | M7 nav/IA | **Flag** (couple to `careerotter_evidence`) | New nav must only expose surfaces that are on. |
+| #191 | M7 nav/IA | **Flag** (couple to `careerotter-evidence`) | New nav must only expose surfaces that are on. |
 | #183 | M1 rebrand | **CUTOVER (last)** | Domain/env/OG/sitemap/email/301s are deploy-time. Launch-day event. |
 
 ## Merge order
 
 1. **#182 M0** → `main`. Ships live; grandfathers all. (DB reprice already applied.)
 2. **#184 M2a** → `main`. Dark/inert.
-3. Add `careerotter_evidence` to `FEATURE_FLAGS`; wrap entry points as each lands.
+3. Add `careerotter-evidence` to `FEATURE_FLAGS`; wrap entry points as each lands.
 4. **#185 / #186 / #187 / #188 / #189** → `main`, in stack order, all flagged OFF.
 5. **#190 M6** visual → `main` (with or just before the cutover).
 6. **#191 M7** nav → `main`, gated by the same flag.
 7. **#183 M1 rebrand** → `main` last, held for launch day.
 
 By step 6, ~everything is on `main` and in prod, invisible. Launch = flip the domain
-+ set the flag to 100%.
++ set the `careerotter-evidence` flag to 100%.
 
 ## Launch day
 
 1. Deploy the rebrand cutover (domain live, env vars set, 301s from apptrack.ing).
-2. Verify: old URLs 301 correctly, roast permalinks + OG on new host, emails send
-   from the new domain.
-3. Set `careerotter_evidence` to 100% (or ramp: 10% → 50% → 100% watching PostHog
+2. Verify: old URLs 301 correctly, roast permalinks + OG on new host, and general
+   transactional email sends from the new careerotter.io domain.
+3. Send the rename announcement (`POST /api/admin/rebrand-email`, dry-run → test →
+   `confirm`). NOTE: this one email deliberately sends from the **warmed apptrack.ing**
+   domain, not careerotter.io — announcing a domain change from a cold domain tanks
+   deliverability. Migrating this campaign's sender to careerotter.io is a separate,
+   later step once the new domain is warmed.
+4. Set `careerotter-evidence` to 100% (or ramp: 10% → 50% → 100% watching PostHog
    funnels: signup → ZtC complete → first win → week-2 return).
-4. Confirm a fresh signup hits Zero-to-Case and the new surfaces.
+5. Confirm a fresh signup hits Zero-to-Case and the new surfaces.
 
 ## Post-launch cleanup
 
-- Once `careerotter_evidence` is 100% and stable, remove the flag checks and the
+- Once `careerotter-evidence` is 100% and stable, remove the flag checks and the
   dead branches (both sides of every `useFeatureFlag`).
 - Archive the retired Stripe product/prices after the transition (owner).
 - Later: the deferred `AI Coach -> "Pro"` DB rename + move display constants off the

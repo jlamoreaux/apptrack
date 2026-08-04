@@ -5,7 +5,7 @@ Stack: Next.js 15 App Router · TS · Jest (`pnpm test`) · `pnpm lint` · type:
 
 ## Task 1: Shared rename copy + in-app transition banner
 - [x] 1.1: Confirm `app/(app)/layout.tsx` is the sole authed shell (note fallback if multiple authed layouts).
-- [x] 1.2: Create `lib/constants/rebrand-copy.ts` — single source for headline ("AppTrack is now CareerOtter"), sub ("Same account, same data, same login"), and "Why the new name?" explainer + link.
+- [x] 1.2: Create `lib/constants/rebrand.ts` — single source for headline ("AppTrack is now CareerOtter"), sub ("Same account, same data, same login"), and "Why the new name?" explainer + link.
 - [x] 1.3: Build `components/rebrand-banner.tsx` (+ server eligibility wrapper). Render only when `NEXT_PUBLIC_REBRAND_BANNER==="on"` AND server-side `user.created_at < REBRAND_CUTOVER_AT` (server-only env). Mount in the authed shell. Dismissal via `localStorage` `ff:rebrand-banner-dismissed` (optimistic, client-only, never blocks render). Import copy from 1.2.
 - [x] 1.4: A11y + UI: `role="status"`, real 44px `<button>` close, Esc-dismiss, focus ring, WCAG AA, no CLS (reserved-height slot), no emojis/gradient text. Emit `capturePostHogEvent("rebrand_banner_shown"/"rebrand_banner_dismissed")`.
 - [x] 1.5: Write tests for Task 1 — eligibility matrix (existing+window-on → shows; new user → hidden; window off → hidden); dismissal persists across reload; copy comes from the shared constant.

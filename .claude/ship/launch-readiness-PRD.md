@@ -62,7 +62,7 @@ owner-managed in Stripe, not in this repo.
 - **NOT wiring the flag into M2b–M5 surfaces** (unmerged branches).
 - **NOT re-doing M1's rebrand.** All three rename surfaces (roast redirect, banner,
   email) pull their headline/explainer copy from **one shared constant**
-  (`lib/constants/rebrand-copy.ts`) — no divergent wording.
+  (`lib/constants/rebrand.ts`) — no divergent wording.
 - **The readiness audit is READ-ONLY against GitHub** — no thread resolution, no
   comments, no status changes. Uses the read-only `gh` account (do NOT `gh auth switch`
   to the write account for the audit).
@@ -85,7 +85,7 @@ owner-managed in Stripe, not in this repo.
 Lands on a **dedicated branch off `main`** (`careerotter/launch-readiness`), NOT on the
 M0 pricing PR.
 
-**Shared copy source (Non-Goal enforcement):** `lib/constants/rebrand-copy.ts` exports
+**Shared copy source (Non-Goal enforcement):** `lib/constants/rebrand.ts` exports
 the headline, sub, and "why the new name?" explainer + link. Banner, email, and (ideally)
 the roast redirect import it.
 
@@ -187,7 +187,7 @@ launch mechanisms fired.
 5. Email: re-run skips already-sent recipients (sent-log).
 6. Email: admin route rejects unauthenticated/non-admin.
 7. Flag: resolver returns `false` on undefined/error/no-user (client + server).
-8. Copy: banner + email import the shared `rebrand-copy` constant (no literals).
+8. Copy: banner + email import the shared `rebrand` constant (`lib/constants/rebrand.ts`) (no literals).
 
 ## Open Questions (resolved — recorded for traceability)
 
@@ -215,7 +215,7 @@ launch mechanisms fired.
 - **Non-Goals bound actions not config** → Added: no committed config enables banner/flag
   in any env, defaults OFF asserted by test; real send needs prod + `ALLOW_REAL_SEND=1` +
   `confirm` and refuses in CI/non-prod; audit read-only (no thread writes).
-- **Divergent rename copy in 3 places** → Single source `lib/constants/rebrand-copy.ts`.
+- **Divergent rename copy in 3 places** → Single source `lib/constants/rebrand.ts`.
 - **`NEXT_PUBLIC_` cutover timestamp leaks to client / invites client-side eligibility** →
   Cutover timestamp is server-only; only the on/off toggle is public.
 - **Mid-cutover signup ambiguity** → Cutover is a single fixed instant; ≥ instant = new.
