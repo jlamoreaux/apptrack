@@ -28,6 +28,8 @@ interface CompEntry {
   equity: number;
   currency: string;
   note: string | null;
+  ticker: string | null;
+  shares: number | null;
 }
 
 const usd = (n: number) =>
@@ -47,7 +49,9 @@ function resolveRoleFamily(title: string): string {
   if (!t) return "";
   const match = COMP_ROLE_FAMILIES.find((r) => {
     const label = r.label.toLowerCase();
-    return t === label || t === r.value || t.includes(label) || label.includes(t);
+    // Exact match always wins; substring matching only for meaningful lengths so
+    // a single letter like "d" can't resolve to the first family that contains it.
+    return t === label || t === r.value || (t.length >= 3 && (t.includes(label) || label.includes(t)));
   });
   return match ? match.value : title.trim();
 }
@@ -58,27 +62,54 @@ export function CompTracker() {
   const [isPro, setIsPro] = useState(false);
   const [roleTitle, setRoleTitle] = useState("");
   const [level, setLevel] = useState("");
-  const [form, setForm] = useState({ effective_date: "", base: "", bonus: "", equity: "" });
+  const [form, setForm] = useState({
+    effective_date: "",
+    base: "",
+    bonus: "",
+    equity: "",
+    ticker: "",
+    shares: "",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [scenarioPrice, setScenarioPrice] = useState<number | null>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (signal?: AbortSignal) => {
     const roleFamily = resolveRoleFamily(roleTitle);
     const qs = new URLSearchParams();
     if (roleFamily) qs.set("roleFamily", roleFamily);
     if (level) qs.set("level", level);
-    const res = await fetch(`/api/careerotter/comp?${qs.toString()}`);
-    if (res.ok) {
-      const data = await res.json();
-      setEntries(data.entries);
-      setMarketRange(data.marketRange);
-      setIsPro(data.isPro);
+    try {
+      const res = await fetch(`/api/careerotter/comp?${qs.toString()}`, { signal });
+      if (res.ok) {
+        const data = await res.json();
+        setEntries(data.entries);
+        setMarketRange(data.marketRange);
+        setIsPro(data.isPro);
+      }
+    } catch (err) {
+      // A superseded or unmounted lookup aborts; ignore it. Other network errors
+      // leave the prior state in place — the next successful load recovers.
+      if ((err as Error)?.name !== "AbortError") return;
     }
   }, [roleTitle, level]);
 
+  // Debounce the free-text role lookup and abort the in-flight request, so a slow
+  // older response can't overwrite a newer one (roleTitle changes per keystroke).
   useEffect(() => {
-    load();
+    const controller = new AbortController();
+    const timer = setTimeout(() => load(controller.signal), 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [load]);
+
+  // Reset the scenario price back to the anchor whenever the latest entry changes.
+  const latestId = entries.length ? entries[entries.length - 1].id : null;
+  useEffect(() => {
+    setScenarioPrice(null);
+  }, [latestId]);
 
   async function addEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -98,10 +129,19 @@ export function CompTracker() {
           base,
           bonus: Number(form.bonus) || 0,
           equity: Number(form.equity) || 0,
+          ticker: form.ticker.trim() || null,
+          shares: Number(form.shares) || null,
         }),
       });
       if (res.ok) {
-        setForm({ effective_date: "", base: "", bonus: "", equity: "" });
+        setForm({
+          effective_date: "",
+          base: "",
+          bonus: "",
+          equity: "",
+          ticker: "",
+          shares: "",
+        });
         await load();
       } else {
         const data = await res.json().catch(() => null);
@@ -115,6 +155,20 @@ export function CompTracker() {
   const latest = entries.length ? entries[entries.length - 1] : null;
   const latestTotal = latest ? total(latest) : 0;
   const delta = marketRange && latest ? compDelta(latestTotal, marketRange) : null;
+
+  // Equity scenario: model total comp as base + bonus + shares * price.
+  const latestShares = latest?.shares ? Number(latest.shares) : 0;
+  const hasShares = latestShares > 0;
+  const latestEquity = latest ? Number(latest.equity) : 0;
+  // Anchor at the implied per-share price the recorded equity reflects, else $100.
+  const anchorPrice =
+    hasShares && latestEquity > 0 ? latestEquity / latestShares : 100;
+  const scenarioMax = Math.max(anchorPrice * 3, 1);
+  const price = scenarioPrice ?? anchorPrice;
+  const scenarioTotal = latest
+    ? Number(latest.base) + Number(latest.bonus) + latestShares * price
+    : 0;
+  const scenarioDelta = scenarioTotal - latestTotal;
 
   return (
     <div className="space-y-6">
@@ -190,7 +244,7 @@ export function CompTracker() {
             <p className="text-sm text-muted-foreground">
               The market benchmark is a Pro feature. Your own history is tracked below.
             </p>
-          ) : roleTitle && level ? (
+          ) : roleTitle.trim().length > 0 && level ? (
             <p className="text-sm text-muted-foreground">
               No market data for that role and level yet. Showing your own history only.
             </p>
@@ -201,6 +255,76 @@ export function CompTracker() {
           )}
         </CardContent>
       </Card>
+
+      {/* Equity scenario */}
+      {latest && hasShares ? (
+        <Card className="border-border bg-card">
+          <CardContent className="space-y-4 p-5">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Equity scenario</h3>
+              <p className="text-xs text-muted-foreground">
+                Drag to see how {latest.ticker ? `${latest.ticker}'s` : "the"} share price
+                moves your total comp. {latestShares.toLocaleString()} shares.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="scenario-price">Price per share</Label>
+                <Input
+                  id="scenario-price"
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={Number.isFinite(price) ? Math.round(price * 100) / 100 : ""}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setScenarioPrice(Number.isFinite(v) && v >= 0 ? v : 0);
+                  }}
+                  className="min-h-[44px] w-32"
+                />
+              </div>
+            </div>
+
+            <input
+              type="range"
+              min={0}
+              max={scenarioMax}
+              step={scenarioMax / 100}
+              value={Math.min(price, scenarioMax)}
+              onChange={(e) => setScenarioPrice(Number(e.target.value))}
+              aria-label="Stock price scenario"
+              className="min-h-11 w-full accent-primary"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{usd(0)}</span>
+              <span>{usd(scenarioMax)}</span>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-sm text-foreground">
+                At{" "}
+                <span className="font-semibold text-primary tabular-nums">
+                  {usd(price)}
+                </span>
+                /share, your total comp is{" "}
+                <span className="text-xl font-bold text-primary tabular-nums">
+                  {usd(scenarioTotal)}
+                </span>
+                .
+              </p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {scenarioDelta >= 0 ? "+" : ""}
+                {usd(scenarioDelta)} vs your recorded total of {usd(latestTotal)}.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : latest ? (
+        <p className="text-sm text-muted-foreground">
+          Add a ticker and share count to model how price changes move your comp.
+        </p>
+      ) : null}
 
       {/* Entry form */}
       <form onSubmit={addEntry} className="space-y-3">
@@ -230,7 +354,24 @@ export function CompTracker() {
               onChange={(e) => setForm({ ...form, equity: e.target.value })}
               className="min-h-[44px]" />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ticker">Ticker (optional)</Label>
+            <Input id="ticker" type="text" maxLength={10} value={form.ticker}
+              onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })}
+              placeholder="e.g. AAPL"
+              autoComplete="off"
+              className="min-h-[44px]" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="shares">Shares (optional)</Label>
+            <Input id="shares" type="number" min="0" step="any" value={form.shares}
+              onChange={(e) => setForm({ ...form, shares: e.target.value })}
+              className="min-h-[44px]" />
+          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Enter a ticker and share count to model equity by stock price, or leave Equity as a flat amount.
+        </p>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <Button type="submit" disabled={saving} className="min-h-[44px]">
           {saving ? "Saving…" : "Add entry"}

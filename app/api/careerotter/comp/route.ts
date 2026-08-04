@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const { data: entries } = await admin
     .from("comp_entries")
-    .select("id, effective_date, base, bonus, equity, currency, note")
+    .select("id, effective_date, base, bonus, equity, currency, note, ticker, shares")
     .eq("user_id", user.id)
     .order("effective_date", { ascending: true });
 
@@ -56,6 +56,8 @@ type PostBody = {
   bonus?: unknown;
   equity?: unknown;
   note?: unknown;
+  ticker?: unknown;
+  shares?: unknown;
 };
 
 function num(v: unknown): number | null {
@@ -94,6 +96,30 @@ export async function POST(request: NextRequest) {
   const equity = num(body.equity) ?? 0;
   const note =
     typeof body.note === "string" ? body.note.trim().slice(0, 500) || null : null;
+  const ticker =
+    typeof body.ticker === "string"
+      ? body.ticker.trim().toUpperCase().slice(0, 10) || null
+      : null;
+
+  // shares is optional, but if supplied it must be a storable non-negative number.
+  // numeric(14,4) tops out at 9,999,999,999.9999; reject rather than silently drop
+  // an invalid value (num() would map -1 / "abc" to null and lose the input).
+  const SHARES_MAX = 9_999_999_999.9999;
+  let shares: number | null = null;
+  if (body.shares !== undefined && body.shares !== null) {
+    if (
+      typeof body.shares !== "number" ||
+      !Number.isFinite(body.shares) ||
+      body.shares < 0 ||
+      body.shares > SHARES_MAX
+    ) {
+      return NextResponse.json(
+        { error: "shares must be a non-negative number no larger than 9,999,999,999.9999" },
+        { status: 400 }
+      );
+    }
+    shares = body.shares;
+  }
 
   const admin = createAdminClient();
   const { data, error } = await admin
@@ -105,8 +131,10 @@ export async function POST(request: NextRequest) {
       bonus,
       equity,
       note,
+      ticker,
+      shares,
     })
-    .select("id, effective_date, base, bonus, equity, currency, note")
+    .select("id, effective_date, base, bonus, equity, currency, note, ticker, shares")
     .single();
 
   if (error) {
