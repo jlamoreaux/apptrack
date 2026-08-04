@@ -9,7 +9,6 @@ import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
 import { HiredSubscriptionBanner } from "@/components/hired-subscription-banner";
-import { CareerWaitlistBanner } from "@/components/career-waitlist-banner";
 import { isOnProOrHigher } from "@/lib/utils/plan-helpers";
 import { TodayOverview } from "@/components/careerotter/today-overview";
 
@@ -82,19 +81,12 @@ export default async function DashboardPage() {
                 (a) => a.status === "Hired"
               );
               const isPaidSubscriber = isOnProOrHigher(planName || "Free");
-              const hiredBannerEligible = hasHiredApplication && isPaidSubscriber;
               return (
-                <>
-                  <HiredSubscriptionBanner
-                    hasHiredApplication={hasHiredApplication}
-                    isPaidSubscriber={isPaidSubscriber}
-                    userId={user.id}
-                  />
-                  <CareerWaitlistBanner
-                    userId={user.id}
-                    hiredBannerEligible={hiredBannerEligible}
-                  />
-                </>
+                <HiredSubscriptionBanner
+                  hasHiredApplication={hasHiredApplication}
+                  isPaidSubscriber={isPaidSubscriber}
+                  userId={user.id}
+                />
               );
             })()}
 
