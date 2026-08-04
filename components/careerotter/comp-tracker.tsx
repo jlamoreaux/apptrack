@@ -39,17 +39,31 @@ const usd = (n: number) =>
 
 const total = (e: CompEntry) => Number(e.base) + Number(e.bonus) + Number(e.equity);
 
+// Map a free-text job title to a known benchmark role family when it clearly
+// matches one, so the market comparison still works for common titles. Any other
+// title is passed through unchanged and simply shows the user's own history.
+function resolveRoleFamily(title: string): string {
+  const t = title.trim().toLowerCase();
+  if (!t) return "";
+  const match = COMP_ROLE_FAMILIES.find((r) => {
+    const label = r.label.toLowerCase();
+    return t === label || t === r.value || t.includes(label) || label.includes(t);
+  });
+  return match ? match.value : title.trim();
+}
+
 export function CompTracker() {
   const [entries, setEntries] = useState<CompEntry[]>([]);
   const [marketRange, setMarketRange] = useState<MarketRange | null>(null);
   const [isPro, setIsPro] = useState(false);
-  const [roleFamily, setRoleFamily] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
   const [level, setLevel] = useState("");
   const [form, setForm] = useState({ effective_date: "", base: "", bonus: "", equity: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
+    const roleFamily = resolveRoleFamily(roleTitle);
     const qs = new URLSearchParams();
     if (roleFamily) qs.set("roleFamily", roleFamily);
     if (level) qs.set("level", level);
@@ -60,7 +74,7 @@ export function CompTracker() {
       setMarketRange(data.marketRange);
       setIsPro(data.isPro);
     }
-  }, [roleFamily, level]);
+  }, [roleTitle, level]);
 
   useEffect(() => {
     load();
@@ -109,17 +123,21 @@ export function CompTracker() {
         <CardContent className="space-y-4 p-5">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Role</Label>
-              <Select value={roleFamily} onValueChange={setRoleFamily}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMP_ROLE_FAMILIES.map((r) => (
-                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="comp-role">Role</Label>
+              <Input
+                id="comp-role"
+                list="comp-role-suggestions"
+                value={roleTitle}
+                onChange={(e) => setRoleTitle(e.target.value)}
+                placeholder="e.g. Staff Software Engineer"
+                className="min-h-[44px]"
+                autoComplete="off"
+              />
+              <datalist id="comp-role-suggestions">
+                {COMP_ROLE_FAMILIES.map((r) => (
+                  <option key={r.value} value={r.label} />
+                ))}
+              </datalist>
             </div>
             <div className="space-y-1.5">
               <Label>Level</Label>
@@ -172,7 +190,7 @@ export function CompTracker() {
             <p className="text-sm text-muted-foreground">
               The market benchmark is a Pro feature. Your own history is tracked below.
             </p>
-          ) : roleFamily && level ? (
+          ) : roleTitle && level ? (
             <p className="text-sm text-muted-foreground">
               No market data for that role and level yet. Showing your own history only.
             </p>
