@@ -130,17 +130,17 @@
     "subtitle": "See how CareerOtter is helping people land the job and build the case for what's next.",
     "placeholders": [
       {
-        "name": "Daren K.",
-        "role": "Forward Deployed Engineer",
+        "name": "Rachel A.",
+        "role": "Diagnostic Administrator",
         "highlight": "It's the fastest I've ever improved my resume!",
-        "content": "The AI analysis caught formatting issues I'd missed for months. Within a week of fixing them, I started getting callbacks.",
+        "content": "",
         "rating": 5
       },
       {
         "name": "Danni P.",
         "role": "Customer Support Manager",
         "highlight": "I can finally retire my doom spreadsheet",
-        "content": "Having all my applications in one place with the pipeline chart saved me from reapplying to the same company twice.",
+        "content": "",
         "rating": 5,
         "avatarUrl": "/images/testimonials/danni.png"
       },
