@@ -31,12 +31,12 @@ export function getAppUrl(): string {
 
 export const SITE_CONFIG = {
   name: "CareerOtter",
-  title: "CareerOtter - Build the case for your next raise. Then win it.",
+  title: "CareerOtter - Your companion for every stage of your career.",
   description:
-    "Log your wins in ten seconds. CareerOtter maps them to your review, names the gaps while there's time to close them, and hands you the doc to walk in with.",
+    "Land the job, log the wins, and make the case for what's next. CareerOtter is with you from first application to promotion — application tracking, win logging, and AI coaching in one place.",
   shortDescription:
-    "Build the case for your next raise or promotion, then win it.",
-  tagline: "Build the case for your next raise. Then win it.",
+    "Your companion for every stage of your career, from first application to promotion.",
+  tagline: "Your companion for every stage of your career.",
   url: SITE_URL,
   ogImage: `${SITE_URL}/opengraph-image`,
 
