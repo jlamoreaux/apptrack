@@ -42,9 +42,12 @@ export async function dedupedGetJson(
   inFlight.set(url, request);
   try {
     const value = await request;
-    // Only successful reads are cached; a thrown request leaves no entry so the
-    // next caller retries.
-    cache.set(url, { at: Date.now(), value });
+    // Cache only successful reads. A 4xx/5xx (value.ok === false) or a thrown
+    // request leaves no entry, so the next caller retries instead of being pinned
+    // to a failure for the whole TTL.
+    if (value.ok) {
+      cache.set(url, { at: Date.now(), value });
+    }
     return value;
   } finally {
     inFlight.delete(url);
@@ -52,10 +55,12 @@ export async function dedupedGetJson(
 }
 
 /**
- * Drop any cached/in-flight result for a URL. Call after something invalidates it
- * (a mutation, or an auth change such as sign-out) so the next read fetches fresh.
+ * Wipe the entire cache. The store is a module-level singleton shared across the
+ * client session, so it MUST be cleared on any auth change (sign-in/out) — otherwise
+ * a newly signed-in user could be served the previous user's cached response (e.g.
+ * their profile) within the TTL window.
  */
-export function invalidateGet(url: string): void {
-  cache.delete(url);
-  inFlight.delete(url);
+export function clearGetCache(): void {
+  cache.clear();
+  inFlight.clear();
 }

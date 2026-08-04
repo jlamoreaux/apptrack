@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
-import { dedupedGetJson, invalidateGet } from "@/lib/utils/deduped-get";
+import { dedupedGetJson, clearGetCache } from "@/lib/utils/deduped-get";
 
 export function useSupabaseAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -41,8 +41,9 @@ export function useSupabaseAuth() {
       if (session?.user) {
         await fetchProfile(session.user.id);
       } else {
-        // Signed out: drop the cached profile so a later sign-in refetches fresh.
-        invalidateGet("/api/auth/profile");
+        // Signed out: wipe the shared GET cache so a different user signing in
+        // next can't be served this user's cached profile/onboarding data.
+        clearGetCache();
         setProfile(null);
       }
 
