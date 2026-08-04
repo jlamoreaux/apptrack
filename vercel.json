@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/careerotter-recap",
       "schedule": "0 22 * * 5"
+    },
+    {
+      "path": "/api/cron/careerotter-stock-prices",
+      "schedule": "0 6 * * *"
     }
   ]
 }

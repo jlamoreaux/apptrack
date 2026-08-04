@@ -60,6 +60,9 @@ export function CompTracker() {
   const [entries, setEntries] = useState<CompEntry[]>([]);
   const [marketRange, setMarketRange] = useState<MarketRange | null>(null);
   const [isPro, setIsPro] = useState(false);
+  const [prices, setPrices] = useState<
+    Record<string, { price: number; as_of: string }>
+  >({});
   const [roleTitle, setRoleTitle] = useState("");
   const [level, setLevel] = useState("");
   const [form, setForm] = useState({
@@ -86,6 +89,7 @@ export function CompTracker() {
         setEntries(data.entries);
         setMarketRange(data.marketRange);
         setIsPro(data.isPro);
+        setPrices(data.prices ?? {});
       }
     } catch (err) {
       // A superseded or unmounted lookup aborts; ignore it. Other network errors
@@ -160,9 +164,16 @@ export function CompTracker() {
   const latestShares = latest?.shares ? Number(latest.shares) : 0;
   const hasShares = latestShares > 0;
   const latestEquity = latest ? Number(latest.equity) : 0;
-  // Anchor at the implied per-share price the recorded equity reflects, else $100.
-  const anchorPrice =
-    hasShares && latestEquity > 0 ? latestEquity / latestShares : 100;
+  // Prefer the live cached market price for the latest entry's ticker as the
+  // slider anchor; fall back to the implied per-share price the recorded equity
+  // reflects, else $100.
+  const livePrice =
+    latest?.ticker && prices[latest.ticker] ? prices[latest.ticker] : null;
+  const anchorPrice = livePrice
+    ? livePrice.price
+    : hasShares && latestEquity > 0
+      ? latestEquity / latestShares
+      : 100;
   const scenarioMax = Math.max(anchorPrice * 3, 1);
   const price = scenarioPrice ?? anchorPrice;
   const scenarioTotal = latest
@@ -283,6 +294,16 @@ export function CompTracker() {
                   }}
                   className="min-h-[44px] w-32"
                 />
+                {livePrice && (
+                  <p className="text-xs text-muted-foreground">
+                    {latest.ticker} as of{" "}
+                    {new Date(livePrice.as_of).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
+                )}
               </div>
             </div>
 
