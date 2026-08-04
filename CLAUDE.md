@@ -16,6 +16,7 @@
 ### Text & Typography
 - **No emojis** in UI text, labels, titles, or buttons
 - **No gradient text** effects (`bg-gradient-to-r bg-clip-text text-transparent`)
+- **NEVER use pills/badges** as decorative labels (e.g. eyebrow "pills" above section headings). No `<Badge>` used as a section-header pill. Lead with the heading itself.
 - Keep copy clean and professional
 
 ### Section Backgrounds (Homepage)
