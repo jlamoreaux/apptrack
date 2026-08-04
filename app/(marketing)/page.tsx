@@ -243,7 +243,7 @@ export default function HomePage() {
         </section>
 
         {/* ============================================================
-            SECTION 4: PRICING
+            SECTION 5: PRICING
             ============================================================ */}
         <section id="pricing" className="py-16">
           <div className="container mx-auto px-4 max-w-6xl">
@@ -304,7 +304,7 @@ export default function HomePage() {
         </section>
 
         {/* ============================================================
-            SECTION 5: FAQ
+            SECTION 6: FAQ
             ============================================================ */}
         <section className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
