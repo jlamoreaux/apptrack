@@ -1,8 +1,9 @@
 import Link from "next/link"
+import { Check } from "lucide-react"
 import { NavigationServer } from "@/components/navigation-server"
 import { HomepageClientWrapper } from "@/components/homepage-client-wrapper"
 import { CareerOtterLogo } from "@/components/careerotter-logo"
-import { OrganizationSchema, SoftwareApplicationSchema } from "@/components/seo/structured-data"
+import { OrganizationSchema, SoftwareApplicationSchema, FAQSchema } from "@/components/seo/structured-data"
 
 const CASE_COVERAGE_BARS = [
   { label: "Delivery", value: 92, fill: "bg-secondary" },
@@ -30,15 +31,81 @@ const VALUE_PROPS = [
     labelColor: "text-primary",
     title: "Get paid for it",
     description:
-      "The coach turns your logged wins into a promo case, a review doc, and a negotiation plan. Walk in prepared.",
+      "The coach turns your logged wins into a promo case and a review doc — and helps you make the comp ask. Walk in prepared.",
   },
 ] as const
+
+const PRICING_TIERS = [
+  {
+    name: "Free",
+    price: "$0",
+    cadence: "forever",
+    tagline: "Every non-AI tool.",
+    features: [
+      "Unlimited application tracking",
+      "Ten-second win logging",
+      "Roast My Resume",
+      "Interview notes & contacts",
+    ],
+    cta: "Start free",
+    highlighted: false,
+  },
+  {
+    name: "Pro",
+    price: "$9",
+    cadence: "/month",
+    tagline: "Every AI tool. Or $90/year.",
+    features: [
+      "Everything in Free",
+      "AI resume analysis",
+      "The coach, grounded in your wins",
+      "Promo case & review-doc builder",
+      "Comp tracking and the ask",
+    ],
+    cta: "Start your case",
+    highlighted: true,
+  },
+] as const
+
+const FAQS = [
+  {
+    question: "I had an AppTrack account — what happens to it?",
+    answer:
+      "Same account, same data, same login. AppTrack is now CareerOtter; only the name changed.",
+  },
+  {
+    question: "What's the difference between Free and Pro?",
+    answer:
+      "Free covers every non-AI tool — unlimited tracking, win logging, Roast My Resume, interview notes. Pro ($9/month) unlocks every AI tool: resume analysis, the coach, the case builder, and comp coaching.",
+  },
+  {
+    question: "Do I need a credit card to start?",
+    answer:
+      "No. Roast My Resume and your first starter case are free, no card required.",
+  },
+  {
+    question: "How does the coach work?",
+    answer:
+      "It's grounded only in the wins you log plus your goal and review date — so it names your real gaps and drafts your real case, not generic advice.",
+  },
+  {
+    question: "Is my data private?",
+    answer:
+      "Yes. We don't train on your data, you can export it anytime, and delete means delete.",
+  },
+  {
+    question: "Got the raise or the job?",
+    answer:
+      "Tell us and we'll pause your subscription — pick it back up when the next review comes around.",
+  },
+]
 
 export default function HomePage() {
   return (
     <HomepageClientWrapper>
       <OrganizationSchema />
       <SoftwareApplicationSchema />
+      <FAQSchema faqs={FAQS} />
       <div className="min-h-screen flex flex-col bg-background">
         <NavigationServer variant="marketing" />
         <main id="main-content" className="flex-1">
@@ -163,7 +230,7 @@ export default function HomePage() {
         {/* ============================================================
             SECTION 3: PRICING BAR
             ============================================================ */}
-        <section id="pricing" className="border-t border-border py-16">
+        <section className="border-t border-border py-16">
           <div className="container mx-auto px-4 max-w-6xl">
             <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
               <p className="font-semibold text-foreground">
@@ -175,6 +242,89 @@ export default function HomePage() {
               <span className="ml-auto font-mono text-sm text-muted-foreground">
                 careerotter.io
               </span>
+            </div>
+          </div>
+        </section>
+
+        {/* ============================================================
+            SECTION 4: PRICING
+            ============================================================ */}
+        <section id="pricing" className="py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <h2 className="font-display text-3xl font-bold text-foreground">Pricing</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {PRICING_TIERS.map((tier) => (
+                <div
+                  key={tier.name}
+                  className={`flex flex-col rounded-xl border bg-card p-6 ${
+                    tier.highlighted ? "border-primary" : "border-border"
+                  }`}
+                >
+                  <div className="flex items-baseline justify-between">
+                    <h3 className="font-display text-xl font-bold text-foreground">
+                      {tier.name}
+                    </h3>
+                    {tier.highlighted && (
+                      <span className="font-mono text-xs text-primary">Most popular</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex items-baseline gap-1">
+                    <span className="font-mono text-4xl font-bold text-foreground">
+                      {tier.price}
+                    </span>
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {tier.cadence}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground">{tier.tagline}</p>
+                  <ul className="mt-5 space-y-2.5">
+                    {tier.features.map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 text-sm text-muted-foreground"
+                      >
+                        <Check
+                          className="mt-0.5 h-4 w-4 flex-shrink-0 text-secondary"
+                          aria-hidden="true"
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href="/signup"
+                    className={`mt-6 inline-flex min-h-11 items-center justify-center rounded-md px-6 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
+                      tier.highlighted
+                        ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                        : "border border-border bg-card text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {tier.cta}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ============================================================
+            SECTION 5: FAQ
+            ============================================================ */}
+        <section className="border-t border-border py-16">
+          <div className="container mx-auto px-4 max-w-6xl">
+            <h2 className="font-display text-3xl font-bold text-foreground">Questions</h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {FAQS.map((faq) => (
+                <div
+                  key={faq.question}
+                  className="rounded-xl border border-border bg-card p-6"
+                >
+                  <h3 className="font-display text-base font-bold text-foreground">
+                    {faq.question}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted-foreground">{faq.answer}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
