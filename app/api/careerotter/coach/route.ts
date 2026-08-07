@@ -54,6 +54,17 @@ function parseMessages(raw: unknown): Msg[] | null {
   return out;
 }
 
+/** Narrow an unknown stored value to a well-formed transcript message. */
+function isMsg(value: unknown): value is Msg {
+  if (typeof value !== "object" || value === null) return false;
+  const { role, content } = value as { role?: unknown; content?: unknown };
+  return (
+    (role === "user" || role === "assistant") &&
+    typeof content === "string" &&
+    content.trim().length > 0
+  );
+}
+
 /**
  * Validate a stored transcript before returning it to the client. The RLS
  * policies let a user write arbitrary JSONB into their own coach_memory row,
@@ -66,12 +77,8 @@ function sanitizeStoredMessages(raw: unknown): Msg[] {
   }
   const out: Msg[] = [];
   for (const m of raw) {
-    const role = (m as { role?: unknown })?.role;
-    const content = (m as { content?: unknown })?.content;
-    if ((role !== "user" && role !== "assistant") || typeof content !== "string" || !content.trim()) {
-      return [];
-    }
-    out.push({ role, content: content.slice(0, MAX_CONTENT) });
+    if (!isMsg(m)) return [];
+    out.push({ role: m.role, content: m.content.slice(0, MAX_CONTENT) });
   }
   return out;
 }
@@ -156,7 +163,9 @@ export async function GET() {
   return NextResponse.json({
     summary: typeof data?.summary === "string" ? data.summary : null,
     messages: sanitizeStoredMessages(data?.messages),
-    goalId: typeof data?.goal_id === "string" ? data.goal_id : null,
+    // Validate against the goal catalog: POST only stores resolved goal ids,
+    // but the RLS policies let a user write any string into their own row.
+    goalId: getCoachGoal(data?.goal_id)?.id ?? null,
     updatedAt: data?.updated_at ?? null,
   });
 }
