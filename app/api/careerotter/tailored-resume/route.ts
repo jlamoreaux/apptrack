@@ -29,6 +29,7 @@ const TAILOR_SYSTEM_PROMPT = `You rewrite resumes to target a specific job descr
 - Mirror the job description's terminology where the resume already demonstrates the skill (for keyword matching), but never claim skills the resume does not support.
 - Keep it to the same overall length or shorter than the original. Plain text, standard resume sections, no commentary before or after the resume itself.`;
 
+/** Return the saved tailored draft for one of the user's applications, if any. */
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -57,6 +58,7 @@ export async function GET(request: NextRequest) {
   });
 }
 
+/** Generate (and save) a tailored draft for an application. Pro-only. */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -152,22 +154,25 @@ export async function POST(request: NextRequest) {
     },
     { onConflict: "user_id,application_id" }
   );
+  // The draft was generated either way — return it so the user can copy it,
+  // but tell the client honestly whether it was saved.
+  const persisted = !saveError;
   if (saveError) {
     loggerService.error("Tailored resume save failed", saveError, {
       category: LogCategory.DATABASE,
       userId: user.id,
       action: "tailored_resume_save_failed",
     });
-    // The draft was generated; return it even if persistence failed.
   }
 
-  after(
+  after(() =>
     captureServerEvent(user.id, "tailored_resume_generated", {
       application_id: applicationId,
       jd_length: jobDescription.length,
       resume_length: resumeText.length,
+      persisted,
     })
   );
 
-  return NextResponse.json({ tailoredText });
+  return NextResponse.json({ tailoredText, persisted });
 }

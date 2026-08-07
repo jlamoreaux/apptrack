@@ -50,7 +50,14 @@ export function TailoredResume({ applicationId }: { applicationId: string }) {
       const data = await res.json().catch(() => null);
       if (res.ok && data?.tailoredText) {
         setDraft(data.tailoredText);
-        setCreatedAt(new Date().toISOString());
+        if (data.persisted) {
+          setCreatedAt(new Date().toISOString());
+        } else {
+          // Generated but not saved — show it so the user can copy it out,
+          // with no saved-draft date and a clear warning.
+          setCreatedAt(null);
+          setError("Draft generated but could not be saved. Copy it now — it will not be here after a reload.");
+        }
       } else {
         setError(data?.error || "Could not generate a draft right now.");
       }

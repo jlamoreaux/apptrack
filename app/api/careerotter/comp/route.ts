@@ -22,6 +22,17 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+/**
+ * True only for a real calendar date in YYYY-MM-DD form — the regex alone
+ * accepts impossible dates like 2026-02-29, which would then fail at insert
+ * time as a 500 instead of a validation 400.
+ */
+function isIsoDate(value: unknown): value is string {
+  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -104,9 +115,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (typeof body.effective_date !== "string" || !ISO_DATE.test(body.effective_date)) {
+  if (!isIsoDate(body.effective_date)) {
     return NextResponse.json(
-      { error: "effective_date must be YYYY-MM-DD" },
+      { error: "effective_date must be a valid YYYY-MM-DD date" },
       { status: 400 }
     );
   }
@@ -150,9 +161,9 @@ export async function POST(request: NextRequest) {
   // vest_start must be a plain date. Invalid values are rejected, not dropped.
   let vestStart: string | null = null;
   if (body.vest_start !== undefined && body.vest_start !== null && body.vest_start !== "") {
-    if (typeof body.vest_start !== "string" || !ISO_DATE.test(body.vest_start)) {
+    if (!isIsoDate(body.vest_start)) {
       return NextResponse.json(
-        { error: "vest_start must be YYYY-MM-DD" },
+        { error: "vest_start must be a valid YYYY-MM-DD date" },
         { status: 400 }
       );
     }

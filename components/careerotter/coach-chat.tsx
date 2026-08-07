@@ -41,6 +41,9 @@ export function CoachChat() {
         if (!cancelled && res.ok && Array.isArray(data?.messages) && data.messages.length > 0) {
           setMessages(data.messages);
           setSummary(typeof data.summary === "string" ? data.summary : "");
+          // Restore the active guided flow too, so the next message keeps
+          // running it instead of falling back to the generic prompt.
+          setGoalId(typeof data.goalId === "string" ? data.goalId : null);
           setRestored(true);
         }
       } catch {
@@ -92,17 +95,20 @@ export function CoachChat() {
   }
 
   async function startFresh() {
+    // Delete server-side memory first: clearing local state on a failed
+    // delete would just resurrect the old session on the next reload.
+    try {
+      const res = await fetch("/api/careerotter/coach", { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+    } catch {
+      setError("Could not clear the saved session. Try again.");
+      return;
+    }
     setMessages([]);
     setSummary("");
     setRestored(false);
     setError("");
     setGoalId(null);
-    try {
-      await fetch("/api/careerotter/coach", { method: "DELETE" });
-    } catch {
-      // Local state is already cleared; a failed delete just means the old
-      // session reappears next visit.
-    }
   }
 
   if (loadingMemory) {

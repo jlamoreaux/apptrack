@@ -55,10 +55,15 @@ function parseMessages(raw: unknown): Msg[] | null {
 }
 
 /**
- * Write the updated transcript and a fresh two-sentence summary to
- * coach_memory. Runs in after() — a failure here never blocks the reply.
+ * Write the updated transcript, the active guided-goal id, and a fresh
+ * two-sentence summary to coach_memory. Runs in after() — a failure here
+ * never blocks the reply.
  */
-async function persistMemory(userId: string, transcript: Msg[]): Promise<void> {
+async function persistMemory(
+  userId: string,
+  transcript: Msg[],
+  goalId: string | null
+): Promise<void> {
   const admin = createAdminClient();
   const messages = transcript.slice(-MAX_MESSAGES);
   try {
@@ -87,6 +92,7 @@ async function persistMemory(userId: string, transcript: Msg[]): Promise<void> {
     const { error } = await admin.from("coach_memory").upsert({
       user_id: userId,
       messages,
+      goal_id: goalId,
       ...(summary ? { summary } : {}),
       updated_at: new Date().toISOString(),
     });
@@ -100,6 +106,7 @@ async function persistMemory(userId: string, transcript: Msg[]): Promise<void> {
   }
 }
 
+/** Return the signed-in user's coach memory (summary, transcript, active goal). */
 export async function GET() {
   const supabase = await createClient();
   const {
@@ -109,19 +116,30 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("coach_memory")
-    .select("summary, messages, updated_at")
+    .select("summary, messages, goal_id, updated_at")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (error) {
+    loggerService.error("Coach memory load failed", error, {
+      category: LogCategory.DATABASE,
+      userId: user.id,
+      action: "coach_memory_load_failed",
+    });
+    return NextResponse.json({ error: "Could not load coach memory" }, { status: 500 });
+  }
 
   return NextResponse.json({
     summary: data?.summary ?? null,
     messages: Array.isArray(data?.messages) ? data?.messages : [],
+    goalId: data?.goal_id ?? null,
     updatedAt: data?.updated_at ?? null,
   });
 }
 
+/** Delete the signed-in user's coach memory ("start fresh"). */
 export async function DELETE() {
   const supabase = await createClient();
   const {
@@ -138,6 +156,7 @@ export async function DELETE() {
   return NextResponse.json({ ok: true });
 }
 
+/** Generate a coach reply, then persist the transcript + summary. Pro-only. */
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -205,7 +224,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  after(
+  after(() =>
     captureServerEvent(user.id, CAREEROTTER_EVENT_NAMES.COACH_MESSAGE_SENT, {
       prompt_version: COACH_PROMPT_VERSION,
       turns: messages.length,
@@ -213,7 +232,13 @@ export async function POST(request: NextRequest) {
       goal_id: goal?.id ?? null,
     })
   );
-  after(persistMemory(user.id, [...messages, { role: "assistant", content: reply }]));
+  after(() =>
+    persistMemory(
+      user.id,
+      [...messages, { role: "assistant", content: reply }],
+      goal?.id ?? null
+    )
+  );
 
   return NextResponse.json({ reply });
 }

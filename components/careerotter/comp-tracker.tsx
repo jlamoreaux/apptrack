@@ -164,7 +164,9 @@ export function CompTracker() {
           ticker: form.ticker.trim() || null,
           shares: Number(form.shares) || null,
           vest_start: form.vest_start || null,
-          vest_years: Number(form.vest_years) || null,
+          // "" means not provided; a typed 0 must reach the API so its
+          // validation error surfaces instead of silently storing no vesting.
+          vest_years: form.vest_years === "" ? null : Number(form.vest_years),
         }),
       });
       if (res.ok) {
@@ -257,7 +259,10 @@ export function CompTracker() {
       return grantValue;
     }
     if (vestYears && vestStartDate) {
-      return latestEquity * vestedFractionOfYear(year, vestStartDate, vestYears);
+      // Flat equity with a vest length is a total grant: annualize it the
+      // same way as share-based grants so the projection can never allocate
+      // more than the grant's value across the window.
+      return (latestEquity / vestYears) * vestedFractionOfYear(year, vestStartDate, vestYears);
     }
     return latestEquity;
   };

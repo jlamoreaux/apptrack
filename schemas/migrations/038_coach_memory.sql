@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS public.coach_memory (
   user_id uuid NOT NULL,
   summary text,
   messages jsonb NOT NULL DEFAULT '[]'::jsonb,
+  -- Active guided-activity id (see COACH_GOALS), so a restored session
+  -- continues the flow the user was in rather than the generic prompt.
+  goal_id text,
   updated_at timestamp with time zone DEFAULT now(),
 
   CONSTRAINT coach_memory_pkey PRIMARY KEY (user_id),

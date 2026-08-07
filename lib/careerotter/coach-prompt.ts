@@ -109,6 +109,7 @@ export const COACH_GOALS: readonly CoachGoal[] = [
   },
 ] as const;
 
+/** Look up a guided coaching goal by id; null for unknown or non-string input. */
 export function getCoachGoal(id: unknown): CoachGoal | null {
   if (typeof id !== "string") return null;
   return COACH_GOALS.find((g) => g.id === id) ?? null;
