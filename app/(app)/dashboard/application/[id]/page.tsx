@@ -38,6 +38,7 @@ import { StatusSelector } from "@/components/status-selector"
 import { EditApplicationModal } from "@/components/edit-application-modal"
 import { archiveApplicationAction, deleteApplicationAction } from "@/lib/actions"
 import { Sparkles } from "lucide-react"
+import { TailoredResume } from "@/components/careerotter/tailored-resume"
 import { LinkedInContactsSection } from "@/components/linkedin-contacts-section"
 import { formatLocalDate, formatLocalDateTime } from "@/lib/utils/date"
 import { useFeatureFlag, FEATURE_FLAGS } from "@/lib/hooks/use-feature-flag"
@@ -343,6 +344,9 @@ export default function ApplicationDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Tailored resume draft for this application */}
+          <TailoredResume applicationId={application.id} />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Interview Notes */}

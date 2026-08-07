@@ -18,6 +18,102 @@ export const COACH_STARTERS = [
   "Am I ready to ask?",
 ] as const;
 
+/**
+ * Guided coaching goals. Each goal is a focused activity: the kickoff is sent
+ * as the user's opening message, and the guidance is appended to the system
+ * prompt so the coach runs a structured flow instead of a one-off answer.
+ * Every flow stays grounded in logged wins — that grounding is the product's
+ * differentiator, so guidance must reference the user's actual evidence.
+ */
+export interface CoachGoal {
+  id: string;
+  stage: string;
+  label: string;
+  description: string;
+  kickoff: string;
+  guidance: string;
+}
+
+export const COACH_GOALS: readonly CoachGoal[] = [
+  {
+    id: "find-gaps",
+    stage: "Build your case",
+    label: "Find my gaps",
+    description: "Audit your case coverage and name what evidence is missing",
+    kickoff: "Audit my case. Where are the gaps?",
+    guidance:
+      "Run a case audit: assess their evidence per impact area, name the weakest areas with counts, and end with the two most valuable wins they could log this week to close the biggest gap.",
+  },
+  {
+    id: "review-bullets",
+    stage: "Build your case",
+    label: "Turn wins into review bullets",
+    description: "Rewrite your logged wins as self-review achievement bullets",
+    kickoff: "Turn my logged wins into self-review bullets.",
+    guidance:
+      "Rewrite their logged wins as tight accomplishment bullets (impact first, numbers where logged, no invented metrics). Group by impact area. Flag any win too vague to use and say what detail would fix it.",
+  },
+  {
+    id: "one-on-one",
+    stage: "Say it out loud",
+    label: "Draft 1:1 talking points",
+    description: "Prepare this week's manager 1:1 around your recent wins",
+    kickoff: "Draft my 1:1 talking points for this week",
+    guidance:
+      "Draft three to five 1:1 talking points from their most recent wins, each one sentence plus a suggested ask or visibility move. Keep it scannable.",
+  },
+  {
+    id: "review-conversation",
+    stage: "Say it out loud",
+    label: "Prep my review conversation",
+    description: "Rehearse the review discussion and likely manager pushback",
+    kickoff: "Help me prep for my review conversation.",
+    guidance:
+      "Run a review rehearsal: propose an opening statement built from their strongest evidence, then raise the two most likely manager pushbacks given their gaps, and coach a grounded response to each. Offer to role-play one exchange at a time.",
+  },
+  {
+    id: "plan-ask",
+    stage: "Get paid",
+    label: "Plan the comp ask",
+    description: "Decide the number, the timing, and the script",
+    kickoff: "Help me plan my comp ask.",
+    guidance:
+      "Build the ask plan: readiness check against their evidence and review date, then timing, then a short script that cites their strongest logged wins. If they have not logged comp or a target, say what to add and where.",
+  },
+  {
+    id: "practice-negotiation",
+    stage: "Get paid",
+    label: "Practice the negotiation",
+    description: "Role-play objections to your ask and sharpen responses",
+    kickoff: "Role-play my comp negotiation. Push back on me.",
+    guidance:
+      "Role-play the negotiation: play the manager, raise one realistic objection at a time (budget, timing, level), and after each user response give one line of feedback grounded in their evidence before the next objection. Stay in the exercise until they ask to stop, then summarize what to tighten.",
+  },
+  {
+    id: "storybank",
+    stage: "Interviews",
+    label: "Build my storybank",
+    description: "Turn logged wins into structured interview stories",
+    kickoff: "Turn my wins into interview stories.",
+    guidance:
+      "Convert their strongest wins into situation-action-result interview stories, two to four sentences each, and name the behavioral question each story best answers. Flag wins missing the detail a story needs.",
+  },
+  {
+    id: "interview-prep",
+    stage: "Interviews",
+    label: "Prep for an interview",
+    description: "Practice likely questions using your own evidence",
+    kickoff: "Help me prep for an upcoming interview.",
+    guidance:
+      "Ask which role and round first if not stated. Then run focused prep: likely questions for that round, which of their logged wins answers each, and one practice question at a time with feedback grounded in their evidence.",
+  },
+] as const;
+
+export function getCoachGoal(id: unknown): CoachGoal | null {
+  if (typeof id !== "string") return null;
+  return COACH_GOALS.find((g) => g.id === id) ?? null;
+}
+
 export interface CoachProfile {
   mode?: string | null;
   role?: string | null;
@@ -43,7 +139,8 @@ const TAG_LABEL: Record<WinTag, string> = Object.fromEntries(
  */
 export function buildCoachSystemPrompt(
   profile: CoachProfile | null,
-  wins: CoachWin[]
+  wins: CoachWin[],
+  activity?: CoachGoal | null
 ): string {
   const goal =
     profile?.mode === "job_search"
@@ -83,6 +180,10 @@ export function buildCoachSystemPrompt(
           })
           .join("\n");
 
+  const goalBlock = activity
+    ? `\n\nThe user chose the guided activity "${activity.label}". ${activity.guidance}`
+    : "";
+
   return `${VOICE_GUARDRAILS}
 
 You are coaching this user toward their goal. You may only reason from the evidence below plus general, well-established negotiation and promotion knowledge. Do not invent wins, numbers, or facts about them. If a good answer needs information they haven't logged, say exactly what's missing and how to log it (one line in the capture bar), then answer with what you do have.
@@ -93,5 +194,5 @@ Their context:
 ${context.join("\n")}
 
 Their logged wins (the only evidence you may cite):
-${winLines}`;
+${winLines}${goalBlock}`;
 }

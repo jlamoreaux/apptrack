@@ -32,7 +32,9 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient();
   const { data: entries } = await admin
     .from("comp_entries")
-    .select("id, effective_date, base, bonus, equity, currency, note, ticker, shares")
+    .select(
+      "id, effective_date, base, bonus, equity, currency, note, ticker, shares, vest_start, vest_years"
+    )
     .eq("user_id", user.id)
     .order("effective_date", { ascending: true });
 
@@ -79,6 +81,8 @@ type PostBody = {
   note?: unknown;
   ticker?: unknown;
   shares?: unknown;
+  vest_start?: unknown;
+  vest_years?: unknown;
 };
 
 function num(v: unknown): number | null {
@@ -142,6 +146,34 @@ export async function POST(request: NextRequest) {
     shares = body.shares;
   }
 
+  // Optional vesting schedule. vest_years is bounded to a sane grant length;
+  // vest_start must be a plain date. Invalid values are rejected, not dropped.
+  let vestStart: string | null = null;
+  if (body.vest_start !== undefined && body.vest_start !== null && body.vest_start !== "") {
+    if (typeof body.vest_start !== "string" || !ISO_DATE.test(body.vest_start)) {
+      return NextResponse.json(
+        { error: "vest_start must be YYYY-MM-DD" },
+        { status: 400 }
+      );
+    }
+    vestStart = body.vest_start;
+  }
+  let vestYears: number | null = null;
+  if (body.vest_years !== undefined && body.vest_years !== null) {
+    if (
+      typeof body.vest_years !== "number" ||
+      !Number.isFinite(body.vest_years) ||
+      body.vest_years <= 0 ||
+      body.vest_years > 10
+    ) {
+      return NextResponse.json(
+        { error: "vest_years must be a number between 0 and 10" },
+        { status: 400 }
+      );
+    }
+    vestYears = body.vest_years;
+  }
+
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("comp_entries")
@@ -154,8 +186,12 @@ export async function POST(request: NextRequest) {
       note,
       ticker,
       shares,
+      vest_start: vestStart,
+      vest_years: vestYears,
     })
-    .select("id, effective_date, base, bonus, equity, currency, note, ticker, shares")
+    .select(
+      "id, effective_date, base, bonus, equity, currency, note, ticker, shares, vest_start, vest_years"
+    )
     .single();
 
   if (error) {
