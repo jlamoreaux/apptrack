@@ -55,6 +55,28 @@ function parseMessages(raw: unknown): Msg[] | null {
 }
 
 /**
+ * Validate a stored transcript before returning it to the client. The RLS
+ * policies let a user write arbitrary JSONB into their own coach_memory row,
+ * so shape and size cannot be assumed. Any malformed transcript comes back
+ * as [] (a fresh session) rather than propagating unvalidated data.
+ */
+function sanitizeStoredMessages(raw: unknown): Msg[] {
+  if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_MESSAGES) {
+    return [];
+  }
+  const out: Msg[] = [];
+  for (const m of raw) {
+    const role = (m as { role?: unknown })?.role;
+    const content = (m as { content?: unknown })?.content;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string" || !content.trim()) {
+      return [];
+    }
+    out.push({ role, content: content.slice(0, MAX_CONTENT) });
+  }
+  return out;
+}
+
+/**
  * Write the updated transcript, the active guided-goal id, and a fresh
  * two-sentence summary to coach_memory. Runs in after() — a failure here
  * never blocks the reply.
@@ -132,9 +154,9 @@ export async function GET() {
   }
 
   return NextResponse.json({
-    summary: data?.summary ?? null,
-    messages: Array.isArray(data?.messages) ? data?.messages : [],
-    goalId: data?.goal_id ?? null,
+    summary: typeof data?.summary === "string" ? data.summary : null,
+    messages: sanitizeStoredMessages(data?.messages),
+    goalId: typeof data?.goal_id === "string" ? data.goal_id : null,
     updatedAt: data?.updated_at ?? null,
   });
 }
