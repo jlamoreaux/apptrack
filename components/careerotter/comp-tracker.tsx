@@ -33,22 +33,40 @@ interface CompEntry {
   shares: number | null;
   vest_start: string | null;
   vest_years: number | null;
+  vest_cliff_months: number | null;
 }
 
 /**
- * Fraction of calendar year `year` that falls inside the vesting window
- * [start, start + vestYears). 1 for fully-vesting years, prorated at the
- * edges, 0 outside the window.
+ * Fraction of the TOTAL grant received during calendar year `year`, for a
+ * grant vesting linearly over vestYears with an optional cliff. Nothing is
+ * received before the cliff; at the cliff the accrued amount vests at once
+ * (e.g. a 12-month cliff on a 4-year grant pays 25% that day), then vesting
+ * continues linearly. Computed as vested(year end) - vested(year start), so
+ * the cliff year correctly gets the lump plus its remaining months.
  */
-export function vestedFractionOfYear(year: number, start: Date, vestYears: number): number {
-  const windowStart = start.getTime();
-  const windowEnd = new Date(start);
-  windowEnd.setMonth(windowEnd.getMonth() + Math.round(vestYears * 12));
+export function grantFractionReceivedInYear(
+  year: number,
+  start: Date,
+  vestYears: number,
+  cliffMonths: number
+): number {
+  const totalMonths = Math.round(vestYears * 12);
+  if (totalMonths <= 0) return 0;
+  const startMs = start.getTime();
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + totalMonths);
+  const cliff = new Date(start);
+  cliff.setMonth(cliff.getMonth() + Math.max(0, cliffMonths));
+
+  const vestedAt = (t: number): number => {
+    if (t < cliff.getTime() || t <= startMs) return 0;
+    if (t >= end.getTime()) return 1;
+    return (t - startMs) / (end.getTime() - startMs);
+  };
+
   const yearStart = new Date(year, 0, 1).getTime();
   const yearEnd = new Date(year + 1, 0, 1).getTime();
-  const overlap =
-    Math.min(yearEnd, windowEnd.getTime()) - Math.max(yearStart, windowStart);
-  return Math.max(0, Math.min(1, overlap / (yearEnd - yearStart)));
+  return Math.max(0, vestedAt(yearEnd) - vestedAt(yearStart));
 }
 
 const usd = (n: number) =>
@@ -93,6 +111,7 @@ export function CompTracker() {
     shares: "",
     vest_start: "",
     vest_years: "",
+    vest_cliff_months: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -167,6 +186,8 @@ export function CompTracker() {
           // "" means not provided; a typed 0 must reach the API so its
           // validation error surfaces instead of silently storing no vesting.
           vest_years: form.vest_years === "" ? null : Number(form.vest_years),
+          vest_cliff_months:
+            form.vest_cliff_months === "" ? null : Number(form.vest_cliff_months),
         }),
       });
       if (res.ok) {
@@ -179,6 +200,7 @@ export function CompTracker() {
           shares: "",
           vest_start: "",
           vest_years: "",
+          vest_cliff_months: "",
         });
         await load();
       } else {
@@ -246,25 +268,20 @@ export function CompTracker() {
   const nowYear = new Date().getFullYear();
   const projectionYears = [nowYear, nowYear + 1, nowYear + 2];
   const vestYears = latest?.vest_years ? Number(latest.vest_years) : null;
+  const cliffMonths = latest?.vest_cliff_months ? Number(latest.vest_cliff_months) : 0;
   const vestStartDate = latest
     ? new Date(`${latest.vest_start ?? latest.effective_date}T00:00:00`)
     : null;
   const stockForYear = (year: number): number => {
     if (!latest) return 0;
-    if (hasShares) {
-      const grantValue = latestShares * price;
-      if (vestYears && vestStartDate) {
-        return (grantValue / vestYears) * vestedFractionOfYear(year, vestStartDate, vestYears);
-      }
-      return grantValue;
-    }
+    // With a vest schedule, both share-based and flat equity are treated as
+    // the TOTAL grant, and each year receives its vested slice (cliff-aware).
+    const grantValue = hasShares ? latestShares * price : latestEquity;
     if (vestYears && vestStartDate) {
-      // Flat equity with a vest length is a total grant: annualize it the
-      // same way as share-based grants so the projection can never allocate
-      // more than the grant's value across the window.
-      return (latestEquity / vestYears) * vestedFractionOfYear(year, vestStartDate, vestYears);
+      return grantValue * grantFractionReceivedInYear(year, vestStartDate, vestYears, cliffMonths);
     }
-    return latestEquity;
+    // No vest schedule: keep the flat single-year semantics.
+    return grantValue;
   };
   const projection = latest
     ? projectionYears.map((year) => {
@@ -453,8 +470,8 @@ export function CompTracker() {
               <h3 className="text-sm font-semibold text-foreground">Projected comp</h3>
               <p className="text-xs text-muted-foreground">
                 {vestYears
-                  ? `Stock prorated over a ${vestYears}-year vest${hasShares ? " at the scenario price above" : ""}.`
-                  : "Add a vest length to an entry to prorate stock across years."}
+                  ? `Stock over a ${vestYears}-year vest${cliffMonths ? ` with a ${cliffMonths}-month cliff` : ""}${hasShares ? ", valued at the scenario price above" : ""}.`
+                  : "Add a vest length to an entry to spread stock across years."}
               </p>
             </div>
             <div className="overflow-x-auto">
@@ -597,10 +614,17 @@ export function CompTracker() {
               placeholder="e.g. 4"
               className="min-h-[44px]" />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vest-cliff">Cliff months (optional)</Label>
+            <Input id="vest-cliff" type="number" min="0" max="60" step="1" value={form.vest_cliff_months}
+              onChange={(e) => setForm({ ...form, vest_cliff_months: e.target.value })}
+              placeholder="e.g. 12"
+              className="min-h-[44px]" />
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Enter a ticker and share count to model equity by stock price, or leave Equity as a flat amount.
-          Add a vest start and length to project stock across years.
+          Add a vest start, length, and cliff to project stock across years the way your grant actually pays out.
         </p>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <Button type="submit" disabled={saving} className="min-h-[44px]">
