@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import { CareerOtterMark } from "@/components/careerotter-mark";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
@@ -11,13 +11,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       {/* Mobile header */}
       <div className="lg:hidden bg-primary/5 border-b border-border px-4 py-3">
         <Link href="/" className="flex items-center gap-2 min-h-11">
-          <Image
-            src="/logo_square.png"
-            alt="CareerOtter Logo"
-            width={28}
-            height={28}
-            className="rounded"
-          />
+          <CareerOtterMark decorative className="h-7 w-7" />
           <span className="font-semibold text-foreground">CareerOtter</span>
         </Link>
       </div>
@@ -26,12 +20,9 @@ export function AuthLayout({ children }: AuthLayoutProps) {
       <div className="hidden lg:flex lg:w-[45%] bg-section-cta text-section-cta-foreground flex-col justify-between p-10">
         <div>
           <Link href="/" className="flex items-center gap-2 min-h-11">
-            <Image
-              src="/logo_square.png"
-              alt="CareerOtter Logo"
-              width={32}
-              height={32}
-              className="rounded"
+            <CareerOtterMark
+              decorative
+              className="h-8 w-8 text-section-cta-foreground"
             />
             <span className="text-xl font-bold text-section-cta-foreground">
               CareerOtter
@@ -41,10 +32,11 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
         <div className="space-y-4">
           <h2 className="text-2xl font-bold font-display">
-            Track your applications. Visualize your pipeline. Land the role.
+            Your companion for every stage of your career.
           </h2>
           <p className="text-section-cta-foreground/70 leading-relaxed">
-            One place to organize your job search with AI-powered resume analysis, cover letters, and interview prep.
+            Land the job, log the wins, and make the case for what&apos;s next
+            &mdash; CareerOtter is with you from first application to promotion.
           </p>
         </div>
 
