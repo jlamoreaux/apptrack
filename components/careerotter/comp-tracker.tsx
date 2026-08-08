@@ -31,6 +31,42 @@ interface CompEntry {
   note: string | null;
   ticker: string | null;
   shares: number | null;
+  vest_start: string | null;
+  vest_years: number | null;
+  vest_cliff_months: number | null;
+}
+
+/**
+ * Fraction of the TOTAL grant received during calendar year `year`, for a
+ * grant vesting linearly over vestYears with an optional cliff. Nothing is
+ * received before the cliff; at the cliff the accrued amount vests at once
+ * (e.g. a 12-month cliff on a 4-year grant pays 25% that day), then vesting
+ * continues linearly. Computed as vested(year end) - vested(year start), so
+ * the cliff year correctly gets the lump plus its remaining months.
+ */
+export function grantFractionReceivedInYear(
+  year: number,
+  start: Date,
+  vestYears: number,
+  cliffMonths: number
+): number {
+  const totalMonths = Math.round(vestYears * 12);
+  if (totalMonths <= 0) return 0;
+  const startMs = start.getTime();
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + totalMonths);
+  const cliff = new Date(start);
+  cliff.setMonth(cliff.getMonth() + Math.max(0, cliffMonths));
+
+  const vestedAt = (t: number): number => {
+    if (t < cliff.getTime() || t <= startMs) return 0;
+    if (t >= end.getTime()) return 1;
+    return (t - startMs) / (end.getTime() - startMs);
+  };
+
+  const yearStart = new Date(year, 0, 1).getTime();
+  const yearEnd = new Date(year + 1, 0, 1).getTime();
+  return Math.max(0, vestedAt(yearEnd) - vestedAt(yearStart));
 }
 
 const usd = (n: number) =>
@@ -73,10 +109,16 @@ export function CompTracker() {
     equity: "",
     ticker: "",
     shares: "",
+    vest_start: "",
+    vest_years: "",
+    vest_cliff_months: "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [scenarioPrice, setScenarioPrice] = useState<number | null>(null);
+  // Effective tax rate for the take-home row. An estimate the user controls —
+  // no jurisdiction math, no pretending to know their tax situation.
+  const [taxRate, setTaxRate] = useState(30);
   // Two-step delete: first click arms confirmId, second confirms. Avoids a modal
   // dependency while still guarding against an accidental permanent delete.
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -140,6 +182,12 @@ export function CompTracker() {
           equity: Number(form.equity) || 0,
           ticker: form.ticker.trim() || null,
           shares: Number(form.shares) || null,
+          vest_start: form.vest_start || null,
+          // "" means not provided; a typed 0 must reach the API so its
+          // validation error surfaces instead of silently storing no vesting.
+          vest_years: form.vest_years === "" ? null : Number(form.vest_years),
+          vest_cliff_months:
+            form.vest_cliff_months === "" ? null : Number(form.vest_cliff_months),
         }),
       });
       if (res.ok) {
@@ -150,6 +198,9 @@ export function CompTracker() {
           equity: "",
           ticker: "",
           shares: "",
+          vest_start: "",
+          vest_years: "",
+          vest_cliff_months: "",
         });
         await load();
       } else {
@@ -208,6 +259,42 @@ export function CompTracker() {
     ? Number(latest.base) + Number(latest.bonus) + latestShares * price
     : 0;
   const scenarioDelta = scenarioTotal - latestTotal;
+
+  // Multi-year projection. Salary and incentives are carried flat; stock is
+  // valued at the scenario price and prorated across the vesting window when a
+  // vest length is recorded (window starts at vest_start, else the entry date).
+  // Without a vest length the stock/equity number is carried flat, matching the
+  // single-year scenario semantics above.
+  const nowYear = new Date().getFullYear();
+  const projectionYears = [nowYear, nowYear + 1, nowYear + 2];
+  const vestYears = latest?.vest_years ? Number(latest.vest_years) : null;
+  const cliffMonths = latest?.vest_cliff_months ? Number(latest.vest_cliff_months) : 0;
+  const vestStartDate = latest
+    ? new Date(`${latest.vest_start ?? latest.effective_date}T00:00:00`)
+    : null;
+  const stockForYear = (year: number): number => {
+    if (!latest) return 0;
+    // With a vest schedule, both share-based and flat equity are treated as
+    // the TOTAL grant, and each year receives its vested slice (cliff-aware).
+    const grantValue = hasShares ? latestShares * price : latestEquity;
+    if (vestYears && vestStartDate) {
+      return grantValue * grantFractionReceivedInYear(year, vestStartDate, vestYears, cliffMonths);
+    }
+    // No vest schedule: keep the flat single-year semantics.
+    return grantValue;
+  };
+  const projection = latest
+    ? projectionYears.map((year) => {
+        const stock = stockForYear(year);
+        return {
+          year,
+          salary: Number(latest.base),
+          incentives: Number(latest.bonus),
+          stock,
+          total: Number(latest.base) + Number(latest.bonus) + stock,
+        };
+      })
+    : [];
 
   return (
     <div className="space-y-6">
@@ -375,6 +462,103 @@ export function CompTracker() {
         </p>
       ) : null}
 
+      {/* Multi-year projection */}
+      {latest && (
+        <Card>
+          <CardContent className="space-y-3 p-5">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Projected comp</h3>
+              <p className="text-xs text-muted-foreground">
+                {vestYears
+                  ? `Stock over a ${vestYears}-year vest${cliffMonths ? ` with a ${cliffMonths}-month cliff` : ""}${hasShares ? ", valued at the scenario price above" : ""}.`
+                  : "Add a vest length to an entry to spread stock across years."}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground">
+                    <th scope="col" className="py-1 pr-4 font-normal" />
+                    {projection.map((p) => (
+                      <th key={p.year} scope="col" className="py-1 pr-4 font-medium tabular-nums">
+                        {p.year}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
+                      Salary
+                    </th>
+                    {projection.map((p) => (
+                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.salary)}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
+                      Incentives
+                    </th>
+                    {projection.map((p) => (
+                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.incentives)}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
+                      Stock
+                    </th>
+                    {projection.map((p) => (
+                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.stock)}</td>
+                    ))}
+                  </tr>
+                  <tr className="border-t">
+                    <th scope="row" className="py-1.5 pr-4 text-left font-medium">
+                      Total
+                    </th>
+                    {projection.map((p) => (
+                      <td key={p.year} className="py-1.5 pr-4 font-semibold tabular-nums">
+                        {usd(p.total)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
+                      Est. take-home
+                    </th>
+                    {projection.map((p) => (
+                      <td key={p.year} className="py-1 pr-4 tabular-nums text-muted-foreground">
+                        {usd(p.total * (1 - taxRate / 100))}
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="tax-rate" className="text-xs text-muted-foreground">
+                Effective tax rate
+              </Label>
+              <Input
+                id="tax-rate"
+                type="number"
+                min="0"
+                max="60"
+                step="1"
+                value={taxRate}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (Number.isFinite(v)) setTaxRate(Math.min(60, Math.max(0, v)));
+                }}
+                className="min-h-[44px] w-20"
+              />
+              <span className="text-xs text-muted-foreground">
+                % — rough estimate, set it to match your actual rate
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Entry form */}
       <form onSubmit={addEntry} className="space-y-3">
         <h3 className="text-sm font-semibold">Add a comp entry</h3>
@@ -417,9 +601,30 @@ export function CompTracker() {
               onChange={(e) => setForm({ ...form, shares: e.target.value })}
               className="min-h-[44px]" />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vest-start">Vest start (optional)</Label>
+            <Input id="vest-start" type="date" value={form.vest_start}
+              onChange={(e) => setForm({ ...form, vest_start: e.target.value })}
+              className="min-h-[44px]" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vest-years">Vest years (optional)</Label>
+            <Input id="vest-years" type="number" min="0" max="10" step="0.5" value={form.vest_years}
+              onChange={(e) => setForm({ ...form, vest_years: e.target.value })}
+              placeholder="e.g. 4"
+              className="min-h-[44px]" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="vest-cliff">Cliff months (optional)</Label>
+            <Input id="vest-cliff" type="number" min="0" max="60" step="1" value={form.vest_cliff_months}
+              onChange={(e) => setForm({ ...form, vest_cliff_months: e.target.value })}
+              placeholder="e.g. 12"
+              className="min-h-[44px]" />
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Enter a ticker and share count to model equity by stock price, or leave Equity as a flat amount.
+          Add a vest start, length, and cliff to project stock across years the way your grant actually pays out.
         </p>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <Button type="submit" disabled={saving} className="min-h-[44px]">
