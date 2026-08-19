@@ -1,4 +1,5 @@
 import { Footer } from "@/components/footer";
+import { WebMcpProvider } from "@/components/agents/webmcp-provider";
 
 export default function MarketingLayout({
   children,
@@ -9,6 +10,8 @@ export default function MarketingLayout({
     <>
       {children}
       <Footer />
+      {/* Exposes the public pages' actions to in-browser agents. Renders nothing. */}
+      <WebMcpProvider />
     </>
   );
 }

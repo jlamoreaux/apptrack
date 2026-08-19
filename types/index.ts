@@ -376,3 +376,22 @@ export interface UpdateResumeInput {
   is_default?: boolean;
   display_order?: number;
 }
+
+// Homepage marketing copy. The values live in
+// lib/constants/homepage-content.ts and are validated against these shapes
+// with `satisfies`, so a malformed tier or FAQ fails at compile time.
+export interface PricingTier {
+  name: string;
+  price: string;
+  /** Billing cadence as displayed, e.g. "forever" or "/month". */
+  cadence: string;
+  tagline: string;
+  features: readonly string[];
+  cta: string;
+  highlighted: boolean;
+}
+
+export interface Faq {
+  question: string;
+  answer: string;
+}

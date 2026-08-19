@@ -1,3 +1,5 @@
+import type { Faq, PricingTier } from "@/types"
+
 // Homepage content constants to avoid duplication and improve maintainability
 
 export const IMAGE_SIZES = "(min-width: 1024px) 50vw, 100vw"
@@ -46,3 +48,60 @@ export const FEATURE_SECTIONS = {
     features: MOBILE_FEATURES
   }
 } as const
+
+// Pricing + FAQ copy lives here (not in the page) so the homepage and the
+// agent-facing markdown rendering of it can't drift apart.
+export const PRICING_TIERS = [
+  {
+    name: "Free",
+    price: "$0",
+    cadence: "forever",
+    tagline: "Every non-AI tool.",
+    features: [
+      "Unlimited application tracking",
+      "Ten-second win logging",
+      "Roast My Resume",
+      "Interview notes & contacts",
+    ],
+    cta: "Start free",
+    highlighted: false,
+  },
+  {
+    name: "Pro",
+    price: "$9",
+    cadence: "/month",
+    tagline: "Every AI tool. Or $90/year.",
+    features: [
+      "Everything in Free",
+      "AI resume analysis",
+      "The coach, grounded in your wins",
+      "Promo case & review-doc builder",
+      "Comp tracking and the ask",
+    ],
+    cta: "Start your case",
+    highlighted: true,
+  },
+] as const satisfies readonly PricingTier[]
+
+export const FAQS = [
+  {
+    question: "What's the difference between Free and Pro?",
+    answer:
+      "Free covers every non-AI tool — unlimited tracking, win logging, Roast My Resume, interview notes. Pro ($9/month) unlocks every AI tool: resume analysis, the coach, the case builder, and comp coaching.",
+  },
+  {
+    question: "Do I need a credit card to start?",
+    answer:
+      "No. Roast My Resume and your first starter case are free, no card required.",
+  },
+  {
+    question: "How does the coach work?",
+    answer:
+      "It's grounded only in the wins you log plus your goal and review date — so it names your real gaps and drafts your real case, not generic advice.",
+  },
+  {
+    question: "Is my data private?",
+    answer:
+      "Yes. We don't train on your data, you can export it anytime, and delete means delete.",
+  },
+] satisfies Faq[]

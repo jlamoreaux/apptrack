@@ -1,4 +1,5 @@
-import { getPostBySlug, getAllPosts, formatPostDate, renderMarkdown } from "@/lib/blog";
+import { getPostBySlug, getAllPosts, formatPostDate } from "@/lib/blog";
+import { renderMarkdown } from "@/lib/blog-render";
 import { generatePageMetadata } from "@/lib/metadata";
 import { NavigationStatic } from "@/components/navigation-static";
 import { notFound } from "next/navigation";

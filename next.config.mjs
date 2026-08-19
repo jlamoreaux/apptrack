@@ -1,4 +1,5 @@
 import { withPostHogConfig } from "@posthog/nextjs-config";
+import { agentDiscoveryHeaders } from "./lib/constants/agent-discovery-links.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -12,6 +13,9 @@ const nextConfig = {
     formats: ["image/avif", "image/webp"],
   },
   serverExternalPackages: ["pdf-parse", "mammoth", "winston-loki", "snappy"],
+  async headers() {
+    return agentDiscoveryHeaders();
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't bundle server-only packages on the client side
