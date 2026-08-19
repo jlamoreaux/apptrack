@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
+import {
+  MARKDOWN_PATH_PARAM,
+  MARKDOWN_REWRITE_PATH,
+  hasMarkdownRendering,
+  prefersMarkdown,
+} from "@/lib/agent-discovery/markdown-negotiation"
 
 // CareerOtter Phase 2 surfaces (merged to main ahead of launch) stay hidden
 // until the launch switch is flipped. Matched with segment boundaries so a route
@@ -46,6 +52,22 @@ export async function middleware(request: NextRequest) {
   )
   if (legacyRedirect) {
     return NextResponse.redirect(legacyRedirect, 301)
+  }
+
+  // Markdown for agents: a client that asks for text/markdown gets the markdown
+  // rendering of a public page, while browsers (which ask for text/html) fall
+  // through to the normal HTML. Handled before the Supabase session refresh —
+  // these are public marketing pages and need no session.
+  if (
+    request.method === "GET" &&
+    prefersMarkdown(request.headers.get("accept")) &&
+    hasMarkdownRendering(request.nextUrl.pathname)
+  ) {
+    const markdownUrl = request.nextUrl.clone()
+    markdownUrl.pathname = MARKDOWN_REWRITE_PATH
+    markdownUrl.search = ""
+    markdownUrl.searchParams.set(MARKDOWN_PATH_PARAM, request.nextUrl.pathname)
+    return NextResponse.rewrite(markdownUrl)
   }
 
   let supabaseResponse = NextResponse.next({

@@ -1,11 +1,6 @@
 import fs from "fs";
 import path from "path";
 import matter from "gray-matter";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkRehype from "remark-rehype";
-import rehypeSanitize from "rehype-sanitize";
-import rehypeStringify from "rehype-stringify";
 
 const BLOG_DIR = path.join(process.cwd(), "content/blog");
 
@@ -71,15 +66,4 @@ export function getPostBySlug(slug: string): BlogPost | null {
     author: data.author ?? "",
     content,
   };
-}
-
-const markdownProcessor = unified()
-  .use(remarkParse)
-  .use(remarkRehype)
-  .use(rehypeSanitize)
-  .use(rehypeStringify);
-
-export async function renderMarkdown(source: string): Promise<string> {
-  const result = await markdownProcessor.process(source);
-  return String(result);
 }
