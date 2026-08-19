@@ -1,29 +1,5 @@
 import { withPostHogConfig } from "@posthog/nextjs-config";
-
-/**
- * RFC 8288 Link headers advertising this origin's agent-facing resources.
- *
- * All relation types here are IANA-registered (`api-catalog` from RFC 9727,
- * `service-desc`/`service-doc`/`service-meta` from RFC 8631, `describedby`,
- * `terms-of-service`, `privacy-policy`) — an unregistered bare token would not
- * be a conforming relation type. Targets are relative URI references, so they
- * resolve against whichever origin served the response (preview, staging, prod).
- */
-const AGENT_DISCOVERY_LINK = [
-  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
-  '</openapi.json>; rel="service-desc"; type="application/openapi+json"',
-  '</llms.txt>; rel="service-doc"; type="text/plain"',
-  '</.well-known/ai-catalog.json>; rel="service-meta"; type="application/json"',
-  '</.well-known/agent-skills/index.json>; rel="describedby"; type="application/json"',
-  '</terms>; rel="terms-of-service"; type="text/html"',
-  '</privacy>; rel="privacy-policy"; type="text/html"',
-].join(", ");
-
-const LINK_HEADER = { key: "Link", value: AGENT_DISCOVERY_LINK };
-
-// Paths that serve markdown or HTML depending on Accept (see middleware.ts)
-// must tell caches to key on it.
-const VARY_ACCEPT = { key: "Vary", value: "Accept" };
+import { agentDiscoveryHeaders } from "./lib/constants/agent-discovery-links.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -38,16 +14,7 @@ const nextConfig = {
   },
   serverExternalPackages: ["pdf-parse", "mammoth", "winston-loki", "snappy"],
   async headers() {
-    return [
-      // Split so `/` and everything below it are matched by exactly one Link
-      // rule — overlapping rules would emit the header twice. The `.+` in the
-      // second pattern is what keeps it from also matching the bare root.
-      { source: "/", headers: [LINK_HEADER, VARY_ACCEPT] },
-      { source: "/:path((?!_next/|api/).+)", headers: [LINK_HEADER] },
-      { source: "/free-tools", headers: [VARY_ACCEPT] },
-      { source: "/blog", headers: [VARY_ACCEPT] },
-      { source: "/blog/:slug", headers: [VARY_ACCEPT] },
-    ];
+    return agentDiscoveryHeaders();
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {
