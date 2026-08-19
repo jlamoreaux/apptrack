@@ -1,3 +1,5 @@
+import type { Faq, PricingTier } from "@/types"
+
 // Homepage content constants to avoid duplication and improve maintainability
 
 export const IMAGE_SIZES = "(min-width: 1024px) 50vw, 100vw"
@@ -79,9 +81,7 @@ export const PRICING_TIERS = [
     cta: "Start your case",
     highlighted: true,
   },
-] as const
-
-export type PricingTier = (typeof PRICING_TIERS)[number]
+] as const satisfies readonly PricingTier[]
 
 export const FAQS = [
   {
@@ -104,6 +104,4 @@ export const FAQS = [
     answer:
       "Yes. We don't train on your data, you can export it anytime, and delete means delete.",
   },
-]
-
-export type Faq = (typeof FAQS)[number]
+] satisfies Faq[]

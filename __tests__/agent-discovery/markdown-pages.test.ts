@@ -35,12 +35,16 @@ describe("renderMarkdownPage", () => {
   });
 
   it("renders a blog post from its MDX source", () => {
-    const [post] = getAllPosts();
-    if (!post) return;
+    const posts = getAllPosts();
+    // Asserted rather than guarded: an early return on an empty blog would let
+    // a regression in blog markdown rendering pass silently.
+    expect(posts.length).toBeGreaterThan(0);
 
-    const markdown = renderMarkdownPage(`/blog/${post.slug}`)!;
-    expect(markdown).toContain(`# ${post.title}`);
-    expect(markdown).toContain(post.description);
+    for (const post of posts) {
+      const markdown = renderMarkdownPage(`/blog/${post.slug}`)!;
+      expect(markdown).toContain(`# ${post.title}`);
+      expect(markdown).toContain(post.description);
+    }
   });
 
   it("returns null for a path without a rendering", () => {

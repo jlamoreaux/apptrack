@@ -1,18 +1,16 @@
+import {
+  BLOG_PATH_PREFIX,
+  STATIC_MARKDOWN_PATHS,
+} from "@/lib/constants/agent-discovery";
+
 /**
- * Accept-header negotiation for markdown responses.
+ * Accept-header negotiation for markdown responses. The paths and route names
+ * themselves live in lib/constants/agent-discovery.
  *
  * Kept free of Node built-ins on purpose: middleware runs in the edge runtime
  * and imports this module, so it must not reach the filesystem-backed page
  * renderers in markdown-pages.ts.
  */
-
-export const MARKDOWN_REWRITE_PATH = "/api/markdown";
-export const MARKDOWN_PATH_PARAM = "path";
-
-const BLOG_PREFIX = "/blog/";
-
-/** Paths with a markdown rendering that is not derived from a blog slug. */
-export const STATIC_MARKDOWN_PATHS = ["/", "/free-tools", "/blog"] as const;
 
 interface AcceptEntry {
   type: string;
@@ -64,15 +62,15 @@ export function prefersMarkdown(acceptHeader: string | null): boolean {
  */
 export function hasMarkdownRendering(pathname: string): boolean {
   if ((STATIC_MARKDOWN_PATHS as readonly string[]).includes(pathname)) return true;
-  if (!pathname.startsWith(BLOG_PREFIX)) return false;
+  if (!pathname.startsWith(BLOG_PATH_PREFIX)) return false;
 
-  const slug = pathname.slice(BLOG_PREFIX.length);
+  const slug = pathname.slice(BLOG_PATH_PREFIX.length);
   return slug.length > 0 && !slug.includes("/");
 }
 
 export function blogSlugFromPath(pathname: string): string | null {
-  if (!pathname.startsWith(BLOG_PREFIX)) return null;
+  if (!pathname.startsWith(BLOG_PATH_PREFIX)) return null;
 
-  const slug = pathname.slice(BLOG_PREFIX.length);
+  const slug = pathname.slice(BLOG_PATH_PREFIX.length);
   return slug.length > 0 && !slug.includes("/") ? slug : null;
 }

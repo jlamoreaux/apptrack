@@ -52,7 +52,7 @@ hand-written summary that would silently go stale.
 
 ## Not published: DNS-AID
 
-DNS for AI Discovery (`draft-mozleywilliams-dnsop-dnsaid`) is the one item here
+DNS for AI Discovery ([`draft-mozleywilliams-dnsop-dnsaid-02`](https://datatracker.ietf.org/doc/html/draft-mozleywilliams-dnsop-dnsaid-02)) is the one item here
 that cannot live in this repository — it is zone configuration, applied wherever
 `careerotter.io` DNS is hosted.
 
@@ -64,15 +64,25 @@ To publish it, add ServiceMode SVCB records under `_agents`:
 _index._agents.careerotter.io. 3600 IN SVCB 1 careerotter.io. (
                                  alpn="h2,http/1.1"
                                  port=443
+                                 well-known="ai-catalog.json"
                                  mandatory=alpn )
 ```
 
 Notes before doing this:
 
-- RFC 9460 SvcParams are the only standardized keys the draft uses; there is no
-  registered key for "the path of the manifest". Agents are expected to fetch
-  `/.well-known/ai-catalog.json` from the named origin. Anything path-shaped
-  would have to go in an experimental `key65xxx`, which nothing reads yet.
+- Alongside the RFC 9460 keys (`alpn`, `port`, `ipv4hint`, `ipv6hint`,
+  `mandatory`), draft `-02` defines six of its own: `well-known` (an RFC 8615
+  path, with the `.well-known/` prefix assumed — hence `ai-catalog.json` above,
+  not the full path), `cap` and `cap-sha256` (a capability descriptor locator
+  and the base64url SHA-256 digest of its canonical form), `policy`, `realm`,
+  and `bap`.
+- **Those six have no numeric code points yet.** The draft defers assignment to
+  IANA under Standards Action, so today they can only be published as
+  experimental `key65xxx` numbers that no two implementations agree on. That,
+  not a gap in the draft, is the reason to wait.
+- The schema of the organization index that `_index._agents` points at is out of
+  scope for the draft. CareerOtter would serve `/.well-known/ai-catalog.json`,
+  which is what the ARD manifest above already is.
 - `_mcp._agents` and `_a2a._agents` records should **not** be added. They would
   advertise an MCP server and an A2A agent that do not exist (see below).
 - The draft asks that the discovery zone be DNSSEC-signed so validating

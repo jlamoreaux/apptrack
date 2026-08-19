@@ -4,6 +4,8 @@ import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
 import {
   MARKDOWN_PATH_PARAM,
   MARKDOWN_REWRITE_PATH,
+} from "@/lib/constants/agent-discovery"
+import {
   hasMarkdownRendering,
   prefersMarkdown,
 } from "@/lib/agent-discovery/markdown-negotiation"

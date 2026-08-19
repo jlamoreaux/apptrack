@@ -2,8 +2,8 @@ import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { FREE_TOOLS, ROLE_LANDING_PAGES } from "@/lib/constants/free-tools";
 import { PRICING_TIERS, FAQS } from "@/lib/constants/homepage-content";
 import { getAllPosts, getPostBySlug, formatPostDate } from "@/lib/blog";
+import { STATIC_MARKDOWN_PATHS } from "@/lib/constants/agent-discovery";
 import {
-  STATIC_MARKDOWN_PATHS,
   blogSlugFromPath,
   hasMarkdownRendering,
 } from "@/lib/agent-discovery/markdown-negotiation";
