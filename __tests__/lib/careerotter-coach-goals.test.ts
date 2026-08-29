@@ -4,7 +4,10 @@ import {
   getCoachGoal,
   COACH_GOALS,
 } from "@/lib/careerotter/coach-prompt";
-import { grantFractionReceivedInYear } from "@/components/careerotter/comp-tracker";
+import {
+  addMonthsClamped,
+  grantFractionReceivedInYear,
+} from "@/components/careerotter/comp-tracker";
 
 describe("COACH_GOALS", () => {
   it("has unique ids", () => {
@@ -106,6 +109,34 @@ describe("grantFractionReceivedInYear", () => {
         0
       );
       expect(total).toBeCloseTo(1, 5);
+    });
+  });
+
+  describe("month-end and out-of-range edge cases", () => {
+    it("clamps month-end vest boundaries instead of overflowing", () => {
+      // Jan 31 + 1 month must be the end of February, not March 3.
+      const feb = addMonthsClamped(new Date("2026-01-31T00:00:00"), 1);
+      expect([feb.getMonth(), feb.getDate()]).toEqual([1, 28]);
+      // A day that fits the target month is preserved exactly.
+      const mar = addMonthsClamped(new Date("2026-01-31T00:00:00"), 2);
+      expect([mar.getMonth(), mar.getDate()]).toEqual([2, 31]);
+    });
+
+    it("keeps a month-end start date's grant summing to 1", () => {
+      const start = new Date("2026-01-31T00:00:00");
+      const total = [2026, 2027, 2028].reduce(
+        (sum, y) => sum + grantFractionReceivedInYear(y, start, 1, 0),
+        0
+      );
+      expect(total).toBeCloseTo(1, 5);
+    });
+
+    it("clamps a stored cliff longer than the vest to the vest end", () => {
+      // The API rejects this, but a stored bad value must still pay out the
+      // grant at vest end rather than modeling a never-paying schedule.
+      const start = new Date("2026-01-01T00:00:00");
+      expect(grantFractionReceivedInYear(2026, start, 1, 60)).toBeCloseTo(1, 5);
+      expect(grantFractionReceivedInYear(2027, start, 1, 60)).toBe(0);
     });
   });
 });

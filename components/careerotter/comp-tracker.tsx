@@ -37,6 +37,21 @@ interface CompEntry {
 }
 
 /**
+ * Add calendar months to a date, clamping the day to the target month's last
+ * day. Plain Date.setMonth normalizes overflow (Jan 31 + 1 month = Mar 3),
+ * which would silently shift vest boundaries for month-end start dates.
+ */
+export function addMonthsClamped(date: Date, months: number): Date {
+  const result = new Date(date);
+  const day = result.getDate();
+  result.setDate(1);
+  result.setMonth(result.getMonth() + months);
+  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(day, lastDay));
+  return result;
+}
+
+/**
  * Fraction of the TOTAL grant received during calendar year `year`, for a
  * grant vesting linearly over vestYears with an optional cliff. Nothing is
  * received before the cliff; at the cliff the accrued amount vests at once
@@ -53,10 +68,10 @@ export function grantFractionReceivedInYear(
   const totalMonths = Math.round(vestYears * 12);
   if (totalMonths <= 0) return 0;
   const startMs = start.getTime();
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + totalMonths);
-  const cliff = new Date(start);
-  cliff.setMonth(cliff.getMonth() + Math.max(0, cliffMonths));
+  const end = addMonthsClamped(start, totalMonths);
+  // Clamp the cliff to the vest window: the API rejects longer cliffs, but a
+  // stored bad value must not model a grant that pays after it has ended.
+  const cliff = addMonthsClamped(start, Math.min(Math.max(0, cliffMonths), totalMonths));
 
   const vestedAt = (t: number): number => {
     if (t < cliff.getTime() || t <= startMs) return 0;

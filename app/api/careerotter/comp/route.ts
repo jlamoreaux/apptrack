@@ -200,6 +200,23 @@ export async function POST(request: NextRequest) {
     }
     vestCliffMonths = body.vest_cliff_months;
   }
+  // A cliff only means something relative to a vest schedule: without a
+  // duration the projection would silently ignore it, and a cliff longer
+  // than the vest describes a schedule that never pays until after it ends.
+  if (vestCliffMonths !== null && vestCliffMonths > 0) {
+    if (vestYears === null) {
+      return NextResponse.json(
+        { error: "vest_cliff_months requires vest_years" },
+        { status: 400 }
+      );
+    }
+    if (vestCliffMonths > Math.round(vestYears * 12)) {
+      return NextResponse.json(
+        { error: "vest_cliff_months cannot exceed the vesting duration" },
+        { status: 400 }
+      );
+    }
+  }
 
   const admin = createAdminClient();
   const { data, error } = await admin
