@@ -35,7 +35,11 @@ export interface LogContext {
   metadata?: Record<string, any>;
 }
 
-export interface LogEntry {
+// Declared as a type alias rather than an interface on purpose: only type aliases get an
+// implicit index signature, so only they are assignable to Record<string, unknown>. The log
+// sink takes that shape because it serialises entries to JSON. Changing this back to an
+// interface breaks lib/services/log-sink.ts.
+export type LogEntry = {
   level: LogLevel;
   message: string;
   context?: LogContext;

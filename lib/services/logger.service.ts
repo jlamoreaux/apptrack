@@ -1,5 +1,4 @@
-import winston from 'winston';
-import { WinstonTransport } from '@axiomhq/winston';
+import { createLogSink, type LogSink } from './log-sink';
 import { 
   LogLevel, 
   LogCategory, 
@@ -34,7 +33,7 @@ interface ErrorDetails {
  */
 export class LoggerService {
   private static instance: LoggerService;
-  private logger: winston.Logger;
+  private logger: LogSink;
   private isProduction = process.env.NODE_ENV === 'production';
   private samplingRates = this.isProduction 
     ? LOG_SAMPLING_RATES.production 
@@ -69,57 +68,36 @@ export class LoggerService {
     return LoggerService.instance;
   }
   
-  private createLogger(): winston.Logger {
-    const transports: winston.transport[] = [];
-    
-    // Console transport for all environments
-    if (!this.isProduction || process.env.ENABLE_CONSOLE_LOGGING === 'true') {
-      transports.push(
-        new winston.transports.Console({
-          format: winston.format.combine(
-            winston.format.colorize(),
-            winston.format.timestamp(),
-            winston.format.printf(({ timestamp, level, message, ...meta }) => {
-              const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
-              return `${timestamp} [${level}] ${message} ${metaStr}`;
-            })
-          )
-        })
-      );
-    }
-    
-    // External logging service for production
-    if (this.isProduction && process.env.AXIOM_TOKEN && process.env.AXIOM_DATASET) {
-      try {
-        const externalTransport = new WinstonTransport({
-          token: process.env.AXIOM_TOKEN,
-          dataset: process.env.AXIOM_DATASET,
-          // Axiom automatically includes timestamp and handles formatting
-        });
-        
-        transports.push(externalTransport);
-        
-      } catch {
-        // Silent fail if external logging configuration fails
-      }
-    }
-    
-    return winston.createLogger({
+  /**
+   * Builds the log transport.
+   *
+   * Winston was replaced because its transports are built on Node's stream/fs/os, none of
+   * which exist on Cloudflare Workers. See lib/services/log-sink.ts. Behaviour is
+   * preserved: the same level, the same silent flag, the same service/hostname metadata,
+   * pretty output outside production, and Axiom ingest in production when configured.
+   */
+  private createLogger(): LogSink {
+    const consoleEnabled =
+      !this.isProduction || process.env.ENABLE_CONSOLE_LOGGING === 'true';
+
+    const axiom =
+      this.isProduction && process.env.AXIOM_TOKEN && process.env.AXIOM_DATASET
+        ? { token: process.env.AXIOM_TOKEN, dataset: process.env.AXIOM_DATASET }
+        : undefined;
+
+    return createLogSink({
       level: DEFAULT_LOG_LEVEL,
-      format: winston.format.combine(
-        winston.format.timestamp(),
-        winston.format.errors({ stack: true }),
-        winston.format.json()
-      ),
-      defaultMeta: { 
+      silent:
+        process.env.DISABLE_LOGGING === 'true' || (!consoleEnabled && !axiom),
+      pretty: consoleEnabled && !this.isProduction,
+      defaultMeta: {
         service: 'apptrack',
-        hostname: process.env.HOSTNAME || process.env.VERCEL_URL || 'unknown'
+        hostname: process.env.HOSTNAME || process.env.VERCEL_URL || 'unknown',
       },
-      transports,
-      silent: process.env.DISABLE_LOGGING === 'true'
+      axiom,
     });
   }
-  
+
   // Core logging methods
   info(message: string, context?: LogContext): void {
     this.log(LogLevel.INFO, message, context);
