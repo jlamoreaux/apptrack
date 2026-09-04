@@ -15,6 +15,7 @@ function options(overrides: Partial<LogSinkOptions> = {}): LogSinkOptions {
     level: LogLevel.INFO,
     defaultMeta: { service: "apptrack" },
     silent: false,
+    console: true,
     pretty: false,
     ...overrides,
   };
@@ -62,6 +63,29 @@ describe("createLogSink", () => {
     const sink = createLogSink(options({ silent: true }));
     sink.log(LogLevel.ERROR, "boom", {});
     expect(logSpy).not.toHaveBeenCalled();
+  });
+
+  describe("console output is independent of silent", () => {
+    // The Winston config this replaced attached a Console transport only outside production
+    // or when ENABLE_CONSOLE_LOGGING was set. Collapsing that into `silent` would have made
+    // production start logging to stdout — a behaviour change disguised as a refactor.
+    const originalFetch = global.fetch;
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    it("suppresses console output while still shipping to Axiom", () => {
+      const mockFetch = jest.fn().mockResolvedValue({ ok: true } as Response);
+      global.fetch = mockFetch;
+
+      const sink = createLogSink(
+        options({ console: false, axiom: { token: "tok", dataset: "logs" } })
+      );
+      sink.log(LogLevel.ERROR, "boom", {});
+
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("entry shape", () => {

@@ -39,6 +39,15 @@ export interface LogSinkOptions {
   defaultMeta: Record<string, unknown>;
   /** Suppresses all output. */
   silent: boolean;
+  /**
+   * Whether to write to the console at all.
+   *
+   * Separate from `silent` because the Winston config it replaces attached a Console
+   * transport only when not in production or when ENABLE_CONSOLE_LOGGING was set. Folding
+   * that into `silent` would have made production log to stdout where it previously did
+   * not — a behaviour change disguised as a refactor.
+   */
+  console: boolean;
   /** Human-readable console output instead of JSON. */
   pretty: boolean;
   axiom?: { token: string; dataset: string };
@@ -112,7 +121,7 @@ export function createLogSink(options: LogSinkOptions): LogSink {
       };
 
       try {
-        writeToConsole(level, message, entry, options.pretty);
+        if (options.console) writeToConsole(level, message, entry, options.pretty);
         if (options.axiom) postToAxiom(options.axiom, entry);
       } catch {
         // Never throw from a log write.

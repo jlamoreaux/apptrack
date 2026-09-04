@@ -87,8 +87,8 @@ export class LoggerService {
 
     return createLogSink({
       level: DEFAULT_LOG_LEVEL,
-      silent:
-        process.env.DISABLE_LOGGING === 'true' || (!consoleEnabled && !axiom),
+      silent: process.env.DISABLE_LOGGING === 'true',
+      console: consoleEnabled,
       pretty: consoleEnabled && !this.isProduction,
       defaultMeta: {
         service: 'apptrack',
