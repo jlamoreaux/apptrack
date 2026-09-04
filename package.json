@@ -21,7 +21,8 @@
     "db:verify": "./scripts/migration/verify-baseline.sh",
     "db:drift": "./scripts/ci/schema-drift-guard.sh",
     "gen:content": "node scripts/build/gen-content.mjs",
-    "prebuild": "node scripts/build/gen-content.mjs"
+    "prebuild": "node scripts/build/gen-content.mjs",
+    "scan:tenant-scoping": "node scripts/ci/scan-tenant-scoping.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.2",
