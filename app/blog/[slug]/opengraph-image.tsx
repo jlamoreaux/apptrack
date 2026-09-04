@@ -1,16 +1,14 @@
 import { ImageResponse } from "next/og"
-import { readFileSync } from "fs"
-import { join } from "path"
 import { OG_COLORS, OG_SIZE } from "@/components/og"
 import { getPostBySlug, getAllPosts } from "@/lib/blog"
-
-export const runtime = "nodejs"
+// Inlined at build time by scripts/build/gen-content.mjs. This was a module-scope
+// readFileSync of public/logo_square.png, which forced `runtime = "nodejs"` and cannot
+// work on Cloudflare Workers, where there is no filesystem and the bundle does not ship
+// the public directory.
+import { LOGO_SQUARE_DATA_URI } from "@/lib/content/generated"
 export const alt = "CareerOtter Blog"
 export const size = OG_SIZE
 export const contentType = "image/png"
-
-const logoPath = join(process.cwd(), "public/logo_square.png")
-const logoBase64 = `data:image/png;base64,${readFileSync(logoPath).toString("base64")}`
 
 export async function generateStaticParams() {
   const posts = getAllPosts()
@@ -45,7 +43,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={logoBase64}
+            src={LOGO_SQUARE_DATA_URI}
             width={44}
             height={44}
             alt=""

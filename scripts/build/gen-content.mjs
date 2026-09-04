@@ -38,8 +38,21 @@ function readSkills() {
   );
 }
 
+/**
+ * Inlines a binary asset as a data URI.
+ *
+ * Used for the OG-image logo: app/blog/[slug]/opengraph-image.tsx read it with
+ * readFileSync at module scope, which cannot work on Workers.
+ */
+function readAssetAsDataUri(relativePath, mimeType) {
+  const file = join(ROOT, relativePath);
+  if (!existsSync(file)) return null;
+  return `data:${mimeType};base64,${readFileSync(file).toString("base64")}`;
+}
+
 const posts = readBlogPosts();
 const skills = readSkills();
+const logoSquare = readAssetAsDataUri("public/logo_square.png", "image/png");
 
 const contents = `// GENERATED FILE — DO NOT EDIT.
 // Produced by scripts/build/gen-content.mjs from content/. Regenerate with:
@@ -53,10 +66,13 @@ export const BLOG_POSTS_RAW: Readonly<Record<string, string>> = ${JSON.stringify
 
 /** Raw Markdown for every SKILL.md under content/agent-skills, keyed by directory name. */
 export const AGENT_SKILL_BODIES: Readonly<Record<string, string>> = ${JSON.stringify(skills, null, 2)};
+
+/** public/logo_square.png as a data URI, for OG image generation. */
+export const LOGO_SQUARE_DATA_URI: string = ${JSON.stringify(logoSquare ?? "")};
 `;
 
 mkdirSync(dirname(OUT), { recursive: true });
 writeFileSync(OUT, contents);
 console.log(
-  `wrote lib/content/generated.ts — ${Object.keys(posts).length} blog post(s), ${Object.keys(skills).length} skill(s)`
+  `wrote lib/content/generated.ts — ${Object.keys(posts).length} blog post(s), ${Object.keys(skills).length} skill(s), logo ${logoSquare ? "inlined" : "MISSING"}`
 );
