@@ -23,7 +23,6 @@ import { extractTextFromBuffer, isSupportedFileType } from '@/lib/utils/text-ext
 jest.mock('@/lib/supabase/server');
 jest.mock('@/services/resumes');
 jest.mock('@/lib/utils/text-extraction-server');
-jest.mock('pdf-parse', () => jest.fn());
 jest.mock('@/lib/utils/file-type-validation', () => ({
   validateFileType: jest.fn().mockResolvedValue({ valid: true, mimeType: 'application/pdf', error: null }),
   isAllowedMimeType: jest.fn().mockReturnValue(true),

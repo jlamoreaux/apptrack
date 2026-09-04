@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pdf from "pdf-parse";
+import { extractPdfText } from "@/lib/utils/document-extraction";
 import { createClient } from "@/lib/supabase/server";
 import { RateLimitService } from "@/lib/services/rate-limit.service";
 import { getUserSubscriptionTier } from "@/lib/middleware/rate-limit.middleware";
@@ -66,12 +66,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "File size must be less than 5MB" }, { status: 400 });
     }
 
-    // Convert file to buffer
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    // Uint8Array rather than Buffer: Buffer is a Node global absent on Workers.
+    const bytes = new Uint8Array(await file.arrayBuffer());
 
     // Extract text from PDF
-    const data = await pdf(buffer);
+    const text = await extractPdfText(bytes);
 
     // Track usage
     rateLimitService.trackUsage(user.id, "pdf_parse", true).catch((err) => {
@@ -88,11 +87,11 @@ export async function POST(request: NextRequest) {
       duration: Date.now() - startTime,
       metadata: {
         fileSize: file.size,
-        textLength: data.text.length,
+        textLength: text.length,
       },
     });
 
-    return NextResponse.json({ text: data.text });
+    return NextResponse.json({ text });
   } catch (error) {
     loggerService.error("Error parsing PDF", error, {
       category: LogCategory.API,

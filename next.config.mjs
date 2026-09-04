@@ -19,7 +19,8 @@ const nextConfig = {
     //   IMAGE_QUALITY_HERO               80
     qualities: [75, 80, 85],
   },
-  serverExternalPackages: ["pdf-parse", "mammoth"],
+  // No serverExternalPackages: pdf-parse is gone (replaced by unpdf) and mammoth is now
+  // imported via its prebuilt browser bundle, which has no Node dependencies to exclude.
   async headers() {
     return agentDiscoveryHeaders();
   },
