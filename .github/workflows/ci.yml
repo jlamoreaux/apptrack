@@ -24,6 +24,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
+          # Next.js 16 requires >= 20.9. `20` resolves to the latest 20.x, which is well
+          # past that, but the floor is recorded here so a future pin cannot drop below it.
           node-version: 20
 
       - name: Cache pnpm store
@@ -70,6 +72,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
+          # Next.js 16 requires >= 20.9. `20` resolves to the latest 20.x, which is well
+          # past that, but the floor is recorded here so a future pin cannot drop below it.
           node-version: 20
 
       - name: Cache pnpm store
