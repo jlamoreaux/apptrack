@@ -33,7 +33,10 @@ function isCareerotterSurface(pathname: string): boolean {
   )
 }
 
-export async function middleware(request: NextRequest) {
+// Renamed from `middleware` in Next 16. `proxy` runs on the **nodejs** runtime and that
+// is not configurable — which is what we want, since the Cloudflare Workers target has no
+// edge/nodejs split. The Supabase session refresh below is unaffected by the change.
+export async function proxy(request: NextRequest) {
   // Hard launch gate, evaluated before anything else: 404 the not-yet-launched
   // CareerOtter routes unless CAREEROTTER_ENABLED=1. Keeps them unreachable in
   // production while their code sits merged-but-dark on main.
