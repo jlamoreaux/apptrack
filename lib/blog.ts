@@ -1,8 +1,8 @@
-import fs from "fs";
-import path from "path";
 import matter from "gray-matter";
-
-const BLOG_DIR = path.join(process.cwd(), "content/blog");
+// Posts are inlined at build time by scripts/build/gen-content.mjs. Reading content/ from
+// disk at request time cannot work on Cloudflare Workers: there is no filesystem, and the
+// deployed bundle does not include the source tree.
+import { BLOG_POSTS_RAW } from "@/lib/content/generated";
 
 export function formatPostDate(dateStr: string): string {
   const parsed = Date.parse(dateStr);
@@ -24,15 +24,8 @@ export interface BlogPost {
 }
 
 export function getAllPosts(): Omit<BlogPost, "content">[] {
-  if (!fs.existsSync(BLOG_DIR)) return [];
-
-  const files = fs.readdirSync(BLOG_DIR).filter((f) => f.endsWith(".mdx"));
-
-  return files
-    .map((filename) => {
-      const slug = filename.replace(".mdx", "");
-      const filePath = path.join(BLOG_DIR, filename);
-      const raw = fs.readFileSync(filePath, "utf-8");
+  return Object.entries(BLOG_POSTS_RAW)
+    .map(([slug, raw]) => {
       const { data } = matter(raw);
 
       return {
@@ -47,15 +40,15 @@ export function getAllPosts(): Omit<BlogPost, "content">[] {
 }
 
 export function getPostBySlug(slug: string): BlogPost | null {
-  // Prevent path traversal
-  if (slug.includes('/') || slug.includes('\\') || slug.includes('..')) {
+  // Key lookup rather than a path join, so traversal is structurally impossible. The
+  // explicit guard is kept as defence in depth and to preserve the previous contract.
+  if (slug.includes("/") || slug.includes("\\") || slug.includes("..")) {
     return null;
   }
 
-  const filePath = path.join(BLOG_DIR, `${slug}.mdx`);
-  if (!fs.existsSync(filePath)) return null;
+  const raw = BLOG_POSTS_RAW[slug];
+  if (raw === undefined) return null;
 
-  const raw = fs.readFileSync(filePath, "utf-8");
   const { data, content } = matter(raw);
 
   return {

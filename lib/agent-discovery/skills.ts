@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
+// Skill bodies are inlined at build time by scripts/build/gen-content.mjs — Cloudflare
+// Workers has no filesystem and the bundle does not ship content/.
+import { AGENT_SKILL_BODIES } from "@/lib/content/generated";
 
 /**
  * Agent Skills published under /.well-known/agent-skills/ per the Agent Skills
@@ -11,7 +12,6 @@ import path from "node:path";
  * so it can never drift from the file the way a hand-copied hash would.
  */
 
-const SKILLS_DIR = path.join(process.cwd(), "content/agent-skills");
 
 export const SKILLS_INDEX_SCHEMA =
   "https://schemas.agentskills.io/discovery/0.2.0/schema.json";
@@ -51,10 +51,7 @@ export function isKnownSkill(name: string): boolean {
 export function readSkillBody(name: string): string | null {
   if (!isKnownSkill(name)) return null;
 
-  const filePath = path.join(SKILLS_DIR, name, "SKILL.md");
-  if (!fs.existsSync(filePath)) return null;
-
-  return fs.readFileSync(filePath, "utf-8");
+  return AGENT_SKILL_BODIES[name] ?? null;
 }
 
 export function skillDigest(body: string): string {

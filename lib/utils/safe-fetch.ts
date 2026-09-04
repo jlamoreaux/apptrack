@@ -7,7 +7,6 @@
  * body reader so a hostile server can't exhaust memory.
  */
 
-import { lookup } from 'dns/promises';
 
 /**
  * Reject IP addresses in loopback, private, link-local (cloud metadata), and
@@ -43,6 +42,47 @@ export function isBlockedHost(hostname: string): boolean {
   return isBlockedIp(host);
 }
 
+/** DNS-over-HTTPS resolver. Cloudflare's, so a Worker resolves against its own edge. */
+const DOH_ENDPOINT = 'https://cloudflare-dns.com/dns-query';
+const DOH_TIMEOUT_MS = 3_000;
+
+/** RFC 1035 record types we care about: A and AAAA. */
+const DNS_TYPE_A = 1;
+const DNS_TYPE_AAAA = 28;
+
+interface DohAnswer {
+  type: number;
+  data: string;
+}
+
+/**
+ * Resolve a hostname over DoH and return every A/AAAA address.
+ *
+ * Uses DNS-over-HTTPS rather than `dns/promises`: `node:dns` does not exist on Cloudflare
+ * Workers even with `nodejs_compat`, and this is the only thing in this module that was not
+ * already Web-standard.
+ *
+ * CNAME records in the answer chain are ignored — only the terminal A/AAAA addresses can
+ * actually be connected to, and those are what must be validated.
+ */
+async function resolveOverDoh(hostname: string): Promise<string[]> {
+  const query = async (type: 'A' | 'AAAA'): Promise<string[]> => {
+    const url = `${DOH_ENDPOINT}?name=${encodeURIComponent(hostname)}&type=${type}`;
+    const response = await fetch(url, {
+      headers: { accept: 'application/dns-json' },
+      signal: AbortSignal.timeout(DOH_TIMEOUT_MS),
+    });
+    if (!response.ok) return [];
+    const body = (await response.json()) as { Answer?: DohAnswer[] };
+    return (body.Answer ?? [])
+      .filter((a) => a.type === DNS_TYPE_A || a.type === DNS_TYPE_AAAA)
+      .map((a) => a.data);
+  };
+
+  const [v4, v6] = await Promise.all([query('A'), query('AAAA')]);
+  return [...v4, ...v6];
+}
+
 /**
  * Resolve a hostname and reject it if any resolved address is private —
  * a public name can still point at an internal address (DNS rebinding).
@@ -51,8 +91,8 @@ export function isBlockedHost(hostname: string): boolean {
  */
 export async function assertResolvesPublic(hostname: string): Promise<void> {
   try {
-    const addresses = await lookup(hostname.replace(/^\[|\]$/g, ''), { all: true });
-    if (addresses.some((entry) => isBlockedIp(entry.address))) {
+    const addresses = await resolveOverDoh(hostname.replace(/^\[|\]$/g, ''));
+    if (addresses.some((address) => isBlockedIp(address))) {
       throw new Error('Blocked host');
     }
   } catch (error) {
@@ -91,7 +131,9 @@ export async function fetchPublicUrl(
     // pinning or passing a resolved IP to the transport, which the standard
     // Fetch API doesn't support. The layered guards above (protocol check,
     // isBlockedHost blocklist, and per-hop re-validation) are intentional
-    // fallback mitigations for this threat model.
+    // fallback mitigations for this threat model. Note the exposure is materially
+    // lower on Cloudflare Workers than on a VPC host: a Worker's fetch() cannot reach
+    // RFC1918 space from the edge, and there is no 169.254.169.254 metadata endpoint.
     await assertResolvesPublic(parsed.hostname);
 
     const response = await fetch(current, {

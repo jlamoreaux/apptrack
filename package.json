@@ -20,7 +20,9 @@
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
     "db:verify": "./scripts/migration/verify-baseline.sh",
-    "db:drift": "./scripts/ci/schema-drift-guard.sh"
+    "db:drift": "./scripts/ci/schema-drift-guard.sh",
+    "gen:content": "node scripts/build/gen-content.mjs",
+    "prebuild": "node scripts/build/gen-content.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.2",
