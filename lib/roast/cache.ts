@@ -1,3 +1,4 @@
+import { createSweeper } from "@/lib/utils/periodic-sweep";
 // Simple in-memory cache for roast results
 // In production, consider using Redis or similar
 
@@ -65,18 +66,15 @@ class RoastCache {
 // Singleton instance
 let cacheInstance: RoastCache | null = null;
 
+// Swept on access rather than by a timer: a module-scope setInterval cannot run on
+// Cloudflare Workers. See lib/utils/periodic-sweep.ts.
+const sweepCache = createSweeper(() => cacheInstance?.cleanup(), 60 * 1000);
+
 export function getRoastCache(): RoastCache {
   if (!cacheInstance) {
     cacheInstance = new RoastCache();
-    
-    // Run cleanup every minute
-    if (typeof window === "undefined") {
-      // Server-side: use setInterval
-      setInterval(() => {
-        cacheInstance?.cleanup();
-      }, 60 * 1000);
-    }
   }
-  
+
+  sweepCache();
   return cacheInstance;
 }

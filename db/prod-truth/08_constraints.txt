@@ -1,0 +1,156 @@
+admin_users | admin_users_pkey | PRIMARY KEY (id)
+admin_users | admin_users_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+admin_users | admin_users_user_id_key | UNIQUE (user_id)
+ai_feature_limits | ai_feature_limits_pkey | PRIMARY KEY (id)
+ai_feature_limits | ai_feature_limits_unique | UNIQUE (feature_name, subscription_tier)
+ai_feature_usage | ai_feature_usage_feature_check | CHECK ((feature_name = ANY (ARRAY['job_fit_analysis'::text, 'cover_letter'::text, 'resume_analysis'::text, 'interview_prep'::text, 'career_advice'::text])))
+ai_feature_usage | ai_feature_usage_pkey | PRIMARY KEY (id)
+ai_feature_usage | ai_feature_usage_unique_user_feature_date | UNIQUE (user_id, feature_name, usage_date)
+ai_feature_usage | ai_feature_usage_user_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+ai_guest_conversions | ai_guest_conversions_pkey | PRIMARY KEY (id)
+ai_guest_conversions | ai_guest_conversions_session_fkey | FOREIGN KEY (guest_session_id) REFERENCES ai_guest_sessions(id) ON DELETE CASCADE
+ai_guest_conversions | ai_guest_conversions_unique_user | UNIQUE (user_id)
+ai_guest_conversions | ai_guest_conversions_user_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+ai_guest_rate_limits | ai_guest_rate_limits_pkey | PRIMARY KEY (id)
+ai_guest_sessions | ai_guest_sessions_feature_check | CHECK ((feature_name = ANY (ARRAY['job_fit_analysis'::text, 'cover_letter'::text, 'resume_analysis'::text, 'interview_prep'::text, 'career_advice'::text])))
+ai_guest_sessions | ai_guest_sessions_pkey | PRIMARY KEY (id)
+ai_guest_sessions | ai_guest_sessions_user_fkey | FOREIGN KEY (converted_user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+ai_preview_sessions | ai_preview_sessions_feature_type_check | CHECK ((feature_type = ANY (ARRAY['resume_analysis'::text, 'job_fit'::text, 'cover_letter'::text, 'interview_prep'::text])))
+ai_preview_sessions | ai_preview_sessions_pkey | PRIMARY KEY (id)
+ai_preview_sessions | ai_preview_sessions_shareable_id_key | UNIQUE (shareable_id)
+ai_preview_sessions | ai_preview_sessions_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+ai_preview_usage | ai_preview_usage_pkey | PRIMARY KEY (id)
+ai_trial_results | ai_trial_results_feature_check | CHECK ((feature_name = ANY (ARRAY['job_fit_analysis'::text, 'cover_letter'::text, 'resume_analysis'::text, 'interview_prep'::text, 'career_advice'::text])))
+ai_trial_results | ai_trial_results_pkey | PRIMARY KEY (id)
+ai_trial_results | ai_trial_results_session_fkey | FOREIGN KEY (session_id) REFERENCES ai_guest_sessions(id) ON DELETE CASCADE
+ai_trial_results | ai_trial_results_user_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+ai_usage_stats | ai_usage_stats_pkey | PRIMARY KEY (id)
+ai_usage_stats | ai_usage_stats_unique | UNIQUE (feature_name, stat_date, stat_hour)
+ai_usage_tracking | ai_usage_tracking_pkey | PRIMARY KEY (id)
+ai_usage_tracking | ai_usage_tracking_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+ai_user_limit_overrides | ai_user_limit_overrides_created_by_fkey | FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL
+ai_user_limit_overrides | ai_user_limit_overrides_pkey | PRIMARY KEY (id)
+ai_user_limit_overrides | ai_user_limit_overrides_unique | UNIQUE (user_id, feature_name)
+ai_user_limit_overrides | ai_user_limit_overrides_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+application_history | application_history_application_id_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+application_history | application_history_pkey | PRIMARY KEY (id)
+application_linkedin_contacts | application_linkedin_contacts_app_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+application_linkedin_contacts | application_linkedin_contacts_pkey | PRIMARY KEY (id)
+application_linkedin_contacts | application_linkedin_contacts_profile_fkey | FOREIGN KEY (linkedin_profile_id) REFERENCES linkedin_profiles_new(id) ON DELETE RESTRICT
+application_linkedin_contacts | application_linkedin_contacts_user_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+application_linkedin_contacts | unique_application_profile | UNIQUE (application_id, linkedin_profile_id)
+applications | applications_pkey | PRIMARY KEY (id)
+applications | applications_status_check | CHECK ((status = ANY (ARRAY['Applied'::text, 'Interview Scheduled'::text, 'Interviewed'::text, 'Offer'::text, 'Hired'::text, 'Rejected'::text])))
+applications | applications_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+audience_members | audience_members_audience_check | CHECK ((current_audience = ANY (ARRAY['leads'::text, 'free-users'::text, 'trial-users'::text, 'paid-users'::text])))
+audience_members | audience_members_email_key | UNIQUE (email)
+audience_members | audience_members_pkey | PRIMARY KEY (id)
+audience_members | audience_members_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL
+audit_logs | audit_logs_pkey | PRIMARY KEY (id)
+campaign_sends | campaign_sends_pkey | PRIMARY KEY (campaign)
+career_advice | career_advice_conversation_id_fkey | FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+career_advice | career_advice_pkey | PRIMARY KEY (id)
+career_advice | career_advice_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+career_goals | career_goals_pkey | PRIMARY KEY (id)
+career_goals | career_goals_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+career_profiles | career_profiles_mode_check | CHECK ((mode = ANY (ARRAY['promotion'::text, 'raise'::text, 'job_search'::text])))
+career_profiles | career_profiles_pkey | PRIMARY KEY (user_id)
+career_profiles | career_profiles_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+career_waitlist | career_waitlist_email_key | UNIQUE (email)
+career_waitlist | career_waitlist_pkey | PRIMARY KEY (id)
+career_waitlist | career_waitlist_review_timing_check | CHECK ((review_timing = ANY (ARRAY['lt_3_months'::text, '3_6_months'::text, '6_12_months'::text, 'no_formal_reviews'::text, 'not_sure'::text])))
+career_waitlist | career_waitlist_source_check | CHECK ((source = ANY (ARRAY['email'::text, 'banner'::text, 'direct'::text])))
+career_waitlist | career_waitlist_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE SET NULL
+cleanup_logs | cleanup_logs_pkey | PRIMARY KEY (id)
+coach_memory | coach_memory_pkey | PRIMARY KEY (user_id)
+coach_memory | coach_memory_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+comp_entries | comp_entries_pkey | PRIMARY KEY (id)
+comp_entries | comp_entries_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+conversations | conversations_pkey | PRIMARY KEY (id)
+conversations | conversations_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+cover_letters | cover_letters_application_id_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE SET NULL
+cover_letters | cover_letters_pkey | PRIMARY KEY (id)
+cover_letters | cover_letters_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+cover_letters | cover_letters_user_resume_id_fkey | FOREIGN KEY (user_resume_id) REFERENCES user_resumes(id) ON DELETE SET NULL
+drip_emails | drip_emails_audience_check | CHECK ((audience = ANY (ARRAY['leads'::text, 'free-users'::text, 'trial-users'::text, 'paid-users'::text])))
+drip_emails | drip_emails_email_template_id_key | UNIQUE (email, template_id)
+drip_emails | drip_emails_pkey | PRIMARY KEY (id)
+drip_emails | drip_emails_status_check | CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text, 'cancelled'::text])))
+drip_emails | drip_emails_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+email_preferences | email_preferences_pkey | PRIMARY KEY (user_id)
+email_preferences | email_preferences_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+interview_prep | interview_prep_pkey | PRIMARY KEY (id)
+interview_prep | interview_prep_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id)
+interview_prep | interview_prep_user_resume_id_fkey | FOREIGN KEY (user_resume_id) REFERENCES user_resumes(id) ON DELETE SET NULL
+job_fit_analysis | job_fit_analysis_application_id_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+job_fit_analysis | job_fit_analysis_fit_score_check | CHECK (((fit_score >= 0) AND (fit_score <= 100)))
+job_fit_analysis | job_fit_analysis_pkey | PRIMARY KEY (id)
+job_fit_analysis | job_fit_analysis_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+job_fit_analysis | job_fit_analysis_user_resume_id_fkey | FOREIGN KEY (user_resume_id) REFERENCES user_resumes(id) ON DELETE SET NULL
+linkedin_profiles | linkedin_profiles_application_id_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+linkedin_profiles | linkedin_profiles_pkey | PRIMARY KEY (id)
+linkedin_profiles | linkedin_profiles_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+linkedin_profiles_new | linkedin_profiles_new_pkey | PRIMARY KEY (id)
+linkedin_profiles_new | linkedin_profiles_new_profile_url_key | UNIQUE (profile_url)
+profiles | ai_analyses_used_non_negative | CHECK ((ai_analyses_used >= 0))
+profiles | profiles_career_mode_check | CHECK ((career_mode = ANY (ARRAY['job_seeking'::text, 'employed'::text, 'exploring'::text])))
+profiles | profiles_email_key | UNIQUE (email)
+profiles | profiles_id_fkey | FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE
+profiles | profiles_pkey | PRIMARY KEY (id)
+promo_code_usage | promo_code_usage_pkey | PRIMARY KEY (id)
+promo_code_usage | promo_code_usage_type_check | CHECK ((type = ANY (ARRAY['discount'::text, 'free_forever'::text, 'trial'::text])))
+promo_code_usage | promo_code_usage_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+promo_codes | promo_codes_code_key | UNIQUE (code)
+promo_codes | promo_codes_code_type_check | CHECK ((code_type = ANY (ARRAY['trial'::text, 'discount'::text, 'premium_free'::text])))
+promo_codes | promo_codes_discount_amount_check | CHECK ((discount_amount >= 0))
+promo_codes | promo_codes_discount_duration_check | CHECK ((discount_duration = ANY (ARRAY['once'::text, 'repeating'::text, 'forever'::text])))
+promo_codes | promo_codes_discount_percent_check | CHECK (((discount_percent >= 0) AND (discount_percent <= 100)))
+promo_codes | promo_codes_pkey | PRIMARY KEY (id)
+resume_analysis | resume_analysis_pkey | PRIMARY KEY (id)
+resume_analysis | resume_analysis_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id)
+resume_analysis | resume_analysis_user_resume_id_fkey | FOREIGN KEY (user_resume_id) REFERENCES user_resumes(id) ON DELETE SET NULL
+roasts | roasts_pkey | PRIMARY KEY (id)
+roasts | roasts_shareable_id_key | UNIQUE (shareable_id)
+roasts | roasts_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL
+scheduled_notifications | scheduled_notifications_pkey | PRIMARY KEY (id)
+scheduled_notifications | scheduled_notifications_status_check | CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text, 'cancelled'::text])))
+scheduled_notifications | scheduled_notifications_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+stock_prices | stock_prices_pkey | PRIMARY KEY (ticker)
+subscription_plans | subscription_plans_pkey | PRIMARY KEY (id)
+tailored_resumes | tailored_resumes_application_id_fkey | FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
+tailored_resumes | tailored_resumes_application_unique | UNIQUE (user_id, application_id)
+tailored_resumes | tailored_resumes_pkey | PRIMARY KEY (id)
+tailored_resumes | tailored_resumes_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+trial_history | trial_history_pkey | PRIMARY KEY (id)
+trial_history | trial_history_plan_id_fkey | FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
+trial_history | trial_history_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+trial_history | trial_history_user_id_key | UNIQUE (user_id)
+usage_tracking | unique_user_usage | UNIQUE (user_id)
+usage_tracking | usage_tracking_pkey | PRIMARY KEY (id)
+usage_tracking | usage_tracking_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+user_announcements | user_announcements_pkey | PRIMARY KEY (id)
+user_announcements | user_announcements_user_id_announcement_id_key | UNIQUE (user_id, announcement_id)
+user_announcements | user_announcements_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+user_onboarding | user_onboarding_pkey | PRIMARY KEY (id)
+user_onboarding | user_onboarding_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+user_onboarding | user_onboarding_user_id_flow_id_key | UNIQUE (user_id, flow_id)
+user_onboarding_preferences | user_onboarding_preferences_pkey | PRIMARY KEY (user_id)
+user_onboarding_preferences | user_onboarding_preferences_user_id_fkey | FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+user_resumes | check_display_order_positive | CHECK ((display_order > 0))
+user_resumes | check_name_not_empty | CHECK ((TRIM(BOTH FROM name) <> ''::text))
+user_resumes | user_resumes_pkey | PRIMARY KEY (id)
+user_resumes | user_resumes_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+user_subscriptions | user_subscriptions_billing_cycle_check | CHECK ((billing_cycle = ANY (ARRAY['monthly'::text, 'yearly'::text])))
+user_subscriptions | user_subscriptions_pkey | PRIMARY KEY (id)
+user_subscriptions | user_subscriptions_plan_id_fkey | FOREIGN KEY (plan_id) REFERENCES subscription_plans(id)
+user_subscriptions | user_subscriptions_status_check | CHECK ((status = ANY (ARRAY['active'::text, 'canceled'::text, 'past_due'::text, 'trialing'::text])))
+user_subscriptions | user_subscriptions_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+weekly_recaps | weekly_recaps_pkey | PRIMARY KEY (id)
+weekly_recaps | weekly_recaps_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+weekly_recaps | weekly_recaps_user_id_week_start_key | UNIQUE (user_id, week_start)
+weekly_recaps | weekly_recaps_week_start_check | CHECK ((EXTRACT(isodow FROM week_start) = (1)::numeric))
+weekly_recaps | weekly_recaps_week_start_monday | CHECK ((EXTRACT(dow FROM week_start) = (1)::numeric))
+wins | wins_pkey | PRIMARY KEY (id)
+wins | wins_source_check | CHECK ((source = ANY (ARRAY['manual'::text, 'recap'::text, 'zero_to_case'::text, 'import'::text])))
+wins | wins_tag_check | CHECK ((tag = ANY (ARRAY['delivery'::text, 'leadership'::text, 'collaboration'::text, 'craft'::text])))
+wins | wins_user_id_fkey | FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE

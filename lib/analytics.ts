@@ -1,4 +1,3 @@
-import { track } from '@vercel/analytics';
 import { getPlanDisplayName } from '@/lib/utils/plan-helpers';
 import { clientAnalytics } from '@/lib/client/analytics.client';
 
@@ -192,15 +191,10 @@ export const applicationCardAnalytics = {
   },
 };
 
-// Analytics wrapper for error handling - tracks to both Vercel and PostHog via API
+// Analytics wrapper for error handling. Forwards to PostHog via /api/analytics/track,
+// which is now actually wired to PostHog (it previously reached Vercel Analytics only).
 export function safeTrack(eventName: string, properties: Record<string, any>) {
   try {
-    // Track to Vercel Analytics (client-side only)
-    if (typeof window !== 'undefined') {
-      track(eventName, properties);
-    }
-    
-    // Track to PostHog via API route (works both client and server side)
     clientAnalytics.trackEvent({
       eventName,
       properties,

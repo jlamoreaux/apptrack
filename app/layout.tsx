@@ -2,8 +2,6 @@ import type React from "react";
 import { Public_Sans, Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
-import { Analytics } from "@vercel/analytics/react";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Suspense } from "react";
 import { SkipNavigation } from "@/components/accessibility/skip-link";
 import { CSPostHogProvider, PostHogPageView } from "@/components/providers/posthog-provider";
@@ -66,8 +64,6 @@ export default function RootLayout({
               <LinkedInInsight />
               {children}
               <CookieBanner />
-              <Analytics />
-              <SpeedInsights />
             </Suspense>
           </ThemeProvider>
         </CSPostHogProvider>

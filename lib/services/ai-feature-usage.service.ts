@@ -1,4 +1,7 @@
+import { SubscriptionDAL } from "@/dal/subscriptions";
 import { createClient } from "@/lib/supabase/server";
+import { getPermissionLevelFromPlan } from "@/lib/constants/navigation";
+import type { PermissionLevel } from "@/types";
 
 // Feature names must match the DB check constraint on ai_feature_usage.feature_name
 export type AIFeatureType = "resume_analysis" | "job_fit_analysis" | "cover_letter" | "interview_prep" | "career_advice";
@@ -22,6 +25,26 @@ export interface AIFeatureAllowance {
  */
 export class AIFeatureUsageService {
   /**
+   * Resolve a user's permission tier from their live subscription.
+   *
+   * Deliberately NOT read from a `users.subscription_tier` column: `public.users` does
+   * not exist in production, so every such query errored. A user with no
+   * `user_subscriptions` row is the NORMAL case (`handle_new_user_subscription()` is
+   * wired to no trigger, so most users have none) and means free tier.
+   *
+   * @returns the tier, or `null` if the lookup genuinely failed — callers must fail closed.
+   */
+  static async getSubscriptionTier(userId: string): Promise<PermissionLevel | null> {
+    try {
+      const subscription = await new SubscriptionDAL().getSubscriptionWithPlanName(userId);
+      return getPermissionLevelFromPlan(subscription?.plan_name);
+    } catch (error) {
+      console.error("Error resolving subscription tier:", error);
+      return null;
+    }
+  }
+
+  /**
    * Check if user can use an AI feature
    * Returns usage allowance and whether upgrade is needed
    */
@@ -31,25 +54,18 @@ export class AIFeatureUsageService {
   ): Promise<AIFeatureAllowance> {
     const supabase = await createClient();
 
-    // Get user's subscription tier
-    const { data: userData, error: userError } = await supabase
-      .from("users")
-      .select("subscription_tier")
-      .eq("id", userId)
-      .single();
+    const subscriptionTier = await this.getSubscriptionTier(userId);
 
-    if (userError) {
-      // Don't downgrade paid users on transient DB errors — allow access
-      console.error("Error fetching subscription tier:", userError);
+    if (subscriptionTier === null) {
+      // A genuine query failure (not "no row"). Fail closed on the free-tier allowance
+      // so a database outage cannot be used to mint unlimited AI calls.
       return {
-        canUse: true,
+        canUse: false,
         usedCount: 0,
-        allowedCount: 999,
+        allowedCount: 0,
         requiresUpgrade: false,
       };
     }
-
-    const subscriptionTier = userData?.subscription_tier || "free";
 
     // AI Coach tier gets unlimited access
     if (subscriptionTier === "ai_coach") {

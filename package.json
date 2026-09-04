@@ -11,13 +11,23 @@
     "test:watch": "jest --watch",
     "test:a11y": "jest --testPathPatterns=accessibility",
     "test:coverage": "jest --coverage",
-    "db:schema": "./scripts/run-schema.sh"
+    "db:schema": "echo 'DEPRECATED - see scripts/run-schema.sh header' && ./scripts/run-schema.sh",
+    "typecheck": "tsc --noEmit",
+    "typecheck:ratchet": "./scripts/ci/typecheck-ratchet.sh",
+    "db:truth": "./scripts/migration/dump-prod-truth.sh",
+    "db:checks": "./scripts/migration/prod-checks.sh",
+    "db:pull": "drizzle-kit pull && python3 scripts/migration/fix-pull-snapshot.py && python3 scripts/migration/gen-extras.py",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "db:verify": "./scripts/migration/verify-baseline.sh",
+    "db:drift": "./scripts/ci/schema-drift-guard.sh"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.2",
     "@ai-sdk/react": "^3.0.5",
     "@axiomhq/winston": "^1.3.1",
     "@hookform/resolvers": "latest",
+    "@neondatabase/serverless": "^1.1.0",
     "@posthog/nextjs-config": "1.9.37",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -43,13 +53,12 @@
     "@testing-library/dom": "^10.4.1",
     "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
     "ai": "^6.0.5",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "drizzle-orm": "^0.45.2",
     "file-type": "^21.2.0",
     "framer-motion": "^12.23.16",
     "gray-matter": "^4.0.3",
@@ -86,6 +95,7 @@
   },
   "devDependencies": {
     "@axe-core/react": "^4.10.2",
+    "@babel/runtime": "^7.29.2",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
@@ -100,6 +110,7 @@
     "@types/uuid": "^11.0.0",
     "axe-core": "^4.10.3",
     "dotenv": "^17.2.2",
+    "drizzle-kit": "^0.31.10",
     "jest": "^30.0.3",
     "jest-axe": "^10.0.0",
     "jest-environment-jsdom": "^30.0.2",
@@ -108,6 +119,19 @@
     "typescript": "^5"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@posthog/cli"]
+    "onlyBuiltDependencies": [
+      "@posthog/cli",
+      "esbuild"
+    ],
+    "supportedArchitectures": {
+      "os": [
+        "darwin",
+        "linux"
+      ],
+      "cpu": [
+        "arm64",
+        "x64"
+      ]
+    }
   }
 }

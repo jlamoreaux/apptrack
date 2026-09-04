@@ -22,6 +22,11 @@ import type Stripe from 'stripe';
 
 // Mock dependencies
 jest.mock('@/lib/stripe');
+
+// Signature verification lives in @/lib/stripe so that `Stripe` is a value import
+// (the route imports it as `import type`, which is erased at runtime).
+const mockConstructWebhookEvent = jest.requireMock('@/lib/stripe')
+  .constructWebhookEvent as jest.Mock;
 jest.mock('@/services/subscriptions');
 jest.mock('@/lib/supabase/server');
 
@@ -78,10 +83,14 @@ describe('Stripe Webhook Handler', () => {
     (mockSubscriptionService.prototype as any).cancelSubscription = mockCancelSubscription;
     (mockSubscriptionService.prototype as any).updatePaymentStatus = mockUpdatePaymentStatus;
     
-    // Setup Stripe mock
+    // Setup Stripe mock. Signature verification now goes through
+    // constructWebhookEvent() from @/lib/stripe (async/WebCrypto, Workers-compatible),
+    // so that is what these tests drive. `webhooks` is retained for any direct use.
     (mockStripe.webhooks as any) = {
       constructEvent: jest.fn(),
+      constructEventAsync: jest.fn(),
     };
+    mockConstructWebhookEvent.mockReset();
     
     mockStripe.subscriptions = {
       retrieve: jest.fn().mockResolvedValue({
@@ -118,7 +127,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('checkout.session.completed', checkoutSession);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -134,7 +143,7 @@ describe('Stripe Webhook Handler', () => {
       expect(response.status).toBe(200);
       expect(data.received).toBe(true);
       
-      expect(mockStripe.webhooks.constructEvent).toHaveBeenCalled();
+      expect(mockConstructWebhookEvent).toHaveBeenCalled();
       // Simplified - just check that some subscription method was called
       expect(mockCreateOrUpdateSubscription).toHaveBeenCalled();
     });
@@ -152,7 +161,7 @@ describe('Stripe Webhook Handler', () => {
       } as Partial<Stripe.Subscription>;
       
       const event = createMockEvent('customer.subscription.updated', subscription);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -179,7 +188,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('customer.subscription.deleted', subscription);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -210,7 +219,7 @@ describe('Stripe Webhook Handler', () => {
       } as any;
       
       const event = createMockEvent('invoice.payment_succeeded', invoice);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -241,7 +250,7 @@ describe('Stripe Webhook Handler', () => {
       } as any;
       
       const event = createMockEvent('invoice.payment_failed', invoice);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -258,7 +267,7 @@ describe('Stripe Webhook Handler', () => {
     });
 
     it('should return 400 for invalid signature', async () => {
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockImplementation(() => {
+      mockConstructWebhookEvent.mockImplementation(() => {
         throw new Error('Invalid signature');
       });
       
@@ -287,7 +296,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('checkout.session.completed', checkoutSession);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -316,7 +325,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('checkout.session.completed', checkoutSession);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -351,7 +360,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('checkout.session.completed', checkoutSession);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -369,7 +378,7 @@ describe('Stripe Webhook Handler', () => {
 
     it('should handle unhandled event types gracefully', async () => {
       const event = createMockEvent('some.unknown.event', { id: 'obj_123' });
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -399,7 +408,7 @@ describe('Stripe Webhook Handler', () => {
       };
       
       const event = createMockEvent('customer.subscription.updated', subscription);
-      (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+      mockConstructWebhookEvent.mockResolvedValue(event);
       
       const request = createMockRequest('/api/stripe/webhook', {
         method: 'POST',
@@ -437,7 +446,7 @@ describe('Stripe Webhook Handler', () => {
         };
         
         const event = createMockEvent('customer.subscription.updated', subscription);
-        (mockStripe.webhooks.constructEvent as jest.Mock).mockReturnValue(event);
+        mockConstructWebhookEvent.mockResolvedValue(event);
         
         const request = new (global as any).NextRequest('http://localhost:3000/api/stripe/webhook', {
           method: 'POST',

@@ -1,0 +1,2 @@
+handle_new_user_subscription
+update_wins_updated_at

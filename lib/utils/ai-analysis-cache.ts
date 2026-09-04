@@ -23,35 +23,17 @@ export function createCacheKey(
 class AnalysisCacheManager {
   private cache: Map<string, AnalysisCache[string]> = new Map()
   private maxSize: number = CACHE_CONFIG.MAX_ENTRIES
-  private cleanupInterval: NodeJS.Timeout | null = null
-
-  constructor() {
-    // Start periodic cleanup every 5 minutes
-    this.startPeriodicCleanup()
-  }
-
   /**
-   * Starts periodic cleanup to prevent memory leaks
+   * Evicts expired entries, and trims the cache if it is still near capacity.
+   *
+   * Called from set() rather than on a timer: a module-scope/instance setInterval is a
+   * hard blocker on Cloudflare Workers, which has no persistent timer between requests.
+   * set() already had to sweep before inserting, so the timer was redundant anyway.
    */
-  private startPeriodicCleanup(): void {
-    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-      this.cleanupInterval = setInterval(() => {
-        this.cleanExpired()
-        // If cache is still too large after cleanup, remove oldest entries
-        if (this.cache.size > this.maxSize * 0.8) {
-          this.evictOldest(Math.floor(this.maxSize * 0.2))
-        }
-      }, 5 * 60 * 1000) // 5 minutes
-    }
-  }
-
-  /**
-   * Stops periodic cleanup
-   */
-  private stopPeriodicCleanup(): void {
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval)
-      this.cleanupInterval = null
+  private sweep(): void {
+    this.cleanExpired()
+    if (this.cache.size > this.maxSize * 0.8) {
+      this.evictOldest(Math.floor(this.maxSize * 0.2))
     }
   }
 
@@ -70,8 +52,8 @@ class AnalysisCacheManager {
    * Stores analysis result in cache
    */
   set(key: string, result: AnalysisResult): void {
-    // Clean expired entries before adding new one
-    this.cleanExpired()
+    // Sweep before inserting; this replaces the former periodic timer.
+    this.sweep()
 
     // Remove oldest entries if cache is full
     if (this.cache.size >= this.maxSize) {
@@ -133,7 +115,6 @@ class AnalysisCacheManager {
    * Cleanup method for graceful shutdown
    */
   destroy(): void {
-    this.stopPeriodicCleanup()
     this.cache.clear()
   }
 

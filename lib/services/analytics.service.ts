@@ -1,4 +1,3 @@
-import { track } from '@vercel/analytics';
 import posthog from 'posthog-js';
 
 export interface AnalyticsEvent {
@@ -51,9 +50,7 @@ export class AnalyticsService {
       // Track to Vercel Analytics (client-side only)
       if (this.isClientSide && event.properties) {
         const sanitizedProperties = this.sanitizeForVercel(event.properties);
-        track(event.name, sanitizedProperties);
       } else if (this.isClientSide) {
-        track(event.name);
       }
 
       // Track to PostHog only on client side (PostHog accepts any data type)

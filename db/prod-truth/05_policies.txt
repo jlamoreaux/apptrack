@@ -1,0 +1,122 @@
+cron.job | cron_job_policy | (username = CURRENT_USER)
+cron.job_run_details | cron_job_run_details_policy | (username = CURRENT_USER)
+public.admin_users | Users can see own admin record | (auth.uid() = user_id)
+public.ai_feature_limits | Users can view feature limits | true
+public.ai_feature_usage | Service role full access to AI usage | true
+public.ai_feature_usage | Service role has full access to feature usage | ((auth.jwt() ->> 'role'::text) = 'service_role'::text)
+public.ai_feature_usage | Users can track own usage | -
+public.ai_feature_usage | Users can update own usage | (auth.uid() = user_id)
+public.ai_feature_usage | Users can view own usage | (auth.uid() = user_id)
+public.ai_feature_usage | Users can view their own AI usage | (auth.uid() = user_id)
+public.ai_guest_conversions | Service role full access to conversions | true
+public.ai_guest_conversions | Users can view their own conversion | (auth.uid() = user_id)
+public.ai_guest_rate_limits | Service role only for guest rate limits | true
+public.ai_guest_sessions | Authenticated users can read guest sessions for linking | true
+public.ai_guest_sessions | Authenticated users can update guest sessions they link | ((converted_user_id IS NULL) OR (converted_user_id = auth.uid()))
+public.ai_guest_sessions | anon_can_insert_guest_sessions | -
+public.ai_guest_sessions | anon_can_select_guest_sessions | true
+public.ai_guest_sessions | service_role_full_access_guest_sessions | true
+public.ai_preview_sessions | Service role has full access to preview sessions | ((auth.jwt() ->> 'role'::text) = 'service_role'::text)
+public.ai_preview_sessions | Users can view own sessions | (auth.uid() = user_id)
+public.ai_preview_usage | Service role has full access to preview usage | ((auth.jwt() ->> 'role'::text) = 'service_role'::text)
+public.ai_trial_results | Service role full access to trial results | true
+public.ai_trial_results | Users can view their own trial results | ((auth.uid() = user_id) AND (expires_at > now()))
+public.ai_usage_stats | Users can view aggregated stats | true
+public.ai_usage_tracking | System can insert usage tracking | -
+public.ai_usage_tracking | Users can view their own usage | (auth.uid() = user_id)
+public.ai_user_limit_overrides | Users can view their own limit overrides | (auth.uid() = user_id)
+public.application_history | Users can delete their own application history | (application_id IN ( SELECT applications.id    FROM applications   WHERE (applications.user_id = auth.uid())))
+public.application_history | Users can insert their own application history | -
+public.application_history | Users can update their own application history | (application_id IN ( SELECT applications.id    FROM applications   WHERE (applications.user_id = auth.uid())))
+public.application_history | Users can view their own application history | (application_id IN ( SELECT applications.id    FROM applications   WHERE (applications.user_id = auth.uid())))
+public.application_linkedin_contacts | Users can delete their own LinkedIn contacts | (auth.uid() = user_id)
+public.application_linkedin_contacts | Users can insert their own LinkedIn contacts | -
+public.application_linkedin_contacts | Users can update their own LinkedIn contacts | (auth.uid() = user_id)
+public.application_linkedin_contacts | Users can view their own LinkedIn contacts | (auth.uid() = user_id)
+public.applications | Users can delete own applications | (auth.uid() = user_id)
+public.applications | Users can insert own applications | -
+public.applications | Users can update own applications | (auth.uid() = user_id)
+public.applications | Users can view own applications | (auth.uid() = user_id)
+public.audience_members | Service role full access to audience_members | true
+public.audience_members | Users can view own audience membership | (user_id = auth.uid())
+public.campaign_sends | Service role full access to campaign_sends | true
+public.career_advice | Users can delete their own career advice messages | (auth.uid() = user_id)
+public.career_advice | Users can insert their own career advice messages | -
+public.career_advice | Users can update their own career advice messages | (auth.uid() = user_id)
+public.career_advice | Users can view their own career advice messages | (auth.uid() = user_id)
+public.career_goals | Users can CRUD own goals | (auth.uid() = user_id)
+public.career_waitlist | Service role full access to career_waitlist | true
+public.cleanup_logs | Cleanup logs are viewable by authenticated users | (auth.role() = 'authenticated'::text)
+public.coach_memory | Users can delete their own coach memory | (auth.uid() = user_id)
+public.coach_memory | Users can insert their own coach memory | -
+public.coach_memory | Users can update their own coach memory | (auth.uid() = user_id)
+public.coach_memory | Users can view their own coach memory | (auth.uid() = user_id)
+public.conversations | Users can delete their own conversations | (auth.uid() = user_id)
+public.conversations | Users can insert their own conversations | -
+public.conversations | Users can update their own conversations | (auth.uid() = user_id)
+public.conversations | Users can view their own conversations | (auth.uid() = user_id)
+public.cover_letters | Users can delete their own cover letters | (auth.uid() = user_id)
+public.cover_letters | Users can insert their own cover letters | -
+public.cover_letters | Users can update their own cover letters | (auth.uid() = user_id)
+public.cover_letters | Users can view their own cover letters | (auth.uid() = user_id)
+public.drip_emails | Service role full access to drip_emails | true
+public.drip_emails | Users can view own drip emails | (user_id = auth.uid())
+public.email_preferences | Service role full access to email_preferences | true
+public.email_preferences | Users can update own email preferences | (user_id = auth.uid())
+public.email_preferences | Users can view own email preferences | (user_id = auth.uid())
+public.interview_prep | Users can access their own interview prep | (user_id = auth.uid())
+public.job_fit_analysis | Users can delete their own job fit analyses | (auth.uid() = user_id)
+public.job_fit_analysis | Users can insert their own job fit analyses | -
+public.job_fit_analysis | Users can update their own job fit analyses | (auth.uid() = user_id)
+public.job_fit_analysis | Users can view their own job fit analyses | ((auth.uid() = user_id) AND (application_id IN ( SELECT applications.id    FROM applications   WHERE (applications.user_id = auth.uid()))))
+public.linkedin_profiles | Users can delete linkedin profiles for own applications | (EXISTS ( SELECT 1    FROM applications   WHERE ((applications.id = linkedin_profiles.application_id) AND (applications.user_id = auth.uid()))))
+public.linkedin_profiles | Users can delete their own LinkedIn profiles | (auth.uid() = user_id)
+public.linkedin_profiles | Users can insert linkedin profiles for own applications | -
+public.linkedin_profiles | Users can insert their own LinkedIn profiles | -
+public.linkedin_profiles | Users can update linkedin profiles for own applications | (EXISTS ( SELECT 1    FROM applications   WHERE ((applications.id = linkedin_profiles.application_id) AND (applications.user_id = auth.uid()))))
+public.linkedin_profiles | Users can update their own LinkedIn profiles | (auth.uid() = user_id)
+public.linkedin_profiles | Users can view linkedin profiles for own applications | (EXISTS ( SELECT 1    FROM applications   WHERE ((applications.id = linkedin_profiles.application_id) AND (applications.user_id = auth.uid()))))
+public.linkedin_profiles | Users can view their own LinkedIn profiles | (auth.uid() = user_id)
+public.profiles | Users can insert own profile | -
+public.profiles | Users can update own profile | (auth.uid() = id)
+public.profiles | Users can view own profile | (auth.uid() = id)
+public.promo_code_usage | Service role can insert promo code usage | -
+public.promo_code_usage | System can create promo code usage | -
+public.promo_code_usage | Users can check their promo code usage | (user_id = auth.uid())
+public.promo_code_usage | Users can view own promo code usage | (auth.uid() = user_id)
+public.promo_codes | Users can read active promo codes | (active = true)
+public.resume_analysis | Users can access their own resume analysis | (user_id = auth.uid())
+public.roasts | Authenticated users can create roasts | -
+public.roasts | Public roasts are viewable by shareable_id | true
+public.roasts | Users can view their own roasts | ((auth.uid() = user_id) OR (user_id IS NULL))
+public.scheduled_notifications | System can create notifications | -
+public.scheduled_notifications | System can update notifications | (user_id = auth.uid())
+public.scheduled_notifications | Users can view own notifications | (user_id = auth.uid())
+public.subscription_plans | Anyone can view subscription plans | true
+public.trial_history | System can create trial history | -
+public.trial_history | Users can view own trial history | (user_id = auth.uid())
+public.usage_tracking | Users can insert own usage | -
+public.usage_tracking | Users can update own usage | (auth.uid() = user_id)
+public.usage_tracking | Users can view own usage | (auth.uid() = user_id)
+public.user_announcements | Users can view their own announcements | (auth.uid() = user_id)
+public.user_onboarding | Users can view their own onboarding progress | (auth.uid() = user_id)
+public.user_onboarding_preferences | Users can manage their own preferences | (auth.uid() = user_id)
+public.user_resumes | Allow authenticated users to delete | true
+public.user_resumes | Allow authenticated users to insert | -
+public.user_resumes | Allow authenticated users to select | true
+public.user_resumes | Allow authenticated users to update | true
+public.user_resumes | Users can delete own resume | (auth.uid() = user_id)
+public.user_resumes | Users can insert own resume | -
+public.user_resumes | Users can update own resume | (auth.uid() = user_id)
+public.user_resumes | Users can view own resume | (auth.uid() = user_id)
+public.user_subscriptions | Users can insert own subscription | -
+public.user_subscriptions | Users can update own subscription | (auth.uid() = user_id)
+public.user_subscriptions | Users can view own subscription | (auth.uid() = user_id)
+storage.objects | Users can delete their own resumes | ((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))
+storage.objects | Users can update their own resumes | ((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))
+storage.objects | Users can upload resumes to their own folder | -
+storage.objects | Users can view their own resumes | ((bucket_id = 'resumes'::text) AND ((auth.uid())::text = (storage.foldername(name))[1]))
+storage.objects | allow all i5g8va_0 | (bucket_id = 'resumes'::text)
+storage.objects | allow all i5g8va_1 | -
+storage.objects | allow all i5g8va_2 | (bucket_id = 'resumes'::text)
+storage.objects | allow all i5g8va_3 | (bucket_id = 'resumes'::text)

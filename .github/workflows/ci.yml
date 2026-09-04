@@ -52,3 +52,51 @@ jobs:
           UPSTASH_REDIS_REST_TOKEN: test-upstash-token
           STRIPE_SECRET_KEY: sk_test_fake
           STRIPE_WEBHOOK_SECRET: whsec_test_fake
+
+  typecheck:
+    name: Typecheck (ratchet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # next.config.mjs sets typescript.ignoreBuildErrors: true, so this codebase has
+      # never been type-clean. This does not require zero errors - it requires the count
+      # not to grow. The Supabase -> Drizzle migration depends on "change a signature,
+      # follow the compiler", which only works if the baseline is held.
+      - name: Typecheck ratchet
+        run: pnpm typecheck:ratchet
+
+      # Prevents a repeat of the drift that made the repo's SQL unusable: if
+      # lib/db/schema/ changes, the generated migration must be committed with it.
+      # Runs offline - generate diffs schema.ts against drizzle/meta/, no DB needed.
+      - name: Schema drift guard
+        run: pnpm db:drift
+
+      # Confirms the drizzle baseline still accounts for every object captured in
+      # db/prod-truth/ (functions and triggers drizzle-kit cannot express).
+      - name: Baseline coverage
+        run: pnpm db:verify

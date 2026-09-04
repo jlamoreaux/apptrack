@@ -4,6 +4,7 @@ import { scheduleDripSequence } from '@/lib/email/drip-scheduler';
 import { sendTryResultsEmail } from '@/lib/email/transactional';
 import { createServiceRoleClient } from '@/lib/supabase/service-role-client';
 import { decryptContent } from '@/lib/utils/encryption';
+import { createSweeper, sweepExpired } from '@/lib/utils/periodic-sweep';
 
 // Simple in-memory rate limiting: max 5 submissions per IP per hour
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -11,6 +12,7 @@ const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 function isRateLimited(ip: string): boolean {
+  sweepRateLimitMap();
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
 
@@ -27,15 +29,12 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// Periodically clean up expired entries to prevent memory leaks
-setInterval(() => {
-  const now = Date.now();
-  for (const [ip, entry] of rateLimitMap) {
-    if (now > entry.resetAt) {
-      rateLimitMap.delete(ip);
-    }
-  }
-}, RATE_LIMIT_WINDOW_MS);
+// Swept on access rather than by a timer: a module-scope setInterval cannot run on
+// Cloudflare Workers. See lib/utils/periodic-sweep.ts.
+const sweepRateLimitMap = createSweeper(
+  () => sweepExpired(rateLimitMap, (entry) => entry.resetAt),
+  RATE_LIMIT_WINDOW_MS
+);
 
 export async function POST(request: NextRequest) {
   try {
