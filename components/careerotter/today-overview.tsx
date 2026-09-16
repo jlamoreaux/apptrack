@@ -66,8 +66,10 @@ export function TodayOverview({
   // must not disagree by a few milliseconds mid-pass.
   const [now] = useState(() => new Date());
 
-  const countdown = reviewCountdown(goal.review_date, now);
   const isJobSearch = goal.mode === "job_search";
+  const countdown = reviewCountdown(goal.review_date, now, {
+    noun: isJobSearch ? "Target" : "Review",
+  });
 
   const move = useMemo(
     () =>
@@ -169,8 +171,15 @@ export function TodayOverview({
               ) : (
                 <>
                   {jobSearch.total} application{jobSearch.total === 1 ? "" : "s"}
-                  {jobSearch.interviewing > 0 && <span> · {jobSearch.interviewing} interviewing</span>}
-                  {jobSearch.offers > 0 && <span> · {jobSearch.offers} offers</span>}
+                  {jobSearch.interviewing > 0 && (
+                    <span> · {jobSearch.interviewing} interviewing</span>
+                  )}
+                  {jobSearch.offers > 0 && (
+                    <span>
+                      {" "}
+                      · {jobSearch.offers} offer{jobSearch.offers === 1 ? "" : "s"}
+                    </span>
+                  )}
                 </>
               )}
             </div>

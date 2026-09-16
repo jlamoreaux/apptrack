@@ -31,3 +31,23 @@ describe("reviewCountdown", () => {
     expect(reviewCountdown("not-a-date", NOW)).toBeNull();
   });
 });
+
+describe("label noun", () => {
+  it("leads with Review by default", () => {
+    const c = reviewCountdown("2026-07-01", new Date("2026-06-01T12:00:00Z"));
+    expect(c!.label).toBe("Review in 4 weeks");
+  });
+
+  it("uses the supplied noun for a job-search target date", () => {
+    const now = new Date("2026-06-01T12:00:00Z");
+    expect(reviewCountdown("2026-07-01", now, { noun: "Target" })!.label).toBe(
+      "Target in 4 weeks"
+    );
+    expect(reviewCountdown("2026-06-03", now, { noun: "Target" })!.label).toBe(
+      "Target in 2 days"
+    );
+    expect(reviewCountdown("2026-05-01", now, { noun: "Target" })!.label).toBe(
+      "Target date passed"
+    );
+  });
+});

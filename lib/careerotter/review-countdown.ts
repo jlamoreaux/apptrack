@@ -13,13 +13,22 @@ export interface ReviewCountdown {
   label: string;
 }
 
+export interface ReviewCountdownOptions {
+  /**
+   * The noun the label leads with. "Review" by default; job-search mode is
+   * working toward a target date, not a performance review.
+   */
+  noun?: string;
+}
+
 /**
  * Weeks/days from `now` to the review date. `reviewDate` is a YYYY-MM-DD string
  * (as stored). Returns null if there's no date set.
  */
 export function reviewCountdown(
   reviewDate: string | null | undefined,
-  now: Date
+  now: Date,
+  options: ReviewCountdownOptions = {}
 ): ReviewCountdown | null {
   if (!reviewDate) return null;
   const target = new Date(`${reviewDate}T00:00:00Z`);
@@ -30,13 +39,15 @@ export function reviewCountdown(
   const absDays = Math.ceil(Math.abs(diffMs) / MS_PER_DAY);
   const weeks = Math.floor(Math.abs(diffMs) / MS_PER_WEEK);
 
+  const noun = options.noun ?? "Review";
+
   let label: string;
   if (isPast) {
-    label = "Review date passed";
+    label = `${noun} date passed`;
   } else if (absDays <= 7) {
-    label = absDays <= 1 ? "Review is tomorrow" : `Review in ${absDays} days`;
+    label = absDays <= 1 ? `${noun} is tomorrow` : `${noun} in ${absDays} days`;
   } else {
-    label = `Review in ${weeks} week${weeks === 1 ? "" : "s"}`;
+    label = `${noun} in ${weeks} week${weeks === 1 ? "" : "s"}`;
   }
 
   return { weeks, days: absDays, isPast, label };

@@ -114,8 +114,10 @@ export function daysSinceLastWin(
 
 export function nextMove(input: NextMoveInput): NextMove {
   const { wins, now, mode } = input;
-  const countdown = reviewCountdown(input.reviewDate, now);
   const isJobSearch = mode === "job_search";
+  const countdown = reviewCountdown(input.reviewDate, now, {
+    noun: isJobSearch ? "Target" : "Review",
+  });
   const dateNoun = isJobSearch ? "target date" : "review date";
   // The mode comes from a CHECK-constrained column, but fall back rather than
   // interpolate "undefined" into user-facing copy if that ever changes.

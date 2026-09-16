@@ -162,6 +162,23 @@ describe("TodayOverview", () => {
     expect(screen.getByText("Job search")).toBeInTheDocument();
     expect(screen.getByText(/4 applications/)).toBeInTheDocument();
     expect(screen.getByText(/2 interviewing/)).toBeInTheDocument();
+    // Singular: "1 offers" was in the first cut of this strip.
+    expect(screen.getByText(/1 offer$/)).toBeInTheDocument();
+  });
+
+  it("calls the countdown a target date in job-search mode", () => {
+    renderToday({
+      goal: {
+        mode: "job_search",
+        role: "Software Engineer",
+        level: "Senior",
+        target: "Staff Engineer",
+        review_date: "2099-01-01",
+      },
+      jobSearch: { total: 4, interviewing: 2, offers: 2, active: 3 },
+    });
+    expect(screen.getByText(/Target in \d+ weeks/)).toBeInTheDocument();
+    expect(screen.queryByText(/Review in/)).not.toBeInTheDocument();
   });
 
   it("asks a new hire to set up the new role", () => {
