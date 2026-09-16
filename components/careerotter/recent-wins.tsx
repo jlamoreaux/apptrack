@@ -22,11 +22,15 @@ function formatDate(iso: string): string {
  * What you've been working on lately. Today's job is to make the user's own
  * recent work the thing they see first — a coverage percentage is a summary of
  * this list, not a substitute for it.
+ *
+ * `wins` is only the handful with full text loaded; `total` is the size of the
+ * whole log, so the link says how many there really are.
  */
-export function RecentWins({ wins }: { wins: LoggedWin[] }) {
+export function RecentWins({ wins, total }: { wins: LoggedWin[]; total: number }) {
   if (wins.length === 0) return null;
 
   const shown = wins.slice(0, MAX_SHOWN);
+  const allCount = Math.max(total, wins.length);
 
   return (
     <Card>
@@ -37,7 +41,7 @@ export function RecentWins({ wins }: { wins: LoggedWin[] }) {
             href="/dashboard/wins"
             className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
           >
-            All {wins.length} wins
+            All {allCount} win{allCount === 1 ? "" : "s"}
             <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>

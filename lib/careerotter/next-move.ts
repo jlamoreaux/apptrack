@@ -12,6 +12,7 @@
  */
 
 import { computeCoverage } from "./coverage";
+import type { RecentHire } from "./recent-hire";
 import { reviewCountdown } from "./review-countdown";
 import {
   CAREER_MODE_GOAL_LABEL,
@@ -28,9 +29,6 @@ export const STALE_WIN_DAYS = 10;
 
 /** Mirrors MIN_WINS in app/api/careerotter/case/route.ts — below this the case builder refuses. */
 export const MIN_CASE_WINS = 3;
-
-/** How long a hire stays "new" for the purpose of resetting the goal frame. */
-export const RECENT_HIRE_DAYS = 45;
 
 export type NextMoveId =
   | "start_case"
@@ -62,19 +60,30 @@ export interface NextMove {
   action: NextMoveAction;
 }
 
+/**
+ * The only two fields of a win the ranking needs: which area it evidences and
+ * when it was logged. Today fetches the full text for the handful of rows it
+ * lists and this projection for the rest.
+ */
+export interface WinSummary {
+  tag: string | null;
+  created_at: string;
+}
+
 export interface NextMoveInput {
   mode: CareerMode | null;
   /** YYYY-MM-DD, as stored on career_profiles. */
   reviewDate: string | null;
   zeroToCaseCompleted: boolean;
-  wins: ReadonlyArray<{ tag: string | null; created_at: string }>;
+  wins: ReadonlyArray<WinSummary>;
   hasCompEntry: boolean;
   /**
-   * A job marked Hired in the last RECENT_HIRE_DAYS, if any. Landing the job is
-   * the start of the next case, not the end of one — the product used to treat
-   * it as a reason to cancel.
+   * A job marked Hired inside the recent-hire window, if any (see
+   * lib/careerotter/recent-hire.ts). Landing the job is the start of the next
+   * case, not the end of one — the product used to treat it as a reason to
+   * cancel.
    */
-  recentHire: { company: string; role: string } | null;
+  recentHire: RecentHire | null;
   /** Applications that aren't archived, rejected, or closed out. */
   activeApplications: number;
   now: Date;

@@ -15,10 +15,13 @@ import {
   type WeeklyRecap,
 } from "@/components/careerotter/weekly-recap-card";
 import { WinCaptureBar, type LoggedWin } from "@/components/careerotter/win-capture-bar";
-import { nextMove } from "@/lib/careerotter/next-move";
+import { nextMove, type WinSummary } from "@/lib/careerotter/next-move";
 import { reviewCountdown } from "@/lib/careerotter/review-countdown";
 import { weekStartMs } from "@/lib/careerotter/week-start";
 import type { JobSearchSummary } from "@/lib/careerotter/job-search-summary";
+
+/** Keep in step with the dashboard page's fetch limit for the recent list. */
+const RECENT_WINS_SHOWN = 5;
 
 /**
  * "Today" — the career home.
@@ -36,7 +39,8 @@ import type { JobSearchSummary } from "@/lib/careerotter/job-search-summary";
 export function TodayOverview({
   goal: initialGoal,
   zeroToCaseCompleted,
-  initialWins,
+  initialWinSummaries,
+  initialRecentWins,
   recap,
   hasCompEntry,
   recentHire,
@@ -44,14 +48,18 @@ export function TodayOverview({
 }: {
   goal: CareerGoal;
   zeroToCaseCompleted: boolean;
-  initialWins: LoggedWin[];
+  /** (tag, created_at) for every win — coverage, staleness and the week count. */
+  initialWinSummaries: WinSummary[];
+  /** Full rows for the few the "Recently" list shows. */
+  initialRecentWins: LoggedWin[];
   recap: WeeklyRecap | null;
   hasCompEntry: boolean;
   recentHire: { company: string; role: string } | null;
   jobSearch: JobSearchSummary;
 }) {
   const [goal, setGoal] = useState(initialGoal);
-  const [wins, setWins] = useState(initialWins);
+  const [wins, setWins] = useState<WinSummary[]>(initialWinSummaries);
+  const [recentWins, setRecentWins] = useState(initialRecentWins);
   const [goalOpen, setGoalOpen] = useState(false);
   const captureInput = useRef<HTMLInputElement>(null);
 
@@ -148,13 +156,18 @@ export function TodayOverview({
         <h3 className="text-sm font-semibold">Log a win</h3>
         <WinCaptureBar
           inputRef={captureInput}
-          onLogged={(win) => setWins((prev) => [win, ...prev])}
+          onLogged={(win) => {
+            // Both lists: the summaries drive coverage and the next move, the
+            // full rows drive "Recently".
+            setWins((prev) => [{ tag: win.tag, created_at: win.created_at }, ...prev]);
+            setRecentWins((prev) => [win, ...prev].slice(0, RECENT_WINS_SHOWN));
+          }}
         />
       </div>
 
       <WeeklyRecapCard recap={recap} winsThisWeek={winsThisWeek} now={now} />
 
-      <RecentWins wins={wins} />
+      <RecentWins wins={recentWins} total={wins.length} />
 
       <CoverageMeter wins={wins} />
 

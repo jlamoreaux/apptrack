@@ -44,11 +44,25 @@ export function WeeklyRecapCard({
 
   const text = recap?.generated_text?.trim() || "";
 
+  // Once per recap week per browser session. Firing on every mount would make
+  // recap_opened a count of dashboard loads, which is worse than not measuring
+  // it: the event is meant to tell us whether the Friday recap brings people
+  // back. sessionStorage throws in private-mode Safari and storage-disabled
+  // webviews, so a failure just means we fire once per mount instead.
   useEffect(() => {
     if (!recap || !text) return;
-    if (trackedWeek.current === recap.week_start) return;
-    trackedWeek.current = recap.week_start;
-    trackRecapOpened({ week_start: recap.week_start });
+    const week = recap.week_start;
+    if (trackedWeek.current === week) return;
+    trackedWeek.current = week;
+
+    const key = `recap-opened:${week}`;
+    try {
+      if (sessionStorage.getItem(key) === "true") return;
+      sessionStorage.setItem(key, "true");
+    } catch {
+      // No session storage — fall through and track this view.
+    }
+    trackRecapOpened({ week_start: week });
   }, [recap, text]);
 
   if (!recap || !text) {

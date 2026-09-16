@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -71,10 +71,17 @@ export function GoalEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // What the form was prefilled with. Saving sends only what the user actually
+  // changed against this — a PATCH of every field would write nulls over stored
+  // role/level/target whenever the prefill came up empty, which it does when the
+  // dashboard's read times out or fails. An untouched field is never sent.
+  const prefill = useRef(goal);
+
   // Reset the form to the stored goal each time it opens, so a cancelled edit
   // doesn't persist as ghost state in the next one.
   useEffect(() => {
     if (!open) return;
+    prefill.current = goal;
     setMode(goal.mode ?? "promotion");
     setRole(goal.role ?? "");
     setLevel(goal.level ?? "");
@@ -84,19 +91,36 @@ export function GoalEditor({
   }, [open, goal]);
 
   async function save() {
+    const before = prefill.current;
+    const text = (value: string) => value.trim() || null;
+
+    // Only the dirty fields. An unstored `mode` is deliberately not sent: the
+    // column is NOT NULL DEFAULT 'promotion', so an insert without it lands on
+    // the same value the select was showing, and a stored mode we failed to
+    // read survives instead of being reset.
+    const changes: Record<string, string | null> = {};
+    if (mode !== (before.mode ?? "promotion")) changes.mode = mode;
+    if (text(role) !== before.role) changes.role = text(role);
+    if (text(level) !== before.level) changes.level = text(level);
+    if (text(target) !== before.target) changes.target = text(target);
+    if ((reviewDate || null) !== before.review_date) {
+      changes.review_date = reviewDate || null;
+    }
+
+    // Nothing to write. The route rejects an empty patch, and asking it to is
+    // just a round trip to be told so.
+    if (Object.keys(changes).length === 0) {
+      setOpen(false);
+      return;
+    }
+
     setSaving(true);
     setError("");
     try {
       const res = await fetch("/api/careerotter/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode,
-          role: role.trim() || null,
-          level: level.trim() || null,
-          target: target.trim() || null,
-          review_date: reviewDate || null,
-        }),
+        body: JSON.stringify(changes),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -104,6 +128,8 @@ export function GoalEditor({
         return;
       }
       const { profile } = await res.json();
+      // Trust the row that came back: it carries the fields this patch did not
+      // touch, which the caller's copy of the goal may be missing.
       onSaved({
         mode: profile?.mode ?? mode,
         role: profile?.role ?? null,

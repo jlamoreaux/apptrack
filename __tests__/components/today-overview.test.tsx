@@ -36,6 +36,9 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
+/** The (tag, created_at) projection Today uses for coverage and staleness. */
+const summary = (w: LoggedWin) => ({ tag: w.tag, created_at: w.created_at });
+
 const win = (overrides: Partial<LoggedWin> = {}): LoggedWin => ({
   id: "win-1",
   text: "Shipped the migration",
@@ -58,7 +61,8 @@ function renderToday(overrides: Partial<Parameters<typeof TodayOverview>[0]> = {
         review_date: null,
       }}
       zeroToCaseCompleted
-      initialWins={[win()]}
+      initialWinSummaries={[summary(win())]}
+      initialRecentWins={[win()]}
       recap={null}
       hasCompEntry
       recentHire={null}
@@ -79,6 +83,8 @@ describe("TodayOverview", () => {
   it("prompts for a goal when nothing is set", () => {
     renderToday({
       goal: { mode: null, role: null, level: null, target: null, review_date: null },
+      initialWinSummaries: [],
+      initialRecentWins: [],
     });
     expect(screen.getByText(/No goal set yet/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /set your goal/i })).toBeInTheDocument();
@@ -97,13 +103,26 @@ describe("TodayOverview", () => {
   });
 
   it("shows the user's recent wins", () => {
+    const wins = [win(), win({ id: "win-2", text: "Unblocked the data team" })];
     renderToday({
-      initialWins: [win(), win({ id: "win-2", text: "Unblocked the data team" })],
+      initialWinSummaries: wins.map(summary),
+      initialRecentWins: wins,
     });
     expect(screen.getByText("Recently")).toBeInTheDocument();
     expect(screen.getByText("Shipped the migration")).toBeInTheDocument();
     expect(screen.getByText("Unblocked the data team")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /all 2 wins/i })).toBeInTheDocument();
+  });
+
+  it("counts the whole log in the wins link, not just the rows it loaded", () => {
+    // Only five rows carry full text; the count comes from the summaries.
+    const loaded = [win(), win({ id: "win-2", text: "Unblocked the data team" })];
+    const summaries = Array.from({ length: 41 }, (_, i) => ({
+      tag: "delivery" as const,
+      created_at: new Date(Date.now() - i * 86_400_000).toISOString(),
+    }));
+    renderToday({ initialWinSummaries: summaries, initialRecentWins: loaded });
+    expect(screen.getByRole("link", { name: /all 41 wins/i })).toBeInTheDocument();
   });
 
   it("surfaces the stored weekly recap with a copy action", () => {
@@ -119,7 +138,7 @@ describe("TodayOverview", () => {
   });
 
   it("says what is coming when no recap has been generated yet", () => {
-    renderToday({ initialWins: [win()], recap: null });
+    renderToday({ initialRecentWins: [win()], recap: null });
     expect(screen.getByText(/Friday's recap/)).toBeInTheDocument();
   });
 

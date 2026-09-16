@@ -10,7 +10,6 @@ import {
   daysSinceLastWin,
   nextMove,
   MIN_CASE_WINS,
-  RECENT_HIRE_DAYS,
   REVIEW_SOON_DAYS,
   STALE_WIN_DAYS,
   type NextMoveInput,
@@ -252,9 +251,5 @@ describe("nextMove is total", () => {
         }
       }
     }
-  });
-
-  it("exposes a recent-hire window the dashboard can filter on", () => {
-    expect(RECENT_HIRE_DAYS).toBeGreaterThan(0);
   });
 });

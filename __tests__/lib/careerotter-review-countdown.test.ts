@@ -51,3 +51,37 @@ describe("label noun", () => {
     );
   });
 });
+
+describe("calendar-day boundaries", () => {
+  // A stored review date is a calendar date, not an instant. Comparing raw
+  // timestamps put "Review date passed" on screen from 17:01 the evening
+  // before, for anyone west of UTC.
+  it("does not call the review past on the review day itself", () => {
+    for (const hour of ["00:00", "08:00", "17:30", "23:59"]) {
+      const c = reviewCountdown("2026-07-18", new Date(`2026-07-18T${hour}:00`));
+      expect(c!.isPast).toBe(false);
+      expect(c!.days).toBe(0);
+      expect(c!.label).toBe("Review is today");
+    }
+  });
+
+  it("still says tomorrow late on the evening before", () => {
+    const c = reviewCountdown("2026-07-18", new Date("2026-07-17T23:30:00"));
+    expect(c!.isPast).toBe(false);
+    expect(c!.label).toBe("Review is tomorrow");
+  });
+
+  it("flips to past only once the review day is over", () => {
+    const c = reviewCountdown("2026-07-18", new Date("2026-07-19T00:01:00"));
+    expect(c!.isPast).toBe(true);
+    expect(c!.days).toBe(1);
+  });
+
+  it("counts whole days regardless of time of day", () => {
+    const early = reviewCountdown("2026-07-22", new Date("2026-07-18T00:01:00"));
+    const late = reviewCountdown("2026-07-22", new Date("2026-07-18T23:59:00"));
+    expect(early!.days).toBe(4);
+    expect(late!.days).toBe(4);
+    expect(early!.label).toBe(late!.label);
+  });
+});

@@ -156,6 +156,33 @@ export async function PUT(
       new_status: validatedData.status,
     }));
 
+    // Record the status transition. application_history existed but nothing
+    // wrote to it (lib/application-history.ts was imported and never called),
+    // so the only trace of "when did this become Hired" was applications
+    // .updated_at — which the handle_updated_at trigger bumps on any edit, so
+    // adding a note to an old row looked like a fresh hire. Best-effort: a
+    // failed history write must not fail the update.
+    if (validatedData.status && validatedData.status !== existingApp.status) {
+      const previousStatus = existingApp.status;
+      const newStatus = validatedData.status;
+      after(async () => {
+        try {
+          await applicationDAL.addHistory({
+            application_id: id,
+            old_status: previousStatus,
+            new_status: newStatus,
+          });
+        } catch (historyError) {
+          loggerService.error('Failed to record status change', historyError, {
+            category: LogCategory.DATABASE,
+            userId: user.id,
+            action: 'application_history_write_failed',
+            metadata: { applicationId: id, newStatus },
+          });
+        }
+      });
+    }
+
     return NextResponse.json({ application: updatedApp });
 
   } catch (error) {

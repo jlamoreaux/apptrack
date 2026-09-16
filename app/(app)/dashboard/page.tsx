@@ -9,37 +9,18 @@ import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
 import { TodayOverview } from "@/components/careerotter/today-overview";
 import type { LoggedWin } from "@/components/careerotter/win-capture-bar";
+import type { WinSummary } from "@/lib/careerotter/next-move";
 import { summarizeJobSearch } from "@/lib/careerotter/job-search-summary";
-import { RECENT_HIRE_DAYS } from "@/lib/careerotter/next-move";
+import { findRecentHire, type HireTransition } from "@/lib/careerotter/recent-hire";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
-/** Applications Today needs: counts, plus the most recent hire. No descriptions. */
+/** How many wins Today's "Recently" list shows. */
+const RECENT_WINS_SHOWN = 5;
+
+/** Applications Today needs: statuses for the strip's counts. Nothing else. */
 interface TodayApplication {
   status: string | null;
-  company: string;
-  role: string;
-  updated_at: string | null;
-}
-
-/**
- * The most recent job marked Hired inside the recent-hire window, or null.
- * Drives Today's "set up your new role" move — the moment the product used to
- * treat as a cue to cancel.
- */
-function findRecentHire(
-  applications: TodayApplication[],
-  now: Date
-): { company: string; role: string } | null {
-  const cutoff = now.getTime() - RECENT_HIRE_DAYS * 86_400_000;
-  let best: { company: string; role: string; at: number } | null = null;
-
-  for (const app of applications) {
-    if (app.status !== "Hired" || !app.updated_at) continue;
-    const at = new Date(app.updated_at).getTime();
-    if (!Number.isFinite(at) || at < cutoff) continue;
-    if (!best || at > best.at) best = { company: app.company, role: app.role, at };
-  }
-
-  return best ? { company: best.company, role: best.role } : null;
 }
 
 export default async function DashboardPage() {
@@ -58,20 +39,32 @@ export default async function DashboardPage() {
     const supabase = await createClient();
     const admin = createAdminClient();
 
-    // Everything Today renders, in one round trip. Applications go through the
-    // session client (RLS); the career tables are service-role only, so they go
-    // through the admin client scoped to this user's id.
+    // Everything Today renders, in one round trip. Applications and their
+    // history go through the session client (RLS); the career tables are
+    // service-role only, so they go through the admin client scoped to this
+    // user's id.
+    //
+    // Wins are fetched twice on purpose. The coverage meter, the staleness
+    // check and the week count need every row, but only need (tag, created_at);
+    // the "Recently" list needs full text for five. Sending the whole log with
+    // its 2000-char bodies would put megabytes of RSC payload on the wire for
+    // exactly the users who log the most.
     const dataPromise = Promise.all([
       supabase
         .from("applications")
-        .select("status, company, role, updated_at")
+        .select("status")
         .eq("user_id", user.id)
         .eq("archived", false),
       admin
         .from("wins")
+        .select("tag, created_at")
+        .eq("user_id", user.id),
+      admin
+        .from("wins")
         .select("id, text, impact_number, tag, source, created_at, edited_at")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(RECENT_WINS_SHOWN),
       admin
         .from("career_profiles")
         .select("mode, role, level, target, review_date, zero_to_case_completed_at")
@@ -86,6 +79,13 @@ export default async function DashboardPage() {
         .maybeSingle(),
       // Existence check only: the comp page owns the numbers.
       admin.from("comp_entries").select("id").eq("user_id", user.id).limit(1),
+      supabase
+        .from("application_history")
+        .select("changed_at, applications!inner(user_id, company, role, archived)")
+        .eq("applications.user_id", user.id)
+        .eq("new_status", "Hired")
+        .order("changed_at", { ascending: false })
+        .limit(5),
     ]);
 
     // Degrade to an empty Today rather than hanging the page. The capture bar
@@ -95,11 +95,42 @@ export default async function DashboardPage() {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
     ]);
 
+    if (!results) {
+      loggerService.warn("Today data fetch timed out", {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: "today_fetch_timeout",
+      });
+    }
+
+    // A silently failed read renders an established user as a brand-new one, so
+    // say so in the logs rather than only on their screen.
+    const queryNames = [
+      "applications",
+      "win_summaries",
+      "recent_wins",
+      "career_profile",
+      "weekly_recap",
+      "comp_entries",
+      "hire_history",
+    ];
+    results?.forEach((result, i) => {
+      if (!result.error) return;
+      loggerService.error("Today data query failed", result.error, {
+        category: LogCategory.DATABASE,
+        userId: user.id,
+        action: "today_query_failed",
+        metadata: { query: queryNames[i] },
+      });
+    });
+
     const apps = (results?.[0].data as TodayApplication[] | null) ?? [];
-    const wins = results?.[1].data ?? null;
-    const careerProfile = results?.[2].data ?? null;
-    const recap = results?.[3].data ?? null;
-    const compEntries = results?.[4].data ?? null;
+    const winSummaries = (results?.[1].data as WinSummary[] | null) ?? [];
+    const recentWins = (results?.[2].data as LoggedWin[] | null) ?? [];
+    const careerProfile = results?.[3].data ?? null;
+    const recap = results?.[4].data ?? null;
+    const compEntries = results?.[5].data ?? null;
+    const hires = (results?.[6].data as HireTransition[] | null) ?? [];
 
     return (
       <DashboardWithOnboarding>
@@ -122,10 +153,11 @@ export default async function DashboardPage() {
                 review_date: careerProfile?.review_date ?? null,
               }}
               zeroToCaseCompleted={Boolean(careerProfile?.zero_to_case_completed_at)}
-              initialWins={(wins as LoggedWin[]) ?? []}
+              initialWinSummaries={winSummaries}
+              initialRecentWins={recentWins}
               recap={recap ?? null}
               hasCompEntry={(compEntries?.length ?? 0) > 0}
-              recentHire={findRecentHire(apps, new Date())}
+              recentHire={findRecentHire(hires, new Date())}
               jobSearch={summarizeJobSearch(apps)}
             />
           </main>
