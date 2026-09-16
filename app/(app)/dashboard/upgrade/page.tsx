@@ -531,7 +531,7 @@ export default function UpgradePage() {
               {[
                 {
                   q: "Can I cancel anytime?",
-                  a: "Yes! You can cancel your subscription at any time. We'll even remind you to cancel when you mark a job as 'Offer' to help you save money.",
+                  a: "Yes. Cancel from Settings in a couple of clicks, no email required, and you keep access through the end of the period you already paid for.",
                 },
                 {
                   q: "What happens to my data?",

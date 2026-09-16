@@ -27,11 +27,11 @@ const DEFAULT_BENEFITS: UpgradeBenefit[] = [
   },
   {
     title: "Career Coaching",
-    description: "Get personalized career advice anytime",
+    description: "Coaching grounded in the wins you have logged",
   },
   {
-    title: "Cancel Reminder",
-    description: "We'll remind you to cancel when you get hired",
+    title: "Your Case, Written",
+    description: "Turn your logged wins into a review-ready document",
   },
 ];
 

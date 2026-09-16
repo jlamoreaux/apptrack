@@ -12,6 +12,7 @@ import {
   isInFuture,
   addDays,
   subtractDays,
+  isIsoCalendarDate,
 } from "@/lib/utils/date";
 
 describe("date utilities", () => {
@@ -255,6 +256,35 @@ describe("date utilities", () => {
       const result = subtractDays(new Date(2024, 2, 3), 5);
       expect(result.getMonth()).toBe(1); // February
       expect(result.getDate()).toBe(27);
+    });
+  });
+
+  describe("isIsoCalendarDate", () => {
+    it("accepts a real date", () => {
+      expect(isIsoCalendarDate("2024-03-14")).toBe(true);
+    });
+
+    it("accepts a leap day in a leap year", () => {
+      expect(isIsoCalendarDate("2024-02-29")).toBe(true);
+    });
+
+    it("rejects a leap day in a non-leap year instead of rolling it over", () => {
+      expect(isIsoCalendarDate("2026-02-29")).toBe(false);
+    });
+
+    it("rejects out-of-range months and days", () => {
+      expect(isIsoCalendarDate("2024-13-01")).toBe(false);
+      expect(isIsoCalendarDate("2024-04-31")).toBe(false);
+      expect(isIsoCalendarDate("2024-00-10")).toBe(false);
+    });
+
+    it("rejects anything that is not a YYYY-MM-DD string", () => {
+      expect(isIsoCalendarDate("2024-3-14")).toBe(false);
+      expect(isIsoCalendarDate("2024-03-14T00:00:00Z")).toBe(false);
+      expect(isIsoCalendarDate("")).toBe(false);
+      expect(isIsoCalendarDate(null)).toBe(false);
+      expect(isIsoCalendarDate(undefined)).toBe(false);
+      expect(isIsoCalendarDate(20240314)).toBe(false);
     });
   });
 

@@ -11,6 +11,7 @@ import {
   WIN_TAGS,
   WIN_SOURCES,
   CAREER_MODE_OPTIONS,
+  CAREER_MODE_GOAL_LABEL,
   WIN_TAG_OPTIONS,
 } from "@/lib/constants/careerotter";
 
@@ -51,6 +52,12 @@ describe("option lists stay aligned with their value lists", () => {
   it("tag options cover every tag", () => {
     expect(WIN_TAG_OPTIONS.map((o) => o.value).sort()).toEqual(
       [...WIN_TAGS].sort()
+    );
+  });
+
+  it("goal labels cover every mode", () => {
+    expect(Object.keys(CAREER_MODE_GOAL_LABEL).sort()).toEqual(
+      [...CAREER_MODES].sort()
     );
   });
 });

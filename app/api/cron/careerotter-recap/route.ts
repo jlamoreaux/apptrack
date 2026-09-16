@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronAuth } from "@/lib/email/lifecycle-cron";
 import { createAdminClient } from "@/lib/supabase/admin-client";
+import { weekStartOf } from "@/lib/careerotter/week-start";
 import { callOpenAI } from "@/lib/openai/client";
 import { VOICE_GUARDRAILS } from "@/lib/ai/voice-guardrails";
 import { loggerService } from "@/lib/services/logger.service";
@@ -22,15 +23,6 @@ export const maxDuration = 300;
 const ENDPOINT = "/api/cron/careerotter-recap";
 const MAX_USERS = 200; // Backstop for a runaway job; log if we hit it.
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-
-/** Monday 00:00 UTC of the week containing `now` (YYYY-MM-DD). */
-function weekStartOf(now: Date): string {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  const dow = d.getUTCDay(); // 0 Sun..6 Sat
-  const backToMonday = (dow + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - backToMonday);
-  return d.toISOString().slice(0, 10);
-}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!verifyCronAuth(request, ENDPOINT)) {
