@@ -23,12 +23,12 @@ function formatWeek(weekStart: string): string {
 }
 
 /**
- * The weekly recap, in the product. The Friday cron has been generating these
- * into weekly_recaps all along and no screen ever read them — so the one artifact
- * the user could paste straight into a 1:1 was invisible.
+ * The latest stored weekly recap — the one artifact a user can paste straight
+ * into a 1:1 without editing it.
  *
- * With no recap yet, this states what's coming rather than showing an empty card,
- * which is also the only honest thing to say before Friday.
+ * Before Friday's cron has written one, this states what is coming rather than
+ * rendering an empty card, which is also the only honest thing to say while
+ * there is nothing to show.
  */
 export function WeeklyRecapCard({
   recap,

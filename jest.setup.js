@@ -169,6 +169,11 @@ process.env = {
 // test that needs different ids can still mock the module locally.
 jest.mock('lucide-react', () => {
   const React = require('react')
+  // The real module decides which names exist. Without this an icon that does
+  // not exist (a typo, a renamed export) would resolve to a working stub and
+  // the test would pass; CI runs neither tsc nor next build, so nothing else
+  // would catch it.
+  const actual = jest.requireActual('lucide-react')
   const stubs = new Map()
 
   return new Proxy(
@@ -177,6 +182,7 @@ jest.mock('lucide-react', () => {
       get(_target, name) {
         if (name === '__esModule') return true
         if (typeof name !== 'string') return undefined
+        if (!(name in actual)) return undefined
         if (!stubs.has(name)) {
           const testId = `${name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}-icon`
           const Icon = () => React.createElement('div', { 'data-testid': testId })
@@ -185,25 +191,30 @@ jest.mock('lucide-react', () => {
         }
         return stubs.get(name)
       },
-      has: () => true,
+      has: (_target, name) => typeof name === 'string' && name in actual,
     }
   )
 })
 
-// Mock window.matchMedia for components that use prefers-reduced-motion
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-})
+// Mock window.matchMedia for components that use prefers-reduced-motion.
+// Guarded like scrollIntoView below: this file also runs for suites on the node
+// environment, where `window` does not exist and an unguarded reference fails
+// the whole suite before any test body runs.
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // deprecated
+      removeListener: jest.fn(), // deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  })
+}
 
 // jsdom does not implement scrollIntoView; components that call it from an
 // effect (e.g. chat auto-scroll) would otherwise throw inside a timer and flake.

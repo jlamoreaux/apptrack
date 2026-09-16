@@ -1,9 +1,9 @@
 /**
- * The goal editor. The behaviour under test is the PATCH payload: it must send
- * only what the user changed. An earlier cut sent all five fields every time,
- * which wrote nulls over a stored role/level/target whenever the prefill came
- * up empty — and it comes up empty whenever the dashboard's read times out or
- * fails, which is exactly when someone opens this to fix their review date.
+ * The goal editor's PATCH payload. The invariant: a field the user did not touch
+ * is never sent, so prefill data the page could not load is never written back
+ * as null. That matters because an empty prefill is what a failed or timed-out
+ * dashboard read looks like, which is exactly when someone opens this to correct
+ * their review date.
  */
 
 import type { ReactNode } from "react";
@@ -90,8 +90,8 @@ describe("GoalEditor payload", () => {
   });
 
   it("does not write over fields it never loaded", async () => {
-    // The prefill failed, so every field is blank. Setting a date must not
-    // null out the role, level and target that are actually stored.
+    // Every field is blank, as it is when the prefill could not be loaded.
+    // Setting a date must not null out the stored role, level and target.
     renderEditor(EMPTY);
     fireEvent.change(screen.getByLabelText("Review date"), {
       target: { value: "2027-03-01" },

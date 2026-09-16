@@ -1,11 +1,10 @@
 /**
  * "Did this user just start a new job?" Reads application_history transitions
- * rather than applications.updated_at, because the handle_updated_at trigger
- * bumps updated_at on any edit — so a note added to a months-old Hired row used
- * to look like a fresh hire.
+ * rather than applications.updated_at, which the handle_updated_at trigger bumps
+ * on any edit — an edited months-old Hired row must not read as a fresh hire.
+ *
+ * @jest-environment node
  */
-
-// @jest-environment node
 
 import {
   findRecentHire,

@@ -23,10 +23,10 @@ export interface ReviewCountdownOptions {
 /**
  * Whole days from the calendar day containing `now` to the review date.
  *
- * Both sides are normalized to a midnight, which is what makes "has my review
- * date passed?" a question about calendar days rather than instants. Comparing
- * raw timestamps told a UTC-7 user their review had passed from 17:01 the
- * evening before, because the stored date parses to UTC midnight.
+ * Both sides are normalized to a midnight: "has my review date passed?" is a
+ * question about calendar days, not instants. Comparing raw timestamps instead
+ * would answer it in UTC, which is a day out for anyone far enough from it —
+ * the stored date parses to UTC midnight, while `now` is wherever the reader is.
  */
 function wholeDaysUntil(reviewDate: string, now: Date): number | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reviewDate);

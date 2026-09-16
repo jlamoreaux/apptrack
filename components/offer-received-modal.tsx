@@ -22,18 +22,16 @@ interface OfferReceivedModalProps {
 }
 
 /**
- * The offer/hire moment.
+ * The offer/hire moment, pointed at the action that is worth most right then.
  *
- * This used to congratulate the user and then walk them into cancelling their
- * subscription — reasonable when the product ended at "job tracked", actively
- * wrong now that landing the role is the start of the case for the next one. So
- * each state hands over the action that's actually worth money at that moment:
- * an offer is the one time comp is negotiable, and day one of a new job is the
- * cheapest time to start logging evidence for its first review.
+ * An offer is the one point at which comp is negotiable, so that state leads to
+ * the market comparison. Day one of a new job is the cheapest time to start
+ * logging evidence for its first review, so that state leads to setting up the
+ * new role.
  *
- * Cancelling stays one honest link away rather than the default path — the
- * promise was never to nag people into cancelling, it was to not charge them for
- * something they don't want.
+ * Subscription management stays reachable as a plain link rather than the
+ * default path: people who no longer want the product should be able to leave in
+ * two clicks without being asked to.
  */
 export function OfferReceivedModal({
   isOpen,
@@ -91,13 +89,19 @@ export function OfferReceivedModal({
           </div>
 
           {isSubscribed && (
-            <p className="text-xs text-muted-foreground">
-              Changing your plan?{" "}
-              <Link href="/dashboard/settings" className="underline hover:text-foreground">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Changing your plan? Cancel any time, no email required.
+              </p>
+              {/* Own line, not inline in the sentence: a 44px target inside a
+                  wrapping paragraph leaves uneven line spacing. */}
+              <Link
+                href="/dashboard/settings"
+                className="inline-flex min-h-[44px] items-center text-xs text-muted-foreground underline hover:text-foreground"
+              >
                 Manage your subscription
               </Link>
-              . Cancel any time, no email required.
-            </p>
+            </div>
           )}
         </div>
 

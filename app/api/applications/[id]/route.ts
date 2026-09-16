@@ -156,12 +156,10 @@ export async function PUT(
       new_status: validatedData.status,
     }));
 
-    // Record the status transition. application_history existed but nothing
-    // wrote to it (lib/application-history.ts was imported and never called),
-    // so the only trace of "when did this become Hired" was applications
-    // .updated_at — which the handle_updated_at trigger bumps on any edit, so
-    // adding a note to an old row looked like a fresh hire. Best-effort: a
-    // failed history write must not fail the update.
+    // Record the status transition so that "when did this reach status X" is
+    // answerable. applications.updated_at cannot answer it: the
+    // handle_updated_at trigger bumps that column on any edit. Best-effort —
+    // a failed history write must not fail the update.
     if (validatedData.status && validatedData.status !== existingApp.status) {
       const previousStatus = existingApp.status;
       const newStatus = validatedData.status;

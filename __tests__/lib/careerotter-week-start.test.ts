@@ -2,9 +2,9 @@
  * The ISO week boundary. weekly_recaps.week_start has a Monday CHECK and the
  * recap cron upserts against it, so this has to land on Monday for every day of
  * the week — Sunday included, which is where a naive getUTCDay() shift breaks.
+ *
+ * @jest-environment node
  */
-
-// @jest-environment node
 
 import { weekStartOf, weekStartMs } from "@/lib/careerotter/week-start";
 

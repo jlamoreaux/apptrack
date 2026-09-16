@@ -56,6 +56,10 @@ export const WIN_SOURCES = [
 ] as const;
 export type WinSource = (typeof WIN_SOURCES)[number];
 
+// How many wins Today's "Recently" list shows. One value for the fetch limit,
+// the optimistic prepend and the render cap, so they cannot drift apart.
+export const RECENT_WINS_SHOWN = 5;
+
 // Field caps enforced by the API before insert.
 export const WIN_LIMITS = {
   textMax: 2000,

@@ -19,19 +19,16 @@ import { nextMove, type WinSummary } from "@/lib/careerotter/next-move";
 import { reviewCountdown } from "@/lib/careerotter/review-countdown";
 import { weekStartMs } from "@/lib/careerotter/week-start";
 import type { JobSearchSummary } from "@/lib/careerotter/job-search-summary";
-
-/** Keep in step with the dashboard page's fetch limit for the recent list. */
-const RECENT_WINS_SHOWN = 5;
+import { RECENT_WINS_SHOWN } from "@/lib/constants/careerotter";
 
 /**
  * "Today" — the career home.
  *
- * It used to be a read-only report: a countdown, a coverage bar, and four
- * buttons that repeated the nav. Worse, it was a strict subset of
- * /dashboard/wins, so there was nothing here you couldn't do better one click
- * away. It now leads with one computed next move, puts the capture bar in
- * reach, and shows the user their own recent work — the weekly recap, which the
- * Friday cron has always generated and no screen ever displayed, included.
+ * Leads with one computed next move so the page answers "what now" rather than
+ * reporting metrics and leaving the user to work it out. The capture bar sits
+ * directly under that prompt because most next moves are "log something", and
+ * the surfaces below it are the user's own recent work: this week's recap, the
+ * latest wins, then coverage as the summary of them.
  *
  * Client-side so logging a win updates the coverage meter, the recent list, and
  * the next move at once, without a round trip.

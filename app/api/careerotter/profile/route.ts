@@ -4,10 +4,10 @@
  * GET   /api/careerotter/profile   -> { profile }
  * PATCH /api/careerotter/profile   -> { profile }
  *
- * Zero to Case writes this row once at onboarding and, until now, nothing could
- * change it: a wrong review date or a new role was permanent. Everything on
- * Today (the countdown, the next move, the coach's framing) reads it, so it has
- * to be editable. Free for everyone — the goal frame calls no model.
+ * Zero to Case writes this row at onboarding, and everything on Today (the
+ * countdown, the next move, the coach's framing) reads it — so it has to stay
+ * editable as someone's role, target or review date changes. Free for everyone:
+ * the goal frame calls no model.
  *
  * PATCH is a partial upsert: a user who skipped onboarding has no row, so the
  * first PATCH creates one. Omitted fields are left alone; an explicit null

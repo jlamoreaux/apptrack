@@ -10,13 +10,11 @@ import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding"
 import { TodayOverview } from "@/components/careerotter/today-overview";
 import type { LoggedWin } from "@/components/careerotter/win-capture-bar";
 import type { WinSummary } from "@/lib/careerotter/next-move";
+import { RECENT_WINS_SHOWN } from "@/lib/constants/careerotter";
 import { summarizeJobSearch } from "@/lib/careerotter/job-search-summary";
 import { findRecentHire, type HireTransition } from "@/lib/careerotter/recent-hire";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-
-/** How many wins Today's "Recently" list shows. */
-const RECENT_WINS_SHOWN = 5;
 
 /** Applications Today needs: statuses for the strip's counts. Nothing else. */
 interface TodayApplication {

@@ -1,10 +1,9 @@
 /**
  * "Your next move" — the single thing Today asks the user for.
  *
- * Today used to show metrics (a countdown, a coverage percentage) and leave the
- * user to work out what to do with them. This ranks the user's actual state and
- * returns exactly one move, with the reason it's the move. Pure and total: it
- * always returns something, so Today never renders an empty prompt.
+ * Ranks the user's state and returns exactly one move, with the reason it is the
+ * move. Pure and total: it always returns something, so Today never renders an
+ * empty prompt.
  *
  * Order is deliberate. A dated deadline beats the logging habit; a dead log
  * beats a coverage gap; a coverage gap beats polish. Ties go to the cheaper
@@ -79,9 +78,8 @@ export interface NextMoveInput {
   hasCompEntry: boolean;
   /**
    * A job marked Hired inside the recent-hire window, if any (see
-   * lib/careerotter/recent-hire.ts). Landing the job is the start of the next
-   * case, not the end of one — the product used to treat it as a reason to
-   * cancel.
+   * lib/careerotter/recent-hire.ts). Landing the job starts the case for the
+   * next one, so it earns a move of its own.
    */
   recentHire: RecentHire | null;
   /** Applications that aren't archived, rejected, or closed out. */

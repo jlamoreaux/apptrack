@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
-import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
+import {
+  RECENT_WINS_SHOWN,
+  WIN_TAG_OPTIONS,
+  type WinTag,
+} from "@/lib/constants/careerotter";
 import type { LoggedWin } from "./win-capture-bar";
 
 const TAG_LABEL: Record<WinTag, string> = Object.fromEntries(
   WIN_TAG_OPTIONS.map((o) => [o.value, o.label])
 ) as Record<WinTag, string>;
-
-const MAX_SHOWN = 5;
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -29,7 +31,7 @@ function formatDate(iso: string): string {
 export function RecentWins({ wins, total }: { wins: LoggedWin[]; total: number }) {
   if (wins.length === 0) return null;
 
-  const shown = wins.slice(0, MAX_SHOWN);
+  const shown = wins.slice(0, RECENT_WINS_SHOWN);
   const allCount = Math.max(total, wins.length);
 
   return (

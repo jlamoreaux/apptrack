@@ -2,9 +2,9 @@
  * The next-move ranking: which single action Today asks for, given a user's
  * state. Order is the whole design here, so most of these tests are about a
  * higher-priority rule correctly beating a lower one.
+ *
+ * @jest-environment node
  */
-
-// @jest-environment node
 
 import {
   daysSinceLastWin,
@@ -17,15 +17,23 @@ import {
 import { COVERAGE_TARGET_PER_AREA } from "@/lib/careerotter/coverage";
 import { WIN_TAGS } from "@/lib/constants/careerotter";
 
-const NOW = new Date("2026-06-15T12:00:00Z");
+const NOW = new Date("2026-06-15T12:00:00");
 
 /** An ISO timestamp `days` before NOW. */
 const daysAgo = (days: number) =>
   new Date(NOW.getTime() - days * 86_400_000).toISOString();
 
-/** A YYYY-MM-DD date `days` from NOW. */
-const dateIn = (days: number) =>
-  new Date(NOW.getTime() + days * 86_400_000).toISOString().slice(0, 10);
+/**
+ * A YYYY-MM-DD date `days` from NOW, in local terms. reviewCountdown compares a
+ * stored date against the local calendar date, so a UTC-sliced literal would
+ * make the day counts depend on the runner's timezone.
+ */
+const dateIn = (days: number) => {
+  const d = new Date(NOW.getTime() + days * 86_400_000);
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${month}-${day}`;
+};
 
 const win = (tag: string | null, days = 1) => ({ tag, created_at: daysAgo(days) });
 

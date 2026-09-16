@@ -1,7 +1,10 @@
 // @jest-environment node
 import { reviewCountdown } from "@/lib/careerotter/review-countdown";
 
-const NOW = new Date("2026-07-18T00:00:00Z");
+// No trailing Z anywhere in this file: reviewCountdown reads the local
+// calendar date, so a UTC instant would make these assertions depend on the
+// runner's timezone.
+const NOW = new Date("2026-07-18T00:00:00");
 
 describe("reviewCountdown", () => {
   it("returns null with no date", () => {
@@ -34,12 +37,12 @@ describe("reviewCountdown", () => {
 
 describe("label noun", () => {
   it("leads with Review by default", () => {
-    const c = reviewCountdown("2026-07-01", new Date("2026-06-01T12:00:00Z"));
+    const c = reviewCountdown("2026-07-01", new Date("2026-06-01T12:00:00"));
     expect(c!.label).toBe("Review in 4 weeks");
   });
 
   it("uses the supplied noun for a job-search target date", () => {
-    const now = new Date("2026-06-01T12:00:00Z");
+    const now = new Date("2026-06-01T12:00:00");
     expect(reviewCountdown("2026-07-01", now, { noun: "Target" })!.label).toBe(
       "Target in 4 weeks"
     );
@@ -53,9 +56,9 @@ describe("label noun", () => {
 });
 
 describe("calendar-day boundaries", () => {
-  // A stored review date is a calendar date, not an instant. Comparing raw
-  // timestamps put "Review date passed" on screen from 17:01 the evening
-  // before, for anyone west of UTC.
+  // A stored review date is a calendar date, not an instant: the label must not
+  // depend on the time of day, and must not turn over until the review day is
+  // actually over in the reader's own timezone.
   it("does not call the review past on the review day itself", () => {
     for (const hour of ["00:00", "08:00", "17:30", "23:59"]) {
       const c = reviewCountdown("2026-07-18", new Date(`2026-07-18T${hour}:00`));

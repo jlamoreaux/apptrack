@@ -1,9 +1,8 @@
 /**
- * Today, the career home. The point of the redesign is that this surface asks
- * for something and shows the user their own recent work, rather than reporting
- * two numbers — so these tests assert the next move, the capture bar, the
- * previously-invisible weekly recap, and the recent-wins list are all present
- * and react to a logged win.
+ * Today, the career home. This surface has to ask for something and show the
+ * user their own recent work, so these tests assert the next move, the capture
+ * bar, the weekly recap and the recent-wins list are all present, and that they
+ * react together to a logged win.
  */
 
 import type { ReactNode } from "react";
@@ -181,7 +180,7 @@ describe("TodayOverview", () => {
     expect(screen.getByText("Job search")).toBeInTheDocument();
     expect(screen.getByText(/4 applications/)).toBeInTheDocument();
     expect(screen.getByText(/2 interviewing/)).toBeInTheDocument();
-    // Singular: "1 offers" was in the first cut of this strip.
+    // A single offer reads "1 offer", not "1 offers".
     expect(screen.getByText(/1 offer$/)).toBeInTheDocument();
   });
 

@@ -1,14 +1,12 @@
 /**
  * "Did this user just start a new job?" — the input to Today's "set up your new
- * role" move, which is what the product now does at the moment it used to
- * suggest cancelling.
+ * role" move.
  *
- * Read from application_history rather than applications.updated_at: the
- * handle_updated_at trigger bumps updated_at on any edit, so adding a note to a
- * months-old Hired row would read as a fresh hire and re-trigger the prompt for
- * another window. A hire with no history row (it predates the update route
- * recording transitions) doesn't fire this at all, and the user falls through to
- * "set your review date" — still the right move, just less specific.
+ * Reads application_history, not applications.updated_at: the handle_updated_at
+ * trigger bumps updated_at on any edit, so an edited months-old Hired row would
+ * read as a fresh hire. A Hired application with no history row yields nothing
+ * here, and Today falls through to "set your review date" — still the right
+ * move for that user, just less specific.
  */
 
 /** How long a hire stays "new" for the purpose of resetting the goal frame. */

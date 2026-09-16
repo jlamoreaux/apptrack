@@ -2,9 +2,9 @@
  * The counts behind Today's job-search strip. "Active" is what the next-move
  * engine reads to decide whether a job seeker has a pipeline at all, so a
  * miscount there changes what the page asks for.
+ *
+ * @jest-environment node
  */
-
-// @jest-environment node
 
 import { summarizeJobSearch } from "@/lib/careerotter/job-search-summary";
 

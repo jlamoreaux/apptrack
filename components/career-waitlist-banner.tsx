@@ -12,10 +12,8 @@ import {
 } from "@/lib/analytics/career-events";
 
 const DISMISS_KEY = "career-waitlist-banner-dismissed";
-// Legacy key from the "you can now cancel" hired banner, which the career
-// redesign removed (landing the job starts the next case, it doesn't end this
-// one). Kept only so a user who dismissed that banner isn't treated as still
-// having it on screen — see hiredBannerEligible below.
+// Read so that a user who already dismissed the hired banner is not treated as
+// still having it on screen. See hiredBannerEligible below.
 const HIRED_DISMISS_KEY = "hired-banner-dismissed";
 
 function getDismissKey(userId: string) {

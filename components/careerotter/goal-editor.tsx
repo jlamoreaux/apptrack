@@ -35,12 +35,12 @@ export interface CareerGoal {
 }
 
 /**
- * The goal frame, editable. Zero to Case sets it once at onboarding and
- * everything on Today counts down to it, so a stale review date or a new job
- * used to leave the whole surface lying. Free: no model call, one PATCH.
+ * The goal frame, editable. Everything on Today counts down to it, so it has to
+ * keep pace with a changed review date or a new job. Free: no model call, one
+ * PATCH.
  *
- * Rendered as a dialog around a caller-supplied trigger, so Today's header and
- * the new-role banner open the same form.
+ * Rendered as a dialog around a caller-supplied trigger, so every entry point
+ * opens the same form.
  */
 export function GoalEditor({
   goal,
@@ -71,10 +71,10 @@ export function GoalEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // What the form was prefilled with. Saving sends only what the user actually
-  // changed against this — a PATCH of every field would write nulls over stored
-  // role/level/target whenever the prefill came up empty, which it does when the
-  // dashboard's read times out or fails. An untouched field is never sent.
+  // What the form was prefilled with. Saving diffs against this and sends only
+  // the changed fields, so a prefill that arrived empty — which is what a failed
+  // or timed-out dashboard read looks like — cannot write nulls over stored
+  // values. An untouched field is never sent.
   const prefill = useRef(goal);
 
   // Reset the form to the stored goal each time it opens, so a cancelled edit
