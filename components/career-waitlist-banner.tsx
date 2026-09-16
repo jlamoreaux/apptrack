@@ -12,9 +12,8 @@ import {
 } from "@/lib/analytics/career-events";
 
 const DISMISS_KEY = "career-waitlist-banner-dismissed";
-// The hired banner owns this key (components/hired-subscription-banner.tsx).
-// We read it so we only defer to that banner while it is actually visible —
-// see hiredBannerEligible below.
+// Read so that a user who already dismissed the hired banner is not treated as
+// still having it on screen. See hiredBannerEligible below.
 const HIRED_DISMISS_KEY = "hired-banner-dismissed";
 
 function getDismissKey(userId: string) {

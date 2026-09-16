@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Heart, Sparkles, Loader2 } from "lucide-react";
+import { ArrowRight, DollarSign, Trophy } from "lucide-react";
 
 interface OfferReceivedModalProps {
   isOpen: boolean;
@@ -21,6 +21,18 @@ interface OfferReceivedModalProps {
   status?: "Offer" | "Hired";
 }
 
+/**
+ * The offer/hire moment, pointed at the action that is worth most right then.
+ *
+ * An offer is the one point at which comp is negotiable, so that state leads to
+ * the market comparison. Day one of a new job is the cheapest time to start
+ * logging evidence for its first review, so that state leads to setting up the
+ * new role.
+ *
+ * Subscription management stays reachable as a plain link rather than the
+ * default path: people who no longer want the product should be able to leave in
+ * two clicks without being asked to.
+ */
 export function OfferReceivedModal({
   isOpen,
   onClose,
@@ -30,188 +42,75 @@ export function OfferReceivedModal({
   status = "Offer",
 }: OfferReceivedModalProps) {
   const isHired = status === "Hired";
-  const [showCancelOption, setShowCancelOption] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [cancelSuccess, setCancelSuccess] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
-  const [modalTitle, setModalTitle] = useState("");
 
-  useEffect(() => {
-    if (isOpen) {
-      setShowCancelOption(false);
-    }
-  }, [isOpen, status]);
-
-  const handleContinue = () => {
-    if (isSubscribed) {
-      setShowCancelOption(true);
-    } else {
-      onClose();
-    }
-  };
-
-  const handleCancelSubscription = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/stripe/cancel-subscription", {
-        method: "POST",
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        setCancelSuccess(true);
-        setModalTitle("Subscription Canceled");
-        setModalMessage(
-          "Your subscription has been canceled. You'll continue to have access until the end of your billing period."
-        );
-        setModalOpen(true);
-      } else {
-        setCancelSuccess(false);
-        setModalTitle("Error");
-        setModalMessage(
-          "Failed to cancel subscription. Please contact support."
-        );
-        setModalOpen(true);
-      }
-    } catch (error) {
-      setCancelSuccess(false);
-      setModalTitle("Error");
-      setModalMessage(
-        "Something went wrong. Please try again or contact support."
-      );
-      setModalOpen(true);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const Icon = isHired ? Trophy : DollarSign;
 
   return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-md">
-          {!showCancelOption ? (
-            <>
-              <DialogHeader className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                  <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-                <DialogTitle className="text-xl">
-                  Congratulations!
-                </DialogTitle>
-                <DialogDescription className="text-center">
-                  {isHired
-                    ? <>You've been hired as <span className="font-semibold">{roleName}</span> at <span className="font-semibold">{companyName}</span>!</>
-                    : <>You've received an offer for <span className="font-semibold">{roleName}</span> at <span className="font-semibold">{companyName}</span>!</>}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="text-center py-4">
-                <p className="text-sm text-muted-foreground mb-4">
-                  {isHired
-                    ? "Amazing news! Time to celebrate this incredible achievement."
-                    : "We're so excited for your success! This is a huge milestone in your job search journey."}
-                </p>
-                {isSubscribed && (
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Heart className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-blue-900">
-                        We care about you!
-                      </span>
-                    </div>
-                    <p className="text-xs text-blue-700">
-                      Since you may no longer need our job tracking service,
-                      would you like to cancel your subscription to avoid
-                      unnecessary charges?
-                    </p>
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button onClick={handleContinue} className="w-full">
-                  {isSubscribed ? "Continue" : "Awesome!"}
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <>
-              <DialogHeader className="text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-                  <Sparkles className="h-8 w-8 text-blue-600" />
-                </div>
-                <DialogTitle>Manage Your Subscription</DialogTitle>
-                <DialogDescription className="text-center">
-                  {isHired
-                    ? "Now that you've been hired, you likely don't need to track applications anymore. We want to make sure you're not paying for something you don't need."
-                    : "Since you've received an offer, you might not need to track applications anymore. We want to make sure you're not paying for something you don't need."}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-green-900 mb-2">
-                    Keep Your Subscription If:
-                  </h4>
-                  <ul className="text-sm text-green-700 space-y-1">
-                    <li>{"You're still considering other offers"}</li>
-                    <li>You want to keep your application history</li>
-                    <li>{"You might job search again soon"}</li>
-                  </ul>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-orange-900 mb-2">
-                    Cancel Your Subscription If:
-                  </h4>
-                  <ul className="text-sm text-orange-700 space-y-1">
-                    <li>{"You've accepted the offer"}</li>
-                    <li>{"You won't be job searching for a while"}</li>
-                    <li>You want to avoid unnecessary charges</li>
-                  </ul>
-                </div>
-              </div>
-              <DialogFooter className="flex-col space-y-2">
-                <Button
-                  onClick={handleCancelSubscription}
-                  variant="outline"
-                  className="w-full"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Canceling...
-                    </>
-                  ) : (
-                    "Cancel My Subscription"
-                  )}
-                </Button>
-                <Button onClick={onClose} className="w-full" disabled={loading}>
-                  Keep My Subscription
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{modalTitle}</DialogTitle>
-            <DialogDescription>{modalMessage}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              onClick={() => {
-                setModalOpen(false);
-                if (cancelSuccess) onClose();
-              }}
-              autoFocus
-            >
-              OK
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Icon className="h-6 w-6 text-primary" aria-hidden="true" />
+          </div>
+          <DialogTitle className="text-xl">
+            {isHired ? "You got it" : "Offer in hand"}
+          </DialogTitle>
+          <DialogDescription>
+            {isHired ? (
+              <>
+                Hired as <span className="font-semibold">{roleName}</span> at{" "}
+                <span className="font-semibold">{companyName}</span>.
+              </>
+            ) : (
+              <>
+                An offer for <span className="font-semibold">{roleName}</span> at{" "}
+                <span className="font-semibold">{companyName}</span>.
+              </>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="space-y-2 rounded-lg border p-4">
+            <h4 className="text-sm font-semibold">
+              {isHired ? "Start the next case on day one" : "Do the comp work first"}
+            </h4>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              {isHired
+                ? "Your first review at a new job is the easiest one to walk into prepared, and the hardest one to reconstruct from memory eleven months later. Set your new role and review date, then log as you go."
+                : "This is the one moment the number is negotiable. Check the offer against the market for this role and level before you answer."}
+            </p>
+            <Button asChild className="min-h-[44px]">
+              <Link href={isHired ? "/dashboard?setup=role" : "/dashboard/comp"}>
+                {isHired ? "Set up your new role" : "Check it against the market"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+          </div>
+
+          {isSubscribed && (
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">
+                Changing your plan? Cancel any time, no email required.
+              </p>
+              {/* Own line, not inline in the sentence: a 44px target inside a
+                  wrapping paragraph leaves uneven line spacing. */}
+              <Link
+                href="/dashboard/settings"
+                className="inline-flex min-h-[44px] items-center text-xs text-muted-foreground underline hover:text-foreground"
+              >
+                Manage your subscription
+              </Link>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="min-h-[44px]">
+            Later
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

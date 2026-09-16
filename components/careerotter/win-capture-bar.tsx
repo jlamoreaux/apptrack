@@ -30,8 +30,11 @@ export interface LoggedWin {
  */
 export function WinCaptureBar({
   onLogged,
+  inputRef,
 }: {
   onLogged?: (win: LoggedWin) => void;
+  /** Lets a parent put the cursor here — Today's "log a win" prompt focuses it. */
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   const [text, setText] = useState("");
   const [tag, setTag] = useState<string>("");
@@ -79,6 +82,7 @@ export function WinCaptureBar({
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="w-full sm:flex-1 sm:min-w-0">
           <Input
+            ref={inputRef}
             value={text}
             onChange={(e) => {
               setText(e.target.value);

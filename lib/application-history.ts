@@ -1,5 +1,12 @@
 import { supabase } from "./supabase"
 
+/**
+ * NOTE: status transitions are recorded server-side by
+ * PUT /api/applications/[id], which is the single funnel every status change
+ * goes through. `trackStatusChange` below is kept for direct/legacy callers
+ * only — do not call it from the update path or rows will be written twice.
+ */
+
 export async function trackStatusChange(
   applicationId: string,
   oldStatus: string | null,

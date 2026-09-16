@@ -15,6 +15,22 @@ export const CAREER_MODE_OPTIONS: { value: CareerMode; label: string }[] = [
   { value: "job_search", label: "A new job" },
 ];
 
+// The goal named in prose ("the case for a promotion"). Mirrors the phrasing the
+// coach and case prompts use, so in-app copy and generated documents agree.
+export const CAREER_MODE_GOAL_LABEL: Record<CareerMode, string> = {
+  promotion: "a promotion",
+  raise: "a raise",
+  job_search: "a better role",
+};
+
+// Fields on career_profiles the user can edit after onboarding (the goal
+// editor). `mode` is included: people change what they're aiming at.
+export const CAREER_PROFILE_LIMITS = {
+  roleMax: 120,
+  levelMax: 60,
+  targetMax: 300,
+} as const;
+
 // The four impact areas the coverage meter balances. Order is the display order.
 export const WIN_TAGS = [
   "delivery",
@@ -39,6 +55,10 @@ export const WIN_SOURCES = [
   "import",
 ] as const;
 export type WinSource = (typeof WIN_SOURCES)[number];
+
+// How many wins Today's "Recently" list shows. One value for the fetch limit,
+// the optimistic prepend and the render cap, so they cannot drift apart.
+export const RECENT_WINS_SHOWN = 5;
 
 // Field caps enforced by the API before insert.
 export const WIN_LIMITS = {

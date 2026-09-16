@@ -249,3 +249,22 @@ export function addDays(dateInput: string | Date, days: number): Date {
 export function subtractDays(dateInput: string | Date, days: number): Date {
   return addDays(dateInput, -days);
 }
+
+/**
+ * True only for a real calendar date in YYYY-MM-DD form. The shape regex alone
+ * accepts impossible values like 2026-02-30, which a bare `new Date` silently
+ * rolls over into March — so round-trip the parsed components to reject them.
+ *
+ * Use this to validate any date-only field before it reaches Postgres, where a
+ * rolled-over value becomes a wrong row and an invalid one becomes a 500.
+ */
+export function isIsoCalendarDate(value: unknown): value is string {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
