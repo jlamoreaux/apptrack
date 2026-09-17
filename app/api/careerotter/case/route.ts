@@ -58,7 +58,7 @@ export async function POST() {
   if (!wins || wins.length < MIN_WINS) {
     return NextResponse.json(
       {
-        error: `Log at least ${MIN_WINS} wins first — a case needs evidence to stand on.`,
+        error: `Log at least ${MIN_WINS} wins first. A case needs evidence to stand on.`,
         needsMoreWins: true,
       },
       { status: 422 }
