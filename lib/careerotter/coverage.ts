@@ -26,15 +26,20 @@ export interface Coverage {
   /** The tag with the fewest wins while still under target, else null. */
   biggestGap: WinTag | null;
   totalWins: number;
+  /** Wins with no area. They are in the log but count toward no area's depth. */
+  untagged: number;
 }
 
 export function computeCoverage(
   wins: ReadonlyArray<{ tag: string | null }>
 ): Coverage {
   const counts = new Map<WinTag, number>(WIN_TAGS.map((t) => [t, 0]));
+  let untagged = 0;
   for (const w of wins) {
     if (w.tag && counts.has(w.tag as WinTag)) {
       counts.set(w.tag as WinTag, (counts.get(w.tag as WinTag) ?? 0) + 1);
+    } else {
+      untagged += 1;
     }
   }
 
@@ -63,5 +68,6 @@ export function computeCoverage(
     areas,
     biggestGap,
     totalWins: wins.length,
+    untagged,
   };
 }

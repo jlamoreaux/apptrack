@@ -15,7 +15,12 @@ import { type NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { callOpenAI } from "@/lib/openai/client";
+import type { ChatMessage } from "@/lib/openai/types";
 import { VOICE_GUARDRAILS } from "@/lib/ai/voice-guardrails";
+import {
+  EVIDENCE_GROUNDING_RULES,
+  generateGroundedDraft,
+} from "@/lib/ai/evidence-grounding";
 import { CAREER_MODES, type CareerMode } from "@/lib/constants/careerotter";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
@@ -81,10 +86,12 @@ function buildPrompt(input: {
     ...input.wins.map((w, i) => `${i + 1}. ${w}`),
     "",
     "Draft a short starter case (200-350 words):",
-    "- Restructure their wins into evidence language: situation, action, measurable result where possible.",
-    "- Name the single most obvious gap in their case so far.",
+    "- Restructure their wins into evidence language: what the situation was, what they did, what it changed. Use a number only if they gave one.",
+    "- Name the single most obvious gap in their case so far. Wins with no numbers behind them count as a gap; say which ones need a figure.",
     "- End with one concrete next step to take before their review.",
     "Write it in the user's own voice, first person, no otter personality. This is their document.",
+    "",
+    EVIDENCE_GROUNDING_RULES,
   ];
   return lines.filter(Boolean).join("\n");
 }
@@ -191,26 +198,47 @@ export async function POST(request: NextRequest) {
 
   // We own the claim. Generate the case; on failure, release the claim so the
   // user can retry rather than being permanently marked complete with no case.
+  const prompt = buildPrompt({
+    mode: mode as CareerMode,
+    role,
+    level,
+    target,
+    reviewDate,
+    wins: winsInput,
+  });
   let starterCase = "";
+  let inventedFigures: string[] = [];
   try {
-    starterCase = await callOpenAI({
-      systemPrompt: VOICE_GUARDRAILS,
-      messages: [
-        {
-          role: "user",
-          content: buildPrompt({
-            mode: mode as CareerMode,
-            role,
-            level,
-            target,
-            reviewDate,
-            wins: winsInput,
-          }),
-        },
-      ],
-      maxTokens: 800,
-      temperature: 0.6,
-    });
+    // Every figure in the draft is checked against what the user typed. An
+    // invented one gets a rewrite turn; see lib/ai/evidence-grounding.ts.
+    const draft = await generateGroundedDraft(
+      (rewrite) => {
+        const messages: ChatMessage[] = [{ role: "user", content: prompt }];
+        if (rewrite) {
+          messages.push(
+            { role: "assistant", content: rewrite.draft },
+            { role: "user", content: rewrite.correction }
+          );
+        }
+        return callOpenAI({
+          systemPrompt: VOICE_GUARDRAILS,
+          messages,
+          maxTokens: 800,
+          temperature: 0.6,
+        });
+      },
+      [role, level, target, reviewDate, ...winsInput]
+    );
+    starterCase = draft.text;
+    inventedFigures = draft.invented;
+    if (draft.scrubbed) {
+      loggerService.warn("Zero to Case draft still had invented figures after rewrite", {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: "ztc_figures_scrubbed",
+        metadata: { invented: draft.invented },
+      });
+    }
   } catch (error) {
     loggerService.error("Zero to Case generation failed", error, {
       category: LogCategory.AI_SERVICE,
@@ -256,6 +284,7 @@ export async function POST(request: NextRequest) {
       mode,
       wins_seeded: winsInput.length,
       has_review_date: Boolean(reviewDate),
+      invented_figures_caught: inventedFigures.length,
     })
   );
 

@@ -40,11 +40,14 @@ export const WIN_TAGS = [
 ] as const;
 export type WinTag = (typeof WIN_TAGS)[number];
 
-export const WIN_TAG_OPTIONS: { value: WinTag; label: string }[] = [
-  { value: "delivery", label: "Delivery" },
-  { value: "leadership", label: "Leadership" },
-  { value: "collaboration", label: "Collaboration" },
-  { value: "craft", label: "Craft" },
+// `hint` is what a win in that area is evidence of, in the user's terms. It is
+// shown beside the area wherever the user picks one, and reused by Today's
+// "close the gap" copy, so the two never describe an area differently.
+export const WIN_TAG_OPTIONS: { value: WinTag; label: string; hint: string }[] = [
+  { value: "delivery", label: "Delivery", hint: "Something you shipped and what it moved" },
+  { value: "leadership", label: "Leadership", hint: "A call you made, or someone you unblocked" },
+  { value: "collaboration", label: "Collaboration", hint: "Work that crossed a team boundary" },
+  { value: "craft", label: "Craft", hint: "Something you made better that nobody asked you to" },
 ];
 
 // Where a win came from (provenance). "manual" is the capture bar.
