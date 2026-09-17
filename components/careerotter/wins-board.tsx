@@ -29,7 +29,10 @@ export function WinsBoard({
   reviewDate: string | null;
 }) {
   const [wins, setWins] = useState<LoggedWin[]>(initialWins);
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // Every win with a request in flight. A Set, not a single id: retagging a
+  // second win must not re-enable the first while its PATCH is still pending,
+  // or a stale response could land on top of a newer tag.
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(() => new Set());
   const [error, setError] = useState("");
 
   const countdown = reviewCountdown(reviewDate, new Date());
@@ -38,8 +41,17 @@ export function WinsBoard({
     setWins((prev) => [win, ...prev]);
   }
 
+  function markBusy(id: string, busy: boolean) {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
   async function handleDelete(id: string) {
-    setBusyId(id);
+    markBusy(id, true);
     setError("");
     try {
       const res = await fetch(`/api/wins/${id}`, { method: "DELETE" });
@@ -48,12 +60,12 @@ export function WinsBoard({
     } catch {
       setError("Could not delete that win. Try again.");
     } finally {
-      setBusyId(null);
+      markBusy(id, false);
     }
   }
 
   async function handleRetag(id: string, tag: string) {
-    setBusyId(id);
+    markBusy(id, true);
     setError("");
     try {
       const res = await fetch(`/api/wins/${id}`, {
@@ -70,7 +82,7 @@ export function WinsBoard({
     } catch {
       setError("Could not update that win's area. Try again.");
     } finally {
-      setBusyId(null);
+      markBusy(id, false);
     }
   }
 
@@ -127,7 +139,7 @@ export function WinsBoard({
                           <WinTagSelect
                             value={win.tag ?? ""}
                             onValueChange={(tag) => handleRetag(win.id, tag)}
-                            disabled={busyId === win.id}
+                            disabled={busyIds.has(win.id)}
                             placeholder="Add an area"
                             ariaLabel={`Impact area for: ${win.text}`}
                             className="min-h-[44px] w-full text-xs"
@@ -141,7 +153,7 @@ export function WinsBoard({
                       size="sm"
                       className="min-h-[44px] min-w-[44px] shrink-0 text-muted-foreground hover:text-destructive"
                       aria-label="Delete win"
-                      disabled={busyId === win.id}
+                      disabled={busyIds.has(win.id)}
                       onClick={() => handleDelete(win.id)}
                     >
                       <Trash2 className="h-4 w-4" />

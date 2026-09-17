@@ -52,6 +52,34 @@ describe("findUnsupportedFigures", () => {
   it("deduplicates repeated figures", () => {
     expect(findUnsupportedFigures("up 20%, then 20% again", INPUTS)).toEqual(["20%"]);
   });
+
+  it("does not let a plain count or a date component authorize a percentage", () => {
+    expect(findUnsupportedFigures("throughput up 30%", ["closed 30 tickets"])).toEqual(["30%"]);
+    expect(findUnsupportedFigures("errors down 30%", ["shipped on 2026-09-30"])).toEqual(["30%"]);
+    expect(findUnsupportedFigures("made builds 3x faster", ["3 projects"])).toEqual(["3x"]);
+  });
+
+  it("matches currency by magnitude, so $40 does not authorize $40k", () => {
+    expect(findUnsupportedFigures("saved $40k a month", ["saved $40 a month"])).toEqual(["$40k"]);
+    expect(findUnsupportedFigures("saved $40,000 a year", ["saved $40k a year"])).toEqual([]);
+    expect(findUnsupportedFigures("saved $1.2M", ["saved $1,200,000"])).toEqual([]);
+  });
+
+  it("detects currency written with a code or a word instead of a sign", () => {
+    expect(findUnsupportedFigures("worth USD 40,000 to the team", INPUTS)).toEqual(["USD 40,000"]);
+    expect(findUnsupportedFigures("saved 40 thousand dollars", INPUTS)).toEqual(["40 thousand dollars"]);
+    expect(findUnsupportedFigures("about 2 million euros", INPUTS)).toEqual(["2 million euros"]);
+  });
+
+  it("treats every currency spelling of the same amount as the same figure", () => {
+    expect(findUnsupportedFigures("saved $40k", ["saved 40 thousand dollars"])).toEqual([]);
+    expect(findUnsupportedFigures("worth USD 40,000", ["worth $40k"])).toEqual([]);
+  });
+
+  it("lets a bare amount the user typed support a dollar figure, but not a percentage", () => {
+    expect(findUnsupportedFigures("saved $40k", ["saved 40k"])).toEqual([]);
+    expect(findUnsupportedFigures("grew 40%", ["saved 40k"])).toEqual(["40%"]);
+  });
 });
 
 describe("scrubUnsupportedFigures", () => {
@@ -61,6 +89,11 @@ describe("scrubUnsupportedFigures", () => {
       ["latency down 30 percent"]
     );
     expect(out).toBe(`Latency fell 30% and errors fell ${MISSING_FIGURE_PLACEHOLDER}.`);
+  });
+
+  it("scrubs unsupported currency in every spelling", () => {
+    const out = scrubUnsupportedFigures("saved USD 40,000 and 2 million euros", INPUTS);
+    expect(out).toBe(`saved ${MISSING_FIGURE_PLACEHOLDER} and ${MISSING_FIGURE_PLACEHOLDER}`);
   });
 
   it("returns the draft untouched when it is clean", () => {
@@ -115,6 +148,17 @@ describe("generateGroundedDraft", () => {
       rewritten: true,
       scrubbed: false,
     });
+  });
+
+  it("runs a currency-code amount through the same rewrite and scrub", async () => {
+    const generate = jest
+      .fn()
+      .mockResolvedValueOnce("This saved USD 40,000.")
+      .mockResolvedValueOnce("This saved 40 thousand dollars.");
+    const r = await generateGroundedDraft(generate, INPUTS);
+    expect(r.invented).toEqual(["USD 40,000"]);
+    expect(r.text).toBe(`This saved ${MISSING_FIGURE_PLACEHOLDER}.`);
+    expect(r.scrubbed).toBe(true);
   });
 
   it("scrubs figures that survive the rewrite instead of shipping them", async () => {

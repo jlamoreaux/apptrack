@@ -78,6 +78,42 @@ it("says untagged wins count toward nothing, then counts one once it is tagged",
   );
 });
 
+it("keeps each win disabled until its own request finishes, not just the latest one", async () => {
+  const two: LoggedWin[] = [seeded[0], { ...seeded[0], id: "w2", text: "Second win" }];
+  const pending: Array<(v: unknown) => void> = [];
+  // Each PATCH stays open until the test resolves it, in order.
+  mockFetch.mockImplementation(
+    () => new Promise((resolve) => pending.push(resolve))
+  );
+  render(<WinsBoard initialWins={two} reviewDate={null} />);
+  const [, retagFirst, retagSecond] = selectHandlers;
+
+  // Fire and do not return the handler's promise: it stays pending on purpose.
+  await act(async () => {
+    void retagFirst("delivery");
+  });
+  await act(async () => {
+    void retagSecond("craft");
+  });
+
+  // Both rows are busy: the delete buttons (which share the busy state) are disabled.
+  const deletes = screen.getAllByRole("button", { name: "Delete win" });
+  expect(deletes[0]).toBeDisabled();
+  expect(deletes[1]).toBeDisabled();
+
+  // Finishing the second request must not re-enable the first.
+  await act(async () => {
+    pending[1]({ ok: true, json: async () => ({ win: { ...two[1], tag: "craft" } }) });
+  });
+  expect(deletes[0]).toBeDisabled();
+  expect(deletes[1]).not.toBeDisabled();
+
+  await act(async () => {
+    pending[0]({ ok: true, json: async () => ({ win: { ...two[0], tag: "delivery" } }) });
+  });
+  expect(deletes[0]).not.toBeDisabled();
+});
+
 it("clears an area by sending null", async () => {
   mockFetch.mockResolvedValueOnce({
     ok: true,
