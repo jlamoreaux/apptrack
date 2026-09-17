@@ -1,3 +1,5 @@
+> **Archived.** Original write-up of the filename sanitization utility. The maintained documentation is `lib/utils/sanitize-filename.md` next to the code.
+
 # Filename Sanitization Implementation
 
 ## Overview

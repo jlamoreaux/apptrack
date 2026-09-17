@@ -1,7 +1,7 @@
 # PostHog A/B Testing Setup Guide
 
 ## Overview
-This guide explains how to set up and use A/B tests in AppTrack using PostHog feature flags.
+This guide explains how to set up and use A/B tests in CareerOtter using PostHog feature flags.
 
 ## Available Feature Flags
 

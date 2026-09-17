@@ -42,13 +42,13 @@ Tracks user progress through flows:
 // Define a flow
 const NEW_USER_FLOW = {
   id: 'new-user',
-  name: 'Welcome to AppTrack',
+  name: 'Welcome to CareerOtter',
   triggers: ['first_login'],
   steps: [
     {
       id: 'welcome',
       type: 'modal',
-      title: 'Welcome to AppTrack!',
+      title: 'Welcome to CareerOtter!',
       content: 'Let us show you around...',
       action: { label: 'Get Started', next: 'add-first-app' }
     },

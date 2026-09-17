@@ -1,6 +1,6 @@
 # Database Schemas
 
-This directory contains SQL schema definitions for the AppTrack application.
+This directory contains SQL schema definitions for the CareerOtter application.
 
 ## Active Schemas (Currently in Use)
 

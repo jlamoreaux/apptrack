@@ -1,3 +1,5 @@
+> **Archived.** Session notes for the pre-registration AI features work (the `/try` tools and homepage integration). The work shipped; the deferred items listed at the bottom were manual PostHog dashboard tasks. Kept for reference only.
+
 # Pre-Registration AI Features - Work Tracking
 
 ## Current Session: Tasks 9, 10, 11

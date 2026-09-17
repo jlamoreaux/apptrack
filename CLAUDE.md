@@ -1,4 +1,6 @@
-# AppTrack Development Guide
+# CareerOtter Development Guide
+
+CareerOtter (formerly AppTrack) is a career companion: application tracking, win logging, comp tracking, and an AI coach grounded in the user's logged wins. Canonical origin is `https://careerotter.io`; `apptrack.ing` only survives in redirects. Brand, pricing, and feature copy live in `lib/constants/` (`site-config.ts`, `plans.ts`, `homepage-content.ts`, `careerotter.ts`) and nothing user-facing should hardcode them.
 
 ## Critical Rules
 
@@ -20,15 +22,13 @@
 - Keep copy clean and professional
 
 ### Section Backgrounds (Homepage)
-Use a conversion-focused pattern - `bg-muted` only on conversion-driving sections:
+Homepage sections (`app/(marketing)/page.tsx`) are transparent on `bg-background`. Separate sections with `border-t border-border`, not tinted backgrounds:
 - Hero: transparent
-- Problem/Solution: transparent
-- Try AI Features: `bg-muted` (conversion point)
-- Features: transparent
+- Value props (Land it / Track it / Win it): transparent
 - Testimonials: transparent
-- Pricing: `bg-muted` (conversion point)
-- FAQ: transparent
-- Final CTA: `bg-muted` (conversion point)
+- Pricing: `border-t border-border`
+- FAQ: `border-t border-border`
+Cards inside sections use `rounded-xl border border-border bg-card`.
 
 ### Section Consistency
 - Padding: `py-16` (not py-20)

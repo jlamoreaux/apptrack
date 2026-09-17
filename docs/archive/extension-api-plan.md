@@ -1,3 +1,5 @@
+> **Archived.** Implementation plan for the browser extension API, written when the product was AppTrack. All endpoints it describes shipped: `app/api/auth/extension-token`, `app/api/auth/refresh-extension-token`, `app/auth/extension-callback`, `app/api/applications/check-duplicate`, and `lib/auth/extension-auth.ts` (migration `022_extension_support.sql`). URLs in this document predate the CareerOtter rename.
+
 # Plan: Extension API Updates for AppTrack
 
 This plan covers the API changes needed in the AppTrack main repo to support the browser extension.

@@ -1,19 +1,21 @@
 # Stripe 2-Tier Pricing Setup Guide
 
 ## Overview
-This guide walks through setting up Stripe products and webhooks for the new 2-tier pricing structure:
-- **Free**: Up to 100 applications
-- **AI Coach**: $9/month or $90/year (unlimited applications + AI features)
+This guide walks through setting up Stripe products and webhooks for the 2-tier pricing structure:
+- **Free**: every non-AI tool, including unlimited application tracking
+- **Pro**: $9/month or $90/year, unlocks every AI feature
+
+The paid tier is marketed as "Pro". Its database plan row is still named `AI Coach` (the pre-rename name) so existing subscriptions keep working; `lib/constants/plans.ts` maps both names to the same entitlements.
 
 ## Step 1: Create Stripe Products
 
 ### In Stripe Dashboard:
 
-1. **Create AI Coach Product**
-   - Name: "AppTrack AI Coach" 
-   - Description: "Unlimited applications with AI-powered career coaching"
+1. **Create the Pro Product**
+   - Name: "CareerOtter Pro"
+   - Description: "Every AI tool: coach, case builder, comp coaching, resume and interview prep"
    
-2. **Create Pricing for AI Coach**
+2. **Create Pricing for Pro**
    - Monthly: $9.00/month
    - Yearly: $90.00/year (save $18)
    - Note down the price IDs (e.g., `price_1ABcd...`)
@@ -69,7 +71,7 @@ No code changes needed - it dynamically looks up plans by Stripe price ID.
 ## Step 6: Stripe Customer Portal
 
 Configure the Customer Portal in Stripe to:
-1. Only show AI Coach plan (hide Pro from new customers)
+1. Only show the current Pro plan (hide the grandfathered legacy Pro plan from new customers)
 2. Allow cancellation
 3. Allow billing cycle changes (monthly/yearly)
 4. Set cancellation policy (end of billing period)
@@ -77,6 +79,6 @@ Configure the Customer Portal in Stripe to:
 ## Important Notes
 
 - The webhook handler automatically detects plan changes by looking up price IDs
-- Grandfathered Pro users keep their existing subscriptions unchanged
-- The system enforces 100 application limit for free users via database trigger
-- All new subscriptions will be either Free or AI Coach
+- Grandfathered legacy Pro users keep their existing subscriptions unchanged
+- Application tracking is unlimited on every tier; the paywall is AI features, not application count
+- All new subscriptions will be either Free or Pro (plan row `AI Coach`)

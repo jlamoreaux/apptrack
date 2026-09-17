@@ -9,7 +9,7 @@ This directory contains all screenshots for the landing page.
 
 - **`problem-solution/`** - Before/after comparison screenshots
   - `before-spreadsheet.png` - Messy spreadsheet example
-  - `after-dashboard.png` - Clean AppTrack dashboard
+  - `after-dashboard.png` - Clean CareerOtter dashboard
 
 - **`features/`** - Feature-specific screenshots
   - `sankey-chart.png` - Pipeline visualization

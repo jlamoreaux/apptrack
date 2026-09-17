@@ -1,3 +1,5 @@
+> **Archived.** Response to the code review of PR #81 (multi-resume management). All fixes landed. Kept for reference only.
+
 # Code Review Fixes - Multi-Resume Management PR
 
 This document summarizes all fixes implemented in response to the comprehensive code review of PR #81.

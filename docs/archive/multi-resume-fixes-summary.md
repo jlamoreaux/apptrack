@@ -1,3 +1,5 @@
+> **Archived.** Fix summary for the multi-resume management review. All fixes landed. Kept for reference only.
+
 # Multi-Resume Management - Critical Fixes Summary
 
 ## Overview

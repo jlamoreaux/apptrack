@@ -1,6 +1,6 @@
 # Accessibility System Documentation
 
-This directory contains the accessibility infrastructure for the AppTrack application, ensuring WCAG 2.1 AA compliance across all components and user interactions.
+This directory contains the accessibility infrastructure for the CareerOtter application, ensuring WCAG 2.1 AA compliance across all components and user interactions.
 
 ## Components
 
