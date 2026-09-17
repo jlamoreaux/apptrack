@@ -51,6 +51,13 @@ describe("computeCoverage", () => {
   it("ignores untagged wins for coverage but counts them in the total", () => {
     const c = computeCoverage([w(null), w(null), w("delivery")]);
     expect(c.totalWins).toBe(3);
+    expect(c.untagged).toBe(2);
     expect(c.areas.find((a) => a.tag === "delivery")?.count).toBe(1);
+  });
+
+  it("treats an unknown tag as untagged", () => {
+    const c = computeCoverage([w("vibes")]);
+    expect(c.untagged).toBe(1);
+    expect(c.overallPct).toBe(0);
   });
 });

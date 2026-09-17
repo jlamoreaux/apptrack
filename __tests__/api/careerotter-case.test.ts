@@ -6,6 +6,7 @@
 
 import { POST } from "@/app/api/careerotter/case/route";
 import { buildCasePrompt, CASE_RUBRIC_V1 } from "@/lib/careerotter/case-prompt";
+import { EVIDENCE_GROUNDING_RULES } from "@/lib/ai/evidence-grounding";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
@@ -73,6 +74,12 @@ describe("buildCasePrompt", () => {
     expect(p).toContain(CASE_RUBRIC_V1[0].split(":")[0]); // "Summary"
     expect(p).toMatch(/only the wins below|only evidence|do not invent/i);
   });
+
+  it("carries the evidence-grounding rules and never asks for numbers it was not given", () => {
+    const p = buildCasePrompt({ mode: "promotion" }, [{ text: "Shipped it" }]);
+    expect(p).toContain(EVIDENCE_GROUNDING_RULES);
+    expect(p).not.toMatch(/hardest numbers|measurable result/i);
+  });
 });
 
 describe("POST /api/careerotter/case", () => {
@@ -99,6 +106,27 @@ describe("POST /api/careerotter/case", () => {
     expect(res.status).toBe(422);
     expect((await res.json()).needsMoreWins).toBe(true);
     expect(mockCall).not.toHaveBeenCalled();
+  });
+
+  it("rewrites a document that invents a figure the wins never logged", async () => {
+    adminWith(
+      [{ text: "a" }, { text: "b", impact_number: "12%" }, { text: "c" }],
+      { mode: "promotion" }
+    );
+    mockCall
+      .mockResolvedValueOnce("# Case\nErrors down 12%, tickets down 25%.")
+      .mockResolvedValueOnce("# Case\nErrors down 12%, tickets down [add the number].");
+    const res = await POST();
+    expect(res.status).toBe(200);
+    const { markdown } = await res.json();
+    expect(markdown).toContain("12%");
+    expect(markdown).not.toContain("25%");
+    expect(mockCall).toHaveBeenCalledTimes(2);
+    expect(mockCapture).toHaveBeenCalledWith(
+      USER.id,
+      CAREEROTTER_EVENT_NAMES.CASE_EXPORTED,
+      expect.objectContaining({ invented_figures_caught: 1 })
+    );
   });
 
   it("200 with markdown and fires case_exported when there is enough evidence", async () => {

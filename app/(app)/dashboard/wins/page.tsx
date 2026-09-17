@@ -8,10 +8,10 @@ import { WinsBoard } from "@/components/careerotter/wins-board";
 import type { LoggedWin } from "@/components/careerotter/win-capture-bar";
 
 /**
- * The "Today" evidence surface (CareerOtter M2): review countdown, case
- * coverage, capture bar, and the wins log. Server-fetches the initial data with
- * the service-role client scoped to the session user, then hands it to the
- * client board for instant updates.
+ * The wins log (CareerOtter M2): review countdown, case coverage, capture bar,
+ * and every win with its area editable in place. Server-fetches the initial
+ * data with the service-role client scoped to the session user, then hands it
+ * to the client board for instant updates.
  */
 export default async function WinsPage() {
   const user = await getUser();
@@ -38,7 +38,9 @@ export default async function WinsPage() {
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Your wins</h1>
           <p className="text-sm text-muted-foreground">
-            Log what you ship as it happens. It becomes your case at review time.
+            One line per thing you ship, as it happens. Give each win an area and
+            the coverage meter shows where your case is thin. At review time, this
+            log is what the case is built from.
           </p>
         </div>
         <WinsBoard

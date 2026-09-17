@@ -91,13 +91,10 @@ const TAG_LABEL: Record<WinTag, string> = Object.fromEntries(
   WIN_TAG_OPTIONS.map((o) => [o.value, o.label])
 ) as Record<WinTag, string>;
 
-/** What the tagged area is evidence *of*, for copy that explains the gap. */
-const TAG_EVIDENCE: Record<WinTag, string> = {
-  delivery: "something you shipped and what it moved",
-  leadership: "a call you made, or someone you unblocked",
-  collaboration: "work that crossed a team boundary",
-  craft: "something you made better that nobody asked you to",
-};
+/** What the tagged area is evidence *of*, mid-sentence ("Log something you shipped..."). */
+const TAG_EVIDENCE: Record<WinTag, string> = Object.fromEntries(
+  WIN_TAG_OPTIONS.map((o) => [o.value, o.hint.charAt(0).toLowerCase() + o.hint.slice(1)])
+) as Record<WinTag, string>;
 
 /** Whole days between two instants, rounded down. Never negative. */
 function daysSince(then: Date, now: Date): number {
