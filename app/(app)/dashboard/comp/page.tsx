@@ -20,7 +20,8 @@ export default async function CompPage() {
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Comp</h1>
           <p className="text-sm text-muted-foreground">
-            Track your compensation and see where you stand against the market.
+            Log what you are paid, base and equity, and see it against the
+            market for your role and level. The number you ask for starts here.
           </p>
         </div>
         <CompTracker />

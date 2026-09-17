@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { User, LogOut, Crown, Settings, Shield, LifeBuoy } from "lucide-react";
+import { User, LogOut, Crown, Settings, Shield, LifeBuoy, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { signOut } from "@/lib/actions";
 import { SupportDialog } from "@/components/support/support-dialog";
@@ -103,6 +103,13 @@ export function UserMenu({ user, profile, isOnFreePlan, isAdmin = false }: UserM
         )}
 
         <DropdownMenuSeparator />
+
+        <Link href="/how-it-works">
+          <DropdownMenuItem>
+            <BookOpen className="h-4 w-4 mr-2" />
+            How CareerOtter works
+          </DropdownMenuItem>
+        </Link>
 
         <DropdownMenuItem
           onSelect={(event) => {

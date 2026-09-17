@@ -20,6 +20,12 @@ export function Footer() {
           >
             Blog
           </Link>
+          <Link
+            href="/how-it-works"
+            className="text-foreground font-medium hover:text-primary transition-colors"
+          >
+            How it works
+          </Link>
           <p>
             © {currentYear} {SITE_CONFIG.name}. All rights reserved.
           </p>
