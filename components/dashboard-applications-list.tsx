@@ -163,7 +163,7 @@ export function DashboardApplicationsList({
             <p className="text-sm sm:text-base text-muted-foreground mb-6 max-w-sm mx-auto px-4 sm:px-0">
               {hasActiveFilters 
                 ? "Try adjusting your filters to see more applications."
-                : "Start tracking your job search by adding your first application. Keep all your opportunities organized in one place."
+                : "Add the first one. Tracking is free and unlimited, and every application you log is something the coach can work with."
               }
             </p>
             {hasActiveFilters ? (

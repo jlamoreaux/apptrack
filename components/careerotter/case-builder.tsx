@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,11 +17,13 @@ export function CaseBuilder() {
   const [markdown, setMarkdown] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [needsMoreWins, setNeedsMoreWins] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function generate() {
     setLoading(true);
     setError("");
+    setNeedsMoreWins(false);
     try {
       const res = await fetch("/api/careerotter/case", { method: "POST" });
       const data = await res.json().catch(() => null);
@@ -28,6 +31,7 @@ export function CaseBuilder() {
         setMarkdown(data.markdown);
       } else {
         setError(data?.error || "Could not build your case right now.");
+        setNeedsMoreWins(Boolean(data?.needsMoreWins));
       }
     } catch {
       setError("Could not build your case right now.");
@@ -54,6 +58,25 @@ export function CaseBuilder() {
 
   return (
     <div className="space-y-4">
+      {!markdown && (
+        <Card>
+          <CardContent className="space-y-2 p-5 text-sm text-muted-foreground">
+            <p className="font-medium text-foreground">What you will get</p>
+            <p>
+              A first-person document built only from the wins you have logged,
+              in the shape a manager expects: summary, evidence by area, impact,
+              gaps, the ask. Nothing is invented. Where a win has no number
+              behind it, the draft leaves a bracketed prompt like [add the number]
+              for you to fill in.
+            </p>
+            <p>
+              The more wins carry an area and a figure, the less you will have
+              to edit.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={generate} disabled={loading}>
           {loading ? <Spinner size="sm" className="mr-2" /> : null}
@@ -80,6 +103,14 @@ export function CaseBuilder() {
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
+          {needsMoreWins && (
+            <>
+              {" "}
+              <Link href="/dashboard/wins" className="font-medium underline underline-offset-2">
+                Log wins
+              </Link>
+            </>
+          )}
         </p>
       )}
 

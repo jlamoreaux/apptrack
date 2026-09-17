@@ -2,7 +2,7 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { computeCoverage } from "@/lib/careerotter/coverage";
+import { computeCoverage, COVERAGE_TARGET_PER_AREA } from "@/lib/careerotter/coverage";
 import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
 
 const TAG_LABEL: Record<WinTag, string> = Object.fromEntries(
@@ -71,6 +71,22 @@ export function CoverageMeter({ wins }: { wins: ReadonlyArray<{ tag: string | nu
         <p className="text-sm leading-relaxed text-muted-foreground">
           {coverageLine(coverage)}
         </p>
+
+        {/* The one computed number in the app gets the one explainer. Native
+            disclosure: costs nothing when closed, no client state. */}
+        <details className="text-sm text-muted-foreground">
+          <summary className="inline-flex min-h-[44px] cursor-pointer items-center text-xs font-medium text-foreground underline-offset-2 hover:underline">
+            How coverage works
+          </summary>
+          <ul className="mt-1 list-disc space-y-1 pl-5 leading-relaxed">
+            <li>Each area is fully evidenced at {COVERAGE_TARGET_PER_AREA} wins.</li>
+            <li>
+              The four areas count equally. Extra wins in one area do not raise the
+              total, so stacking one area cannot hide a gap in another.
+            </li>
+            <li>A win with no area counts toward nothing until you set one.</li>
+          </ul>
+        </details>
       </CardContent>
     </Card>
   );

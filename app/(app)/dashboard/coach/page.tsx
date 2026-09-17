@@ -21,7 +21,9 @@ export default async function CoachPage() {
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Coach</h1>
           <p className="text-sm text-muted-foreground">
-            Grounded in your logged wins, your goal, and your review date.
+            Ask what is weak, what to say in your 1:1, or whether you are ready
+            to ask. It reasons only from the wins you have logged, so the more
+            you log, the sharper it gets.
           </p>
         </div>
         <CoachChat />
