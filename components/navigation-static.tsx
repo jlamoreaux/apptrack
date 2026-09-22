@@ -10,41 +10,23 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Menu,
-  X,
-  ChevronDown,
-  BarChart3,
-  FileText,
-  MessageSquare,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { Menu, X, ChevronDown, Sun, Moon } from "lucide-react";
 import { useTheme } from "next-themes";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
+import { ACCOUNT_TOOLS, FREE_TOOLS } from "@/lib/constants/free-tools";
 
-const TRY_TOOLS = [
-  {
-    title: "Job Fit Analysis",
-    description: "See how well you match a job",
-    href: "/try/job-fit",
-    icon: BarChart3,
-  },
-  {
-    title: "Cover Letter Generator",
-    description: "Create tailored cover letters",
-    href: "/try/cover-letter",
-    icon: FileText,
-  },
-  {
-    title: "Interview Prep",
-    description: "Get personalized questions",
-    href: "/try/interview-prep",
-    icon: MessageSquare,
-  },
-];
+// The Tools menu lists the whole product: what a visitor can try without an
+// account, then what a free account adds. Both lists come from the same
+// constants the free-tools page and llms.txt use, so a new tool shows up
+// everywhere at once.
+const TOOL_GROUPS = [
+  { label: "Try without signing up", tools: FREE_TOOLS },
+  { label: "Free with an account", tools: ACCOUNT_TOOLS },
+] as const;
 
 interface NavigationStaticProps {
   isAuthenticated?: boolean;
@@ -89,22 +71,30 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                {TRY_TOOLS.map((tool) => (
-                  <DropdownMenuItem key={tool.href} asChild>
-                    <Link
-                      href={tool.href}
-                      className="flex items-start gap-3 p-2 cursor-pointer"
-                    >
-                      <tool.icon className="h-5 w-5 text-primary mt-0.5" />
-                      <div>
-                        <div className="font-medium">{tool.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {tool.description}
-                        </div>
-                      </div>
-                    </Link>
-                  </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-72">
+                {TOOL_GROUPS.map((group, i) => (
+                  <div key={group.label}>
+                    {i > 0 && <DropdownMenuSeparator />}
+                    <DropdownMenuLabel className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      {group.label}
+                    </DropdownMenuLabel>
+                    {group.tools.map((tool) => (
+                      <DropdownMenuItem key={tool.href} asChild>
+                        <Link
+                          href={tool.href}
+                          className="flex items-start gap-3 p-2 cursor-pointer"
+                        >
+                          <tool.icon className="h-5 w-5 text-primary mt-0.5" />
+                          <div>
+                            <div className="font-medium">{tool.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {tool.shortDescription}
+                            </div>
+                          </div>
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </div>
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
@@ -174,22 +164,24 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
             className="sm:hidden border-t bg-background overflow-hidden"
           >
             <div className="container px-4 py-4 space-y-1">
-              <div className="py-2">
-                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-2">
-                  Tools
+              {TOOL_GROUPS.map((group) => (
+                <div key={group.label} className="py-2">
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-2">
+                    {group.label}
+                  </div>
+                  {group.tools.map((tool) => (
+                    <Link
+                      key={tool.href}
+                      href={tool.href}
+                      onClick={() => setIsOpen(false)}
+                      className="flex min-h-[44px] items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
+                    >
+                      <tool.icon className="h-5 w-5 text-primary" />
+                      <span className="font-medium">{tool.title}</span>
+                    </Link>
+                  ))}
                 </div>
-                {TRY_TOOLS.map((tool) => (
-                  <Link
-                    key={tool.href}
-                    href={tool.href}
-                    onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
-                  >
-                    <tool.icon className="h-5 w-5 text-primary" />
-                    <span className="font-medium">{tool.title}</span>
-                  </Link>
-                ))}
-              </div>
+              ))}
 
               <div className="border-t my-2" />
 

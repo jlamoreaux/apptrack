@@ -42,7 +42,9 @@ export function PriceSimulator({
   totalAtAnchor,
 }: PriceSimulatorProps) {
   const current = price ?? 0;
-  const sliderMax = Math.max((anchorPrice ?? current) * 3, 1);
+  // Room for an optimistic case: five times the live price, and never less
+  // than a typed price plus a margin so the thumb can always reach it.
+  const sliderMax = Math.max((anchorPrice ?? current) * 5, current * 1.25, 1);
   const delta = anchorPrice !== null && price !== null ? price - anchorPrice : null;
   const deltaPct = delta !== null && anchorPrice ? (delta / anchorPrice) * 100 : null;
   const deltaTone =

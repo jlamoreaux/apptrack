@@ -1,5 +1,6 @@
 import { Footer } from "@/components/footer";
 import { RebrandBanner } from "@/components/rebrand-banner";
+import { GuestCompImport } from "@/components/careerotter/comp/guest-import";
 
 export default function AppLayout({
   children,
@@ -9,6 +10,7 @@ export default function AppLayout({
   return (
     <>
       <RebrandBanner />
+      <GuestCompImport />
       {children}
       <Footer />
     </>

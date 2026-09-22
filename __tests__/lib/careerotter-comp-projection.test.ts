@@ -14,6 +14,7 @@ import {
   grantFractionReceivedInYear,
   niceTicks,
   projectComp,
+  projectionYears,
   scenarioTotal,
   vestSummary,
   vestedFractionAt,
@@ -180,5 +181,24 @@ describe("formatting", () => {
     expect(niceTicks(392_000)).toEqual([0, 100_000, 200_000, 300_000, 400_000]);
     expect(niceTicks(0)).toEqual([0]);
     expect(niceTicks(7_200)).toEqual([0, 2_000, 4_000, 6_000, 8_000]);
+  });
+});
+
+describe("projectionYears", () => {
+  it("runs to the end of the vest, at least three years and at most five", () => {
+    // Four years from March 2026 ends March 2030: five columns.
+    expect(projectionYears(entry(), 2026)).toEqual([2026, 2027, 2028, 2029, 2030]);
+    // Already two years in: only what is left, but never fewer than three.
+    expect(projectionYears(entry(), 2029)).toEqual([2029, 2030, 2031]);
+    // A ten-year grant is capped.
+    expect(projectionYears(entry({ vest_years: 10 }), 2026)).toEqual([2026, 2027, 2028, 2029, 2030]);
+  });
+
+  it("does not count a year the vest only touches at midnight on Jan 1", () => {
+    expect(projectionYears(entry({ vest_start: "2026-01-01", vest_years: 3 }), 2026)).toEqual([2026, 2027, 2028]);
+  });
+
+  it("is the three-year default without a schedule", () => {
+    expect(projectionYears(entry({ vest_years: null }), 2026)).toEqual([2026, 2027, 2028]);
   });
 });

@@ -6,10 +6,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatDateAsLocal } from "@/lib/utils/date";
+import type { CompEntryInput } from "@/types";
+import { validateCompEntryInput } from "@/lib/careerotter/comp-entry-validation";
 
 interface CompEntryFormProps {
-  /** Called after a successful save; the parent reloads its data. */
-  onSaved: () => Promise<void> | void;
+  /**
+   * Saves the entry wherever the page keeps entries (the API, or the browser
+   * for a guest). Resolves null on success or an error message to show.
+   */
+  onSubmit: (input: CompEntryInput) => Promise<string | null>;
   /** Ticker of the latest entry, offered as the default for the next one. */
   suggestedTicker?: string | null;
 }
@@ -56,7 +61,7 @@ const money = (v: string): number => {
  * date, a base and a bonus. Opening the vest disclosure pre-fills the
  * industry default (4 years, 12-month cliff), which stays editable.
  */
-export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) {
+export function CompEntryForm({ onSubmit, suggestedTicker }: CompEntryFormProps) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [asShares, setAsShares] = useState(false);
   const [vests, setVests] = useState(false);
@@ -83,7 +88,7 @@ export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) 
     }
   }
 
-  /** Validate client-side, POST the entry, and reset on success. */
+  /** Validate client-side, hand the entry to the parent, and reset on success. */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -101,34 +106,35 @@ export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) 
       setError("Enter how many shares the grant is for, or untick the stock option.");
       return;
     }
+    // The same contract the API enforces, applied before anything is saved,
+    // so a guest entry can never be accepted here and rejected on import.
+    const checked = validateCompEntryInput({
+      effective_date: form.effective_date,
+      base,
+      bonus: money(form.bonus) || 0,
+      equity: money(form.equity) || 0,
+      ticker: asShares ? form.ticker.trim().toUpperCase() || null : null,
+      shares: asShares ? shares : null,
+      vest_start: vests ? form.vest_start || null : null,
+      // "" means not provided; a typed 0 must reach the validator so its
+      // error surfaces instead of silently storing no vesting.
+      vest_years: vests && form.vest_years !== "" ? Number(form.vest_years) : null,
+      vest_cliff_months:
+        vests && form.vest_cliff_months !== "" ? Number(form.vest_cliff_months) : null,
+    });
+    if (!checked.ok) {
+      setError(checked.error);
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch("/api/careerotter/comp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          effective_date: form.effective_date,
-          base,
-          bonus: money(form.bonus) || 0,
-          equity: money(form.equity) || 0,
-          ticker: asShares ? form.ticker.trim() || null : null,
-          shares: asShares ? shares : null,
-          vest_start: vests ? form.vest_start || null : null,
-          // "" means not provided; a typed 0 must reach the API so its
-          // validation error surfaces instead of silently storing no vesting.
-          vest_years: vests && form.vest_years !== "" ? Number(form.vest_years) : null,
-          vest_cliff_months:
-            vests && form.vest_cliff_months !== "" ? Number(form.vest_cliff_months) : null,
-        }),
-      });
-      if (res.ok) {
+      const message = await onSubmit(checked.value);
+      if (message) {
+        setError(message);
+      } else {
         setForm(emptyForm());
         setAsShares(false);
         setVests(false);
-        await onSaved();
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || "Could not save that.");
       }
     } catch {
       setError("Could not save that. Check your connection and try again.");
