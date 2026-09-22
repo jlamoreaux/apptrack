@@ -62,6 +62,20 @@ beforeEach(() => {
   mockFetch.mockReset();
 });
 
+it("leaves the loading state and says so when the first load is rejected", async () => {
+  mockFetch.mockResolvedValue({ ok: false, json: async () => ({ error: "Unauthorized" }) });
+  render(<CompTracker />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(/Could not load your comp/);
+  expect(screen.queryByLabelText("Loading your comp")).not.toBeInTheDocument();
+});
+
+it("leaves the loading state and says so when the network fails", async () => {
+  mockFetch.mockRejectedValue(new TypeError("Failed to fetch"));
+  render(<CompTracker />);
+  expect(await screen.findByRole("alert")).toHaveTextContent(/Check your connection/);
+  expect(screen.queryByLabelText("Loading your comp")).not.toBeInTheDocument();
+});
+
 it("leads with the entry form when nothing is logged yet", async () => {
   respondWith({ entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false });
   render(<CompTracker />);

@@ -23,6 +23,7 @@ interface HistoryListProps {
   onDelete: (id: string) => Promise<boolean>;
 }
 
+/** "Jan 15, 2026" from a YYYY-MM-DD entry date. */
 const longDate = (iso: string) =>
   parseLocalDate(iso).toLocaleDateString("en-US", {
     month: "short",
@@ -39,6 +40,7 @@ export function HistoryList({ entries, prices, onDelete }: HistoryListProps) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  /** Run the confirmed delete; one at a time. */
   async function remove(id: string) {
     if (deletingId) return;
     setDeletingId(id);
@@ -50,6 +52,7 @@ export function HistoryList({ entries, prices, onDelete }: HistoryListProps) {
     }
   }
 
+  /** Annual total comp for an entry, at its live price when there is one. */
   const annual = (entry: CompEntry) =>
     annualizedTotal(entry, anchorSharePrice(entry, entry.ticker ? prices[entry.ticker] ?? null : null));
   const rows = entries.map((entry, i) => {

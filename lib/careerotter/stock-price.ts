@@ -32,9 +32,11 @@ export interface CompanyProfile {
   logoUrl: string | null;
 }
 
+/** The value when it is a finite number, else null. */
 const finite = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
 
+/** GET a Finnhub endpoint for a ticker; null on any failure or without a key. */
 async function finnhubGet(url: string, ticker: string): Promise<unknown | null> {
   const token = process.env.FINNHUB_API_KEY;
   if (!token) return null;
@@ -83,6 +85,7 @@ export async function fetchProfile(ticker: string): Promise<CompanyProfile | nul
     logo?: unknown;
   } | null;
   if (!data) return null;
+  /** A trimmed, bounded string, or null when empty or not a string. */
   const str = (v: unknown): string | null =>
     typeof v === "string" && v.trim().length > 0 ? v.trim().slice(0, 200) : null;
   const logo = str(data.logo);

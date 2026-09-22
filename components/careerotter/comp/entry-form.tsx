@@ -29,6 +29,7 @@ interface FormState {
 const DEFAULT_VEST_YEARS = "4";
 const DEFAULT_CLIFF_MONTHS = "12";
 
+/** A blank form dated today. */
 function emptyForm(): FormState {
   return {
     effective_date: formatDateAsLocal(new Date()),
@@ -43,6 +44,7 @@ function emptyForm(): FormState {
   };
 }
 
+/** Parse a typed amount, tolerating commas, dollar signs and spaces. NaN when not a number. */
 const money = (v: string): number => {
   const n = Number(v.replace(/[,$\s]/g, ""));
   return Number.isFinite(n) ? n : NaN;
@@ -63,11 +65,13 @@ export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) 
 
   const set = (patch: Partial<FormState>) => setForm((f) => ({ ...f, ...patch }));
 
+  /** Open the shares disclosure, defaulting the ticker to the latest entry's. */
   function toggleShares(on: boolean) {
     setAsShares(on);
     if (on && !form.ticker && suggestedTicker) set({ ticker: suggestedTicker });
   }
 
+  /** Open the vesting disclosure, pre-filling the standard schedule if empty. */
   function toggleVests(on: boolean) {
     setVests(on);
     if (on) {
@@ -79,6 +83,7 @@ export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) 
     }
   }
 
+  /** Validate client-side, POST the entry, and reset on success. */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");

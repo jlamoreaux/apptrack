@@ -16,9 +16,11 @@ interface ProjectionTableProps {
   onTaxRateChange: (rate: number) => void;
 }
 
+/** Series color token for a row's swatch. */
 const color = (key: (typeof COMP_SERIES)[number]["key"]) =>
   COMP_SERIES.find((s) => s.key === key)?.color;
 
+/** The small square that ties a table row to its chart series. */
 function Swatch({ seriesKey }: { seriesKey: (typeof COMP_SERIES)[number]["key"] }) {
   return (
     <span
@@ -162,7 +164,7 @@ export function ProjectionTable({
             const v = Number(e.target.value);
             if (Number.isFinite(v)) onTaxRateChange(Math.min(60, Math.max(0, v)));
           }}
-          className="h-9 min-h-9 w-16 text-center text-sm"
+          className="min-h-[44px] w-16 text-center text-sm"
           aria-describedby="tax-rate-hint"
         />
         <span id="tax-rate-hint">%. Set it to match your own rate.</span>

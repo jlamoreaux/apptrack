@@ -35,6 +35,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
   const maxTotal = Math.max(0, ...years.map((y) => y.total));
   const ticks = niceTicks(maxTotal);
   const top = ticks[ticks.length - 1] || 1;
+  /** A value as a percentage of the plot height. */
   const pct = (v: number) => (top > 0 ? (v / top) * 100 : 0);
 
   const activeYear = active !== null ? years.find((y) => y.year === active) ?? null : null;

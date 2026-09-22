@@ -121,6 +121,7 @@ export function scheduleFor(entry: CompEntry): VestSchedule | null {
   };
 }
 
+/** Whether the entry models its equity as a share count. */
 export function hasShares(entry: CompEntry): boolean {
   return Number(entry.shares) > 0;
 }
@@ -372,6 +373,7 @@ export interface AnnualBreakdown {
   total: number;
 }
 
+/** The headline number split into its three parts. */
 export function annualBreakdown(entry: CompEntry, sharePrice: number | null): AnnualBreakdown {
   const salary = Number(entry.base);
   const incentives = Number(entry.bonus);

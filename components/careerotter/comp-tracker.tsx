@@ -36,6 +36,7 @@ interface CompResponse {
   priceFeedEnabled?: boolean;
 }
 
+/** Card heading with an optional one-line hint under it. */
 function SectionHeading({ title, hint }: { title: string; hint?: string }) {
   return (
     <div>
@@ -82,12 +83,18 @@ export function CompTracker() {
           setIsPro(data.isPro);
           setPrices(data.prices ?? {});
           setPriceFeedEnabled(Boolean(data.priceFeedEnabled));
-          setLoaded(true);
+          setError("");
+        } else {
+          setError("Could not load your comp. Reload the page to try again.");
         }
+        setLoaded(true);
       } catch (err) {
-        // A superseded or unmounted lookup aborts; ignore it. Other network
-        // errors leave the prior state in place; the next successful load recovers.
-        if ((err as Error)?.name !== "AbortError") return;
+        // A superseded or unmounted lookup aborts; keep the current state and
+        // let the newer request settle it. Anything else must not leave the
+        // page on its skeleton forever.
+        if ((err as Error)?.name === "AbortError") return;
+        setError("Could not load your comp. Check your connection and reload.");
+        setLoaded(true);
       }
     },
     [roleTitle, level]
@@ -158,9 +165,16 @@ export function CompTracker() {
     );
   }
 
+  const errorBanner = error ? (
+    <p role="alert" className="text-sm text-destructive">
+      {error}
+    </p>
+  ) : null;
+
   if (!latest) {
     return (
       <div className="space-y-6">
+        {errorBanner}
         <Card>
           <CardContent className="space-y-4 p-5">
             <div className="space-y-1">
@@ -193,6 +207,7 @@ export function CompTracker() {
 
   return (
     <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+      {errorBanner && <div className="lg:col-span-2">{errorBanner}</div>}
       {/* Main column. On phones the wrappers dissolve and `order` interleaves the cards. */}
       <div className="contents lg:block lg:space-y-6">
         <Card className="order-1 lg:order-none">
@@ -257,11 +272,6 @@ export function CompTracker() {
               title="Your trajectory"
               hint="Every offer, raise and refresh you have logged. The newest drives the page."
             />
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
             <HistoryList entries={entries} prices={prices} onDelete={deleteEntry} />
           </CardContent>
         </Card>

@@ -35,8 +35,10 @@ export function shortExchange(exchange: string | null): string | null {
   return exchange.length > 12 ? exchange.slice(0, 12) : exchange;
 }
 
+/** "Mar 2030": the resolution a vest end date is worth reading at. */
 const monthYear = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+/** "Mar 1, 2027": for dates that matter to the day, like a cliff. */
 const fullDate = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
@@ -119,14 +121,16 @@ export function CompanyCard({
           </p>
         )}
 
-        {quote?.market_cap_musd !== null && quote?.market_cap_musd !== undefined && (
+        {quote && (quote.market_cap_musd !== null || quote.previous_close !== null) && (
           <dl className="grid grid-cols-2 gap-3 border-t border-border pt-3 text-sm">
-            <div>
-              <dt className="text-xs text-muted-foreground">Market cap</dt>
-              <dd className="font-medium tabular-nums text-foreground">
-                {formatCompactUsd(quote.market_cap_musd * 1e6)}
-              </dd>
-            </div>
+            {quote.market_cap_musd !== null && (
+              <div>
+                <dt className="text-xs text-muted-foreground">Market cap</dt>
+                <dd className="font-medium tabular-nums text-foreground">
+                  {formatCompactUsd(quote.market_cap_musd * 1e6)}
+                </dd>
+              </div>
+            )}
             {quote.previous_close !== null && (
               <div>
                 <dt className="text-xs text-muted-foreground">Previous close</dt>

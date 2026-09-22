@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
         "ticker, price, as_of, change, change_pct, previous_close, company_name, exchange, market_cap_musd, logo_url"
       )
       .in("ticker", tickers);
+    /** A numeric column that may be null on rows written before migration 043. */
     const optional = (v: unknown): number | null =>
       v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v);
     for (const row of priceRows ?? []) {
