@@ -41,6 +41,15 @@ const monthYear = (d: Date) =>
 /** "Mar 1, 2027": for dates that matter to the day, like a cliff. */
 const fullDate = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+/** "Mar 1, 2027, 2:35 PM": when a quote was taken. */
+const dateTime = (d: Date) =>
+  d.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 
 /**
  * The ticker behind the user's equity: live price and day's move, market cap,
@@ -110,13 +119,13 @@ export function CompanyCard({
                 : "Latest close"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              As of {fullDate(new Date(quote.as_of))}. Prices refresh once a day.
+              As of {dateTime(new Date(quote.as_of))}. Refreshes when you open this page.
             </p>
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
             {priceFeedEnabled
-              ? `No price for ${ticker} yet. It arrives with the next daily refresh; set a price in the simulator to model it now.`
+              ? `No price found for ${ticker}. Check the ticker symbol, or set a price in the simulator to model it now.`
               : "Live prices are not enabled here. Set a price in the simulator to model your equity."}
           </p>
         )}

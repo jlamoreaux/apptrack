@@ -16,7 +16,7 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { lookupMarketRange } from "@/lib/careerotter/market-data";
 import { isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
-import type { StockQuote } from "@/lib/careerotter/comp-projection";
+import { loadQuotes } from "@/lib/careerotter/stock-price-cache";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
@@ -58,8 +58,9 @@ export async function GET(request: NextRequest) {
   // Benchmark is Pro-only; entry/history is free.
   const marketRange = plan.isPro ? lookupMarketRange(roleFamily, level) : null;
 
-  // Live cached prices for the tickers this user tracks (feature is dark until the
-  // polling cron populates stock_prices; absent tickers simply won't appear).
+  // Prices for the tickers this user tracks: cached by the daily cron and
+  // refreshed live here when a ticker is new or its quote has gone stale, so a
+  // just-added ticker gets a price on the first page load rather than tomorrow.
   const tickers = [
     ...new Set(
       (entries ?? [])
@@ -67,39 +68,15 @@ export async function GET(request: NextRequest) {
         .filter((t) => t.length > 0)
     ),
   ];
-  const prices: Record<string, StockQuote> = {};
-  if (tickers.length > 0) {
-    const { data: priceRows } = await admin
-      .from("stock_prices")
-      .select(
-        "ticker, price, as_of, change, change_pct, previous_close, company_name, exchange, market_cap_musd, logo_url"
-      )
-      .in("ticker", tickers);
-    /** A numeric column that may be null on rows written before migration 043. */
-    const optional = (v: unknown): number | null =>
-      v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v);
-    for (const row of priceRows ?? []) {
-      prices[row.ticker] = {
-        price: Number(row.price),
-        as_of: row.as_of,
-        change: optional(row.change),
-        change_pct: optional(row.change_pct),
-        previous_close: optional(row.previous_close),
-        company_name: row.company_name ?? null,
-        exchange: row.exchange ?? null,
-        market_cap_musd: optional(row.market_cap_musd),
-        logo_url: row.logo_url ?? null,
-      };
-    }
-  }
+  const prices = await loadQuotes(admin, tickers);
 
   return NextResponse.json({
     entries: entries ?? [],
     marketRange,
     isPro: plan.isPro,
     prices,
-    // Lets the page say why a ticker has no price yet: the feed is off, or
-    // the daily refresh simply hasn't run since the ticker was added.
+    // Lets the page say why a ticker has no price: the feed is off, or the
+    // symbol returned nothing from the feed.
     priceFeedEnabled: isPriceFeedConfigured(),
   });
 }
