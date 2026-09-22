@@ -1,7 +1,7 @@
 /**
  * Comp tracker (CareerOtter Phase 2, M5).
  *
- * GET  /api/careerotter/comp?roleFamily=&level=  -> { entries, marketRange, isPro }
+ * GET  /api/careerotter/comp?roleFamily=&level=  -> { entries, marketRange, isPro, prices, priceFeedEnabled }
  * POST /api/careerotter/comp                      -> add a comp entry
  *
  * Tracking your own numbers is free. The market benchmark (the "market-vs-you"
@@ -15,6 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { lookupMarketRange } from "@/lib/careerotter/market-data";
+import { isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
+import type { StockQuote } from "@/lib/careerotter/comp-projection";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
@@ -65,14 +67,28 @@ export async function GET(request: NextRequest) {
         .filter((t) => t.length > 0)
     ),
   ];
-  const prices: Record<string, { price: number; as_of: string }> = {};
+  const prices: Record<string, StockQuote> = {};
   if (tickers.length > 0) {
     const { data: priceRows } = await admin
       .from("stock_prices")
-      .select("ticker, price, as_of")
+      .select(
+        "ticker, price, as_of, change, change_pct, previous_close, company_name, exchange, market_cap_musd, logo_url"
+      )
       .in("ticker", tickers);
+    const optional = (v: unknown): number | null =>
+      v === null || v === undefined || !Number.isFinite(Number(v)) ? null : Number(v);
     for (const row of priceRows ?? []) {
-      prices[row.ticker] = { price: Number(row.price), as_of: row.as_of };
+      prices[row.ticker] = {
+        price: Number(row.price),
+        as_of: row.as_of,
+        change: optional(row.change),
+        change_pct: optional(row.change_pct),
+        previous_close: optional(row.previous_close),
+        company_name: row.company_name ?? null,
+        exchange: row.exchange ?? null,
+        market_cap_musd: optional(row.market_cap_musd),
+        logo_url: row.logo_url ?? null,
+      };
     }
   }
 
@@ -81,6 +97,9 @@ export async function GET(request: NextRequest) {
     marketRange,
     isPro: plan.isPro,
     prices,
+    // Lets the page say why a ticker has no price yet: the feed is off, or
+    // the daily refresh simply hasn't run since the ticker was added.
+    priceFeedEnabled: isPriceFeedConfigured(),
   });
 }
 

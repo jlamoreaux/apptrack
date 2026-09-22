@@ -1,0 +1,172 @@
+/**
+ * Comp tracker page: the empty state leads with the form, and with an entry
+ * the page shows the headline, the projection (chart + table with the vest
+ * split), the company behind the ticker, and a simulator whose moves are
+ * relative to the live price and reflected everywhere.
+ */
+
+import type { ReactNode } from "react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { CompTracker } from "@/components/careerotter/comp-tracker";
+
+// Radix Select -> lightweight testable equivalent.
+jest.mock("@/components/ui/select", () => {
+  const Pass = ({ children }: { children?: ReactNode }) => <>{children}</>;
+  return {
+    Select: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+    SelectTrigger: Pass,
+    SelectValue: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+    SelectContent: Pass,
+    SelectItem: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  };
+});
+
+const mockFetch = jest.fn();
+global.fetch = mockFetch as unknown as typeof fetch;
+
+const thisYear = new Date().getFullYear();
+// A grant that started this January with a 12-month cliff: nothing has
+// vested yet, so every projected stock dollar is unvested.
+const entry = {
+  id: "e1",
+  effective_date: `${thisYear}-01-15`,
+  base: 155000,
+  bonus: 37000,
+  equity: 0,
+  currency: "USD",
+  note: null,
+  ticker: "NET",
+  shares: 1200,
+  vest_start: `${thisYear}-06-01`,
+  vest_years: 4,
+  vest_cliff_months: 12,
+};
+
+const quote = {
+  price: 250,
+  as_of: `${thisYear}-09-22T06:00:00Z`,
+  change: 28.07,
+  change_pct: 8.67,
+  previous_close: 221.93,
+  company_name: "Cloudflare Inc",
+  exchange: "NEW YORK STOCK EXCHANGE, INC.",
+  market_cap_musd: 88000,
+  logo_url: null,
+};
+
+function respondWith(body: unknown) {
+  mockFetch.mockResolvedValue({ ok: true, json: async () => body });
+}
+
+beforeEach(() => {
+  mockFetch.mockReset();
+});
+
+it("leads with the entry form when nothing is logged yet", async () => {
+  respondWith({ entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false });
+  render(<CompTracker />);
+  expect(await screen.findByText("Start with what you make today")).toBeInTheDocument();
+  expect(screen.getByLabelText("Base salary")).toBeInTheDocument();
+  // Equity-as-shares and vesting are disclosures, closed by default.
+  expect(screen.queryByLabelText("Ticker")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Vest years")).not.toBeInTheDocument();
+  expect(screen.getByText(/market benchmark is a Pro feature/)).toBeInTheDocument();
+});
+
+it("opens the vest disclosure with the standard schedule pre-filled", async () => {
+  respondWith({ entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false });
+  render(<CompTracker />);
+  await screen.findByText("Start with what you make today");
+  fireEvent.click(screen.getByLabelText("It vests over time"));
+  expect(screen.getByLabelText("Vest years")).toHaveValue(4);
+  expect(screen.getByLabelText("Cliff (months)")).toHaveValue(12);
+  fireEvent.click(screen.getByLabelText("It is stock in a public company"));
+  expect(screen.getByLabelText("Ticker")).toBeInTheDocument();
+  expect(screen.getByLabelText("Shares")).toBeInTheDocument();
+});
+
+describe("with a share-based entry and a live price", () => {
+  beforeEach(() => {
+    respondWith({
+      entries: [entry],
+      marketRange: null,
+      isPro: false,
+      prices: { NET: quote },
+      priceFeedEnabled: true,
+    });
+  });
+
+  it("shows annual total comp with equity annualized over the vest", async () => {
+    render(<CompTracker />);
+    // 155,000 + 37,000 + (1,200 * 250) / 4
+    expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+    // The headline, the simulator's readout and the trajectory row agree.
+    expect(screen.getAllByText("$267,000")).toHaveLength(3);
+  });
+
+  it("projects three years as a chart with a legend and a table with the vest split", async () => {
+    render(<CompTracker />);
+    await screen.findByText("Projected comp");
+    const legend = screen.getByRole("list", { name: "Legend" });
+    expect(within(legend).getByText("Salary")).toBeInTheDocument();
+    expect(within(legend).getByText("Stock")).toBeInTheDocument();
+    expect(within(legend).getByText("Incentives")).toBeInTheDocument();
+    // Every column is a focusable readout of its year.
+    expect(screen.getByRole("button", { name: new RegExp(`^${thisYear + 1}: total`) })).toBeInTheDocument();
+
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Vested")).toBeInTheDocument();
+    expect(within(table).getByText("Unvested")).toBeInTheDocument();
+    expect(within(table).getByText("Total comp")).toBeInTheDocument();
+    expect(within(table).getByText("Est. take-home")).toBeInTheDocument();
+  });
+
+  it("shows the company behind the ticker with its price and day move", async () => {
+    render(<CompTracker />);
+    expect(await screen.findByText("Cloudflare Inc")).toBeInTheDocument();
+    expect(screen.getByText("NYSE: NET", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("$250.00")).toBeInTheDocument();
+    expect(screen.getByText("+$28.07 (+8.67%) today")).toBeInTheDocument();
+    expect(screen.getByText("$88B")).toBeInTheDocument();
+    expect(screen.getByText(/Nothing vests until the cliff/)).toBeInTheDocument();
+  });
+
+  it("simulates price moves relative to the live price and resets", async () => {
+    render(<CompTracker />);
+    const input = (await screen.findByLabelText("Price per share")) as HTMLInputElement;
+    expect(input).toHaveValue(250);
+
+    fireEvent.click(screen.getByRole("button", { name: "+20%" }));
+    expect(input).toHaveValue(300);
+    expect(screen.getByText("+$50.00")).toBeInTheDocument();
+    // Annual total: 155,000 + 37,000 + (1,200 * 300) / 4
+    expect(screen.getAllByText("$282,000").length).toBeGreaterThan(0);
+
+    // Moves are relative to the anchor, not compounding.
+    fireEvent.click(screen.getByRole("button", { name: "+50%" }));
+    expect(input).toHaveValue(375);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(input).toHaveValue(250);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled());
+  });
+
+  it("lists the entry in the trajectory with its breakdown", async () => {
+    render(<CompTracker />);
+    await screen.findByText("Your trajectory");
+    expect(screen.getByText(/1,200 NET shares/)).toBeInTheDocument();
+    expect(screen.getByText(/4-year vest, 12-month cliff/)).toBeInTheDocument();
+  });
+});
+
+it("says why there is no price when the feed is off", async () => {
+  respondWith({
+    entries: [entry],
+    marketRange: null,
+    isPro: false,
+    prices: {},
+    priceFeedEnabled: false,
+  });
+  render(<CompTracker />);
+  expect(await screen.findByText(/Live prices are not enabled here/)).toBeInTheDocument();
+});
