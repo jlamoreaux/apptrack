@@ -1,9 +1,10 @@
 /**
  * Finnhub price feed (CareerOtter comp equity, Phase 2).
  *
- * The whole feature is DARK until FINNHUB_API_KEY is set: with no key, both the
- * polling cron and any lookup no-op cleanly (fetchQuote / fetchProfile return
- * null, isPriceFeedConfigured returns false). Public tickers only.
+ * The whole feature is DARK until FINNHUB_API_KEY is set: with no key, the
+ * polling cron, the on-demand refresh (stock-price-cache.ts) and any lookup
+ * no-op cleanly (fetchQuote / fetchProfile return null, isPriceFeedConfigured
+ * returns false). Public tickers only.
  */
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";

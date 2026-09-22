@@ -250,7 +250,7 @@ export function CompEntryForm({ onSaved, suggestedTicker }: CompEntryFormProps) 
               />
             </div>
             <p className="col-span-2 text-xs text-muted-foreground">
-              With a ticker, the live price values your shares and updates daily.
+              With a ticker, the live market price values your shares.
             </p>
           </div>
         )}
