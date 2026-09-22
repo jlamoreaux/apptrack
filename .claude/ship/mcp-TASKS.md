@@ -11,7 +11,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   style.
 
 ## Task 1: Migration, constants and types
-- [ ] 1.1: Write `schemas/migrations/044_mcp_agent_access.sql`:
+- [x] 1.1: Write `schemas/migrations/044_mcp_agent_access.sql`:
   - the `agent_tokens` table with checks and indexes
   - on `wins`: `occurred_at` NOT NULL with backfill and index, `evidence_url`,
     `external_ref`, the partial unique index
@@ -20,16 +20,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - on `comp_entries`: `source`, `external_ref`, `updated_at`, the partial
     unique index
   - RLS enabled with no policies on `agent_tokens`
-- [ ] 1.2: Add `lib/constants/agent-access.ts`: scopes, implication map, token
+- [x] 1.2: Add `lib/constants/agent-access.ts`: scopes, implication map, token
   prefix, expiry options, limits (10 active tokens, name length), rate limits
   (create, per-token, auth-fail), agent write quotas, body size cap, list limits,
   instructions version.
-- [ ] 1.3: Add `"agent"` to `WIN_SOURCES`; add `COMP_SOURCES`, `EXTERNAL_REF_MAX`
+- [x] 1.3: Add `"agent"` to `WIN_SOURCES`; add `COMP_SOURCES`, `EXTERNAL_REF_MAX`
   and `EVIDENCE_URL_MAX` to `lib/constants/careerotter.ts`; add `MCP_TOOL_CALLED`
   to `CAREEROTTER_EVENT_NAMES`.
-- [ ] 1.4: Add shared types (`AgentTokenScope`, `AgentTokenRecord`,
-  `ServiceResult`, `ServiceErrorKind`) to `/types/index.ts`.
-- [ ] 1.5: Write tests for Task 1: constants mirror the migration's CHECK lists
+- [x] 1.4: Add shared types (`AgentTokenScope`, `AgentTokenRecord`,
+  `DomainResult`, `DomainErrorKind`) to `/types/index.ts`.
+- [x] 1.5: Write tests for Task 1: constants mirror the migration's CHECK lists
   (read the SQL file, like the existing career-waitlist guard); scope
   implication map is closed over the scope list.
 
@@ -108,7 +108,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 - [ ] 5.2: Create `lib/mcp/define-tool.ts`, the `defineTool` helper:
   - required scope; skips registration when the scope is missing
   - wraps `run` so it never throws
-  - maps `ServiceResult` errors to `isError`
+  - maps `DomainResult` errors to `isError`
   - serializes output
   - fires `mcp_tool_called` via `after()`
 - [ ] 5.3: Create `lib/mcp/instructions.ts` (versioned server instructions per
@@ -217,4 +217,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 
 ## Known trade-offs
 
-(Filled in during implementation from review gates.)
+- Lint gate is skipped for every task: `.eslintrc.json` exists but `eslint` is not
+  a dependency, so `pnpm lint` cannot run. Type check and convention review stand in.
+- Migration 044 runs in one transaction, so a failed step rolls everything back.
+  `scripts/run-schema.sh` still exits 0 in that case (no `ON_ERROR_STOP`); the
+  operator must read the psql output. Changing the script affects every
+  migration and is left out of this change.

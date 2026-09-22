@@ -420,7 +420,7 @@ export interface AgentTokenRecord {
 }
 
 /** Failure categories shared by the REST routes and MCP tools that call a service. */
-export type ServiceErrorKind =
+export type DomainErrorKind =
   | "validation"
   | "not_found"
   | "conflict"
@@ -428,6 +428,6 @@ export type ServiceErrorKind =
   | "db";
 
 /** Outcome of a service-layer call; `message` is safe to show to the caller. */
-export type ServiceResult<T> =
+export type DomainResult<T> =
   | { ok: true; value: T }
-  | { ok: false; kind: ServiceErrorKind; message: string };
+  | { ok: false; kind: DomainErrorKind; message: string };

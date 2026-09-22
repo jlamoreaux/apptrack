@@ -20,6 +20,10 @@
 -- and lib/constants/careerotter.ts (guarded by
 -- __tests__/constants/agent-access.test.ts).
 
+-- One transaction: scripts/run-schema.sh does not stop on error, so without it
+-- a failed step (e.g. re-adding the source CHECK) would leave the rest applied.
+begin;
+
 -- ── agent_tokens ───────────────────────────────────────────────────────────
 create table if not exists public.agent_tokens (
   id uuid primary key default gen_random_uuid (),
@@ -58,11 +62,15 @@ alter table public.wins
   add column if not exists occurred_at date
     check (occurred_at >= date '1970-01-01');
 
+-- Default first, so rows inserted by the running app during the backfill
+-- can't arrive null and fail SET NOT NULL. UTC to match the backfill.
+alter table public.wins
+  alter column occurred_at set default ((now() at time zone 'utc')::date);
+
 update public.wins
   set occurred_at = (created_at at time zone 'utc')::date
   where occurred_at is null;
 
-alter table public.wins alter column occurred_at set default current_date;
 alter table public.wins alter column occurred_at set not null;
 
 create index if not exists wins_user_occurred_idx
@@ -150,3 +158,5 @@ alter table public.comp_entries
 create unique index if not exists comp_entries_user_external_ref_key
   on public.comp_entries (user_id, external_ref)
   where external_ref is not null;
+
+commit;
