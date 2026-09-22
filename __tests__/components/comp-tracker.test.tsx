@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from "react";
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { CompTracker } from "@/components/careerotter/comp-tracker";
 
 // Radix Select -> lightweight testable equivalent.
@@ -171,6 +171,42 @@ describe("with a share-based entry and a live price", () => {
     expect(screen.getByText(/1,200 NET shares/)).toBeInTheDocument();
     expect(screen.getByText(/4-year vest, 12-month cliff/)).toBeInTheDocument();
   });
+});
+
+it("ignores a stale reload that lands after a newer lookup has committed", async () => {
+  const empty = { entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false };
+  const withEntry = { ...empty, entries: [entry] };
+  type Pending = { init?: RequestInit; resolve: (v: unknown) => void };
+  const calls: Pending[] = [];
+  mockFetch.mockImplementation(
+    (_url: string, init?: RequestInit) => new Promise((resolve) => calls.push({ init, resolve }))
+  );
+  render(<CompTracker />);
+  await waitFor(() => expect(calls).toHaveLength(1));
+  calls[0].resolve({ ok: true, json: async () => empty });
+  await screen.findByText("Start with what you make today");
+
+  // Save an entry: the POST resolves, and the reload it triggers stays pending.
+  fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155000" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+  await waitFor(() => expect(calls).toHaveLength(2));
+  expect(calls[1].init?.method).toBe("POST");
+  calls[1].resolve({ ok: true, json: async () => ({ entry }) });
+  await waitFor(() => expect(calls).toHaveLength(3));
+
+  // A role change starts a newer lookup, which resolves first with the entry.
+  fireEvent.change(screen.getByLabelText("Role"), { target: { value: "Software Engineer" } });
+  await waitFor(() => expect(calls).toHaveLength(4));
+  calls[3].resolve({ ok: true, json: async () => withEntry });
+  await screen.findByText("Annual total comp");
+
+  // Now the older reload lands, empty. It must not win.
+  calls[2].resolve({ ok: true, json: async () => empty });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  expect(screen.getByText("Annual total comp")).toBeInTheDocument();
+  expect(screen.queryByText("Start with what you make today")).not.toBeInTheDocument();
 });
 
 it("says why there is no price when the feed is off", async () => {

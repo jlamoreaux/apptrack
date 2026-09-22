@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MarketRange } from "@/lib/careerotter/market-data";
@@ -36,6 +36,11 @@ interface CompResponse {
   priceFeedEnabled?: boolean;
 }
 
+/** True for the DOMException fetch throws when its signal is aborted. */
+function isAbortError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
+}
+
 /** Card heading with an optional one-line hint under it. */
 function SectionHeading({ title, hint }: { title: string; hint?: string }) {
   return (
@@ -68,16 +73,25 @@ export function CompTracker() {
   const [taxRate, setTaxRate] = useState(30);
   const [error, setError] = useState("");
 
+  // Every load, whether from the role lookup or a save, takes a ticket; only
+  // the newest ticket may commit state, so a slow older response can never
+  // overwrite a newer one (the lookup effect also aborts its own predecessor).
+  const requestTicket = useRef(0);
+
   const load = useCallback(
     async (signal?: AbortSignal) => {
+      const ticket = ++requestTicket.current;
+      const isCurrent = () => ticket === requestTicket.current;
       const roleFamily = resolveRoleFamily(roleTitle);
       const qs = new URLSearchParams();
       if (roleFamily) qs.set("roleFamily", roleFamily);
       if (level) qs.set("level", level);
       try {
         const res = await fetch(`/api/careerotter/comp?${qs.toString()}`, { signal });
+        if (!isCurrent()) return;
         if (res.ok) {
           const data = (await res.json()) as CompResponse;
+          if (!isCurrent()) return;
           setEntries(data.entries);
           setMarketRange(data.marketRange);
           setIsPro(data.isPro);
@@ -92,7 +106,7 @@ export function CompTracker() {
         // A superseded or unmounted lookup aborts; keep the current state and
         // let the newer request settle it. Anything else must not leave the
         // page on its skeleton forever.
-        if ((err as Error)?.name === "AbortError") return;
+        if (isAbortError(err) || !isCurrent()) return;
         setError("Could not load your comp. Check your connection and reload.");
         setLoaded(true);
       }
