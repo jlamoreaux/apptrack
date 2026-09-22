@@ -341,6 +341,32 @@ a[href] {
   }
 }
 
+/* iOS Safari renders date and time inputs at their intrinsic size and
+   ignores the width and height classes on them, so in a two-column form
+   they overflow their column and stand taller than their neighbours.
+   Drop the native appearance and pin the box; the picker still opens on tap. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  -webkit-min-logical-width: calc(100% - 16px);
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  /* 44px control minus the 8px vertical padding on each side. */
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+  text-align: left;
+}
+
 /* Comp tracker series colors: Salary, Stock, Incentives. Stepped per mode and
    validated for adjacent-pair colorblind separation against the card surface. */
 :root {

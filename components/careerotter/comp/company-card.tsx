@@ -16,6 +16,8 @@ interface CompanyCardProps {
   ticker: string;
   quote: StockQuote | null;
   priceFeedEnabled: boolean;
+  /** True on the guest page, which only reads quotes other users' visits have cached. */
+  cacheOnly?: boolean;
   shares: number;
   /** The price the page is currently valuing shares at (live or scenario). */
   sharePrice: number | null;
@@ -60,6 +62,7 @@ export function CompanyCard({
   ticker,
   quote,
   priceFeedEnabled,
+  cacheOnly = false,
   shares,
   sharePrice,
   isScenario,
@@ -124,9 +127,11 @@ export function CompanyCard({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            {priceFeedEnabled
-              ? `No price found for ${ticker}. Check the ticker symbol, or set a price in the simulator to model it now.`
-              : "Live prices are not enabled here. Set a price in the simulator to model your equity."}
+            {!priceFeedEnabled
+              ? "Live prices are not enabled here. Set a price in the simulator to model your equity."
+              : cacheOnly
+                ? `No cached price for ${ticker} yet. Live prices are fetched for account holders; set a price in the simulator to model it now, or sign up to have it fetched.`
+                : `No price found for ${ticker}. Check the ticker symbol, or set a price in the simulator to model it now.`}
           </p>
         )}
 

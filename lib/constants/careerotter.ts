@@ -68,3 +68,25 @@ export const WIN_LIMITS = {
   textMax: 2000,
   impactNumberMax: 120,
 } as const;
+
+// ─── Comp tracker ───
+
+// Where a guest's comp entries live in the browser until they sign up, and how
+// long they survive there. Bumping the key discards entries written by older
+// code.
+export const GUEST_COMP_STORAGE_KEY = "careerotter.guest-comp.v1";
+export const GUEST_COMP_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Most tickers the public cached-quote endpoint answers per request; the
+// guest page batches its lookups to match.
+export const GUEST_QUOTE_BATCH = 5;
+
+// Field caps for a comp entry, enforced by the shared validator before the
+// form saves and before the API inserts. sharesMax is numeric(14,4)'s ceiling.
+export const COMP_ENTRY_LIMITS = {
+  sharesMax: 9_999_999_999.9999,
+  vestYearsMax: 10,
+  cliffMonthsMax: 60,
+  noteMax: 500,
+  tickerMax: 10,
+} as const;

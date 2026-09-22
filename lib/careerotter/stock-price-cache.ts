@@ -67,16 +67,16 @@ function isStale(row: StockPriceRow | undefined, now: number): boolean {
 }
 
 /**
- * Quotes for the given tickers, keyed by ticker. Tickers with no quote at all
- * (unknown symbol, feed dark and nothing cached) are simply absent.
+ * The cached rows for the given tickers, keyed by ticker, without touching
+ * the feed. The guest page's public endpoint uses this on its own so that
+ * anonymous traffic can never drive Finnhub usage.
  */
-export async function loadQuotes(
+export async function readCachedQuotes(
   admin: SupabaseClient,
   tickers: string[]
-): Promise<Record<string, StockQuote>> {
-  const quotes: Record<string, StockQuote> = {};
-  if (tickers.length === 0) return quotes;
-
+): Promise<Map<string, StockPriceRow>> {
+  const cached = new Map<string, StockPriceRow>();
+  if (tickers.length === 0) return cached;
   const { data: rows, error } = await admin
     .from("stock_prices")
     .select(SELECT_COLUMNS)
@@ -87,12 +87,35 @@ export async function loadQuotes(
       action: "stock_prices_read_failed",
     });
   }
+  for (const row of (rows ?? []) as StockPriceRow[]) cached.set(row.ticker, row);
+  return cached;
+}
 
-  const cached = new Map<string, StockPriceRow>();
-  for (const row of (rows ?? []) as StockPriceRow[]) {
-    cached.set(row.ticker, row);
-    quotes[row.ticker] = rowToQuote(row);
+/** Cached quotes only, in the shape the page consumes. */
+export async function loadCachedQuotes(
+  admin: SupabaseClient,
+  tickers: string[]
+): Promise<Record<string, StockQuote>> {
+  const quotes: Record<string, StockQuote> = {};
+  for (const [ticker, row] of await readCachedQuotes(admin, tickers)) {
+    quotes[ticker] = rowToQuote(row);
   }
+  return quotes;
+}
+
+/**
+ * Quotes for the given tickers, keyed by ticker. Tickers with no quote at all
+ * (unknown symbol, feed dark and nothing cached) are simply absent.
+ */
+export async function loadQuotes(
+  admin: SupabaseClient,
+  tickers: string[]
+): Promise<Record<string, StockQuote>> {
+  const quotes: Record<string, StockQuote> = {};
+  if (tickers.length === 0) return quotes;
+
+  const cached = await readCachedQuotes(admin, tickers);
+  for (const [ticker, row] of cached) quotes[ticker] = rowToQuote(row);
 
   if (!isPriceFeedConfigured()) return quotes;
 

@@ -8,6 +8,13 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { CompTracker } from "@/components/careerotter/comp-tracker";
+import { readGuestComp, writeGuestComp } from "@/lib/careerotter/comp-guest-cache";
+import { GUEST_COMP_STORAGE_KEY } from "@/lib/constants/careerotter";
+
+// The guest save prompt renders a Google button that only needs a client at click time.
+jest.mock("@/components/auth/google-signin-button", () => ({
+  GoogleSignInButton: () => <button type="button">Continue with Google</button>,
+}));
 
 // Radix Select -> lightweight testable equivalent.
 jest.mock("@/components/ui/select", () => {
@@ -60,6 +67,7 @@ function respondWith(body: unknown) {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  window.localStorage.clear();
 });
 
 it("leaves the loading state and says so when the first load is rejected", async () => {
@@ -125,8 +133,12 @@ describe("with a share-based entry and a live price", () => {
     expect(within(legend).getByText("Salary")).toBeInTheDocument();
     expect(within(legend).getByText("Stock")).toBeInTheDocument();
     expect(within(legend).getByText("Incentives")).toBeInTheDocument();
-    // Every column is a focusable readout of its year.
-    expect(screen.getByRole("button", { name: new RegExp(`^${thisYear + 1}: total`) })).toBeInTheDocument();
+    // Every column is a focusable readout of its year, out to the end of the
+    // four-year vest that starts this year: five columns.
+    for (let i = 0; i < 5; i++) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${thisYear + i}: total`) })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: new RegExp(`^${thisYear + 5}: total`) })).not.toBeInTheDocument();
 
     const table = screen.getByRole("table");
     expect(within(table).getByText("Vested")).toBeInTheDocument();
@@ -219,4 +231,125 @@ it("says why there is no price when the feed is off", async () => {
   });
   render(<CompTracker />);
   expect(await screen.findByText(/Live prices are not enabled here/)).toBeInTheDocument();
+});
+
+describe("guest mode", () => {
+  it("keeps entries in the browser, prompts to sign up, and never hits the comp API", async () => {
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText("Start with what you make today")).toBeInTheDocument();
+    expect(screen.getByText(/stays in this browser for 24 hours/)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+
+    expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+    // The headline and the trajectory row agree.
+    expect(screen.getAllByText("$155,000")).toHaveLength(2);
+    expect(screen.getByText("Keep this")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign up free" })).toHaveAttribute(
+      "href",
+      "/signup?redirectTo=%2Fdashboard%2Fcomp"
+    );
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
+      "href",
+      "/login?redirectTo=%2Fdashboard%2Fcomp"
+    );
+    expect(readGuestComp()).toHaveLength(1);
+    expect(readGuestComp()[0].base).toBe(155000);
+    // Still no API traffic: no ticker means no quote lookup either.
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("restores cached entries and looks up their cached quotes, newest ticker first", async () => {
+    // Seven older entries with their own tickers, then the current one: the
+    // endpoint answers five per request, so the current ticker must lead.
+    const older = ["A", "B", "C", "D", "E", "F", "G"].map((t, i) => ({
+      ...entry,
+      id: `old-${t}`,
+      effective_date: `${thisYear - 8 + i}-01-15`,
+      ticker: t,
+      shares: 10,
+    }));
+    writeGuestComp([...older, { ...entry, id: "g1" }]);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ prices: { NET: quote }, priceFeedEnabled: true }) });
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText("Cloudflare Inc")).toBeInTheDocument();
+    const urls = mockFetch.mock.calls.map((c) => c[0] as string).sort();
+    // Eight cached tickers, newest first, in batches of five: the newest
+    // entry's ticker is always in the first request.
+    expect(urls).toEqual([
+      "/api/careerotter/stock-price?tickers=NET,G,F,E,D",
+      "/api/careerotter/stock-price?tickers=C,B,A",
+    ].sort());
+  });
+
+  it("says plainly when the guest's ticker has no cached price", async () => {
+    writeGuestComp([{ ...entry, id: "g1" }]);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ prices: {}, priceFeedEnabled: true }) });
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText(/No cached price for NET yet/)).toBeInTheDocument();
+  });
+
+  it("warns instead of promising a 24-hour hold when the browser refuses to store entries", async () => {
+    const setItem = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      render(<CompTracker mode="guest" />);
+      await screen.findByText("Start with what you make today");
+      fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+      expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/not storing your entry/);
+      expect(screen.queryByText(/for the next 24 hours/)).not.toBeInTheDocument();
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("refuses an entry the API would reject, before it reaches the browser", async () => {
+    render(<CompTracker mode="guest" />);
+    await screen.findByText("Start with what you make today");
+    fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+    fireEvent.click(screen.getByLabelText("It vests over time"));
+    fireEvent.change(screen.getByLabelText("Vest years"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Cliff (months)"), { target: { value: "24" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/cannot exceed the vesting duration/);
+    expect(readGuestComp()).toEqual([]);
+  });
+
+  it("deletes a guest entry from the browser", async () => {
+    writeGuestComp([{ ...entry, id: "g1", ticker: null, shares: null }]);
+    render(<CompTracker mode="guest" />);
+    await screen.findByText("Your trajectory");
+    fireEvent.click(screen.getByRole("button", { name: /^Delete comp entry/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Confirm delete/ }));
+    expect(await screen.findByText("Start with what you make today")).toBeInTheDocument();
+    expect(window.localStorage.getItem(GUEST_COMP_STORAGE_KEY)).toBeNull();
+  });
+});
+
+it("in account mode, saves entries left from a guest visit and then shows them", async () => {
+  writeGuestComp([{ ...entry, id: "g1", ticker: null, shares: null }]);
+  const empty = { entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false };
+  mockFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+    init?.method === "POST"
+      ? { ok: true, status: 201, json: async () => ({ entry }) }
+      : {
+          ok: true,
+          status: 200,
+          json: async () =>
+            mockFetch.mock.calls.some((c) => c[1]?.method === "POST")
+              ? { ...empty, entries: [{ ...entry, ticker: null, shares: null }] }
+              : empty,
+        }
+  );
+  render(<CompTracker />);
+  expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+  const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
+  expect(post).toBeDefined();
+  expect(JSON.parse(post![1].body)).not.toHaveProperty("id");
+  expect(window.localStorage.getItem(GUEST_COMP_STORAGE_KEY)).toBeNull();
 });
