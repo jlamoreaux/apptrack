@@ -12,6 +12,7 @@ import {
   formatUsd,
   hasShares,
   projectComp,
+  projectionYears,
   vestSummary,
   type CompEntry,
   type StockQuote,
@@ -262,7 +263,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
   const projection = latest
     ? projectComp(latest, {
         sharePrice,
-        years: [currentYear, currentYear + 1, currentYear + 2],
+        years: projectionYears(latest, currentYear),
         asOf: now,
       })
     : null;

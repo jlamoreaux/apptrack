@@ -91,8 +91,14 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
                   onBlur={() => setActive((cur) => (cur === y.year ? null : cur))}
                   aria-label={`${y.year}: total ${formatUsd(y.total)}. Salary ${formatUsd(y.salary)}, stock ${formatUsd(y.stock)}, incentives ${formatUsd(y.incentives)}.`}
                 >
+                  {/* More than three columns on a phone puts neighbouring cap
+                      labels on top of each other; the table and the tap
+                      readout carry the values there instead. */}
                   <span
-                    className="pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1 text-xs font-medium tabular-nums text-foreground"
+                    className={
+                      "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1 text-xs font-medium tabular-nums text-foreground" +
+                      (years.length > 3 ? " hidden sm:block" : "")
+                    }
                     style={{ bottom: `${pct(y.total)}%` }}
                     aria-hidden="true"
                   >

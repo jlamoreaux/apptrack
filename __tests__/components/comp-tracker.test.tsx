@@ -136,8 +136,12 @@ describe("with a share-based entry and a live price", () => {
     expect(within(legend).getByText("Salary")).toBeInTheDocument();
     expect(within(legend).getByText("Stock")).toBeInTheDocument();
     expect(within(legend).getByText("Incentives")).toBeInTheDocument();
-    // Every column is a focusable readout of its year.
-    expect(screen.getByRole("button", { name: new RegExp(`^${thisYear + 1}: total`) })).toBeInTheDocument();
+    // Every column is a focusable readout of its year, out to the end of the
+    // four-year vest that starts this year: five columns.
+    for (let i = 0; i < 5; i++) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${thisYear + i}: total`) })).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("button", { name: new RegExp(`^${thisYear + 5}: total`) })).not.toBeInTheDocument();
 
     const table = screen.getByRole("table");
     expect(within(table).getByText("Vested")).toBeInTheDocument();

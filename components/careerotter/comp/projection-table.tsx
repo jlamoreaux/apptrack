@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,7 +35,7 @@ function Swatch({ seriesKey }: { seriesKey: (typeof COMP_SERIES)[number]["key"] 
 /** A compact value cell; the full figure is one hover or focus away. */
 function Cell({ value, className = "" }: { value: number; className?: string }) {
   return (
-    <td className={`py-2 pl-3 text-right tabular-nums ${className}`}>
+    <td className={`whitespace-nowrap py-2 pl-2 text-right tabular-nums sm:pl-3 ${className}`}>
       <span title={formatUsd(value)}>{formatCompactUsd(value)}</span>
     </td>
   );
@@ -51,21 +52,42 @@ export function ProjectionTable({
   taxRate,
   onTaxRateChange,
 }: ProjectionTableProps) {
-  const headClass = "py-2 pr-3 text-left font-normal text-muted-foreground";
+  const scroller = useRef<HTMLDivElement>(null);
+  // Whether there are columns off to the right: drives the edge fade so a
+  // phone reader can tell the later years are a swipe away, not missing.
+  const [moreRight, setMoreRight] = useState(false);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    const update = () => setMoreRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    observer?.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer?.disconnect();
+    };
+  }, [years.length]);
+
+  // The row-label column stays put while the years scroll under it.
+  const headClass =
+    "sticky left-0 z-10 bg-card py-2 pr-2 text-left font-normal text-muted-foreground sm:pr-3";
   return (
     <div className="space-y-3">
-      {/* Compact figures keep four columns inside a phone, so no scroll
-          container: iOS Safari repaints text inside one unreliably while
-          the values change under the slider. */}
-      <div>
-        <table className="w-full text-sm">
+      {/* Three years fit a phone; five scroll inside the card rather than
+          past its border. The table sits on its own compositing layer so iOS
+          Safari repaints the cells cleanly as the slider changes them. */}
+      <div className="relative">
+        <div ref={scroller} className="overflow-x-auto">
+          <table className="w-full min-w-max transform-gpu text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
-              <th scope="col" className="py-2 pr-3 text-left font-normal">
+              <th scope="col" className="sticky left-0 z-10 bg-card py-2 pr-3 text-left font-normal">
                 <span className="sr-only">Component</span>
               </th>
               {years.map((y) => (
-                <th key={y.year} scope="col" className="py-2 pl-3 text-right font-medium tabular-nums">
+                <th key={y.year} scope="col" className="py-2 pl-2 text-right font-medium tabular-nums sm:pl-3">
                   {y.year}
                 </th>
               ))}
@@ -102,11 +124,11 @@ export function ProjectionTable({
             {hasVestSchedule && (
               <>
                 <tr className="text-xs text-muted-foreground">
-                  <th scope="row" className="py-1 pl-[18px] pr-3 text-left font-normal">
+                  <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-[18px] pr-3 text-left font-normal">
                     Vested
                   </th>
                   {years.map((y) => (
-                    <td key={y.year} className="py-1 pl-3 text-right tabular-nums">
+                    <td key={y.year} className="whitespace-nowrap py-1 pl-2 text-right tabular-nums sm:pl-3">
                       {y.stockVested > 0 ? (
                         <span title={formatUsd(y.stockVested)}>{formatCompactUsd(y.stockVested)}</span>
                       ) : (
@@ -116,11 +138,11 @@ export function ProjectionTable({
                   ))}
                 </tr>
                 <tr className="text-xs text-muted-foreground">
-                  <th scope="row" className="py-1 pl-[18px] pr-3 text-left font-normal">
+                  <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-[18px] pr-3 text-left font-normal">
                     Unvested
                   </th>
                   {years.map((y) => (
-                    <td key={y.year} className="py-1 pl-3 text-right tabular-nums">
+                    <td key={y.year} className="whitespace-nowrap py-1 pl-2 text-right tabular-nums sm:pl-3">
                       {y.stockUnvested > 0 ? (
                         <span title={formatUsd(y.stockUnvested)}>{formatCompactUsd(y.stockUnvested)}</span>
                       ) : (
@@ -132,7 +154,7 @@ export function ProjectionTable({
               </>
             )}
             <tr className="border-t border-border">
-              <th scope="row" className="py-2 pr-3 text-left font-semibold text-foreground">
+              <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card py-2 pr-2 text-left font-semibold text-foreground sm:pr-3">
                 Total comp
               </th>
               {years.map((y) => (
@@ -140,7 +162,7 @@ export function ProjectionTable({
               ))}
             </tr>
             <tr className="text-muted-foreground">
-              <th scope="row" className="py-2 pr-3 text-left font-normal">
+              <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card py-2 pr-2 text-left font-normal sm:pr-3">
                 Est. take-home
               </th>
               {years.map((y) => (
@@ -149,7 +171,19 @@ export function ProjectionTable({
             </tr>
           </tbody>
         </table>
+        </div>
+        {moreRight && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-card to-transparent"
+          />
+        )}
       </div>
+      {years.length > 3 && (
+        <p className="text-xs text-muted-foreground sm:hidden">
+          {years.length} years; swipe the table sideways for the rest.
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <Label htmlFor="tax-rate" className="text-xs font-normal text-muted-foreground">
