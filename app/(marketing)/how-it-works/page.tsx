@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
 import { NavigationStatic } from "@/components/navigation-static";
 import { SITE_CONFIG } from "@/lib/constants/site-config";
 import { HELP_SECTIONS } from "@/lib/constants/help-content";
@@ -39,10 +40,13 @@ export default function HowItWorksPage() {
         </div>
 
         <nav aria-label="Sections" className="mb-10">
-          <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+          <ul className="flex flex-wrap gap-x-5 text-sm">
             {HELP_SECTIONS.map((s) => (
               <li key={s.id}>
-                <a href={`#${s.id}`} className="text-primary hover:underline">
+                <a
+                  href={`#${s.id}`}
+                  className="inline-flex min-h-[44px] items-center text-primary hover:underline"
+                >
                   {s.title}
                 </a>
               </li>
@@ -73,12 +77,10 @@ export default function HowItWorksPage() {
                   >
                     <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-medium [&::-webkit-details-marker]:hidden">
                       {item.question}
-                      <span
+                      <ChevronDown
                         aria-hidden="true"
-                        className="text-muted-foreground transition-transform group-open:rotate-180"
-                      >
-                        ⌄
-                      </span>
+                        className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                      />
                     </summary>
                     <p className="px-4 pb-4 text-sm leading-relaxed text-muted-foreground">
                       {item.answer}
