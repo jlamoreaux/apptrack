@@ -5,13 +5,12 @@
  */
 
 import {
-  GUEST_COMP_STORAGE_KEY,
-  GUEST_COMP_TTL_MS,
   readGuestComp,
   toCompEntry,
   writeGuestComp,
   type GuestCompEntry,
 } from "@/lib/careerotter/comp-guest-cache";
+import { GUEST_COMP_STORAGE_KEY, GUEST_COMP_TTL_MS } from "@/lib/constants/careerotter";
 
 function memoryStorage() {
   const map = new Map<string, string>();
@@ -70,9 +69,34 @@ it("treats unreadable or malformed data as empty and clears it", () => {
   expect(storage.map.has(GUEST_COMP_STORAGE_KEY)).toBe(false);
   storage.setItem(
     GUEST_COMP_STORAGE_KEY,
-    JSON.stringify({ savedAt: Date.now(), entries: [entry("ok", "2026-01-01"), { id: 1 }] })
+    JSON.stringify({
+      savedAt: Date.now(),
+      entries: [
+        entry("ok", "2026-01-01"),
+        { id: 1 },
+        // Valid but partial: the API's defaults fill in, nothing becomes NaN.
+        { id: "partial", effective_date: "2026-02-01", base: 90_000 },
+        // Fails the API's contract (cliff longer than the vest): dropped, not projected.
+        { ...entry("bad-cliff", "2026-03-01"), vest_years: 1, vest_cliff_months: 24 },
+      ],
+    })
   );
-  expect(readGuestComp(storage).map((e) => e.id)).toEqual(["ok"]);
+  const read = readGuestComp(storage);
+  expect(read.map((e) => e.id)).toEqual(["ok", "partial"]);
+  expect(read[1]).toMatchObject({ bonus: 0, equity: 0, ticker: null, shares: null, vest_years: null });
+});
+
+it("reports when the browser refuses the write", () => {
+  const blocked = {
+    getItem: () => null,
+    setItem: () => {
+      throw new Error("QuotaExceededError");
+    },
+    removeItem: () => {},
+  };
+  expect(writeGuestComp([entry("a", "2026-06-01")], blocked)).toBe(false);
+  expect(writeGuestComp([entry("a", "2026-06-01")], memoryStorage())).toBe(true);
+  expect(writeGuestComp([entry("a", "2026-06-01")], null)).toBe(false);
 });
 
 it("clears the store when written an empty list, and copes without storage", () => {
@@ -81,7 +105,6 @@ it("clears the store when written an empty list, and copes without storage", () 
   writeGuestComp([], storage);
   expect(storage.map.has(GUEST_COMP_STORAGE_KEY)).toBe(false);
   expect(readGuestComp(null)).toEqual([]);
-  expect(() => writeGuestComp([entry("a", "2026-06-01")], null)).not.toThrow();
 });
 
 it("renders a guest entry in the page's shape", () => {

@@ -59,6 +59,7 @@ export function ProjectionTable({
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
+    /** Re-measure whether any column sits past the right edge. */
     const update = () => setMoreRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
     update();
     el.addEventListener("scroll", update, { passive: true });

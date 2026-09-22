@@ -11,7 +11,7 @@ const canonicalUrl = `${SITE_CONFIG.url}/try/comp`;
 export const metadata: Metadata = {
   title: `Comp Tracker | Total Comp, Vesting and Market Range | ${SITE_CONFIG.name}`,
   description:
-    "See your total comp, base plus bonus plus equity, projected over three years with vesting, valued at the live stock price. No account needed to try it.",
+    "See your total comp, base plus bonus plus equity, projected out to the end of your vest, valued at the live stock price. No account needed to try it.",
   keywords: [
     "comp tracker",
     "total compensation calculator",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: `Comp Tracker | ${SITE_CONFIG.name}`,
     description:
-      "Your total comp, projected over three years with vesting and valued at the live stock price.",
+      "Your total comp, projected out to the end of your vest and valued at the live stock price.",
     url: canonicalUrl,
     siteName: SITE_CONFIG.name,
     type: "website",
@@ -46,7 +46,7 @@ export default async function TryCompPage() {
       <div className="mb-6 space-y-1">
         <h1 className="text-2xl font-bold">Comp</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          What you are paid, what it is worth over the next three years, and how it sits
+          What you are paid, what it is worth year by year to the end of your vest, and how it sits
           against the market for your role. No account needed to try it.
         </p>
       </div>

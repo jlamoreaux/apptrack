@@ -27,7 +27,8 @@ import {
   type GuestCompEntry,
 } from "@/lib/careerotter/comp-guest-cache";
 import { importGuestComp } from "@/lib/careerotter/comp-guest-import";
-import { normalizeTickers } from "@/lib/careerotter/tickers";
+import { batchTickers, normalizeTickers } from "@/lib/careerotter/tickers";
+import { GUEST_QUOTE_BATCH } from "@/lib/constants/careerotter";
 import { CompanyCard } from "./comp/company-card";
 import { CompEntryForm } from "./comp/entry-form";
 import { GuestSavePrompt } from "./comp/guest-save-prompt";
@@ -81,7 +82,8 @@ function SectionHeading({ title, hint }: { title: string; hint?: string }) {
 /**
  * The comp page. Everything is driven by the latest entry: the headline is
  * its annual total comp (equity annualized over the vest), the projection is
- * how it actually pays out over the next three years, and the simulator's
+ * how it actually pays out year by year to the end of the vest (three to
+ * five years), and the simulator's
  * share price feeds both. Tracking is free; the market benchmark is Pro and
  * the API decides. A guest gets the same page with entries kept in the
  * browser until they sign up.
@@ -103,12 +105,16 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
   const [error, setError] = useState("");
   // The guest's entries as stored; `entries` mirrors them in render shape.
   const guestEntries = useRef<GuestCompEntry[]>([]);
+  // False once the browser refuses to store them (blocked or full): the page
+  // keeps working, but must not promise they will outlive it.
+  const [persisted, setPersisted] = useState(true);
 
   // Every load, whether from the role lookup or a save, takes a ticket; only
   // the newest ticket may commit state, so a slow older response can never
   // overwrite a newer one (the lookup effect also aborts its own predecessor).
   const requestTicket = useRef(0);
 
+  /** Fetch the account's entries, prices and market range for the current role and level. */
   const load = useCallback(
     async (signal?: AbortSignal) => {
       const ticket = ++requestTicket.current;
@@ -171,19 +177,28 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGuest]);
 
-  /** Guest prices come from the public cache of quotes; a miss is fine. */
+  /**
+   * Guest prices come from the public cache of quotes, which answers at most
+   * GUEST_QUOTE_BATCH tickers per request, so the lookup goes out in batches.
+   * Tickers are requested in the order given: put the one the page needs
+   * first. A miss is fine; the simulator falls back to the typed price.
+   */
   const loadGuestQuotes = useCallback(async (tickers: string[]) => {
     const wanted = normalizeTickers(tickers);
     if (wanted.length === 0) return;
-    try {
-      const res = await fetch(`/api/careerotter/stock-price?tickers=${wanted.join(",")}`);
-      if (!res.ok) return;
-      const data = (await res.json()) as QuoteResponse;
-      setPrices((prev) => ({ ...prev, ...(data.prices ?? {}) }));
-      setPriceFeedEnabled(Boolean(data.priceFeedEnabled));
-    } catch {
-      // No price, no problem: the simulator falls back to the typed price.
-    }
+    await Promise.all(
+      batchTickers(wanted, GUEST_QUOTE_BATCH).map(async (batch) => {
+        try {
+          const res = await fetch(`/api/careerotter/stock-price?tickers=${batch.join(",")}`);
+          if (!res.ok) return;
+          const data = (await res.json()) as QuoteResponse;
+          setPrices((prev) => ({ ...prev, ...(data.prices ?? {}) }));
+          setPriceFeedEnabled(Boolean(data.priceFeedEnabled));
+        } catch {
+          // Leave whatever is already known in place.
+        }
+      })
+    );
   }, []);
 
   // A guest's entries come from the browser, and the page is never "loading".
@@ -193,7 +208,8 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     guestEntries.current = cached;
     setEntries(cached.map(toCompEntry));
     setLoaded(true);
-    loadGuestQuotes(cached.map((e) => e.ticker ?? ""));
+    // The newest entry drives the page, so its ticker goes in the first batch.
+    loadGuestQuotes([...cached].reverse().map((e) => e.ticker ?? ""));
   }, [isGuest, loadGuestQuotes]);
 
   const latest = entries.length ? entries[entries.length - 1] : null;
@@ -204,10 +220,11 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     setScenarioPrice(null);
   }, [latestId]);
 
+  /** Keep the guest's list in memory, in the browser, and on screen in step. */
   function commitGuestEntries(next: GuestCompEntry[]) {
     const sorted = sortByDate(next);
     guestEntries.current = sorted;
-    writeGuestComp(sorted);
+    setPersisted(writeGuestComp(sorted));
     setEntries(sorted.map(toCompEntry));
   }
 
@@ -231,6 +248,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     return data?.error || "Could not save that.";
   }
 
+  /** Remove an entry where this page keeps them; true when it is gone. */
   async function deleteEntry(id: string): Promise<boolean> {
     setError("");
     if (isGuest) {
@@ -296,9 +314,9 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">Start with what you make today</h2>
               <p className="text-sm text-muted-foreground">
-                Base, bonus and equity from your current offer or last raise. You get a three-year
-                projection, a live value on any public stock, and a place on the market range for
-                your role.
+                Base, bonus and equity from your current offer or last raise. You get a projection out
+                to the end of your vest, a live value on any public stock, and a place on the market
+                range for your role.
               </p>
               {isGuest && (
                 <p className="text-sm text-muted-foreground">
@@ -407,7 +425,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
       <div className="contents lg:block lg:space-y-6">
         {isGuest && (
           <div className="order-3 lg:order-none">
-            <GuestSavePrompt entryCount={entries.length} />
+            <GuestSavePrompt entryCount={entries.length} persisted={persisted} />
           </div>
         )}
 
@@ -417,6 +435,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
               ticker={latest.ticker}
               quote={quote}
               priceFeedEnabled={priceFeedEnabled}
+              cacheOnly={isGuest}
               shares={Number(latest.shares)}
               sharePrice={sharePrice}
               isScenario={isScenario}

@@ -8,29 +8,11 @@
  */
 
 import type { CompEntry } from "./comp-projection";
+import type { GuestCompEntry } from "@/types";
+import { GUEST_COMP_STORAGE_KEY, GUEST_COMP_TTL_MS } from "@/lib/constants/careerotter";
+import { validateCompEntryInput } from "./comp-entry-validation";
 
-export const GUEST_COMP_STORAGE_KEY = "careerotter.guest-comp.v1";
-
-/** How long a guest's entries survive in the browser before they are dropped. */
-export const GUEST_COMP_TTL_MS = 24 * 60 * 60 * 1000;
-
-/** What the entry form collects: the POST body for /api/careerotter/comp. */
-export interface CompEntryInput {
-  effective_date: string;
-  base: number;
-  bonus: number;
-  equity: number;
-  ticker: string | null;
-  shares: number | null;
-  vest_start: string | null;
-  vest_years: number | null;
-  vest_cliff_months: number | null;
-}
-
-/** A guest entry: the input plus a local id so the page can render and delete it. */
-export interface GuestCompEntry extends CompEntryInput {
-  id: string;
-}
+export type { CompEntryInput, GuestCompEntry } from "@/types";
 
 interface StoredGuestComp {
   savedAt: number;
@@ -48,15 +30,17 @@ export function guestStorage(): StorageLike | null {
   }
 }
 
-function isGuestEntry(value: unknown): value is GuestCompEntry {
-  if (typeof value !== "object" || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return (
-    typeof v.id === "string" &&
-    typeof v.effective_date === "string" &&
-    typeof v.base === "number" &&
-    Number.isFinite(v.base)
-  );
+/**
+ * A stored record that passes the same validation the API applies, with the
+ * API's defaults filled in; null for anything partial or malformed so it never
+ * reaches the projection.
+ */
+function normalizeGuestEntry(value: unknown): GuestCompEntry | null {
+  if (typeof value !== "object" || value === null) return null;
+  const id = (value as { id?: unknown }).id;
+  if (typeof id !== "string" || id.length === 0) return null;
+  const checked = validateCompEntryInput(value);
+  return checked.ok ? { id, ...checked.value } : null;
 }
 
 /**
@@ -80,31 +64,42 @@ export function readGuestComp(
       storage.removeItem(GUEST_COMP_STORAGE_KEY);
       return [];
     }
-    return sortByDate(parsed.entries.filter(isGuestEntry));
+    const entries: GuestCompEntry[] = [];
+    for (const item of parsed.entries) {
+      const entry = normalizeGuestEntry(item);
+      if (entry) entries.push(entry);
+    }
+    return sortByDate(entries);
   } catch {
     return [];
   }
 }
 
-/** Replace the guest's entries; the TTL restarts from now. An empty list clears them. */
+/**
+ * Replace the guest's entries; the TTL restarts from now. An empty list clears
+ * them. Returns false when the browser refused the write (storage blocked or
+ * full), so the page can say the entries will not outlive it.
+ */
 export function writeGuestComp(
   entries: GuestCompEntry[],
   storage: StorageLike | null = guestStorage(),
   now: number = Date.now()
-): void {
-  if (!storage) return;
+): boolean {
+  if (!storage) return false;
   try {
     if (entries.length === 0) {
       storage.removeItem(GUEST_COMP_STORAGE_KEY);
-      return;
+      return true;
     }
     const stored: StoredGuestComp = { savedAt: now, entries: sortByDate(entries) };
     storage.setItem(GUEST_COMP_STORAGE_KEY, JSON.stringify(stored));
+    return true;
   } catch {
-    // Quota or privacy mode: the page still works, the entries just won't outlive it.
+    return false;
   }
 }
 
+/** Remove every guest entry from the browser. */
 export function clearGuestComp(storage: StorageLike | null = guestStorage()): void {
   writeGuestComp([], storage);
 }

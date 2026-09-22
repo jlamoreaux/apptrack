@@ -8,7 +8,8 @@
  * share one in-flight promise, so the entries are posted exactly once.
  */
 
-import { readGuestComp, writeGuestComp, type GuestCompEntry } from "./comp-guest-cache";
+import { readGuestComp, writeGuestComp } from "./comp-guest-cache";
+import type { GuestCompEntry } from "@/types";
 
 export const GUEST_COMP_IMPORTED_EVENT = "careerotter:guest-comp-imported";
 
@@ -36,44 +37,54 @@ export function importGuestComp(): Promise<GuestImportResult | null> {
   return inFlight;
 }
 
+/** POST one entry; the HTTP status, or 0 when the request never completed. */
+async function postEntry(entry: GuestCompEntry): Promise<number> {
+  const { id: _id, ...body } = entry;
+  try {
+    const res = await fetch("/api/careerotter/comp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return res.status;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * The import itself. The cache is rewritten after every response, so an entry
+ * the server has accepted is gone from the browser before the next request
+ * starts; a reload mid-import cannot post it twice.
+ */
 async function run(): Promise<GuestImportResult | null> {
   const entries = readGuestComp();
   if (entries.length === 0) return null;
 
   const result: GuestImportResult = { imported: 0, rejected: 0, unauthorized: false };
-  const remaining: GuestCompEntry[] = [];
+  const kept: GuestCompEntry[] = [];
 
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
     if (result.unauthorized) {
-      remaining.push(entry);
+      kept.push(entry);
       continue;
     }
-    const { id: _id, ...body } = entry;
-    let status: number;
-    try {
-      const res = await fetch("/api/careerotter/comp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      status = res.status;
-    } catch {
-      status = 0;
-    }
+    const status = await postEntry(entry);
     if (status >= 200 && status < 300) {
       result.imported += 1;
     } else if (status === 401) {
       result.unauthorized = true;
-      remaining.push(entry);
+      kept.push(entry);
     } else if (status >= 400 && status < 500) {
       result.rejected += 1;
     } else {
-      remaining.push(entry);
+      kept.push(entry);
     }
+    // Checkpoint: what is still to try, plus what this pass decided to keep.
+    writeGuestComp([...kept, ...entries.slice(i + 1)]);
   }
 
-  writeGuestComp(remaining);
   if (result.imported > 0 && typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(GUEST_COMP_IMPORTED_EVENT, { detail: result }));
   }

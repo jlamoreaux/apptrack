@@ -8,11 +8,11 @@ import {
   importGuestComp,
 } from "@/lib/careerotter/comp-guest-import";
 import {
-  GUEST_COMP_STORAGE_KEY,
   readGuestComp,
   writeGuestComp,
   type GuestCompEntry,
 } from "@/lib/careerotter/comp-guest-cache";
+import { GUEST_COMP_STORAGE_KEY } from "@/lib/constants/careerotter";
 
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
@@ -89,4 +89,20 @@ it("shares one in-flight import between concurrent callers", async () => {
 
   expect(first).toBe(second);
   expect(mockFetch).toHaveBeenCalledTimes(1);
+});
+
+it("drops an accepted entry from the cache before posting the next one", async () => {
+  writeGuestComp([entry("a", "2025-01-01"), entry("b", "2026-03-01")]);
+  const cacheWhenSecondPosted: string[] = [];
+  mockFetch
+    .mockResolvedValueOnce({ status: 201, ok: true })
+    .mockImplementationOnce(async () => {
+      cacheWhenSecondPosted.push(...readGuestComp().map((e) => e.id));
+      return { status: 201, ok: true };
+    });
+
+  await importGuestComp();
+
+  // A reload between the two requests would find only "b" left to send.
+  expect(cacheWhenSecondPosted).toEqual(["b"]);
 });

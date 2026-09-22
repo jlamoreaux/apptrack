@@ -174,7 +174,7 @@ export function NavigationStatic({ isAuthenticated = false }: NavigationStaticPr
                       key={tool.href}
                       href={tool.href}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
+                      className="flex min-h-[44px] items-center gap-3 px-3 py-2.5 rounded-md hover:bg-interactive-hover"
                     >
                       <tool.icon className="h-5 w-5 text-primary" />
                       <span className="font-medium">{tool.title}</span>

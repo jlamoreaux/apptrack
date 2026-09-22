@@ -8,11 +8,8 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { CompTracker } from "@/components/careerotter/comp-tracker";
-import {
-  GUEST_COMP_STORAGE_KEY,
-  readGuestComp,
-  writeGuestComp,
-} from "@/lib/careerotter/comp-guest-cache";
+import { readGuestComp, writeGuestComp } from "@/lib/careerotter/comp-guest-cache";
+import { GUEST_COMP_STORAGE_KEY } from "@/lib/constants/careerotter";
 
 // The guest save prompt renders a Google button that only needs a client at click time.
 jest.mock("@/components/auth/google-signin-button", () => ({
@@ -264,12 +261,63 @@ describe("guest mode", () => {
     expect(mockFetch).not.toHaveBeenCalled();
   });
 
-  it("restores cached entries and looks up their cached quotes", async () => {
-    writeGuestComp([{ ...entry, id: "g1" }]);
+  it("restores cached entries and looks up their cached quotes, newest ticker first", async () => {
+    // Seven older entries with their own tickers, then the current one: the
+    // endpoint answers five per request, so the current ticker must lead.
+    const older = ["A", "B", "C", "D", "E", "F", "G"].map((t, i) => ({
+      ...entry,
+      id: `old-${t}`,
+      effective_date: `${thisYear - 8 + i}-01-15`,
+      ticker: t,
+      shares: 10,
+    }));
+    writeGuestComp([...older, { ...entry, id: "g1" }]);
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ prices: { NET: quote }, priceFeedEnabled: true }) });
     render(<CompTracker mode="guest" />);
     expect(await screen.findByText("Cloudflare Inc")).toBeInTheDocument();
-    expect(mockFetch.mock.calls[0][0]).toBe("/api/careerotter/stock-price?tickers=NET");
+    const urls = mockFetch.mock.calls.map((c) => c[0] as string).sort();
+    // Eight cached tickers, newest first, in batches of five: the newest
+    // entry's ticker is always in the first request.
+    expect(urls).toEqual([
+      "/api/careerotter/stock-price?tickers=NET,G,F,E,D",
+      "/api/careerotter/stock-price?tickers=C,B,A",
+    ].sort());
+  });
+
+  it("says plainly when the guest's ticker has no cached price", async () => {
+    writeGuestComp([{ ...entry, id: "g1" }]);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ prices: {}, priceFeedEnabled: true }) });
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText(/No cached price for NET yet/)).toBeInTheDocument();
+  });
+
+  it("warns instead of promising a 24-hour hold when the browser refuses to store entries", async () => {
+    const setItem = jest.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      render(<CompTracker mode="guest" />);
+      await screen.findByText("Start with what you make today");
+      fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+      expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent(/not storing your entry/);
+      expect(screen.queryByText(/for the next 24 hours/)).not.toBeInTheDocument();
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it("refuses an entry the API would reject, before it reaches the browser", async () => {
+    render(<CompTracker mode="guest" />);
+    await screen.findByText("Start with what you make today");
+    fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+    fireEvent.click(screen.getByLabelText("It vests over time"));
+    fireEvent.change(screen.getByLabelText("Vest years"), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText("Cliff (months)"), { target: { value: "24" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/cannot exceed the vesting duration/);
+    expect(readGuestComp()).toEqual([]);
   });
 
   it("deletes a guest entry from the browser", async () => {

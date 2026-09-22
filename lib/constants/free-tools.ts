@@ -11,6 +11,7 @@ import {
   LucideIcon,
 } from "lucide-react"
 import { FeatureIconColor } from "@/components/ui/feature-icon"
+import type { AccountTool } from "@/types"
 
 export interface FreeTool {
   title: string
@@ -64,13 +65,13 @@ export const FREE_TOOLS: FreeTool[] = [
   },
   {
     title: "Comp Tracker",
-    description: "See your total comp, base plus bonus plus equity, projected over three years with vesting and valued at the live stock price. Try it without an account; sign up to keep it.",
+    description: "See your total comp, base plus bonus plus equity, projected out to the end of your vest and valued at the live stock price. Try it without an account; sign up to keep it.",
     shortDescription: "Track your pay against the market",
     href: "/try/comp",
     icon: DollarSign,
     iconColor: "green",
     features: [
-      "Three-year projection with vesting",
+      "Projection to the end of your vest",
       "Live stock price simulator",
       "Market range for your role",
     ],
@@ -90,19 +91,11 @@ export const FREE_TOOLS: FreeTool[] = [
   },
 ]
 
-export interface AccountTool {
-  title: string
-  shortDescription: string
-  href: string
-  icon: LucideIcon
-  iconColor: FeatureIconColor
-}
-
 // Tools that live in the app and need a (free) account. Listed on the
 // marketing surfaces next to the try-without-signing-up tools so the whole
 // product is discoverable from the nav; the middleware sends a logged-out
 // visitor to login with a redirect back to the page they picked.
-export const ACCOUNT_TOOLS: AccountTool[] = [
+export const ACCOUNT_TOOLS = [
   {
     title: "Wins Log",
     shortDescription: "Log your wins and build your case",
@@ -131,7 +124,7 @@ export const ACCOUNT_TOOLS: AccountTool[] = [
     icon: Building2,
     iconColor: "indigo",
   },
-]
+] satisfies AccountTool[]
 
 // Role-specific cover letter landing pages — each generates a pre-rendered SEO page
 export const ROLE_LANDING_PAGES = [
