@@ -1,4 +1,15 @@
-import { FileText, Target, MessageSquare, Flame, LucideIcon } from "lucide-react"
+import {
+  FileText,
+  Target,
+  MessageSquare,
+  Flame,
+  DollarSign,
+  Trophy,
+  ClipboardList,
+  MessageSquareText,
+  Building2,
+  LucideIcon,
+} from "lucide-react"
 import { FeatureIconColor } from "@/components/ui/feature-icon"
 
 export interface FreeTool {
@@ -63,6 +74,56 @@ export const FREE_TOOLS: FreeTool[] = [
       "Shareable results",
       "Actionable improvements",
     ],
+  },
+]
+
+export interface AccountTool {
+  title: string
+  shortDescription: string
+  href: string
+  icon: LucideIcon
+  iconColor: FeatureIconColor
+}
+
+// Tools that live in the app and need a (free) account. Listed on the
+// marketing surfaces next to the try-without-signing-up tools so the whole
+// product is discoverable from the nav; the middleware sends a logged-out
+// visitor to login with a redirect back to the page they picked.
+export const ACCOUNT_TOOLS: AccountTool[] = [
+  {
+    title: "Comp Tracker",
+    shortDescription: "Track your pay against the market",
+    href: "/dashboard/comp",
+    icon: DollarSign,
+    iconColor: "green",
+  },
+  {
+    title: "Wins Log",
+    shortDescription: "Log your wins and build your case",
+    href: "/dashboard/wins",
+    icon: Trophy,
+    iconColor: "orange",
+  },
+  {
+    title: "Review Prep",
+    shortDescription: "Turn your wins into a review-ready doc",
+    href: "/dashboard/review-prep",
+    icon: ClipboardList,
+    iconColor: "purple",
+  },
+  {
+    title: "Career Coach",
+    shortDescription: "Coaching grounded in your logged wins",
+    href: "/dashboard/coach",
+    icon: MessageSquareText,
+    iconColor: "blue",
+  },
+  {
+    title: "Application Tracker",
+    shortDescription: "Track every application, free forever",
+    href: "/dashboard/applications",
+    icon: Building2,
+    iconColor: "indigo",
   },
 ]
 
