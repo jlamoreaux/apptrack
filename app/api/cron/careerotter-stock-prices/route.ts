@@ -5,7 +5,9 @@
  * fetch each one's current quote from Finnhub, and cache it in stock_prices so
  * the comp page can anchor its equity numbers on the live market price and
  * show the day's move. The company profile (name, exchange, market cap, logo)
- * is fetched once per ticker and refreshed monthly.
+ * is fetched once per ticker and refreshed monthly. The comp API also refreshes
+ * a missing or stale quote on demand (lib/careerotter/stock-price-cache.ts);
+ * this job keeps the cache warm so most page views never wait on Finnhub.
  *
  * The feature is DARK until FINNHUB_API_KEY is set: with no key this route
  * no-ops cleanly (skipped response, no DB work, no external calls).

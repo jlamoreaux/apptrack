@@ -8,6 +8,9 @@ import { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
+jest.mock("@/lib/services/logger.service", () => ({
+  loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+}));
 
 const mockAdmin = createAdminClient as jest.Mock;
 

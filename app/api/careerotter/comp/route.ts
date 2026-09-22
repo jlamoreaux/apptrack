@@ -16,7 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { lookupMarketRange } from "@/lib/careerotter/market-data";
 import { isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
-import { loadQuotes, normalizeTickers } from "@/lib/careerotter/stock-quotes";
+import { loadQuotes } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTickers } from "@/lib/careerotter/tickers";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
@@ -58,8 +59,9 @@ export async function GET(request: NextRequest) {
   // Benchmark is Pro-only; entry/history is free.
   const marketRange = plan.isPro ? lookupMarketRange(roleFamily, level) : null;
 
-  // Live cached prices for the tickers this user tracks (feature is dark until the
-  // polling cron populates stock_prices; absent tickers simply won't appear).
+  // Prices for the tickers this user tracks: cached by the daily cron and
+  // refreshed live here when a ticker is new or its quote has gone stale, so a
+  // just-added ticker gets a price on the first page load rather than tomorrow.
   const tickers = normalizeTickers((entries ?? []).map((e) => e.ticker));
   const prices = await loadQuotes(admin, tickers);
 
@@ -68,8 +70,8 @@ export async function GET(request: NextRequest) {
     marketRange,
     isPro: plan.isPro,
     prices,
-    // Lets the page say why a ticker has no price yet: the feed is off, or
-    // the daily refresh simply hasn't run since the ticker was added.
+    // Lets the page say why a ticker has no price: the feed is off, or the
+    // symbol returned nothing from the feed.
     priceFeedEnabled: isPriceFeedConfigured(),
   });
 }

@@ -27,7 +27,7 @@ import {
   type GuestCompEntry,
 } from "@/lib/careerotter/comp-guest-cache";
 import { importGuestComp } from "@/lib/careerotter/comp-guest-import";
-import { normalizeTickers } from "@/lib/careerotter/stock-quotes";
+import { normalizeTickers } from "@/lib/careerotter/tickers";
 import { CompanyCard } from "./comp/company-card";
 import { CompEntryForm } from "./comp/entry-form";
 import { GuestSavePrompt } from "./comp/guest-save-prompt";
