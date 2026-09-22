@@ -54,7 +54,10 @@ export function ProjectionTable({
   const headClass = "py-2 pr-3 text-left font-normal text-muted-foreground";
   return (
     <div className="space-y-3">
-      <div className="-mx-1 overflow-x-auto px-1">
+      {/* Compact figures keep four columns inside a phone, so no scroll
+          container: iOS Safari repaints text inside one unreliably while
+          the values change under the slider. */}
+      <div>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
