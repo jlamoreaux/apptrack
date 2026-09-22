@@ -72,7 +72,11 @@ export function ProjectionTable({
     update();
     el.addEventListener("scroll", update, { passive: true });
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
+    // The scroller's own box is pinned by the card, so a width change that
+    // comes from new cell values (the slider, the tax rate) shows up only on
+    // the table inside it; watch both.
     observer?.observe(el);
+    if (el.firstElementChild) observer?.observe(el.firstElementChild);
     return () => {
       el.removeEventListener("scroll", update);
       observer?.disconnect();
