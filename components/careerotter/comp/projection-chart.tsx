@@ -134,26 +134,28 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
               <p className="mb-1 font-medium text-foreground">{activeYear.year}</p>
               <dl className="space-y-0.5">
                 {[...COMP_SERIES].reverse().map((s) => (
-                  <div key={s.key} className="flex items-center justify-between gap-3">
-                    <dt className="flex items-center gap-1.5 text-muted-foreground">
-                      <span
-                        className="inline-block h-0.5 w-3 rounded-full"
-                        style={{ backgroundColor: s.color }}
-                        aria-hidden="true"
-                      />
-                      {s.label}
-                    </dt>
-                    <dd className="font-semibold tabular-nums text-foreground">
-                      {formatUsd(activeYear[s.key as SeriesKey])}
-                    </dd>
+                  <div key={s.key}>
+                    <div className="flex items-center justify-between gap-3">
+                      <dt className="flex items-center gap-1.5 text-muted-foreground">
+                        <span
+                          className="inline-block h-0.5 w-3 rounded-full"
+                          style={{ backgroundColor: s.color }}
+                          aria-hidden="true"
+                        />
+                        {s.label}
+                      </dt>
+                      <dd className="font-semibold tabular-nums text-foreground">
+                        {formatUsd(activeYear[s.key as SeriesKey])}
+                      </dd>
+                    </div>
+                    {s.key === "stock" && hasVestSchedule && activeYear.stock > 0 && (
+                      <div className="flex items-center justify-between gap-3 pl-[18px] text-muted-foreground">
+                        <dt>of which unvested</dt>
+                        <dd className="tabular-nums">{formatUsd(activeYear.stockUnvested)}</dd>
+                      </div>
+                    )}
                   </div>
                 ))}
-                {hasVestSchedule && activeYear.stock > 0 && (
-                  <div className="flex items-center justify-between gap-3 pl-[18px] text-muted-foreground">
-                    <dt>of which unvested</dt>
-                    <dd className="tabular-nums">{formatUsd(activeYear.stockUnvested)}</dd>
-                  </div>
-                )}
                 <div className="flex items-center justify-between gap-3 border-t border-border pt-1">
                   <dt className="text-muted-foreground">Total</dt>
                   <dd className="font-semibold tabular-nums text-foreground">
