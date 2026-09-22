@@ -25,10 +25,8 @@ it("lists every tool, including the comp tracker, in the mobile menu", () => {
   for (const tool of [...FREE_TOOLS, ...ACCOUNT_TOOLS]) {
     expect(screen.getByRole("link", { name: tool.title })).toHaveAttribute("href", tool.href);
   }
-  expect(screen.getByRole("link", { name: "Comp Tracker" })).toHaveAttribute(
-    "href",
-    "/dashboard/comp"
-  );
+  // The comp tracker is usable without an account, so it links to the public page.
+  expect(screen.getByRole("link", { name: "Comp Tracker" })).toHaveAttribute("href", "/try/comp");
 });
 
 it("points every account tool at a dashboard page that exists", () => {

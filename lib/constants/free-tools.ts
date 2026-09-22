@@ -63,6 +63,19 @@ export const FREE_TOOLS: FreeTool[] = [
     ],
   },
   {
+    title: "Comp Tracker",
+    description: "See your total comp, base plus bonus plus equity, projected over three years with vesting and valued at the live stock price. Try it without an account; sign up to keep it.",
+    shortDescription: "Track your pay against the market",
+    href: "/try/comp",
+    icon: DollarSign,
+    iconColor: "green",
+    features: [
+      "Three-year projection with vesting",
+      "Live stock price simulator",
+      "Market range for your role",
+    ],
+  },
+  {
     title: "Resume Roast",
     description: "Get brutally honest, entertaining feedback on your resume. Find out what recruiters really think.",
     shortDescription: "Get brutally honest resume feedback",
@@ -90,13 +103,6 @@ export interface AccountTool {
 // product is discoverable from the nav; the middleware sends a logged-out
 // visitor to login with a redirect back to the page they picked.
 export const ACCOUNT_TOOLS: AccountTool[] = [
-  {
-    title: "Comp Tracker",
-    shortDescription: "Track your pay against the market",
-    href: "/dashboard/comp",
-    icon: DollarSign,
-    iconColor: "green",
-  },
   {
     title: "Wins Log",
     shortDescription: "Log your wins and build your case",

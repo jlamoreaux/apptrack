@@ -83,8 +83,10 @@ function renderFreeTools(): string {
 
   return `# Free tools — ${SITE_CONFIG.name}
 
-Every tool below is free and needs no account. Each is limited to one use per 24
-hours per browser; a second attempt in that window is rejected.
+Every tool below is free and needs no account. The AI tools are limited to one
+use per 24 hours per browser; a second attempt in that window is rejected. The
+comp tracker is unlimited and keeps its entries in the browser for 24 hours, or
+for good once the visitor signs up.
 
 ${tools}
 

@@ -8,6 +8,16 @@
 import type { ReactNode } from "react";
 import { render, screen, fireEvent, waitFor, within, act } from "@testing-library/react";
 import { CompTracker } from "@/components/careerotter/comp-tracker";
+import {
+  GUEST_COMP_STORAGE_KEY,
+  readGuestComp,
+  writeGuestComp,
+} from "@/lib/careerotter/comp-guest-cache";
+
+// The guest save prompt renders a Google button that only needs a client at click time.
+jest.mock("@/components/auth/google-signin-button", () => ({
+  GoogleSignInButton: () => <button type="button">Continue with Google</button>,
+}));
 
 // Radix Select -> lightweight testable equivalent.
 jest.mock("@/components/ui/select", () => {
@@ -60,6 +70,7 @@ function respondWith(body: unknown) {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  window.localStorage.clear();
 });
 
 it("leaves the loading state and says so when the first load is rejected", async () => {
@@ -219,4 +230,74 @@ it("says why there is no price when the feed is off", async () => {
   });
   render(<CompTracker />);
   expect(await screen.findByText(/Live prices are not enabled here/)).toBeInTheDocument();
+});
+
+describe("guest mode", () => {
+  it("keeps entries in the browser, prompts to sign up, and never hits the comp API", async () => {
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText("Start with what you make today")).toBeInTheDocument();
+    expect(screen.getByText(/stays in this browser for 24 hours/)).toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Base salary"), { target: { value: "155,000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add entry" }));
+
+    expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+    // The headline and the trajectory row agree.
+    expect(screen.getAllByText("$155,000")).toHaveLength(2);
+    expect(screen.getByText("Keep this")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign up free" })).toHaveAttribute(
+      "href",
+      "/signup?redirectTo=%2Fdashboard%2Fcomp"
+    );
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute(
+      "href",
+      "/login?redirectTo=%2Fdashboard%2Fcomp"
+    );
+    expect(readGuestComp()).toHaveLength(1);
+    expect(readGuestComp()[0].base).toBe(155000);
+    // Still no API traffic: no ticker means no quote lookup either.
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("restores cached entries and looks up their cached quotes", async () => {
+    writeGuestComp([{ ...entry, id: "g1" }]);
+    mockFetch.mockResolvedValue({ ok: true, json: async () => ({ prices: { NET: quote }, priceFeedEnabled: true }) });
+    render(<CompTracker mode="guest" />);
+    expect(await screen.findByText("Cloudflare Inc")).toBeInTheDocument();
+    expect(mockFetch.mock.calls[0][0]).toBe("/api/careerotter/stock-price?tickers=NET");
+  });
+
+  it("deletes a guest entry from the browser", async () => {
+    writeGuestComp([{ ...entry, id: "g1", ticker: null, shares: null }]);
+    render(<CompTracker mode="guest" />);
+    await screen.findByText("Your trajectory");
+    fireEvent.click(screen.getByRole("button", { name: /^Delete comp entry/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Confirm delete/ }));
+    expect(await screen.findByText("Start with what you make today")).toBeInTheDocument();
+    expect(window.localStorage.getItem(GUEST_COMP_STORAGE_KEY)).toBeNull();
+  });
+});
+
+it("in account mode, saves entries left from a guest visit and then shows them", async () => {
+  writeGuestComp([{ ...entry, id: "g1", ticker: null, shares: null }]);
+  const empty = { entries: [], marketRange: null, isPro: false, prices: {}, priceFeedEnabled: false };
+  mockFetch.mockImplementation(async (_url: string, init?: RequestInit) =>
+    init?.method === "POST"
+      ? { ok: true, status: 201, json: async () => ({ entry }) }
+      : {
+          ok: true,
+          status: 200,
+          json: async () =>
+            mockFetch.mock.calls.some((c) => c[1]?.method === "POST")
+              ? { ...empty, entries: [{ ...entry, ticker: null, shares: null }] }
+              : empty,
+        }
+  );
+  render(<CompTracker />);
+  expect(await screen.findByText("Annual total comp")).toBeInTheDocument();
+  const post = mockFetch.mock.calls.find((c) => c[1]?.method === "POST");
+  expect(post).toBeDefined();
+  expect(JSON.parse(post![1].body)).not.toHaveProperty("id");
+  expect(window.localStorage.getItem(GUEST_COMP_STORAGE_KEY)).toBeNull();
 });
