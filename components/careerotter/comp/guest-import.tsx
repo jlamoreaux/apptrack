@@ -23,12 +23,15 @@ export function GuestCompImport() {
     importGuestComp().then((result) => {
       if (cancelled || !result || result.imported === 0) return;
       const noun = result.imported === 1 ? "entry" : "entries";
+      const where =
+        pathname === COMP_AFTER_AUTH_PATH
+          ? "They are in your account now."
+          : "They are in your account now, under Comp.";
       toast({
         title: `Saved ${result.imported} comp ${noun} from your visit`,
-        description:
-          pathname === COMP_AFTER_AUTH_PATH
-            ? "They are in your account now."
-            : "They are in your account now, under Comp.",
+        description: result.persisted
+          ? where
+          : `${where} This browser could not clear its copy, so check for duplicates if they appear again.`,
         action:
           pathname === COMP_AFTER_AUTH_PATH ? undefined : (
             <ToastAction altText="Open comp" onClick={() => router.push(COMP_AFTER_AUTH_PATH)}>

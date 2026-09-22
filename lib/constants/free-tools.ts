@@ -65,13 +65,13 @@ export const FREE_TOOLS: FreeTool[] = [
   },
   {
     title: "Comp Tracker",
-    description: "See your total comp, base plus bonus plus equity, projected out to the end of your vest and valued at the live stock price. Try it without an account; sign up to keep it.",
+    description: "See your total comp, base plus bonus plus equity, projected year by year through your vest, up to five years out, and valued at the live stock price. Try it without an account; sign up to keep it.",
     shortDescription: "Track your pay against the market",
     href: "/try/comp",
     icon: DollarSign,
     iconColor: "green",
     features: [
-      "Projection to the end of your vest",
+      "Projection through your vest, up to five years",
       "Live stock price simulator",
       "Market range for your role",
     ],

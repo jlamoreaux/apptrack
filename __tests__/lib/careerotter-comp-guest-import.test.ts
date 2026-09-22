@@ -48,7 +48,7 @@ it("posts every entry oldest first, clears the cache, and announces it", async (
 
   const result = await importGuestComp();
 
-  expect(result).toEqual({ imported: 2, rejected: 0, unauthorized: false });
+  expect(result).toEqual({ imported: 2, rejected: 0, unauthorized: false, persisted: true });
   expect(mockFetch).toHaveBeenCalledTimes(2);
   const bodies = mockFetch.mock.calls.map((c) => JSON.parse(c[1].body));
   expect(bodies.map((b) => b.effective_date)).toEqual(["2025-01-01", "2026-03-01"]);
@@ -64,7 +64,7 @@ it("keeps everything when the user turns out not to be signed in", async () => {
 
   const result = await importGuestComp();
 
-  expect(result).toEqual({ imported: 0, rejected: 0, unauthorized: true });
+  expect(result).toEqual({ imported: 0, rejected: 0, unauthorized: true, persisted: true });
   expect(mockFetch).toHaveBeenCalledTimes(1);
   expect(readGuestComp().map((e) => e.id)).toEqual(["a", "b"]);
 });
@@ -77,7 +77,7 @@ it("drops an entry the API rejects but keeps one that failed on the way", async 
 
   const result = await importGuestComp();
 
-  expect(result).toEqual({ imported: 0, rejected: 1, unauthorized: false });
+  expect(result).toEqual({ imported: 0, rejected: 1, unauthorized: false, persisted: true });
   expect(readGuestComp().map((e) => e.id)).toEqual(["flaky"]);
 });
 
@@ -105,4 +105,22 @@ it("drops an accepted entry from the cache before posting the next one", async (
 
   // A reload between the two requests would find only "b" left to send.
   expect(cacheWhenSecondPosted).toEqual(["b"]);
+});
+
+it("stops posting once the browser refuses a checkpoint, and says so", async () => {
+  writeGuestComp([entry("a", "2025-01-01"), entry("b", "2026-03-01")]);
+  mockFetch.mockResolvedValue({ status: 201, ok: true });
+  // The seed write above succeeded; the checkpoint after the first post does not.
+  const refused = jest.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+    throw new Error("QuotaExceededError");
+  });
+
+  const result = await importGuestComp();
+  refused.mockRestore();
+
+  // "a" was saved, "b" was never sent: sending it would only add a second
+  // "a" on the next attempt, since the cache could not be told "a" is done.
+  expect(result).toEqual({ imported: 1, rejected: 0, unauthorized: false, persisted: false });
+  expect(mockFetch).toHaveBeenCalledTimes(1);
+  expect(readGuestComp().map((e) => e.id)).toEqual(["a", "b"]);
 });

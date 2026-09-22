@@ -19,6 +19,12 @@ export interface GuestImportResult {
   rejected: number;
   /** The user was not signed in after all; nothing was dropped. */
   unauthorized: boolean;
+  /**
+   * False when the browser refused to update the cache mid-import. The run
+   * stopped at that point, so the cache still lists what it had already
+   * posted and a later attempt may save those again.
+   */
+  persisted: boolean;
 }
 
 let inFlight: Promise<GuestImportResult | null> | null = null;
@@ -61,7 +67,12 @@ async function run(): Promise<GuestImportResult | null> {
   const entries = readGuestComp();
   if (entries.length === 0) return null;
 
-  const result: GuestImportResult = { imported: 0, rejected: 0, unauthorized: false };
+  const result: GuestImportResult = {
+    imported: 0,
+    rejected: 0,
+    unauthorized: false,
+    persisted: true,
+  };
   const kept: GuestCompEntry[] = [];
 
   for (let i = 0; i < entries.length; i++) {
@@ -82,7 +93,13 @@ async function run(): Promise<GuestImportResult | null> {
       kept.push(entry);
     }
     // Checkpoint: what is still to try, plus what this pass decided to keep.
-    writeGuestComp([...kept, ...entries.slice(i + 1)]);
+    if (!writeGuestComp([...kept, ...entries.slice(i + 1)])) {
+      // The cache still lists what this pass already posted, so every further
+      // post would be one more duplicate on the next attempt. Stop here; the
+      // entries not yet sent are still cached for that attempt.
+      result.persisted = false;
+      break;
+    }
   }
 
   if (result.imported > 0 && typeof window !== "undefined") {

@@ -151,6 +151,14 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     [roleTitle, level]
   );
 
+  // The one-time import below finishes whenever the network lets it; by then
+  // the role or level may have changed, so it reloads through this ref rather
+  // than the `load` it closed over at mount.
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  }, [load]);
+
   // Debounce the free-text role lookup and abort the in-flight request, so a
   // slow older response can't overwrite a newer one (roleTitle changes per keystroke).
   useEffect(() => {
@@ -168,7 +176,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
     if (isGuest) return;
     let cancelled = false;
     importGuestComp().then((result) => {
-      if (!cancelled && result && result.imported > 0) load();
+      if (!cancelled && result && result.imported > 0) loadRef.current();
     });
     return () => {
       cancelled = true;
@@ -314,9 +322,9 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
             <div className="space-y-1">
               <h2 className="text-lg font-semibold text-foreground">Start with what you make today</h2>
               <p className="text-sm text-muted-foreground">
-                Base, bonus and equity from your current offer or last raise. You get a projection out
-                to the end of your vest, a live value on any public stock, and a place on the market
-                range for your role.
+                Base, bonus and equity from your current offer or last raise. You get a projection
+                year by year through your vest, up to five years out, a live value on any public
+                stock, and a place on the market range for your role.
               </p>
               {isGuest && (
                 <p className="text-sm text-muted-foreground">

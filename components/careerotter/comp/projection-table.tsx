@@ -56,11 +56,19 @@ export function ProjectionTable({
   // Whether there are columns off to the right: drives the edge fade so a
   // phone reader can tell the later years are a swipe away, not missing.
   const [moreRight, setMoreRight] = useState(false);
+  // Whether the table overflows at all: only then is the scroller a tab stop,
+  // so keyboard users can reach the later years without an idle stop on
+  // wide screens where every year already fits.
+  const [scrollable, setScrollable] = useState(false);
   useEffect(() => {
     const el = scroller.current;
     if (!el) return;
     /** Re-measure whether any column sits past the right edge. */
-    const update = () => setMoreRight(el.scrollWidth - el.clientWidth - el.scrollLeft > 1);
+    const update = () => {
+      const overflow = el.scrollWidth - el.clientWidth;
+      setScrollable(overflow > 1);
+      setMoreRight(overflow - el.scrollLeft > 1);
+    };
     update();
     el.addEventListener("scroll", update, { passive: true });
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
@@ -80,7 +88,13 @@ export function ProjectionTable({
           past its border. The table sits on its own compositing layer so iOS
           Safari repaints the cells cleanly as the slider changes them. */}
       <div className="relative">
-        <div ref={scroller} className="overflow-x-auto">
+        <div
+          ref={scroller}
+          role="region"
+          aria-label="Projected compensation by year"
+          tabIndex={scrollable ? 0 : undefined}
+          className="overflow-x-auto rounded-md ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        >
           <table className="w-full min-w-max transform-gpu text-xs sm:text-sm">
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
