@@ -17,6 +17,8 @@ export const CAREEROTTER_EVENT_NAMES = {
   COACH_MESSAGE_SENT: "coach_message_sent",
   CASE_EXPORTED: "case_exported",
   COMP_ENTERED: "comp_entered",
+  // Agent access (MCP server)
+  MCP_TOOL_CALLED: "mcp_tool_called",
 } as const;
 
 export type CareerotterEventName =

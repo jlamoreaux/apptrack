@@ -1,7 +1,8 @@
 /**
  * CareerOtter Phase 2 (M2) shared constants — single source of truth mirrored by
- * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql. Keep
- * these in sync; __tests__ guards against drift.
+ * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql and
+ * 044_mcp_agent_access.sql (wins.source, comp_entries.source, external_ref and
+ * evidence_url lengths). Keep these in sync; __tests__ guards against drift.
  */
 
 // The onboarding fork (RFC §2): one question routes the experience. Same data
@@ -50,14 +51,24 @@ export const WIN_TAG_OPTIONS: { value: WinTag; label: string; hint: string }[] =
   { value: "craft", label: "Craft", hint: "Something you made better that nobody asked you to" },
 ];
 
-// Where a win came from (provenance). "manual" is the capture bar.
+// Where a win came from (provenance). "manual" is the capture bar; "agent" is
+// a write through the MCP server, which may only edit or delete its own rows.
 export const WIN_SOURCES = [
   "manual",
   "recap",
   "zero_to_case",
   "import",
+  "agent",
 ] as const;
 export type WinSource = (typeof WIN_SOURCES)[number];
+
+// Where a comp entry came from, with the same agent-owns-its-rows rule as wins.
+export const COMP_SOURCES = ["manual", "agent"] as const;
+export type CompSource = (typeof COMP_SOURCES)[number];
+
+// Length caps shared by wins and comp_entries, mirrored by CHECKs in 044.
+export const EXTERNAL_REF_MAX = 200;
+export const EVIDENCE_URL_MAX = 2048;
 
 // How many wins Today's "Recently" list shows. One value for the fetch limit,
 // the optimistic prepend and the render cap, so they cannot drift apart.

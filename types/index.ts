@@ -5,6 +5,11 @@ import type React from "react";
 export type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 
+// The scope union is derived from AGENT_TOKEN_SCOPES, which the SQL CHECK in
+// migration 044 mirrors. Type-only, like SubscriptionStatus above.
+export type { AgentTokenScope } from "@/lib/constants/agent-access";
+import type { AgentTokenScope } from "@/lib/constants/agent-access";
+
 // Core application types
 export interface User {
   id: string;
@@ -395,3 +400,34 @@ export interface Faq {
   question: string;
   answer: string;
 }
+
+// CareerOtter agent access (MCP server + personal access tokens)
+export type AgentTokenStatus = "active" | "expired" | "revoked";
+
+/** An agent_tokens row as returned to the owner. Never carries token_hash. */
+export interface AgentTokenRecord {
+  id: string;
+  name: string;
+  /** Leading characters of the raw token, for telling tokens apart in the list. */
+  token_prefix: string;
+  scopes: AgentTokenScope[];
+  created_at: string;
+  last_used_at: string | null;
+  /** Null means the token never expires. */
+  expires_at: string | null;
+  revoked_at: string | null;
+  status: AgentTokenStatus;
+}
+
+/** Failure categories shared by the REST routes and MCP tools that call a service. */
+export type ServiceErrorKind =
+  | "validation"
+  | "not_found"
+  | "conflict"
+  | "quota"
+  | "db";
+
+/** Outcome of a service-layer call; `message` is safe to show to the caller. */
+export type ServiceResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; kind: ServiceErrorKind; message: string };
