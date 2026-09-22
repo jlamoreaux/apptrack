@@ -1,167 +1,121 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { MarketRange } from "@/lib/careerotter/market-data";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  COMP_ROLE_FAMILIES,
-  COMP_LEVELS,
-  compDelta,
-  type MarketRange,
-} from "@/lib/careerotter/market-data";
+  anchorSharePrice,
+  annualBreakdown,
+  annualizedTotal,
+  formatCompactUsd,
+  formatUsd,
+  hasShares,
+  projectComp,
+  vestSummary,
+  type CompEntry,
+  type StockQuote,
+} from "@/lib/careerotter/comp-projection";
+import { CompanyCard } from "./comp/company-card";
+import { CompEntryForm } from "./comp/entry-form";
+import { HistoryList } from "./comp/history-list";
+import { MarketComparison, resolveRoleFamily } from "./comp/market-comparison";
+import { PriceSimulator } from "./comp/price-simulator";
+import { ProjectionChart } from "./comp/projection-chart";
+import { ProjectionTable } from "./comp/projection-table";
 
-interface CompEntry {
-  id: string;
-  effective_date: string;
-  base: number;
-  bonus: number;
-  equity: number;
-  currency: string;
-  note: string | null;
-  ticker: string | null;
-  shares: number | null;
-  vest_start: string | null;
-  vest_years: number | null;
-  vest_cliff_months: number | null;
+// The projection math lives in lib/careerotter/comp-projection; these stay
+// exported here for callers that imported them from the component.
+export { addMonthsClamped, grantFractionReceivedInYear } from "@/lib/careerotter/comp-projection";
+
+interface CompResponse {
+  entries: CompEntry[];
+  marketRange: MarketRange | null;
+  isPro: boolean;
+  prices?: Record<string, StockQuote>;
+  priceFeedEnabled?: boolean;
+}
+
+/** True for the DOMException fetch throws when its signal is aborted. */
+function isAbortError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "name" in err && err.name === "AbortError";
+}
+
+/** Card heading with an optional one-line hint under it. */
+function SectionHeading({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div>
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
 }
 
 /**
- * Add calendar months to a date, clamping the day to the target month's last
- * day. Plain Date.setMonth normalizes overflow (Jan 31 + 1 month = Mar 3),
- * which would silently shift vest boundaries for month-end start dates.
+ * The comp page. Everything is driven by the latest entry: the headline is
+ * its annual total comp (equity annualized over the vest), the projection is
+ * how it actually pays out over the next three years, and the simulator's
+ * share price feeds both. Tracking is free; the market benchmark is Pro and
+ * the API decides.
  */
-export function addMonthsClamped(date: Date, months: number): Date {
-  const result = new Date(date);
-  const day = result.getDate();
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
-  const lastDay = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
-  result.setDate(Math.min(day, lastDay));
-  return result;
-}
-
-/**
- * Fraction of the TOTAL grant received during calendar year `year`, for a
- * grant vesting linearly over vestYears with an optional cliff. Nothing is
- * received before the cliff; at the cliff the accrued amount vests at once
- * (e.g. a 12-month cliff on a 4-year grant pays 25% that day), then vesting
- * continues linearly. Computed as vested(year end) - vested(year start), so
- * the cliff year correctly gets the lump plus its remaining months.
- */
-export function grantFractionReceivedInYear(
-  year: number,
-  start: Date,
-  vestYears: number,
-  cliffMonths: number
-): number {
-  const totalMonths = Math.round(vestYears * 12);
-  if (totalMonths <= 0) return 0;
-  const startMs = start.getTime();
-  const end = addMonthsClamped(start, totalMonths);
-  // Clamp the cliff to the vest window: the API rejects longer cliffs, but a
-  // stored bad value must not model a grant that pays after it has ended.
-  const cliff = addMonthsClamped(start, Math.min(Math.max(0, cliffMonths), totalMonths));
-
-  const vestedAt = (t: number): number => {
-    if (t < cliff.getTime() || t <= startMs) return 0;
-    if (t >= end.getTime()) return 1;
-    return (t - startMs) / (end.getTime() - startMs);
-  };
-
-  const yearStart = new Date(year, 0, 1).getTime();
-  const yearEnd = new Date(year + 1, 0, 1).getTime();
-  return Math.max(0, vestedAt(yearEnd) - vestedAt(yearStart));
-}
-
-const usd = (n: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(n);
-
-const total = (e: CompEntry) => Number(e.base) + Number(e.bonus) + Number(e.equity);
-
-// Map a free-text job title to a known benchmark role family when it clearly
-// matches one, so the market comparison still works for common titles. Any other
-// title is passed through unchanged and simply shows the user's own history.
-function resolveRoleFamily(title: string): string {
-  const t = title.trim().toLowerCase();
-  if (!t) return "";
-  const match = COMP_ROLE_FAMILIES.find((r) => {
-    const label = r.label.toLowerCase();
-    // Exact match always wins; substring matching only for meaningful lengths so
-    // a single letter like "d" can't resolve to the first family that contains it.
-    return t === label || t === r.value || (t.length >= 3 && (t.includes(label) || label.includes(t)));
-  });
-  return match ? match.value : title.trim();
-}
-
 export function CompTracker() {
+  const [loaded, setLoaded] = useState(false);
   const [entries, setEntries] = useState<CompEntry[]>([]);
   const [marketRange, setMarketRange] = useState<MarketRange | null>(null);
   const [isPro, setIsPro] = useState(false);
-  const [prices, setPrices] = useState<
-    Record<string, { price: number; as_of: string }>
-  >({});
+  const [prices, setPrices] = useState<Record<string, StockQuote>>({});
+  const [priceFeedEnabled, setPriceFeedEnabled] = useState(false);
   const [roleTitle, setRoleTitle] = useState("");
   const [level, setLevel] = useState("");
-  const [form, setForm] = useState({
-    effective_date: "",
-    base: "",
-    bonus: "",
-    equity: "",
-    ticker: "",
-    shares: "",
-    vest_start: "",
-    vest_years: "",
-    vest_cliff_months: "",
-  });
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
   const [scenarioPrice, setScenarioPrice] = useState<number | null>(null);
-  // Effective tax rate for the take-home row. An estimate the user controls —
+  // Effective tax rate for the take-home row. An estimate the user controls;
   // no jurisdiction math, no pretending to know their tax situation.
   const [taxRate, setTaxRate] = useState(30);
-  // Two-step delete: first click arms confirmId, second confirms. Avoids a modal
-  // dependency while still guarding against an accidental permanent delete.
-  const [confirmId, setConfirmId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    const roleFamily = resolveRoleFamily(roleTitle);
-    const qs = new URLSearchParams();
-    if (roleFamily) qs.set("roleFamily", roleFamily);
-    if (level) qs.set("level", level);
-    try {
-      const res = await fetch(`/api/careerotter/comp?${qs.toString()}`, { signal });
-      if (res.ok) {
-        const data = await res.json();
-        setEntries(data.entries);
-        setMarketRange(data.marketRange);
-        setIsPro(data.isPro);
-        setPrices(data.prices ?? {});
+  // Every load, whether from the role lookup or a save, takes a ticket; only
+  // the newest ticket may commit state, so a slow older response can never
+  // overwrite a newer one (the lookup effect also aborts its own predecessor).
+  const requestTicket = useRef(0);
+
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      const ticket = ++requestTicket.current;
+      const isCurrent = () => ticket === requestTicket.current;
+      const roleFamily = resolveRoleFamily(roleTitle);
+      const qs = new URLSearchParams();
+      if (roleFamily) qs.set("roleFamily", roleFamily);
+      if (level) qs.set("level", level);
+      try {
+        const res = await fetch(`/api/careerotter/comp?${qs.toString()}`, { signal });
+        if (!isCurrent()) return;
+        if (res.ok) {
+          const data = (await res.json()) as CompResponse;
+          if (!isCurrent()) return;
+          setEntries(data.entries);
+          setMarketRange(data.marketRange);
+          setIsPro(data.isPro);
+          setPrices(data.prices ?? {});
+          setPriceFeedEnabled(Boolean(data.priceFeedEnabled));
+          setError("");
+        } else {
+          setError("Could not load your comp. Reload the page to try again.");
+        }
+        setLoaded(true);
+      } catch (err) {
+        // A superseded or unmounted lookup aborts; keep the current state and
+        // let the newer request settle it. Anything else must not leave the
+        // page on its skeleton forever.
+        if (isAbortError(err) || !isCurrent()) return;
+        setError("Could not load your comp. Check your connection and reload.");
+        setLoaded(true);
       }
-    } catch (err) {
-      // A superseded or unmounted lookup aborts; ignore it. Other network errors
-      // leave the prior state in place — the next successful load recovers.
-      if ((err as Error)?.name !== "AbortError") return;
-    }
-  }, [roleTitle, level]);
+    },
+    [roleTitle, level]
+  );
 
-  // Debounce the free-text role lookup and abort the in-flight request, so a slow
-  // older response can't overwrite a newer one (roleTitle changes per keystroke).
+  // Debounce the free-text role lookup and abort the in-flight request, so a
+  // slow older response can't overwrite a newer one (roleTitle changes per keystroke).
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(() => load(controller.signal), 300);
@@ -171,534 +125,212 @@ export function CompTracker() {
     };
   }, [load]);
 
-  // Reset the scenario price back to the anchor whenever the latest entry changes.
-  const latestId = entries.length ? entries[entries.length - 1].id : null;
+  const latest = entries.length ? entries[entries.length - 1] : null;
+
+  // Reset the scenario price whenever the latest entry changes.
+  const latestId = latest?.id ?? null;
   useEffect(() => {
     setScenarioPrice(null);
   }, [latestId]);
 
-  async function addEntry(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    const base = Number(form.base);
-    if (!form.effective_date || !Number.isFinite(base) || base <= 0) {
-      setError("Enter an effective date and a base salary.");
-      return;
-    }
-    setSaving(true);
-    try {
-      const res = await fetch("/api/careerotter/comp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          effective_date: form.effective_date,
-          base,
-          bonus: Number(form.bonus) || 0,
-          equity: Number(form.equity) || 0,
-          ticker: form.ticker.trim() || null,
-          shares: Number(form.shares) || null,
-          vest_start: form.vest_start || null,
-          // "" means not provided; a typed 0 must reach the API so its
-          // validation error surfaces instead of silently storing no vesting.
-          vest_years: form.vest_years === "" ? null : Number(form.vest_years),
-          vest_cliff_months:
-            form.vest_cliff_months === "" ? null : Number(form.vest_cliff_months),
-        }),
-      });
-      if (res.ok) {
-        setForm({
-          effective_date: "",
-          base: "",
-          bonus: "",
-          equity: "",
-          ticker: "",
-          shares: "",
-          vest_start: "",
-          vest_years: "",
-          vest_cliff_months: "",
-        });
-        await load();
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || "Could not save that.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function deleteEntry(id: string) {
-    // One delete at a time: the controls are disabled while a delete is in flight,
-    // but guard here too so a stray call can't start an overlapping request that
-    // would 404 once the row is already gone.
-    if (deletingId) return;
-    setDeletingId(id);
+  async function deleteEntry(id: string): Promise<boolean> {
     setError("");
     try {
       const res = await fetch(`/api/careerotter/comp/${id}`, { method: "DELETE" });
       if (res.ok) {
         setEntries((prev) => prev.filter((entry) => entry.id !== id));
-      } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error || "Could not delete that entry.");
+        return true;
       }
+      const data = await res.json().catch(() => null);
+      setError(data?.error || "Could not delete that entry.");
     } catch {
       setError("Could not delete that entry.");
-    } finally {
-      setDeletingId(null);
-      setConfirmId(null);
     }
+    return false;
   }
 
-  const latest = entries.length ? entries[entries.length - 1] : null;
-  const latestTotal = latest ? total(latest) : 0;
-  const delta = marketRange && latest ? compDelta(latestTotal, marketRange) : null;
+  // "Today" for the vested/unvested split, fixed for the life of the page so
+  // re-renders don't nudge fractions between keystrokes.
+  const [now] = useState(() => new Date());
+  const currentYear = now.getFullYear();
+  const quote = latest?.ticker ? prices[latest.ticker] ?? null : null;
+  const anchorPrice = latest ? anchorSharePrice(latest, quote) : null;
+  const sharePrice = scenarioPrice ?? anchorPrice;
+  const isScenario = scenarioPrice !== null && scenarioPrice !== anchorPrice;
 
-  // Equity scenario: model total comp as base + bonus + shares * price.
-  const latestShares = latest?.shares ? Number(latest.shares) : 0;
-  const hasShares = latestShares > 0;
-  const latestEquity = latest ? Number(latest.equity) : 0;
-  // Prefer the live cached market price for the latest entry's ticker as the
-  // slider anchor; fall back to the implied per-share price the recorded equity
-  // reflects, else $100.
-  const livePrice =
-    latest?.ticker && prices[latest.ticker] ? prices[latest.ticker] : null;
-  const anchorPrice = livePrice
-    ? livePrice.price
-    : hasShares && latestEquity > 0
-      ? latestEquity / latestShares
-      : 100;
-  const scenarioMax = Math.max(anchorPrice * 3, 1);
-  const price = scenarioPrice ?? anchorPrice;
-  const scenarioTotal = latest
-    ? Number(latest.base) + Number(latest.bonus) + latestShares * price
-    : 0;
-  const scenarioDelta = scenarioTotal - latestTotal;
-
-  // Multi-year projection. Salary and incentives are carried flat; stock is
-  // valued at the scenario price and prorated across the vesting window when a
-  // vest length is recorded (window starts at vest_start, else the entry date).
-  // Without a vest length the stock/equity number is carried flat, matching the
-  // single-year scenario semantics above.
-  const nowYear = new Date().getFullYear();
-  const projectionYears = [nowYear, nowYear + 1, nowYear + 2];
-  const vestYears = latest?.vest_years ? Number(latest.vest_years) : null;
-  const cliffMonths = latest?.vest_cliff_months ? Number(latest.vest_cliff_months) : 0;
-  const vestStartDate = latest
-    ? new Date(`${latest.vest_start ?? latest.effective_date}T00:00:00`)
-    : null;
-  const stockForYear = (year: number): number => {
-    if (!latest) return 0;
-    // With a vest schedule, both share-based and flat equity are treated as
-    // the TOTAL grant, and each year receives its vested slice (cliff-aware).
-    const grantValue = hasShares ? latestShares * price : latestEquity;
-    if (vestYears && vestStartDate) {
-      return grantValue * grantFractionReceivedInYear(year, vestStartDate, vestYears, cliffMonths);
-    }
-    // No vest schedule: keep the flat single-year semantics.
-    return grantValue;
-  };
   const projection = latest
-    ? projectionYears.map((year) => {
-        const stock = stockForYear(year);
-        return {
-          year,
-          salary: Number(latest.base),
-          incentives: Number(latest.bonus),
-          stock,
-          total: Number(latest.base) + Number(latest.bonus) + stock,
-        };
+    ? projectComp(latest, {
+        sharePrice,
+        years: [currentYear, currentYear + 1, currentYear + 2],
+        asOf: now,
       })
-    : [];
+    : null;
+  const breakdown = latest ? annualBreakdown(latest, sharePrice) : null;
+  const annualAtAnchor = latest ? annualizedTotal(latest, anchorPrice) : 0;
+  const vest = latest ? vestSummary(latest, sharePrice, now) : null;
+  const shareBased = latest ? hasShares(latest) : false;
+
+  if (!loaded) {
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading your comp">
+        <Skeleton className="h-40 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  const errorBanner = error ? (
+    <p role="alert" className="text-sm text-destructive">
+      {error}
+    </p>
+  ) : null;
+
+  if (!latest) {
+    return (
+      <div className="space-y-6">
+        {errorBanner}
+        <Card>
+          <CardContent className="space-y-4 p-5">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold text-foreground">Start with what you make today</h2>
+              <p className="text-sm text-muted-foreground">
+                Base, bonus and equity from your current offer or last raise. You get a three-year
+                projection, a live value on any public stock, and a place on the market range for
+                your role.
+              </p>
+            </div>
+            <CompEntryForm onSaved={() => load()} />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-5">
+            <MarketComparison
+              roleTitle={roleTitle}
+              level={level}
+              onRoleTitleChange={setRoleTitle}
+              onLevelChange={setLevel}
+              marketRange={marketRange}
+              isPro={isPro}
+              annualTotal={null}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Market comparison */}
-      <Card>
-        <CardContent className="space-y-4 p-5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="comp-role">Role</Label>
-              <Input
-                id="comp-role"
-                list="comp-role-suggestions"
-                value={roleTitle}
-                onChange={(e) => setRoleTitle(e.target.value)}
-                placeholder="e.g. Staff Software Engineer"
-                className="min-h-[44px]"
-                autoComplete="off"
-              />
-              <datalist id="comp-role-suggestions">
-                {COMP_ROLE_FAMILIES.map((r) => (
-                  <option key={r.value} value={r.label} />
-                ))}
-              </datalist>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Level</Label>
-              <Select value={level} onValueChange={setLevel}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder="Select level" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMP_LEVELS.map((l) => (
-                    <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {latest && (
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-bold tabular-nums">{usd(latestTotal)}</span>
-              {delta && (
-                <span className="text-sm font-medium tabular-nums text-muted-foreground">
-                  {delta.pct > 0 ? "+" : ""}
-                  {delta.pct}% vs market
-                </span>
-              )}
-            </div>
-          )}
-
-          {marketRange ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <span className="w-16 shrink-0 text-xs text-muted-foreground">you</span>
-                <Progress
-                  value={Math.min(100, (latestTotal / marketRange.high) * 100)}
-                  className="h-2 flex-1"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-16 shrink-0 text-xs text-muted-foreground">market</span>
-                <Progress
-                  value={Math.min(100, (marketRange.mid / marketRange.high) * 100)}
-                  className="h-2 flex-1"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Market data from {marketRange.source}. Range {usd(marketRange.low)}–{usd(marketRange.high)}.
-              </p>
-            </div>
-          ) : !isPro ? (
-            <p className="text-sm text-muted-foreground">
-              The market benchmark is a Pro feature. Your own history is tracked below.
-            </p>
-          ) : roleTitle.trim().length > 0 && level ? (
-            <p className="text-sm text-muted-foreground">
-              No market data for that role and level yet. Showing your own history only.
-            </p>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              Pick a role and level to compare against the market.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Equity scenario */}
-      {latest && hasShares ? (
-        <Card className="border-border bg-card">
-          <CardContent className="space-y-4 p-5">
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,360px)] lg:items-start">
+      {errorBanner && <div className="lg:col-span-2">{errorBanner}</div>}
+      {/* Main column. On phones the wrappers dissolve and `order` interleaves the cards. */}
+      <div className="contents lg:block lg:space-y-6">
+        <Card className="order-1 lg:order-none">
+          <CardContent className="space-y-5 p-5">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Equity scenario</h3>
-              <p className="text-xs text-muted-foreground">
-                Drag to see how {latest.ticker ? `${latest.ticker}'s` : "the"} share price
-                moves your total comp. {latestShares.toLocaleString()} shares.
+              <p className="text-xs text-muted-foreground">Annual total comp</p>
+              <p className="text-4xl font-semibold text-foreground">
+                {formatUsd(breakdown?.total ?? 0)}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                Base {formatCompactUsd(breakdown?.salary ?? 0)}
+                {(breakdown?.incentives ?? 0) > 0 && ` · Bonus ${formatCompactUsd(breakdown?.incentives ?? 0)}`}
+                {(breakdown?.equityPerYear ?? 0) > 0 &&
+                  ` · Equity ${formatCompactUsd(breakdown?.equityPerYear ?? 0)}/yr`}
+                {vest && ` over a ${Number(latest.vest_years)}-year vest`}
+                {isScenario && " at the simulated price"}
               </p>
             </div>
-
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="scenario-price">Price per share</Label>
-                <Input
-                  id="scenario-price"
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={Number.isFinite(price) ? Math.round(price * 100) / 100 : ""}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    setScenarioPrice(Number.isFinite(v) && v >= 0 ? v : 0);
-                  }}
-                  className="min-h-[44px] w-32"
-                />
-                {livePrice && (
-                  <p className="text-xs text-muted-foreground">
-                    {latest.ticker} as of{" "}
-                    {new Date(livePrice.as_of).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <input
-              type="range"
-              min={0}
-              max={scenarioMax}
-              step={scenarioMax / 100}
-              value={Math.min(price, scenarioMax)}
-              onChange={(e) => setScenarioPrice(Number(e.target.value))}
-              aria-label="Stock price scenario"
-              className="min-h-11 w-full accent-primary"
+            <MarketComparison
+              roleTitle={roleTitle}
+              level={level}
+              onRoleTitleChange={setRoleTitle}
+              onLevelChange={setLevel}
+              marketRange={marketRange}
+              isPro={isPro}
+              annualTotal={breakdown?.total ?? null}
             />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{usd(0)}</span>
-              <span>{usd(scenarioMax)}</span>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-sm text-foreground">
-                At{" "}
-                <span className="font-semibold text-primary tabular-nums">
-                  {usd(price)}
-                </span>
-                /share, your total comp is{" "}
-                <span className="text-xl font-bold text-primary tabular-nums">
-                  {usd(scenarioTotal)}
-                </span>
-                .
-              </p>
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {scenarioDelta >= 0 ? "+" : ""}
-                {usd(scenarioDelta)} vs your recorded total of {usd(latestTotal)}.
-              </p>
-            </div>
           </CardContent>
         </Card>
-      ) : latest ? (
-        <p className="text-sm text-muted-foreground">
-          Add a ticker and share count to model how price changes move your comp.
-        </p>
-      ) : null}
 
-      {/* Multi-year projection */}
-      {latest && (
-        <Card>
-          <CardContent className="space-y-3 p-5">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Projected comp</h3>
-              <p className="text-xs text-muted-foreground">
-                {vestYears
-                  ? `Stock over a ${vestYears}-year vest${cliffMonths ? ` with a ${cliffMonths}-month cliff` : ""}${hasShares ? ", valued at the scenario price above" : ""}.`
-                  : "Add a vest length to an entry to spread stock across years."}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted-foreground">
-                    <th scope="col" className="py-1 pr-4 font-normal" />
-                    {projection.map((p) => (
-                      <th key={p.year} scope="col" className="py-1 pr-4 font-medium tabular-nums">
-                        {p.year}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
-                      Salary
-                    </th>
-                    {projection.map((p) => (
-                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.salary)}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
-                      Incentives
-                    </th>
-                    {projection.map((p) => (
-                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.incentives)}</td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
-                      Stock
-                    </th>
-                    {projection.map((p) => (
-                      <td key={p.year} className="py-1 pr-4 tabular-nums">{usd(p.stock)}</td>
-                    ))}
-                  </tr>
-                  <tr className="border-t">
-                    <th scope="row" className="py-1.5 pr-4 text-left font-medium">
-                      Total
-                    </th>
-                    {projection.map((p) => (
-                      <td key={p.year} className="py-1.5 pr-4 font-semibold tabular-nums">
-                        {usd(p.total)}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr>
-                    <th scope="row" className="py-1 pr-4 text-left font-normal text-muted-foreground">
-                      Est. take-home
-                    </th>
-                    {projection.map((p) => (
-                      <td key={p.year} className="py-1 pr-4 tabular-nums text-muted-foreground">
-                        {usd(p.total * (1 - taxRate / 100))}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="tax-rate" className="text-xs text-muted-foreground">
-                Effective tax rate
-              </Label>
-              <Input
-                id="tax-rate"
-                type="number"
-                min="0"
-                max="60"
-                step="1"
-                value={taxRate}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (Number.isFinite(v)) setTaxRate(Math.min(60, Math.max(0, v)));
-                }}
-                className="min-h-[44px] w-20"
+        {projection && (
+          <Card className="order-2 lg:order-none">
+            <CardContent className="space-y-5 p-5">
+              <SectionHeading
+                title="Projected comp"
+                hint={
+                  projection.hasVestSchedule
+                    ? `Stock is what actually vests each year on your ${Number(latest.vest_years)}-year schedule${latest.vest_cliff_months ? ` with a ${latest.vest_cliff_months}-month cliff` : ""}${shareBased ? ", at the simulator's price" : ""}.`
+                    : shareBased
+                      ? "Stock is your shares at the simulator's price, carried flat. Add a vest schedule to the entry to see how it actually pays out."
+                      : "Base, bonus and equity carried flat. Add a vest schedule to the entry to see how the grant pays out year by year."
+                }
               />
-              <span className="text-xs text-muted-foreground">
-                % — rough estimate, set it to match your actual rate
-              </span>
-            </div>
+              <ProjectionChart
+                years={projection.years}
+                hasVestSchedule={projection.hasVestSchedule}
+                currentYear={currentYear}
+              />
+              <ProjectionTable
+                years={projection.years}
+                hasVestSchedule={projection.hasVestSchedule}
+                taxRate={taxRate}
+                onTaxRateChange={setTaxRate}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        <Card className="order-6 lg:order-none">
+          <CardContent className="space-y-2 p-5">
+            <SectionHeading
+              title="Your trajectory"
+              hint="Every offer, raise and refresh you have logged. The newest drives the page."
+            />
+            <HistoryList entries={entries} prices={prices} onDelete={deleteEntry} />
           </CardContent>
         </Card>
-      )}
+      </div>
 
-      {/* Entry form */}
-      <form onSubmit={addEntry} className="space-y-3">
-        <h3 className="text-sm font-semibold">Add a comp entry</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="eff">Date</Label>
-            <Input id="eff" type="date" value={form.effective_date}
-              onChange={(e) => setForm({ ...form, effective_date: e.target.value })}
-              className="min-h-[44px]" />
+      {/* Side column: the stock behind the numbers, the what-if, and the next entry. */}
+      <div className="contents lg:block lg:space-y-6">
+        {shareBased && latest.ticker && (
+          <div className="order-3 lg:order-none">
+            <CompanyCard
+              ticker={latest.ticker}
+              quote={quote}
+              priceFeedEnabled={priceFeedEnabled}
+              shares={Number(latest.shares)}
+              sharePrice={sharePrice}
+              isScenario={isScenario}
+              vest={vest}
+            />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="base">Base</Label>
-            <Input id="base" type="number" min="0" value={form.base}
-              onChange={(e) => setForm({ ...form, base: e.target.value })}
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="bonus">Bonus</Label>
-            <Input id="bonus" type="number" min="0" value={form.bonus}
-              onChange={(e) => setForm({ ...form, bonus: e.target.value })}
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="equity">Equity</Label>
-            <Input id="equity" type="number" min="0" value={form.equity}
-              onChange={(e) => setForm({ ...form, equity: e.target.value })}
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="ticker">Ticker (optional)</Label>
-            <Input id="ticker" type="text" maxLength={10} value={form.ticker}
-              onChange={(e) => setForm({ ...form, ticker: e.target.value.toUpperCase() })}
-              placeholder="e.g. AAPL"
-              autoComplete="off"
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="shares">Shares (optional)</Label>
-            <Input id="shares" type="number" min="0" step="any" value={form.shares}
-              onChange={(e) => setForm({ ...form, shares: e.target.value })}
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="vest-start">Vest start (optional)</Label>
-            <Input id="vest-start" type="date" value={form.vest_start}
-              onChange={(e) => setForm({ ...form, vest_start: e.target.value })}
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="vest-years">Vest years (optional)</Label>
-            <Input id="vest-years" type="number" min="0" max="10" step="0.5" value={form.vest_years}
-              onChange={(e) => setForm({ ...form, vest_years: e.target.value })}
-              placeholder="e.g. 4"
-              className="min-h-[44px]" />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="vest-cliff">Cliff months (optional)</Label>
-            <Input id="vest-cliff" type="number" min="0" max="60" step="1" value={form.vest_cliff_months}
-              onChange={(e) => setForm({ ...form, vest_cliff_months: e.target.value })}
-              placeholder="e.g. 12"
-              className="min-h-[44px]" />
-          </div>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Enter a ticker and share count to model equity by stock price, or leave Equity as a flat amount.
-          Add a vest start, length, and cliff to project stock across years the way your grant actually pays out.
-        </p>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" disabled={saving} className="min-h-[44px]">
-          {saving ? "Saving…" : "Add entry"}
-        </Button>
-      </form>
+        )}
 
-      {/* History */}
-      {entries.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold">Your trajectory</h3>
-          <ul className="space-y-1">
-            {[...entries].reverse().map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-2 border-b py-2 text-sm">
-                <span className="text-muted-foreground">{e.effective_date}</span>
-                <div className="flex items-center gap-2">
-                  <span className="tabular-nums font-medium">{usd(total(e))}</span>
-                  {confirmId === e.id ? (
-                    <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => deleteEntry(e.id)}
-                        disabled={deletingId !== null}
-                        aria-label={`Confirm delete comp entry from ${e.effective_date}`}
-                        className="h-11 px-3 text-destructive hover:text-destructive"
-                      >
-                        {deletingId === e.id ? "Deleting…" : "Delete"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setConfirmId(null)}
-                        disabled={deletingId !== null}
-                        aria-label="Cancel delete"
-                        className="h-11 px-3 text-muted-foreground"
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setConfirmId(e.id)}
-                      disabled={deletingId !== null}
-                      aria-label={`Delete comp entry from ${e.effective_date}`}
-                      className="h-11 w-11 text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        {shareBased && (
+          <div className="order-4 lg:order-none">
+            <PriceSimulator
+              ticker={latest.ticker}
+              shares={Number(latest.shares)}
+              anchorPrice={anchorPrice}
+              price={sharePrice}
+              onPriceChange={setScenarioPrice}
+              totalAtPrice={breakdown?.total ?? 0}
+              totalAtAnchor={annualAtAnchor}
+            />
+          </div>
+        )}
+
+        <Card className="order-5 lg:order-none">
+          <CardContent className="space-y-4 p-5">
+            <SectionHeading
+              title="Log a change"
+              hint="A new offer, a raise, a refresh grant. It becomes the current entry."
+            />
+            <CompEntryForm onSaved={() => load()} suggestedTicker={latest.ticker} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

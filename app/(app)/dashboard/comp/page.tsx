@@ -16,12 +16,12 @@ export default async function CompPage() {
   return (
     <div className="min-h-screen bg-background">
       <NavigationServer />
-      <main className="container mx-auto max-w-3xl px-4 py-8">
+      <main className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Comp</h1>
-          <p className="text-sm text-muted-foreground">
-            Log what you are paid, base and equity, and see it against the
-            market for your role and level. The number you ask for starts here.
+          <p className="max-w-2xl text-sm text-muted-foreground">
+            What you are paid, what it is worth over the next three years, and how it sits
+            against the market for your role. The number you ask for next starts here.
           </p>
         </div>
         <CompTracker />

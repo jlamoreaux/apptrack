@@ -216,6 +216,16 @@ if (typeof window !== 'undefined') {
   })
 }
 
+// jsdom has no ResizeObserver; Radix primitives (Checkbox, Switch) measure
+// themselves with it on mount and would throw before a test can assert.
+if (typeof window !== 'undefined' && typeof window.ResizeObserver === 'undefined') {
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
+
 // jsdom does not implement scrollIntoView; components that call it from an
 // effect (e.g. chat auto-scroll) would otherwise throw inside a timer and flake.
 if (typeof window !== 'undefined' && window.HTMLElement) {

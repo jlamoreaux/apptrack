@@ -340,3 +340,17 @@ a[href] {
     z-index: 9999; /* Matches spotlight Z_INDEX.TOOLTIP */
   }
 }
+
+/* Comp tracker series colors: Salary, Stock, Incentives. Stepped per mode and
+   validated for adjacent-pair colorblind separation against the card surface. */
+:root {
+  --comp-salary: #c9761d;
+  --comp-stock: #2a78d6;
+  --comp-incentives: #1baf7a;
+}
+
+.dark {
+  --comp-salary: #c8711b;
+  --comp-stock: #3987e5;
+  --comp-incentives: #199e70;
+}
