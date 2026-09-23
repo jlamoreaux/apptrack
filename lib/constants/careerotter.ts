@@ -24,6 +24,14 @@ export const CAREER_MODE_GOAL_LABEL: Record<CareerMode, string> = {
   job_search: "a better role",
 };
 
+// The noun a date countdown leads with: job search works toward a target date,
+// not a performance review.
+export const CAREER_MODE_COUNTDOWN_NOUN: Record<CareerMode, string> = {
+  promotion: "Review",
+  raise: "Review",
+  job_search: "Target",
+};
+
 // Fields on career_profiles the user can edit after onboarding (the goal
 // editor). `mode` is included: people change what they're aiming at.
 export const CAREER_PROFILE_LIMITS = {

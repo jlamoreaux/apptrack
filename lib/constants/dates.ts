@@ -11,3 +11,7 @@ export const ISO_DATE_LENGTH = "YYYY-MM-DD".length;
 // Postgres has no year 0, so a 0000 date would pass the pattern yet fail at
 // insert time.
 export const ISO_DATE_MIN = "0001-01-01";
+
+// Hour used when building a local-time Date for a calendar day: some zones
+// skip midnight on a DST change, while midday exists on every day.
+export const MIDDAY_HOUR = 12;
