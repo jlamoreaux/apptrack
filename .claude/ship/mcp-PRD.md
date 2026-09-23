@@ -60,7 +60,9 @@ upgrade path depends on.
   Claude.ai connector listing. Consequence: clients must support a custom
   `Authorization` header (Claude Code, Cursor, VS Code). Claude Desktop connects
   through the `mcp-remote` stdio bridge with `--header`; this is documented in
-  the setup instructions, not solved.
+  the setup instructions, not solved. (Later added behind
+  `CAREEROTTER_MCP_OAUTH_ENABLED`, with CareerOtter as its own authorization
+  server: see `mcp-oauth-PRD.md`.)
 - A candidate/suggestion inbox and any server-side gathering from GitHub,
   Calendar, Slack, etc.
 - A Claude Code plugin, `/win` command, or hooks.
@@ -510,6 +512,8 @@ chunks of 1000 until a short page.
    Cloudflare `workers-oauth-provider` as an OAuth front door forwarding to this
    route. Deciding factor: support for Client ID Metadata Documents, which the
    2026-07-28 spec prefers over dynamic registration.
+   Resolved in `mcp-oauth-PRD.md`: neither. CareerOtter runs its own OAuth 2.1
+   authorization server with dynamic registration only; CIMD is a follow-up.
 4. Should the recap/coverage window use `occurred_at`? Default: no in v1.
 5. `comp_entered` REST event sends `total` (a salary figure) to PostHog.
    Pre-existing; remove? Default: leave; flag to the product owner.

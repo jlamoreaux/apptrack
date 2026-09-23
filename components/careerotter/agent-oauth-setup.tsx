@@ -20,7 +20,8 @@ export function AgentOAuthSetup({ mcpUrl }: { mcpUrl: string }): React.JSX.Eleme
         </AgentSectionHeading>
         <p className="text-sm text-muted-foreground">
           Add CareerOtter to your app with the URL below. The first time it connects, you sign
-          in to CareerOtter in your browser and choose what it can access.
+          in to CareerOtter in your browser and choose what it can access. Use this exact URL:
+          sign-in doesn&apos;t work through other CareerOtter addresses.
         </p>
       </div>
       <SetupSnippet

@@ -89,6 +89,62 @@
    - Register the `co_pat_` token pattern with GitHub secret scanning.
    - Decide whether to publish `/.well-known/mcp/server-card.json` and the DNS-AID
      `_mcp._agents` record (see `docs/agent-discovery.md`).
+8. MCP OAuth sign-in (`.claude/ship/mcp-oauth-PRD.md`) — after step 7, in this order,
+   before and after setting `CAREEROTTER_MCP_OAUTH_ENABLED=1`:
+   - **Step 0, do now:** in the Supabase dashboard, turn off the Supabase OAuth 2.1
+     server and its dynamic client registration. While it's on, any signed-in user
+     can mint full-power Supabase tokens for their own account. CareerOtter runs its
+     own authorization server and doesn't use it.
+   - Run migration 045: `./scripts/run-schema.sh schemas/migrations/045_mcp_oauth.sql`.
+     It runs in one transaction, and `run-schema.sh` exits 0 even when it rolls back,
+     so read the psql output for errors. It has to run before the flag is on, but
+     not before the code deploys: with the flag off only revoke-all and the cleanup
+     cron touch it, and both treat a missing function as a no-op.
+   - Confirm Supabase's redirect allow-list accepts
+     `https://careerotter.io/auth/callback?next=…` (Google sign-in and the sign-up
+     confirmation link carry the consent URL in `next`). Google sign-in with `next`
+     already works for the comp page, so this is a check, not a change.
+   - If set, `CAREEROTTER_MCP_EXTRA_ORIGINS` must be a comma-separated list of bare
+     `http(s)` origins (no path, query, credentials or `*`), such as
+     `https://www.careerotter.io` only if that host serves the app rather than
+     redirecting. An invalid value makes registration and `resource` validation
+     throw, so new connections fail, while the 401s and metadata fall back to
+     `SITE_URL` with an error log (`mcp_extra_origins_invalid`). Leave it unset if unsure.
+   - Set `CAREEROTTER_MCP_OAUTH_ENABLED=1` in the Vercel **production** environment
+     only (OAuth stays off on previews whatever the flag says), then redeploy.
+     Check that `/.well-known/oauth-authorization-server` and
+     `/.well-known/oauth-protected-resource/api/mcp` return JSON with
+     `issuer` / `authorization_servers` `https://careerotter.io`, and that a POST to
+     `/api/mcp` with no token returns 401 with
+     `WWW-Authenticate: Bearer resource_metadata="https://careerotter.io/.well-known/oauth-protected-resource/api/mcp", scope="wins:read wins:write"`.
+   - Real-client test against production with `https://careerotter.io/api/mcp`,
+     confirming each one registers via dynamic registration (a new
+     `agent_oauth_clients` row), completes consent, calls a tool and refreshes:
+     Claude.ai custom connector, Claude Desktop, Claude Code (`/mcp`), Cursor and
+     MCP Inspector. v1 has no Client ID Metadata Documents, so a client that
+     requires them is a follow-up, not a launch fix. Also revoke one app on
+     `/dashboard/data` and confirm its next request gets 401.
+   - Verify the "Connected apps" list and revoke-all against the real database with
+     the apps connected above. Both have only been tested with mocks: the list's
+     history query chains three `.or()` filters on one PostgREST request and embeds
+     the client's `redirect_uris` (`lib/auth/oauth/grants.ts`). Check that
+     `/dashboard/data` lists each app with where it sends you back, that
+     `GET /api/careerotter/agent-grants` returns without error (it returns
+     `{ enabled: false }` without querying while the flag is off, so this needs the
+     flag on), and that "Revoke all agent access" (`DELETE /api/careerotter/agent-tokens`)
+     reports a numeric `grantsRevoked`, not `null`, and the apps' next requests get 401.
+   - Register `co_oat_` (access token), `co_ort_` (refresh token) and `co_cs_`
+     (client secret) with GitHub secret scanning, alongside `co_pat_`. All share
+     the PAT format: prefix, 43 base64url characters, `_`, 7 base36 characters
+     (`co_oat_[A-Za-z0-9_-]{43}_[0-9a-z]{7}`). Not needed: `co_client_` is a public
+     identifier stored in plain text, and `co_code_` is a single-use code that
+     expires after 5 minutes and is useless without the client's PKCE verifier.
+   - Confirm the cleanup cron runs: `vercel.json` schedules
+     `/api/cron/agent-oauth-cleanup` daily at 03:30 UTC (`30 3 * * *`). After the
+     first run, check the Vercel cron log for a 200 and the
+     `mcp_oauth_cleanup_complete` log line (a `mcp_oauth_cleanup_skipped` line means
+     045 hasn't run). It needs `CRON_SECRET` and is gated on `CAREEROTTER_ENABLED`
+     only.
 
 ## Audit method (read-only)
 

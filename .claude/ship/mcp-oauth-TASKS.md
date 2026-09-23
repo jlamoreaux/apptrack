@@ -344,11 +344,11 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the snippets contain the MCP URL and no token
 
 ## Task 7: Docs made inaccurate
-- [ ] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
+- [x] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
   MCP". With OAuth enabled, CareerOtter is the OAuth authorization server for
   `/api/mcp` and serves the three `.well-known` documents. It still has no
   `openid-configuration`, and `co_pat_` tokens remain.
-- [ ] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
+- [x] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
   - step 0: turn off the Supabase OAuth server and dynamic registration
   - run migration 045
   - confirm Supabase's redirect allow-list accepts `/auth/callback?next=…`
@@ -358,10 +358,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - register `co_oat_`, `co_ort_` and `co_cs_` with GitHub secret scanning,
     alongside `co_pat_`
   - confirm the cleanup cron runs
-- [ ] 7.3: Setup docs: the MCP URL must be the canonical SITE_URL host; legacy
+- [x] 7.3: Setup docs: the MCP URL must be the canonical SITE_URL host; legacy
   host and Vercel aliases can't complete OAuth (resource mismatch), PATs
   still work there.
-- [ ] 7.4: Write tests for Task 7: none for prose. Confirm every path, flag and
+- [x] 7.4: Write tests for Task 7: none for prose. Confirm every path, flag and
   prefix the docs name exists in code.
 
 ## Known trade-offs
