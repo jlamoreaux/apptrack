@@ -2,11 +2,13 @@
 /**
  * Tests for lib/auth/prefixed-secret.ts: every OAuth prefix round-trips
  * through generate/check/hash, a secret never validates under another
- * prefix, and the PAT wrappers produce the same format as before.
+ * prefix, the PAT wrappers produce the same format as before, and
+ * base64urlLength matches Node's unpadded base64url output.
  */
 
 import { createHash } from "crypto";
 import {
+  base64urlLength,
   generatePrefixedSecret,
   hashSecret,
   hasValidPrefixedSecretFormat,
@@ -81,5 +83,11 @@ describe("PAT wrappers", () => {
   it("do not accept OAuth secrets as PATs", () => {
     const access = generatePrefixedSecret(AGENT_OAUTH_PREFIXES.accessToken).raw;
     expect(hasValidAgentTokenFormat(access)).toBe(false);
+  });
+});
+
+describe("base64urlLength", () => {
+  it.each([0, 1, 2, 3, 16, 31, 32, 33])("matches the unpadded encoding of %i bytes", (bytes) => {
+    expect(base64urlLength(bytes)).toBe(Buffer.alloc(bytes).toString("base64url").length);
   });
 });

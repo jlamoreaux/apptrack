@@ -455,16 +455,33 @@ the cleanup cron, and both tolerate a missing function (see below).
 
 ### Registration: `POST /api/oauth/register`
 
-- The JSON body is validated with `OAuthClientMetadataSchema`, then with our
-  rules. A schema failure on `redirect_uris` is `invalid_redirect_uri`; any
-  other schema failure is `invalid_client_metadata`.
-- **`redirect_uris`:** 1–5 entries, each at most 512 characters, absolute, with
-  no fragment and no credentials (`user:pass@`). Each must be one of:
-  - an `https:` URL whose host isn't one of our accepted origins' hosts (on any
-    port, and also with a trailing dot). A code must never land on our own
+- Only the fields we use are validated: `redirect_uris`, `grant_types`,
+  `response_types`, `token_endpoint_auth_method` and `client_name`, plus
+  `client_uri` (see below). Anything else (`logo_uri`, `tos_uri`, `jwks_uri`,
+  `scope`, ...) is ignored, never echoed, and can never cause a rejection.
+- Our redirect URI rules run first, on the raw strings. Then those fields go
+  through `OAuthClientMetadataSchema` as a gate only: its output is never
+  stored, because its URL parsing normalizes (lowercases the host, drops
+  `:443`, resolves dot segments, encodes or trims whitespace). A schema
+  failure on `redirect_uris` is `invalid_redirect_uri`; any other is
+  `invalid_client_metadata`.
+- **`redirect_uris`:** stored and echoed exactly as the client sent them, so
+  the same string matches at `/oauth/authorize`. 1–5 entries, each at most 512
+  characters, absolute, with no fragment and no credentials (`user:pass@`).
+  A URI with whitespace (including a space), a control character (C0, DEL or
+  C1) or a lone surrogate is rejected before any parsing. Each must be one of:
+  - an `https:` URL whose host isn't one of ours (on any port, in any case,
+    and also with a trailing dot). "Ours" is every host that serves or
+    redirects to the app: the accepted origins' hosts and the legacy
+    `apptrack.ing` hosts that 301 here. A code must never land on our own
     site, where page analytics would capture it.
   - an `http:` URL whose host is exactly `127.0.0.1`, `[::1]` or `localhost`,
-    with any port or none (RFC 8252 §7.3)
+    with any port or none (RFC 8252 §7.3). The raw string must already be in
+    that exact lowercase form (`http://127.0.0.1…`, `http://[::1]…`,
+    `http://localhost…`): spellings a parser would rewrite to a loopback host
+    (`127.1`, `0x7f000001`, `127.0.0.1.`, `[0:0:0:0:0:0:0:1]`,
+    `HTTP://LOCALHOST`) are rejected, since loopback matching compares the
+    host exactly.
   - a private-use scheme matching `^[a-z][a-z0-9+.-]{2,}$` that isn't in the
     denylist: `javascript`, `data`, `file`, `vbscript`, `about`, `blob`,
     `filesystem`, `http`, `https`, `ws`, `wss`, `mailto`, `tel`, `sms`,
@@ -475,27 +492,38 @@ the cleanup cron, and both tolerate a missing function (see below).
 - **`token_endpoint_auth_method`:** `none` (the default), `client_secret_basic`
   or `client_secret_post`. The two secret methods get a `co_cs_` secret, which
   is returned once and stored hashed.
-- **`client_name`:** trimmed, with control characters and bidi overrides
-  stripped, then truncated by code points to 100. Defaults to "Unnamed app".
-- **`client_uri`:** kept only if it's https and at most 512 characters.
-- Everything else is ignored and not echoed.
+- **`client_name`:** NFC-normalized; control, format (zero-width, bidi marks
+  and overrides, BOM, tag characters) and line/paragraph separator characters
+  stripped; runs of more than 3 combining marks cut to 3; trimmed; then
+  truncated to 100 graphemes without splitting one, and further until it is
+  at most 100 code points (the column CHECK). "Unnamed app" when omitted or
+  when no letter or digit is left.
+- **`client_uri`:** kept, exactly as sent, only if it's a string, https, at
+  most 512 characters, free of whitespace, control characters and lone
+  surrogates, and a valid URL. Otherwise it's dropped; it never rejects the
+  registration.
 - **Response:** 201 with the RFC 7591 fields `client_id`, `client_id_issued_at`,
   `client_secret` and `client_secret_expires_at: 0` (confidential clients only),
   `redirect_uris`, `grant_types`, `response_types`, `token_endpoint_auth_method`
   and `client_name`.
 - **Errors:** 400 `invalid_redirect_uri` or `invalid_client_metadata` in the
-  RFC 7591 body, including for a non-JSON `Content-Type` or invalid JSON. Over
-  the body cap → 413 with the same body shape (`invalid_client_metadata`).
-- **Rate limits** (Upstash, namespaced keys):
+  RFC 7591 body, including for a non-JSON `Content-Type`, invalid JSON, or a
+  body stream that fails midway (the client disconnected). Over the body cap →
+  413 with the same body shape (`invalid_client_metadata`).
+- **Rate limits** (Upstash, namespaced keys). Per-IP limits key an IPv6
+  client on its /64, so rotating addresses within one allocation buys nothing:
   - 30 per IP per 10 minutes, generous because hosted clients register
     server-side from shared IPs
+  - 100 per IP per day
   - 2,000 per day globally
 
   Registration fails closed with 503 (`temporarily_unavailable`, with
   `Retry-After`) if Redis is unconfigured, errors or takes over 2 seconds.
   Registration isn't latency-sensitive, and failing open would remove the only
-  bound. The per-IP bucket is charged first, so an IP over its limit doesn't
-  spend the global quota. Over a limit → 429 with `Retry-After` and the token
+  bound. Both per-IP buckets are charged first, for every request. The global
+  bucket is charged only after validation passes, for a registration about to
+  be stored, so neither an IP over its limit nor a malformed request spends
+  the global quota. Over a limit → 429 with `Retry-After` and the token
   endpoint's body (`{ error: "invalid_request", error_description: "rate limited" }`).
 - 16 KB body cap. POST and OPTIONS only (Next.js answers other methods with
   405).
@@ -660,6 +688,12 @@ It renders:
   - `client_secret_basic`: the `Authorization: Basic` header. Credentials are
     form-URL-decoded after base64 decoding (RFC 6749 §2.3.1).
   - `client_secret_post`: `client_id` and `client_secret` in the body.
+  - An empty `client_secret` in the body, or an empty password in the Basic
+    header, counts as no secret: the request is authenticating as `none`
+    (with the Basic header carrying only the `client_id`).
+  - A header with the `Basic` scheme (any case) whose credentials are
+    malformed is an `invalid_client` failure with `WWW-Authenticate: Basic`,
+    never ignored.
   - The method used must match the registered one.
   - Secrets are compared as SHA-256 digests with `timingSafeEqual`. Digests
     have a fixed length, so the call never throws.
@@ -742,7 +776,9 @@ It renders:
   decides the origin in `WWW-Authenticate` and which `resource` values are
   accepted, so a spoofed Host header can't change what we advertise.
 - **Headers.** GET and OPTIONS. CORS `*`, with
-  `Allow-Headers: MCP-Protocol-Version, Authorization, Content-Type`.
+  `Allow-Headers: MCP-Protocol-Version, Authorization, Content-Type`. The
+  protected resource documents also send `Vary: Host, X-Forwarded-Host`,
+  because `resource` follows the request origin.
   `Cache-Control: public, max-age=60`. Flag-checked in each handler.
 - **Previews.** OAuth is off on Vercel preview deployments
   (`VERCEL_ENV === "preview"`) whatever the flag says. On a preview, the
@@ -904,11 +940,14 @@ Security logs go through `loggerService` with `LogCategory.SECURITY`:
 - **Clickjacking.** `frame-ancestors 'none'` and `X-Frame-Options: DENY` on
   `/oauth/*`.
 - **Registration abuse.**
-  - Limits: 30 per IP per 10 minutes and 2,000 per day globally, failing
-    closed when Redis is unavailable.
+  - Limits: 30 per IP per 10 minutes, 100 per IP per day and 2,000 per day
+    globally, failing closed when Redis is unavailable. Only valid
+    registrations spend the global quota.
   - Size: rows are capped at about 3 KB.
   - Cleanup: clients that never authorize are purged after 24 hours.
-  - IPv6 rotation defeats the per-IP limit but not the global one.
+  - Per-IP limits key IPv6 clients on their /64, so rotating addresses
+    within one allocation doesn't help; rotating across many /64s still
+    runs into the global cap.
 - **Shared egress IPs (Claude.ai).** The per-IP limits cover only failures or
   registrations, and are sized for a shared backend. The MCP route's OAuth
   failures have their own 600/min limiter and never trip the PAT lockout.

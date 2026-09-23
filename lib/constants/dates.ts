@@ -2,7 +2,8 @@
  * Calendar-date constants shared by date validation and date arithmetic.
  */
 
-export const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const MS_PER_SECOND = 1000;
+export const MS_PER_DAY = 24 * 60 * 60 * MS_PER_SECOND;
 export const MONTHS_PER_YEAR = 12;
 
 /** A date in YYYY-MM-DD form; whether it names a real day is checked separately. */

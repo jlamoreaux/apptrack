@@ -31,6 +31,7 @@ import {
   generatePrefixedSecret,
   hashSecret,
   hasValidPrefixedSecretFormat,
+  type GeneratedSecret,
 } from "@/lib/auth/prefixed-secret";
 import { RAISE_EXCEPTION_CODE } from "@/lib/constants/postgres";
 import {
@@ -42,6 +43,7 @@ import {
   invalid,
   isNullableString,
   isPlainObject,
+  isStringArray,
   isUniqueViolationOn,
   notFound,
   ok,
@@ -60,9 +62,8 @@ import type {
 } from "@/types";
 
 /** A freshly minted token. `raw` is shown to the user once and never stored. */
-export interface GeneratedAgentToken {
-  raw: string;
-  hash: string;
+export interface GeneratedAgentToken extends GeneratedSecret {
+  /** The leading characters stored for telling tokens apart in the list. */
   prefix: string;
 }
 
@@ -209,10 +210,6 @@ export function hasScope(
 }
 
 // ── rows ───────────────────────────────────────────────────────────────────
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
 
 function isAgentTokenRow(value: unknown): value is AgentTokenRow {
   if (!isPlainObject(value)) return false;

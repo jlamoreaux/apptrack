@@ -14,6 +14,7 @@ import {
 } from "@/lib/constants/agent-access";
 import { DEFAULT_AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access-ui";
 import { SITE_URL } from "@/lib/constants/site-config";
+import { LEGACY_HOSTS } from "@/lib/rebrand-redirect";
 
 // ── Gating ──────────────────────────────────────────────────────────────────
 
@@ -107,10 +108,10 @@ export const AGENT_OAUTH_LIMITS = {
 
 export const AGENT_OAUTH_DEFAULT_CLIENT_NAME = "Unnamed app";
 
-// Bidi embedding, override and isolate controls (U+202A–U+202E and
-// U+2066–U+2069). Stripped from client names, alongside control characters,
-// so a name can't reorder the text around it on the consent screen.
-export const AGENT_OAUTH_BIDI_CONTROL_PATTERN = /[\u202A-\u202E\u2066-\u2069]/gu;
+// Combining marks kept per run in a client name. Enough for any real script's
+// stacked diacritics; longer runs ("zalgo" text) spill over neighbouring lines
+// on the consent screen.
+export const AGENT_OAUTH_CLIENT_NAME_MAX_COMBINING_MARKS = 3;
 
 // RFC 7636: S256 only. The challenge is base64url(SHA-256), 43 characters.
 export const AGENT_OAUTH_PKCE = {
@@ -288,7 +289,11 @@ export type AgentOAuthRevokeOutcome =
 
 export const AGENT_OAUTH_RATE_LIMITS = {
   // Generous: hosted clients register server-side from shared IPs.
+  // Keyed by IPv4 address or IPv6 /64, and charged for every request.
   registerPerIp: { tokens: 30, window: "10 m", keyPrefix: "oauth-register:ip:" },
+  registerPerIpDaily: { tokens: 100, window: "1 d", keyPrefix: "oauth-register:ip-daily:" },
+  // Charged only for a registration that passed validation and is about to be
+  // stored, so malformed requests can't spend it.
   registerGlobal: { tokens: 2000, window: "1 d", keyPrefix: "oauth-register:global" },
   // Charged only after client authentication succeeds, so a caller presenting
   // another client's id can't drain that client's quota.
@@ -360,6 +365,9 @@ export const AGENT_OAUTH_NO_STORE_HEADERS = {
 
 // ── Origins and resources ───────────────────────────────────────────────────
 
+/** The issuer: SITE_URL, which is an origin with no trailing slash. */
+export const AGENT_OAUTH_ISSUER = SITE_URL;
+
 const ORIGIN_PROTOCOLS: readonly string[] = ["http:", "https:"];
 const EXTRA_ORIGINS_SEPARATOR = ",";
 const HOSTNAME_WILDCARD = "*";
@@ -421,6 +429,23 @@ export function getAcceptedMcpOrigins(): string[] {
     SITE_URL,
     process.env.CAREEROTTER_MCP_EXTRA_ORIGINS
   );
+}
+
+const TRAILING_DOT = /\.$/;
+
+/** Lowercase and without a trailing dot, which names the same host in DNS. */
+export function bareHostname(hostname: string): string {
+  return hostname.toLowerCase().replace(TRAILING_DOT, "");
+}
+
+/**
+ * Every hostname that serves this app or redirects to it: the accepted MCP
+ * origins' hosts and the legacy hosts that 301 here. An OAuth redirect must
+ * never land on one of them, where page analytics would capture the code.
+ */
+export function getOwnHostnames(): string[] {
+  const originHosts = getAcceptedMcpOrigins().map((origin) => new URL(origin).hostname);
+  return Array.from(new Set([...originHosts, ...LEGACY_HOSTS].map(bareHostname)));
 }
 
 /** The MCP resource URL on an origin: `<origin>/api/mcp`. */

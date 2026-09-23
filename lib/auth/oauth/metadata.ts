@@ -10,6 +10,7 @@
 import { AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access";
 import {
   AGENT_OAUTH_GRANT_TYPES,
+  AGENT_OAUTH_ISSUER,
   AGENT_OAUTH_METADATA_CACHE_CONTROL,
   AGENT_OAUTH_METADATA_CORS_HEADERS,
   AGENT_OAUTH_PATHS,
@@ -18,7 +19,6 @@ import {
   AGENT_OAUTH_TOKEN_ENDPOINT_AUTH_METHODS,
   isMcpOAuthEnabled,
 } from "@/lib/constants/agent-oauth";
-import { SITE_URL } from "@/lib/constants/site-config";
 import { oauthJson, oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
 import { advertisedMcpResource } from "@/lib/auth/oauth/resource";
 
@@ -31,8 +31,12 @@ const METADATA_HEADERS = {
   "Cache-Control": AGENT_OAUTH_METADATA_CACHE_CONTROL,
 } as const;
 
-/** The issuer: SITE_URL, which is an origin with no trailing slash. */
-export const AGENT_OAUTH_ISSUER = SITE_URL;
+// The protected resource's `resource` follows the request host, so a shared
+// cache must key on it.
+const PROTECTED_RESOURCE_HEADERS = {
+  ...METADATA_HEADERS,
+  Vary: "Host, X-Forwarded-Host",
+} as const;
 
 function onIssuer(path: string): string {
   return `${AGENT_OAUTH_ISSUER}${path}`;
@@ -68,20 +72,16 @@ export function protectedResourceMetadata(requestUrl: string): Record<string, un
   };
 }
 
-function metadataResponse(body: Record<string, unknown>): Response {
-  return oauthJson(body, HTTP_OK, METADATA_HEADERS);
-}
-
 /** GET /.well-known/oauth-authorization-server */
 export function authorizationServerMetadataResponse(): Response {
   if (!isMcpOAuthEnabled()) return oauthNotFound();
-  return metadataResponse(authorizationServerMetadata());
+  return oauthJson(authorizationServerMetadata(), HTTP_OK, METADATA_HEADERS);
 }
 
 /** GET /.well-known/oauth-protected-resource, with or without the /api/mcp suffix. */
 export function protectedResourceMetadataResponse(request: Request): Response {
   if (!isMcpOAuthEnabled()) return oauthNotFound();
-  return metadataResponse(protectedResourceMetadata(request.url));
+  return oauthJson(protectedResourceMetadata(request.url), HTTP_OK, PROTECTED_RESOURCE_HEADERS);
 }
 
 /** OPTIONS on any of the metadata documents. */

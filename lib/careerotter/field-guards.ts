@@ -12,12 +12,30 @@ const DEL_CODE_POINT = 0x7f;
 const C1_CONTROL_MAX = 0x9f;
 const NUL_CHARACTER = "\u0000";
 
+// A high surrogate not followed by a low one, or a low one not preceded by a
+// high one. String.prototype.isWellFormed does this, but the installed
+// TypeScript lib predates it.
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+// Created on first use: this module also loads in the browser, and only the
+// server truncates by grapheme.
+let graphemeSegmenter: Intl.Segmenter | null = null;
+
+function graphemesOf(value: string): Iterable<{ segment: string }> {
+  graphemeSegmenter ??= new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  return graphemeSegmenter.segment(value);
+}
+
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+export function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 export function toIsoDate(date: Date): string {
@@ -57,4 +75,30 @@ export function codePointLength(value: string): number {
 /** Truncates by code point, so a surrogate pair is never split. */
 export function truncateCodePoints(value: string, max: number): string {
   return Array.from(value).slice(0, max).join("");
+}
+
+/** False when the string holds a lone surrogate, which has no UTF-8 encoding. */
+export function isWellFormedUtf16(value: string): boolean {
+  return !LONE_SURROGATE.test(value);
+}
+
+/**
+ * The longest prefix of whole graphemes (user-perceived characters, so an
+ * emoji sequence or a letter with its accents is never split) that has at
+ * most `max` graphemes and at most `max` code points. Both bounds apply
+ * because one grapheme can be several code points, and database limits
+ * (char_length) count code points.
+ */
+export function truncateGraphemes(value: string, max: number): string {
+  let result = "";
+  let graphemes = 0;
+  let codePoints = 0;
+  for (const { segment } of graphemesOf(value)) {
+    const segmentCodePoints = codePointLength(segment);
+    if (graphemes + 1 > max || codePoints + segmentCodePoints > max) break;
+    result += segment;
+    graphemes += 1;
+    codePoints += segmentCodePoints;
+  }
+  return result;
 }

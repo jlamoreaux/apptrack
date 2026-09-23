@@ -12,6 +12,8 @@
  *   for a spoofed Host
  * - CORS (including Allow-Headers) and the 60-second cache on GET, the CORS
  *   preflight, and 404 with either flag off or on a preview deployment
+ * - the protected resource documents vary on Host and X-Forwarded-Host, since
+ *   `resource` follows the request origin
  *
  * jest.setup.js replaces Request/Response with minimal mocks; this suite
  * installs the edge-runtime primitives bundled with Next.js.
@@ -138,6 +140,11 @@ describe.each(PROTECTED_RESOURCE_ROUTES)("protected resource metadata (%s)", (_l
     const body = await route.GET(getRequest(EXTRA_ORIGIN, path)).json();
     expect(body.resource).toBe(`${EXTRA_ORIGIN}${MCP_RESOURCE_PATH}`);
     expect(body.authorization_servers).toEqual([SITE_URL]);
+  });
+
+  it("varies on Host and X-Forwarded-Host", () => {
+    const response: Response = route.GET(getRequest(SITE_URL, path));
+    expect(response.headers.get("Vary")).toBe("Host, X-Forwarded-Host");
   });
 
   it("falls back to SITE_URL for a spoofed Host", async () => {

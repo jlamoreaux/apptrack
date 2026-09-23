@@ -5,6 +5,8 @@
  * guards against drift.
  */
 
+import { MS_PER_SECOND } from "@/lib/constants/dates";
+
 export const AGENT_TOKEN_SCOPES = [
   "wins:read",
   "wins:write",
@@ -120,7 +122,6 @@ export const MCP_TOOL_FAILED_MESSAGE = "Tool failed; try again";
 export const MCP_TOOL_TIMEOUT_MESSAGE =
   "The tool timed out. If it was a write, retry with the same external_ref to avoid duplicates.";
 
-const MS_PER_SECOND = 1000;
 // Room left under maxDuration to log and send the 504 before the platform
 // kills the function.
 const MCP_DEADLINE_HEADROOM_SECONDS = 5;

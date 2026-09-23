@@ -1,22 +1,11 @@
-import {
-  metadataPreflightResponse,
-  protectedResourceMetadataResponse,
-} from "@/lib/auth/oauth/metadata";
-
 /**
- * Protected resource metadata (RFC 9728) for /api/mcp. Served at
- * /.well-known/oauth-protected-resource/api/mcp and at the root
- * /.well-known/oauth-protected-resource fallback, with the same body.
+ * Protected resource metadata (RFC 9728) for /api/mcp, the same handlers as
+ * the root /.well-known/oauth-protected-resource fallback.
  * 404 unless isMcpOAuthEnabled().
  */
 
+export { GET, OPTIONS } from "@/app/.well-known/oauth-protected-resource/route";
+
+// Next.js reads segment config only as a literal in the route file itself.
 // Read the OAuth flag and the request origin at request time.
 export const dynamic = "force-dynamic";
-
-export function GET(request: Request): Response {
-  return protectedResourceMetadataResponse(request);
-}
-
-export function OPTIONS(): Response {
-  return metadataPreflightResponse();
-}

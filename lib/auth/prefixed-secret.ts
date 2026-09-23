@@ -16,6 +16,7 @@ import {
   AGENT_TOKEN_CHECKSUM_LENGTH,
   AGENT_TOKEN_SECRET_BYTES,
 } from "@/lib/constants/agent-access";
+import { escapeRegExp } from "@/lib/utils/escape-regexp";
 
 /** A freshly minted secret. `raw` is handed out once and never stored. */
 export interface GeneratedSecret {
@@ -25,10 +26,8 @@ export interface GeneratedSecret {
 
 const BASE36_RADIX = 36;
 const CHECKSUM_SEPARATOR = "_";
-const REGEX_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
-
-// base64url without padding: 4 characters per 3 bytes, rounded up.
-const SECRET_LENGTH = Math.ceil((AGENT_TOKEN_SECRET_BYTES * 4) / 3);
+const BASE64_CHARS_PER_GROUP = 4;
+const BYTES_PER_BASE64_GROUP = 3;
 
 // Standard (IEEE 802.3, reflected) CRC32. Implemented here because the
 // installed Node typings predate zlib.crc32.
@@ -39,7 +38,14 @@ const BITS_PER_BYTE = 8;
 const BYTE_MASK = 0xff;
 const CRC32_TABLE = buildCrc32Table();
 
+const SECRET_LENGTH = base64urlLength(AGENT_TOKEN_SECRET_BYTES);
+
 const formatPatterns = new Map<string, RegExp>();
+
+/** Length of `bytes` bytes in base64url without padding: 4 characters per 3 bytes, rounded up. */
+export function base64urlLength(bytes: number): number {
+  return Math.ceil((bytes * BASE64_CHARS_PER_GROUP) / BYTES_PER_BASE64_GROUP);
+}
 
 function buildCrc32Table(): Uint32Array {
   const table = new Uint32Array(BYTE_VALUE_COUNT);
@@ -70,9 +76,8 @@ function checksumOf(body: string): string {
 function formatPattern(prefix: string): RegExp {
   const cached = formatPatterns.get(prefix);
   if (cached) return cached;
-  const escapedPrefix = prefix.replace(REGEX_SPECIAL_CHARACTERS, "\\$&");
   const pattern = new RegExp(
-    `^${escapedPrefix}[A-Za-z0-9_-]{${SECRET_LENGTH}}${CHECKSUM_SEPARATOR}[0-9a-z]{${AGENT_TOKEN_CHECKSUM_LENGTH}}$`
+    `^${escapeRegExp(prefix)}[A-Za-z0-9_-]{${SECRET_LENGTH}}${CHECKSUM_SEPARATOR}[0-9a-z]{${AGENT_TOKEN_CHECKSUM_LENGTH}}$`
   );
   formatPatterns.set(prefix, pattern);
   return pattern;

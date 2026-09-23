@@ -470,6 +470,23 @@ export interface AgentOAuthClientRecord {
   first_authorized_at: string | null;
 }
 
+/** The three kinds of redirect URI registration accepts. */
+export type RedirectUriKind = "https" | "loopback" | "private_use";
+
+/** A newly registered client. `clientSecret` is set only for confidential clients. */
+export interface RegisteredClient {
+  clientId: string;
+  /** Seconds since the epoch, from the row's created_at. */
+  clientIdIssuedAt: number;
+  clientSecret: string | null;
+  /** Exactly as the client sent them. */
+  redirectUris: string[];
+  redirectKinds: RedirectUriKind[];
+  grantTypes: AgentOAuthGrantType[];
+  tokenEndpointAuthMethod: AgentOAuthTokenEndpointAuthMethod;
+  clientName: string;
+}
+
 /** An agent_oauth_grants row: one approved connection between a user and a client. */
 export interface AgentOAuthGrantRecord {
   id: string;

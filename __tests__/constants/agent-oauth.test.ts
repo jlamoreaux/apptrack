@@ -422,6 +422,7 @@ describe("agent OAuth protocol constants", () => {
 
   it("rate limits use the PRD numbers and the per-grant limit matches a PAT's", () => {
     expect(AGENT_OAUTH_RATE_LIMITS.registerPerIp).toMatchObject({ tokens: 30, window: "10 m" });
+    expect(AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily).toMatchObject({ tokens: 100, window: "1 d" });
     expect(AGENT_OAUTH_RATE_LIMITS.registerGlobal).toMatchObject({ tokens: 2000, window: "1 d" });
     expect(AGENT_OAUTH_RATE_LIMITS.tokenPerClient).toMatchObject({ tokens: 60, window: "1 m" });
     expect(AGENT_OAUTH_RATE_LIMITS.tokenAuthFailPerIp).toMatchObject({ tokens: 600, window: "1 m" });

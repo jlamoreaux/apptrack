@@ -32,7 +32,7 @@ import type { McpToolContext } from "@/lib/mcp/context";
 import { MCP_SERVER_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { registerTools } from "@/lib/mcp/server";
 import { SITE_URL } from "@/lib/constants/site-config";
-import { clientIp, readBodyWithinLimit } from "@/lib/http/request";
+import { clientIp, readBodyWithinLimit, retryAfterSeconds } from "@/lib/http/request";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
@@ -83,8 +83,6 @@ const JSON_RPC_BATCH_NOT_SUPPORTED = {
 const ALLOWED_METHOD = "POST";
 
 const BEARER_PATTERN = /^bearer\s+(.+)$/i;
-const MS_PER_SECOND = 1000;
-const MIN_RETRY_AFTER_SECONDS = 1;
 
 // The adapter needs neither; dropping them keeps the token out of the inner
 // request and avoids a stale length on the rebuilt body.
@@ -179,8 +177,11 @@ function forbiddenOrigin(): Response {
 
 /** The raw body text, capped, parsing as JSON, and a single message (not a batch). */
 async function readJsonRpcBody(request: Request): Promise<Gate<string>> {
-  const text = await readBodyWithinLimit(request, MCP_MAX_BODY_BYTES);
-  if (text === null) return reject(payloadTooLarge());
+  const read = await readBodyWithinLimit(request, MCP_MAX_BODY_BYTES);
+  if (!read.ok) {
+    return reject(read.reason === "too_large" ? payloadTooLarge() : unreadableBody());
+  }
+  const text = read.text;
   const parsed = parseJson(text);
   if (!parsed.ok) return reject(jsonResponse(JSON_RPC_PARSE_ERROR, HTTP.badRequest));
   if (Array.isArray(parsed.value)) {
@@ -200,6 +201,11 @@ function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
 
 function payloadTooLarge(): Response {
   return jsonResponse({ error: "payload_too_large" }, HTTP.payloadTooLarge);
+}
+
+// The body stream failed midway, usually because the client went away.
+function unreadableBody(): Response {
+  return jsonResponse({ error: "invalid_request" }, HTTP.badRequest);
 }
 
 // ── auth ───────────────────────────────────────────────────────────────────
@@ -338,8 +344,7 @@ async function limitedRetryAfter(
     const outcome = await withTimeout(check(limiter), MCP_DEADLINES_MS.rateLimit);
     if (outcome.timedOut) return failOpen("MCP rate limiter timed out", undefined);
     if (!outcome.value.blocked) return null;
-    const seconds = Math.ceil((outcome.value.reset - now.getTime()) / MS_PER_SECOND);
-    return Math.max(seconds, MIN_RETRY_AFTER_SECONDS);
+    return retryAfterSeconds(outcome.value.reset, now.getTime());
   } catch (error) {
     return failOpen("MCP rate limiter failed", error);
   }
@@ -373,9 +378,9 @@ function unavailable(): Response {
   });
 }
 
-function tooManyRequests(retryAfterSeconds: number): Response {
+function tooManyRequests(retryAfter: number): Response {
   return jsonResponse({ error: "rate_limited" }, HTTP.tooManyRequests, {
-    "Retry-After": String(retryAfterSeconds),
+    "Retry-After": String(retryAfter),
   });
 }
 

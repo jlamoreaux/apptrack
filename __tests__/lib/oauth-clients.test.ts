@@ -1,21 +1,31 @@
 // @jest-environment node
 /**
  * Tests for lib/auth/oauth/clients.ts:
- * - registerClient: `none` gets no secret, post and basic get a `co_cs_`
- *   secret stored only as its SHA-256; the client_id matches the migration's
- *   CHECK; name handling (default, control and bidi characters stripped, an
- *   emoji truncated at a code-point boundary); grant_types stored and
- *   defaulted; response_types and auth method rules; client_uri kept only
- *   when https; SDK schema failures mapped to the RFC 7591 codes; database
- *   failures reported as `db`
- * - authenticateClient: every method; a URL-encoded Basic secret; method
- *   mismatch, wrong secret, unknown client, malformed Basic and two methods at
- *   once are invalid_client with usedBasic when Basic was used; a lookup
- *   error is `unavailable`
+ * - validateClientRegistration + registerClient: `none` gets no secret, post
+ *   and basic get a `co_cs_` secret stored only as its SHA-256; the client_id
+ *   matches the migration's CHECK; redirect URIs stored as the raw strings
+ *   sent (case, default port, dot segments) and strings a parser would
+ *   rewrite (whitespace, NUL, C1, lone surrogates) rejected; legacy hosts
+ *   banned; unused fields like logo_uri never reject; name handling (NFC,
+ *   invisible characters stripped, combining-mark runs capped, default when
+ *   no letter or digit is left, truncated by grapheme within 100 code
+ *   points); grant_types stored and defaulted; response_types and auth method
+ *   rules; client_uri kept only when a clean https URL, otherwise dropped;
+ *   SDK schema failures mapped to the RFC 7591 codes; database failures
+ *   reported as `db`
+ * - authenticateClient: every method; a URL-encoded Basic secret; an empty
+ *   secret (body or Basic password) counts as none; method mismatch, wrong
+ *   secret, unknown client, malformed Basic (including a bare "Basic") and
+ *   two methods at once are invalid_client with usedBasic when Basic was
+ *   used; a lookup error is `unavailable`
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { authenticateClient, registerClient } from "@/lib/auth/oauth/clients";
+import {
+  authenticateClient,
+  registerClient,
+  validateClientRegistration,
+} from "@/lib/auth/oauth/clients";
 import { hashSecret, hasValidPrefixedSecretFormat } from "@/lib/auth/prefixed-secret";
 import {
   AGENT_OAUTH_CLIENTS_TABLE,
@@ -66,10 +76,20 @@ function insertedRow(mock: AdminMock): Record<string, unknown> {
   return mock.insert.mock.calls[0][0];
 }
 
+/** Validate, then store when valid, as the route does. */
 async function register(body: unknown) {
   const mock = adminResolving({ data: { created_at: CREATED_AT }, error: null });
-  const result = await registerClient(mock.admin, body);
+  const validation = validateClientRegistration(body);
+  const result = validation.ok
+    ? await registerClient(mock.admin, validation.registration)
+    : { ok: false as const, kind: "rejected" as const, error: validation.error, description: validation.description };
   return { mock, result };
+}
+
+function validRegistration(body: unknown) {
+  const validation = validateClientRegistration(body);
+  if (!validation.ok) throw new Error(`expected a valid registration: ${validation.description}`);
+  return validation.registration;
 }
 
 describe("registerClient", () => {
@@ -161,6 +181,58 @@ describe("registerClient", () => {
       expect(await storedName("\u202A\u202B\u202C\u202DApp\u2067\u2068")).toBe("App");
     });
 
+    it("strips zero-width, direction-mark, BOM, separator and tag characters", async () => {
+      expect(await storedName("Cla\u200Bu\u200Cd\u200De\u2060")).toBe("Claude");
+      expect(await storedName("\u200EApp\u200F\u061C\uFEFF")).toBe("App");
+      expect(await storedName("A\u2028B\u2029C")).toBe("ABC");
+      expect(await storedName("App\u{E0041}\u{E007F}")).toBe("App");
+      expect(await storedName("App\u00AD")).toBe("App");
+    });
+
+    it("NFC-normalizes the name", async () => {
+      expect(await storedName("Cafe\u0301")).toBe("Caf\u00E9");
+    });
+
+    it("caps runs of combining marks at three", async () => {
+      const zalgo = `q${"\u0300\u0301\u0302\u0303\u0304\u0305".repeat(10)}x`;
+      expect(await storedName(zalgo)).toBe("q\u0300\u0301\u0302x");
+      expect(await storedName("q\u0300\u0301\u0302")).toBe("q\u0300\u0301\u0302");
+    });
+
+    it("falls back to the default when no letter or digit is left", async () => {
+      for (const name of [
+        "\u200B\u200D\u200E\u200F\u061C\uFEFF\u{E0041}",
+        "\u2028\u2029",
+        "!!! ---",
+        "\u0301\u0302",
+        "\u{1F9A6}",
+      ]) {
+        expect(await storedName(name)).toBe(AGENT_OAUTH_DEFAULT_CLIENT_NAME);
+      }
+      expect(await storedName("R2")).toBe("R2");
+      expect(await storedName("\u{1F9A6} Otter")).toBe("\u{1F9A6} Otter");
+    });
+
+    it("truncates to 100 graphemes", async () => {
+      expect(await storedName("a".repeat(150))).toBe("a".repeat(AGENT_OAUTH_LIMITS.clientNameMax));
+    });
+
+    it("never splits a grapheme, and keeps within 100 code points", async () => {
+      const flag = "\u{1F1FA}\u{1F1F8}";
+      const max = AGENT_OAUTH_LIMITS.clientNameMax;
+      // 100 graphemes but 101 code points: the flag is dropped whole.
+      expect(await storedName(`${"a".repeat(max - 1)}${flag}`)).toBe("a".repeat(max - 1));
+      // Exactly 100 code points: kept.
+      expect(await storedName(`${"a".repeat(max - 2)}${flag}`)).toBe(`${"a".repeat(max - 2)}${flag}`);
+      // A letter with a mark that has no precomposed form stays together.
+      expect(await storedName(`${"a".repeat(max - 1)}q\u0301`)).toBe("a".repeat(max - 1));
+      const thumbs = "\u{1F44D}\u{1F3FD}";
+      // "A" plus 49 two-code-point emoji is 100 code points; the 50th won't fit.
+      const name = String(await storedName(`A${thumbs.repeat(max)}`));
+      expect(name).toBe(`A${thumbs.repeat(max / 2 - 1)}`);
+      expect(Array.from(name).length).toBeLessThanOrEqual(max);
+    });
+
     it("truncates by code point, never splitting an emoji", async () => {
       const emoji = "\u{1F9A6}";
       const name = await storedName(`${"a".repeat(AGENT_OAUTH_LIMITS.clientNameMax - 1)}${emoji}${emoji}`);
@@ -182,6 +254,26 @@ describe("registerClient", () => {
     it("drops http and overlong URIs", async () => {
       expect(await storedUri("http://claude.ai")).toBeNull();
       expect(await storedUri(`https://claude.ai/${"a".repeat(AGENT_OAUTH_LIMITS.clientUriMaxLength)}`)).toBeNull();
+    });
+
+    it("keeps a URI exactly as sent", async () => {
+      expect(await storedUri("https://Claude.AI:443/a/../b")).toBe("https://Claude.AI:443/a/../b");
+    });
+
+    it.each([
+      ["not a url"],
+      ["https://"],
+      ["https://claude.ai/ x"],
+      [" https://claude.ai"],
+      ["https://claude.ai/\u0000"],
+      ["https://claude.ai/\uD800"],
+      [5],
+      [null],
+      [{ href: "https://claude.ai" }],
+    ])("drops %j without rejecting the registration", async (clientUri) => {
+      const { mock, result } = await register({ redirect_uris: [REDIRECT], client_uri: clientUri });
+      expect(result.ok).toBe(true);
+      expect(insertedRow(mock).client_uri).toBeNull();
     });
   });
 
@@ -205,10 +297,74 @@ describe("registerClient", () => {
   });
 
   it("reports an insert error or a throw as db", async () => {
+    const registration = validRegistration({ redirect_uris: [REDIRECT] });
     const failing = adminResolving({ data: null, error: { code: "23514" } });
-    expect(await registerClient(failing.admin, { redirect_uris: [REDIRECT] })).toEqual({ ok: false, kind: "db" });
+    expect(await registerClient(failing.admin, registration)).toEqual({ ok: false, kind: "db" });
     const throwing = adminResolving(new Error("network"));
-    expect(await registerClient(throwing.admin, { redirect_uris: [REDIRECT] })).toEqual({ ok: false, kind: "db" });
+    expect(await registerClient(throwing.admin, registration)).toEqual({ ok: false, kind: "db" });
+  });
+
+  describe("redirect_uris are stored as the raw strings sent", () => {
+    it.each([
+      "https://Claude.AI/api/mcp/auth_callback",
+      "https://claude.ai:443/cb",
+      "https://claude.ai/a/../cb",
+      "https://claude.ai/cb?q=%7E",
+      "HTTPS://claude.ai/cb",
+      "cursor://Anysphere/Callback",
+    ])("stores and returns %s unchanged", async (uri) => {
+      const { mock, result } = await register({ redirect_uris: [uri] });
+      if (!result.ok) throw new Error("expected success");
+      expect(result.client.redirectUris).toEqual([uri]);
+      expect(insertedRow(mock).redirect_uris).toEqual([uri]);
+    });
+
+    it.each([
+      [" https://claude.ai/cb", "leading space"],
+      ["https://claude.ai/cb ", "trailing space"],
+      ["https://claude.ai/c b", "inner space"],
+      ["https://claude.ai/cb\t", "tab"],
+      ["https://claude.ai/cb\n", "newline"],
+      ["https://claude.ai/\u00A0cb", "no-break space"],
+      ["https://claude.ai/\u2028cb", "line separator"],
+      ["https://claude.ai/cb\u0000", "NUL"],
+      ["https://claude.ai/cb\u007F", "DEL"],
+      ["https://claude.ai/cb\u0085", "C1 control"],
+      ["https://claude.ai/\uD800cb", "lone high surrogate"],
+      ["https://claude.ai/cb\uDC00", "lone low surrogate"],
+    ])("rejects a URI with a %j (%s) before parsing", async (uri) => {
+      const { mock, result } = await register({ redirect_uris: [uri] });
+      expect(result).toMatchObject({ ok: false, kind: "rejected", error: "invalid_redirect_uri" });
+      expect(mock.insert).not.toHaveBeenCalled();
+    });
+
+    it("accepts a well-formed surrogate pair", async () => {
+      const uri = "https://claude.ai/\u{1F9A6}";
+      const { result } = await register({ redirect_uris: [uri] });
+      expect(result.ok && result.client.redirectUris).toEqual([uri]);
+    });
+
+    it.each(["https://apptrack.ing/cb", "https://www.apptrack.ing/cb", "https://APPTRACK.ing./cb"])(
+      "rejects a legacy host that redirects to us: %s",
+      async (uri) => {
+        const { result } = await register({ redirect_uris: [uri] });
+        expect(result).toMatchObject({ ok: false, error: "invalid_redirect_uri" });
+      }
+    );
+  });
+
+  it("ignores unused fields, even when they would fail the SDK schema", async () => {
+    const { result } = await register({
+      redirect_uris: [REDIRECT],
+      logo_uri: "not a url",
+      tos_uri: 5,
+      jwks_uri: "javascript:alert(1)",
+      policy_uri: ["x"],
+      contacts: "nope",
+      scope: 7,
+      software_statement: {},
+    });
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -324,7 +480,15 @@ describe("authenticateClient", () => {
     expect(result).toEqual({ ok: false, kind: "invalid_client", reason: "missing_client_id", usedBasic: false });
   });
 
-  it.each(["Basic !!!", "Basic " + Buffer.from("no-separator").toString("base64"), "Basic " + Buffer.from("%zz:secret").toString("base64")])(
+  it.each([
+    "Basic !!!",
+    "Basic " + Buffer.from("no-separator").toString("base64"),
+    "Basic " + Buffer.from("%zz:secret").toString("base64"),
+    "Basic",
+    "basic   ",
+    "BASIC a b",
+    "Basic " + Buffer.from(":secret").toString("base64"),
+  ])(
     "rejects malformed Basic credentials: %s",
     async (authorization) => {
       const { result } = await authenticate(clientRow("client_secret_basic"), new Headers({ authorization }), {});
@@ -344,10 +508,50 @@ describe("authenticateClient", () => {
   });
 
   it("ignores a non-Basic Authorization header", async () => {
-    const { result } = await authenticate(clientRow("none", null), new Headers({ authorization: "Bearer x" }), {
+    for (const authorization of ["Bearer x", "Basicx abc"]) {
+      const { result } = await authenticate(clientRow("none", null), new Headers({ authorization }), {
+        client_id: CLIENT_ID,
+      });
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it("treats an empty client_secret in the body as absent", async () => {
+    const publicClient = await authenticate(clientRow("none", null), new Headers(), {
       client_id: CLIENT_ID,
+      client_secret: "",
     });
-    expect(result.ok).toBe(true);
+    expect(publicClient.result.ok).toBe(true);
+    const postClient = await authenticate(clientRow("client_secret_post"), new Headers(), {
+      client_id: CLIENT_ID,
+      client_secret: "",
+    });
+    expect(postClient.result).toEqual({
+      ok: false,
+      kind: "invalid_client",
+      reason: "method_mismatch",
+      usedBasic: false,
+    });
+  });
+
+  it("treats an empty client_id in the body as missing", async () => {
+    const { result } = await authenticate(clientRow("none", null), new Headers(), { client_id: "" });
+    expect(result).toMatchObject({ reason: "missing_client_id" });
+  });
+
+  it("reads a Basic header with an empty password as the client_id alone", async () => {
+    const headers = basicHeader(CLIENT_ID, "");
+    const publicClient = await authenticate(clientRow("none", null), headers, {});
+    expect(publicClient.result.ok).toBe(true);
+    const basicClient = await authenticate(clientRow("client_secret_basic"), headers, {});
+    expect(basicClient.result).toEqual({
+      ok: false,
+      kind: "invalid_client",
+      reason: "method_mismatch",
+      usedBasic: true,
+    });
+    const withEmptyBodySecret = await authenticate(clientRow("none", null), headers, { client_secret: "" });
+    expect(withEmptyBodySecret.result.ok).toBe(true);
   });
 
   it("reports a lookup error, a throw or a malformed row as unavailable", async () => {

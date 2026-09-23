@@ -6,10 +6,14 @@
  * - 201 bodies: `none` has no secret; post and basic get client_secret and
  *   client_secret_expires_at 0; grant_types stored and defaulted; unknown
  *   fields are not echoed; no-store and CORS headers
+ * - redirect URIs echoed and stored exactly as sent; an ignored logo_uri
  * - 400 invalid_redirect_uri and invalid_client_metadata bodies, a non-JSON
- *   content type, invalid JSON; 413 over the body cap
- * - rate limits: 429 with Retry-After from the per-IP and global limits
- *   (per-IP first, keyed by IP); Redis erroring, slow or not configured -> 503
+ *   content type, invalid JSON, a body stream that fails midway (with CORS);
+ *   413 over the body cap
+ * - rate limits: 429 with Retry-After from the per-IP (10 minutes and daily)
+ *   and global limits; per-IP keyed by IPv4 address or IPv6 /64 and charged
+ *   first; global charged only for a valid registration; Redis erroring,
+ *   slow or not configured -> 503
  * - OAuth disabled (either flag, or a preview deployment) -> 404
  * - mcp_oauth_client_registered sent after the response with the auth method
  *   and redirect kinds, never the secret
@@ -175,6 +179,15 @@ describe("successful registration", () => {
     }
   });
 
+  it("echoes and stores redirect URIs exactly as sent", async () => {
+    const insert = adminInserting();
+    const raw = ["https://Claude.AI:443/api/mcp/../mcp/auth_callback", "http://127.0.0.1:1234/cb"];
+    const response = await POST(post({ redirect_uris: raw, logo_uri: "not a url" }));
+    expect(response.status).toBe(201);
+    expect((await response.json()).redirect_uris).toEqual(raw);
+    expect(insert).toHaveBeenCalledWith(expect.objectContaining({ redirect_uris: raw }));
+  });
+
   it("sends mcp_oauth_client_registered with the method and redirect kinds, never the secret", async () => {
     const response = await POST(
       post({
@@ -227,6 +240,29 @@ describe("rejections", () => {
     expect((await broken.json()).error).toBe("invalid_client_metadata");
   });
 
+  it("400 with CORS when the body stream fails midway", async () => {
+    const stream = new fetchPrimitives.ReadableStream({
+      start(controller: ReadableStreamDefaultController<Uint8Array>) {
+        controller.enqueue(new TextEncoder().encode('{"redirect_uris":'));
+        controller.error(new Error("client went away"));
+      },
+    });
+    const request = new Request(REGISTER_URL, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": IP },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    expectCors(response);
+    expect(await response.json()).toEqual({
+      error: "invalid_client_metadata",
+      error_description: "Request body could not be read",
+    });
+    expect(mockAdmin).not.toHaveBeenCalled();
+  });
+
   it("413 over the body cap", async () => {
     const padding = "a".repeat(AGENT_OAUTH_LIMITS.requestBodyMaxBytes);
     const response = await POST(post({ redirect_uris: [REDIRECT], client_name: padding }));
@@ -253,12 +289,60 @@ describe("rate limits", () => {
     );
   }
 
-  it("charges the per-IP bucket by IP, then the global bucket", async () => {
+  function chargedKeys(): string[] {
+    return mockLimit.mock.calls.map(([key]) => key);
+  }
+
+  it("charges the per-IP buckets by IP, then the global bucket", async () => {
     await POST(post({ redirect_uris: [REDIRECT] }));
-    expect(mockLimit.mock.calls.map(([key]) => key)).toEqual([
+    expect(chargedKeys()).toEqual([
       `${AGENT_OAUTH_RATE_LIMITS.registerPerIp.keyPrefix}${IP}`,
+      `${AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily.keyPrefix}${IP}`,
       AGENT_OAUTH_RATE_LIMITS.registerGlobal.keyPrefix,
     ]);
+  });
+
+  it("keys an IPv6 client by its /64", async () => {
+    for (const address of ["2001:db8:1:2:aaaa::1", "2001:DB8:1:2:ffff:ffff:ffff:ffff"]) {
+      mockLimit.mockClear();
+      await POST(post({ redirect_uris: [REDIRECT] }, { "x-forwarded-for": `${address}, 10.0.0.1` }));
+      expect(chargedKeys().slice(0, 2)).toEqual([
+        `${AGENT_OAUTH_RATE_LIMITS.registerPerIp.keyPrefix}2001:db8:1:2::/64`,
+        `${AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily.keyPrefix}2001:db8:1:2::/64`,
+      ]);
+    }
+  });
+
+  it("doesn't charge the global bucket for a rejected registration", async () => {
+    const invalid = [
+      post({ redirect_uris: ["http://example.com/cb"] }),
+      post({ redirect_uris: [REDIRECT], grant_types: ["implicit"] }),
+      post("{not json"),
+      post("redirect_uris=x", { "content-type": "application/x-www-form-urlencoded" }),
+    ];
+    for (const request of invalid) {
+      expect((await POST(request)).status).toBe(400);
+    }
+    expect(chargedKeys()).not.toContain(AGENT_OAUTH_RATE_LIMITS.registerGlobal.keyPrefix);
+    expect(chargedKeys()).toHaveLength(invalid.length * 2);
+  });
+
+  it("the daily per-IP cap is 100", () => {
+    expect(AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily).toMatchObject({ tokens: 100, window: "1 d" });
+  });
+
+  it("429 from the daily per-IP limit, without spending the global quota", async () => {
+    limitedOn(AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily.keyPrefix);
+    const response = await POST(post({ redirect_uris: [REDIRECT] }));
+    expect(response.status).toBe(429);
+    expect(response.headers.get("Retry-After")).not.toBeNull();
+    expectCors(response);
+    expect(chargedKeys()).not.toContain(AGENT_OAUTH_RATE_LIMITS.registerGlobal.keyPrefix);
+    expect(mockAdmin).not.toHaveBeenCalled();
+    expect(loggerService.warn).toHaveBeenCalledWith(
+      "OAuth client registration rate limited",
+      expect.objectContaining({ metadata: { limit: "per_ip_daily" } })
+    );
   });
 
   it("429 with Retry-After from the per-IP limit, without spending the global quota", async () => {

@@ -2,25 +2,33 @@
  * OAuth clients: dynamic registration (RFC 7591) and client authentication at
  * the token and revocation endpoints (RFC 6749 §2.3).
  *
- * Registration validates the body with the MCP SDK's
- * OAuthClientMetadataSchema, then with our rules (redirect URIs, grant and
- * response types, auth method, name and client_uri). Confidential clients get
- * a `co_cs_` secret that is returned once and stored as its SHA-256 digest.
- * Rows go through the service-role client; agent_oauth_clients has RLS on and
- * no policies.
+ * Registration is two steps so the caller can charge its global quota only
+ * for a registration that will be stored: validateClientRegistration checks
+ * the body, then registerClient inserts it. Only the fields we use are
+ * validated (unknown and unused ones, like logo_uri, never cause a
+ * rejection). Redirect URIs are checked and stored as the raw strings sent;
+ * the MCP SDK's OAuthClientMetadataSchema is only a gate after our rules.
+ * Confidential clients get a `co_cs_` secret that is returned once and stored
+ * as its SHA-256 digest. Rows go through the service-role client;
+ * agent_oauth_clients has RLS on and no policies.
  */
 
 import { randomBytes, timingSafeEqual } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { OAuthClientMetadataSchema } from "@modelcontextprotocol/sdk/shared/auth.js";
-import { generatePrefixedSecret, hashSecret } from "@/lib/auth/prefixed-secret";
 import {
-  validateRedirectUris,
-  type RedirectUriKind,
-} from "@/lib/auth/oauth/redirect-uri";
+  OAuthClientMetadataSchema,
+  SafeUrlSchema,
+} from "@modelcontextprotocol/sdk/shared/auth.js";
 import {
-  AGENT_OAUTH_BIDI_CONTROL_PATTERN,
+  base64urlLength,
+  generatePrefixedSecret,
+  hashSecret,
+} from "@/lib/auth/prefixed-secret";
+import { validateRedirectUris } from "@/lib/auth/oauth/redirect-uri";
+import { hasUnsafeUriCharacters } from "@/lib/auth/oauth/url";
+import {
   AGENT_OAUTH_CLIENT_ID_BYTES,
+  AGENT_OAUTH_CLIENT_NAME_MAX_COMBINING_MARKS,
   AGENT_OAUTH_CLIENTS_TABLE,
   AGENT_OAUTH_DEFAULT_CLIENT_NAME,
   AGENT_OAUTH_GRANT_TYPES,
@@ -30,43 +38,41 @@ import {
   AGENT_OAUTH_TOKEN_ENDPOINT_AUTH_METHODS,
   DEFAULT_AGENT_OAUTH_AUTH_METHOD,
   REQUIRED_AGENT_OAUTH_GRANT_TYPE,
-  getAcceptedMcpOrigins,
+  getOwnHostnames,
   type AgentOAuthGrantType,
   type AgentOAuthRegistrationErrorCode,
   type AgentOAuthTokenEndpointAuthMethod,
 } from "@/lib/constants/agent-oauth";
+import { MS_PER_SECOND } from "@/lib/constants/dates";
 import {
   isNullableString,
   isPlainObject,
-  truncateCodePoints,
+  isStringArray,
+  truncateGraphemes,
 } from "@/lib/careerotter/field-guards";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import type { AgentOAuthClientRecord } from "@/types";
+import type { AgentOAuthClientRecord, RedirectUriKind, RegisteredClient } from "@/types";
 
 // ── types ──────────────────────────────────────────────────────────────────
 
-/** A newly registered client. `clientSecret` is set only for confidential clients. */
-export interface RegisteredClient {
-  clientId: string;
-  /** Seconds since the epoch, from the row's created_at. */
-  clientIdIssuedAt: number;
-  clientSecret: string | null;
+/** A registration body that passed validation, ready to store. */
+export interface ValidatedClientRegistration {
+  /** Exactly as sent. */
   redirectUris: string[];
   redirectKinds: RedirectUriKind[];
   grantTypes: AgentOAuthGrantType[];
-  tokenEndpointAuthMethod: AgentOAuthTokenEndpointAuthMethod;
+  authMethod: AgentOAuthTokenEndpointAuthMethod;
   clientName: string;
+  clientUri: string | null;
 }
+
+export type ClientRegistrationValidation =
+  | { ok: true; registration: ValidatedClientRegistration }
+  | { ok: false; error: AgentOAuthRegistrationErrorCode; description: string };
 
 export type ClientRegistrationResult =
   | { ok: true; client: RegisteredClient }
-  | {
-      ok: false;
-      kind: "rejected";
-      error: AgentOAuthRegistrationErrorCode;
-      description: string;
-    }
   | { ok: false; kind: "db" };
 
 /** Why client authentication failed; for security logs, never for the response body. */
@@ -93,25 +99,45 @@ export type ClientAuthentication =
 const CLIENT_SELECT =
   "client_id, client_secret_hash, token_endpoint_auth_method, grant_types, client_name, client_uri, redirect_uris, created_at, first_authorized_at";
 const ISSUED_AT_SELECT = "created_at";
-const MS_PER_SECOND = 1000;
 const HTTPS_URI_PREFIX = "https://";
 const SHA256_HEX_PATTERN = /^[0-9a-f]{64}$/;
+const BASIC_SCHEME_PATTERN = /^basic(?:\s|$)/i;
 const BASIC_AUTHORIZATION_PATTERN = /^basic\s+(\S+)\s*$/i;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 const BASIC_CREDENTIALS_SEPARATOR = ":";
 const FORM_ENCODED_SPACE = /\+/g;
 const REDIRECT_URIS_FIELD = "redirect_uris";
 
-// base64url without padding: 4 characters per 3 bytes, rounded up. Mirrors
-// the client_id CHECK in migration 045.
+// The registration fields we use. Only these reach the schema, so an unused
+// field (logo_uri, tos_uri, jwks_uri, ...) that fails it can't reject the
+// client. client_uri is handled on its own because a bad one is dropped.
+const VALIDATED_FIELDS = [
+  "redirect_uris",
+  "grant_types",
+  "response_types",
+  "token_endpoint_auth_method",
+  "client_name",
+] as const;
+
+// Mirrors the client_id CHECK in migration 045.
 const CLIENT_ID_PATTERN = new RegExp(
-  `^${AGENT_OAUTH_PREFIXES.clientId}[A-Za-z0-9_-]{${Math.ceil((AGENT_OAUTH_CLIENT_ID_BYTES * 4) / 3)}}$`
+  `^${AGENT_OAUTH_PREFIXES.clientId}[A-Za-z0-9_-]{${base64urlLength(AGENT_OAUTH_CLIENT_ID_BYTES)}}$`
 );
 
-// C0 controls, DEL and C1 controls.
-const CONTROL_CHARACTERS = /[\u0000-\u001F\u007F-\u009F]/gu;
+// Stripped from client names: controls (C0, DEL, C1), format characters
+// (zero-width characters, bidi marks and overrides, the BOM, tag characters),
+// line and paragraph separators, and lone surrogates, so a name can't hide
+// text, reorder what surrounds it on the consent screen or break its layout.
+const INVISIBLE_NAME_CHARACTERS = /[\p{Cc}\p{Cf}\p{Cs}\p{Zl}\p{Zp}]/gu;
+const EXCESS_COMBINING_MARKS = new RegExp(
+  `(\\p{M}{${AGENT_OAUTH_CLIENT_NAME_MAX_COMBINING_MARKS}})\\p{M}+`,
+  "gu"
+);
+const LETTER_OR_NUMBER = /[\p{L}\p{N}]/u;
 
 const MESSAGES = {
+  body: "Registration body must be a JSON object",
+  redirectUris: "redirect_uris must be an array of strings",
   grantTypes: `grant_types must be a subset of ${AGENT_OAUTH_GRANT_TYPES.join(", ")} and include ${REQUIRED_AGENT_OAUTH_GRANT_TYPE}`,
   responseTypes: `response_types must be ["${AGENT_OAUTH_RESPONSE_TYPE}"]`,
   authMethod: `token_endpoint_auth_method must be one of ${AGENT_OAUTH_TOKEN_ENDPOINT_AUTH_METHODS.join(", ")}`,
@@ -123,21 +149,16 @@ type Check<T> =
   | { ok: true; value: T }
   | { ok: false; error: AgentOAuthRegistrationErrorCode; description: string };
 
-interface ValidatedRegistration {
-  redirectUris: string[];
-  redirectKinds: RedirectUriKind[];
-  grantTypes: AgentOAuthGrantType[];
-  authMethod: AgentOAuthTokenEndpointAuthMethod;
-  clientName: string;
-  clientUri: string | null;
-}
-
 function accept<T>(value: T): Check<T> {
   return { ok: true, value };
 }
 
 function rejectMetadata<T>(description: string): Check<T> {
   return { ok: false, error: "invalid_client_metadata", description };
+}
+
+function rejectRedirect<T>(description: string): Check<T> {
+  return { ok: false, error: "invalid_redirect_uri", description };
 }
 
 function isGrantType(value: string): value is AgentOAuthGrantType {
@@ -169,25 +190,42 @@ function parseAuthMethod(raw: string | undefined): Check<AgentOAuthTokenEndpoint
 }
 
 /**
- * Control characters and bidi controls stripped, trimmed, then truncated to
- * the column's code-point limit, so an emoji is never split. Empty falls back
- * to the default name.
+ * NFC-normalized, with invisible characters stripped and runs of combining
+ * marks cut to a few, trimmed, then truncated to 100 graphemes and 100 code
+ * points (the column's char_length CHECK) without splitting a grapheme. A
+ * name with no letter or digit left falls back to the default.
  */
 function sanitizeClientName(raw: string | undefined): string {
-  const stripped = (raw ?? "")
-    .replace(CONTROL_CHARACTERS, "")
-    .replace(AGENT_OAUTH_BIDI_CONTROL_PATTERN, "")
+  const cleaned = (raw ?? "")
+    .normalize("NFC")
+    .replace(INVISIBLE_NAME_CHARACTERS, "")
+    .replace(EXCESS_COMBINING_MARKS, "$1")
     .trim();
-  const name = truncateCodePoints(stripped, AGENT_OAUTH_LIMITS.clientNameMax).trim();
-  return name === "" ? AGENT_OAUTH_DEFAULT_CLIENT_NAME : name;
+  const name = truncateGraphemes(cleaned, AGENT_OAUTH_LIMITS.clientNameMax).trim();
+  return LETTER_OR_NUMBER.test(name) ? name : AGENT_OAUTH_DEFAULT_CLIENT_NAME;
 }
 
-/** Kept only when https and within the column limit; anything else is dropped. */
-function keptClientUri(raw: string | undefined): string | null {
-  if (raw === undefined) return null;
+/**
+ * Kept, exactly as sent, only when it's an https URL within the column limit
+ * that a parser wouldn't rewrite; anything else is dropped, never rejected.
+ */
+function keptClientUri(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
   const keep =
-    raw.startsWith(HTTPS_URI_PREFIX) && raw.length <= AGENT_OAUTH_LIMITS.clientUriMaxLength;
+    raw.startsWith(HTTPS_URI_PREFIX) &&
+    raw.length <= AGENT_OAUTH_LIMITS.clientUriMaxLength &&
+    !hasUnsafeUriCharacters(raw) &&
+    SafeUrlSchema.safeParse(raw).success;
   return keep ? raw : null;
+}
+
+/** The fields we use, and nothing else, for the schema gate. */
+function schemaInput(body: Record<string, unknown>): Record<string, unknown> {
+  const input: Record<string, unknown> = {};
+  for (const field of VALIDATED_FIELDS) {
+    if (field in body) input[field] = body[field];
+  }
+  return input;
 }
 
 type SchemaIssue = { path: PropertyKey[]; message: string };
@@ -203,19 +241,24 @@ function schemaRejection(issue: SchemaIssue | undefined): Check<never> {
   };
 }
 
-/** The SDK schema first, then our rules. Unknown fields are dropped. */
+/**
+ * Our redirect URI rules on the raw strings first, then the SDK schema as a
+ * gate over the fields we use, then the rest of our rules.
+ */
 function validateRegistration(
   body: unknown,
-  acceptedOrigins: readonly string[]
-): Check<ValidatedRegistration> {
-  const parsed = OAuthClientMetadataSchema.safeParse(body);
+  ownHosts: readonly string[]
+): Check<ValidatedClientRegistration> {
+  if (!isPlainObject(body)) return rejectMetadata(MESSAGES.body);
+  const redirectUris = body[REDIRECT_URIS_FIELD];
+  if (!isStringArray(redirectUris)) return rejectRedirect(MESSAGES.redirectUris);
+  const redirects = validateRedirectUris(redirectUris, ownHosts);
+  if (!redirects.ok) return rejectRedirect(redirects.message);
+
+  const parsed = OAuthClientMetadataSchema.safeParse(schemaInput(body));
   if (!parsed.success) return schemaRejection(parsed.error.issues[0]);
   const metadata = parsed.data;
 
-  const redirects = validateRedirectUris(metadata.redirect_uris, acceptedOrigins);
-  if (!redirects.ok) {
-    return { ok: false, error: "invalid_redirect_uri", description: redirects.message };
-  }
   const grantTypes = parseGrantTypes(metadata.grant_types);
   if (!grantTypes.ok) return grantTypes;
   const responseTypes = checkResponseTypes(metadata.response_types);
@@ -224,13 +267,24 @@ function validateRegistration(
   if (!authMethod.ok) return authMethod;
 
   return accept({
-    redirectUris: metadata.redirect_uris,
+    // The raw strings, never the schema's normalized output.
+    redirectUris: [...redirectUris],
     redirectKinds: redirects.kinds,
     grantTypes: grantTypes.value,
     authMethod: authMethod.value,
     clientName: sanitizeClientName(metadata.client_name),
-    clientUri: keptClientUri(metadata.client_uri),
+    clientUri: keptClientUri(body.client_uri),
   });
+}
+
+/**
+ * Validate an RFC 7591 registration body. Redirect URIs may not point at any
+ * host that serves or redirects to this app (getOwnHostnames).
+ */
+export function validateClientRegistration(body: unknown): ClientRegistrationValidation {
+  const validated = validateRegistration(body, getOwnHostnames());
+  if (!validated.ok) return validated;
+  return { ok: true, registration: validated.value };
 }
 
 function generateClientId(): string {
@@ -252,7 +306,7 @@ function issuedAtSeconds(row: unknown): number | null {
 
 async function insertClient(
   admin: SupabaseClient,
-  registration: ValidatedRegistration
+  registration: ValidatedClientRegistration
 ): Promise<ClientRegistrationResult> {
   const clientId = generateClientId();
   const secret =
@@ -293,20 +347,15 @@ async function insertClient(
 }
 
 /**
- * Validate an RFC 7591 registration body and store the client. Redirect URIs
- * may not point at any accepted origin. Never throws: a database failure is
- * logged and returned as `db`.
+ * Store a validated registration. Never throws: a database failure is logged
+ * and returned as `db`.
  */
 export async function registerClient(
   admin: SupabaseClient,
-  body: unknown
+  registration: ValidatedClientRegistration
 ): Promise<ClientRegistrationResult> {
-  const validated = validateRegistration(body, getAcceptedMcpOrigins());
-  if (!validated.ok) {
-    return { ok: false, kind: "rejected", error: validated.error, description: validated.description };
-  }
   try {
-    return await insertClient(admin, validated.value);
+    return await insertClient(admin, registration);
   } catch (error) {
     logRegistrationFailure(error);
     return { ok: false, kind: "db" };
@@ -343,10 +392,6 @@ type ClientLookup =
   | { kind: "found"; row: ClientRow }
   | { kind: "not_found" }
   | { kind: "unavailable" };
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
-}
 
 function isClientRow(value: unknown): value is ClientRow {
   if (!isPlainObject(value)) return false;
@@ -431,31 +476,50 @@ function decodeBasicCredentials(encoded: string): { clientId: string; secret: st
   return { clientId, secret };
 }
 
+/** A form field's value, with an empty one read as absent. */
+function nonEmptyField(form: URLSearchParams, name: string): string | null {
+  const value = form.get(name);
+  return value === null || value === "" ? null : value;
+}
+
 /**
- * The Basic header's credentials. A client_secret in the body as well is two
- * methods at once, and a body client_id must name the same client.
+ * The Basic header's credentials. `encoded` is null when the header names the
+ * Basic scheme but carries no single credentials token. An empty password
+ * means the header carries only the client_id, as a public client would send
+ * it. A client_secret in the body as well is two methods at once, and a body
+ * client_id must name the same client.
  */
-function presentedBasic(encoded: string, form: URLSearchParams): Presented {
-  const decoded = decodeBasicCredentials(encoded);
+function presentedBasic(encoded: string | null, form: URLSearchParams): Presented {
+  const decoded = encoded === null ? null : decodeBasicCredentials(encoded);
   if (decoded === null) return { ok: false, reason: "malformed_basic" };
   const bodyClientId = form.get("client_id");
-  if (form.has("client_secret") || (bodyClientId !== null && bodyClientId !== decoded.clientId)) {
+  const bodySecret = nonEmptyField(form, "client_secret");
+  if (bodySecret !== null || (bodyClientId !== null && bodyClientId !== decoded.clientId)) {
     return { ok: false, reason: "multiple_methods" };
+  }
+  if (decoded.secret === "") {
+    return { ok: true, credentials: { method: "none", clientId: decoded.clientId } };
   }
   return { ok: true, credentials: { method: "client_secret_basic", ...decoded } };
 }
 
 function presentedInBody(form: URLSearchParams): Presented {
-  const clientId = form.get("client_id");
-  if (clientId === null || clientId === "") return { ok: false, reason: "missing_client_id" };
-  const secret = form.get("client_secret");
+  const clientId = nonEmptyField(form, "client_id");
+  if (clientId === null) return { ok: false, reason: "missing_client_id" };
+  const secret = nonEmptyField(form, "client_secret");
   if (secret === null) return { ok: true, credentials: { method: "none", clientId } };
   return { ok: true, credentials: { method: "client_secret_post", clientId, secret } };
 }
 
-function basicCredentialsIn(headers: Headers): string | null {
-  const match = headers.get("authorization")?.trim().match(BASIC_AUTHORIZATION_PATTERN);
-  return match ? match[1] : null;
+/**
+ * Null when the Authorization header isn't Basic. Otherwise the encoded
+ * credentials, or null `encoded` when the header is Basic but malformed, so a
+ * broken Basic header is reported rather than silently ignored.
+ */
+function basicAuthorizationIn(headers: Headers): { encoded: string | null } | null {
+  const header = headers.get("authorization")?.trim();
+  if (header === undefined || !BASIC_SCHEME_PATTERN.test(header)) return null;
+  return { encoded: BASIC_AUTHORIZATION_PATTERN.exec(header)?.[1] ?? null };
 }
 
 // Both sides are SHA-256 digests, so the buffers always have equal length and
@@ -471,16 +535,18 @@ function credentialsMatch(credentials: PresentedCredentials, row: ClientRow): bo
 
 /**
  * Authenticate the client at the token or revocation endpoint: `none`
- * (client_id in the body), `client_secret_basic` (the Authorization header,
- * form-decoded after base64) or `client_secret_post` (both in the body). The
- * method used must be the one registered. `form` is the parsed request body.
+ * (client_id in the body, or in a Basic header with an empty password),
+ * `client_secret_basic` (the Authorization header, form-decoded after base64)
+ * or `client_secret_post` (both in the body). An empty client_secret counts
+ * as none. The method used must be the one registered. `form` is the parsed
+ * request body.
  */
 export async function authenticateClient(
   admin: SupabaseClient,
   headers: Headers,
   form: URLSearchParams
 ): Promise<ClientAuthentication> {
-  const basic = basicCredentialsIn(headers);
+  const basic = basicAuthorizationIn(headers);
   const usedBasic = basic !== null;
   const fail = (reason: ClientAuthFailureReason): ClientAuthentication => ({
     ok: false,
@@ -489,7 +555,7 @@ export async function authenticateClient(
     usedBasic,
   });
 
-  const presented = basic === null ? presentedInBody(form) : presentedBasic(basic, form);
+  const presented = basic === null ? presentedInBody(form) : presentedBasic(basic.encoded, form);
   if (!presented.ok) return fail(presented.reason);
   const { credentials } = presented;
   if (!CLIENT_ID_PATTERN.test(credentials.clientId)) return fail("unknown_client");

@@ -2,10 +2,13 @@
 /**
  * Tests for lib/auth/oauth/redirect-uri.ts:
  * - registration matrix: https accepted unless on one of our hosts (also with
- *   a trailing dot or different case), loopback http with and without a port,
- *   other http rejected, private-use schemes accepted, every denylisted
- *   scheme rejected, fragments and credentials rejected, count and length
- *   limits
+ *   a trailing dot or different case), loopback http with and without a port
+ *   only in its exact lowercase form (127.1, hex, trailing-dot, expanded IPv6
+ *   and uppercase spellings rejected), other http rejected, private-use
+ *   schemes accepted, every denylisted scheme rejected, whitespace, control
+ *   characters, lone surrogates, fragments and credentials rejected, count
+ *   and length limits
+ * - getOwnHostnames: the accepted origins' hosts plus the legacy hosts
  * - matching: exact for everything but loopback, where only the port may
  *   differ
  * - display text for each kind
@@ -19,12 +22,15 @@ import {
 import {
   AGENT_OAUTH_DENIED_REDIRECT_SCHEMES,
   AGENT_OAUTH_LIMITS,
+  getOwnHostnames,
 } from "@/lib/constants/agent-oauth";
+import { SITE_URL } from "@/lib/constants/site-config";
+import { LEGACY_HOSTS } from "@/lib/rebrand-redirect";
 
-const OUR_ORIGINS = ["https://careerotter.io", "https://www.careerotter.io"];
+const OUR_HOSTS = ["careerotter.io", "www.careerotter.io", ...LEGACY_HOSTS];
 
 function validate(...uris: string[]) {
-  return validateRedirectUris(uris, OUR_ORIGINS);
+  return validateRedirectUris(uris, OUR_HOSTS);
 }
 
 describe("validateRedirectUris", () => {
@@ -55,6 +61,9 @@ describe("validateRedirectUris", () => {
     "https://CAREEROTTER.IO/cb",
     "https://careerotter.io./cb",
     "https://careerotter.io:8443/cb",
+    "https://apptrack.ing/cb",
+    "https://www.apptrack.ing/cb",
+    "https://WWW.APPTRACK.ING./cb",
   ])("rejects our own host: %s", (uri) => {
     expect(validate(uri)).toEqual({ ok: false, message: expect.stringContaining("CareerOtter") });
   });
@@ -66,6 +75,35 @@ describe("validateRedirectUris", () => {
     "http://localhost@evil.example/cb",
   ])("rejects non-loopback http: %s", (uri) => {
     expect(validate(uri).ok).toBe(false);
+  });
+
+  it.each([
+    "http://127.1/cb",
+    "http://0x7f000001/cb",
+    "http://2130706433/cb",
+    "http://0177.0.0.1/cb",
+    "http://127.0.0.1./cb",
+    "http://[0:0:0:0:0:0:0:1]/cb",
+    "http://[::0001]/cb",
+    "HTTP://LOCALHOST/cb",
+    "http://LocalHost/cb",
+    "Http://127.0.0.1/cb",
+    "http://localhost:/cb",
+  ])("rejects a loopback host not in its exact form: %s", (uri) => {
+    expect(validate(uri)).toEqual({ ok: false, message: expect.stringContaining("127.0.0.1") });
+  });
+
+  it.each([
+    ["https://claude.ai/c b"],
+    [" https://claude.ai/cb"],
+    ["https://claude.ai/cb\t"],
+    ["http://localhost/cb\n"],
+    ["https://claude.ai/\u0000"],
+    ["https://claude.ai/\u0085"],
+    ["https://claude.ai/\u3000"],
+    ["cursor://cb\uD83D"],
+  ])("rejects whitespace, control characters and lone surrogates: %j", (uri) => {
+    expect(validate(uri)).toEqual({ ok: false, message: expect.stringContaining("whitespace") });
   });
 
   it.each(AGENT_OAUTH_DENIED_REDIRECT_SCHEMES.filter((scheme) => scheme !== "http" && scheme !== "https"))(
@@ -108,6 +146,24 @@ describe("validateRedirectUris", () => {
     const atLimit = base + "a".repeat(AGENT_OAUTH_LIMITS.redirectUriMaxLength - base.length);
     expect(validate(atLimit).ok).toBe(true);
     expect(validate(`${atLimit}a`).ok).toBe(false);
+  });
+});
+
+describe("getOwnHostnames", () => {
+  const saved = process.env.CAREEROTTER_MCP_EXTRA_ORIGINS;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.CAREEROTTER_MCP_EXTRA_ORIGINS;
+    else process.env.CAREEROTTER_MCP_EXTRA_ORIGINS = saved;
+  });
+
+  it("covers SITE_URL, the extra origins and every legacy host", () => {
+    process.env.CAREEROTTER_MCP_EXTRA_ORIGINS = "https://MCP.Example.com.";
+    const hosts = getOwnHostnames();
+    expect(hosts).toEqual(
+      expect.arrayContaining([new URL(SITE_URL).hostname, "mcp.example.com", ...LEGACY_HOSTS])
+    );
+    expect(new Set(hosts).size).toBe(hosts.length);
+    expect(validateRedirectUris(["https://mcp.example.com/cb"], hosts).ok).toBe(false);
   });
 });
 

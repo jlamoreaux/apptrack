@@ -26,6 +26,7 @@ export {
   isCalendarDate,
   isNullableString,
   isPlainObject,
+  isStringArray,
   toIsoDate,
   truncateCodePoints,
 } from "@/lib/careerotter/field-guards";

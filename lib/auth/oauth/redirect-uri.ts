@@ -3,9 +3,13 @@
  * request's redirect_uri is matched against the registered ones, and how a
  * URI is described to the user on the consent screen.
  *
- * Registered URIs are stored exactly as sent; validation parses them, but
- * matching compares the raw strings so nothing a parser normalizes can make
- * two different URIs match.
+ * Registered URIs are the raw strings from the registration body, stored
+ * exactly as sent: never the output of a URL parser or schema, which would
+ * lowercase the host, drop a default port, resolve dot segments or encode
+ * characters, so the client's own string would no longer match. Validation
+ * parses a copy, after refusing strings a parser would rewrite (whitespace,
+ * control characters, lone surrogates). Matching compares the raw strings, so
+ * nothing a parser normalizes can make two different URIs match.
  */
 
 import {
@@ -13,11 +17,16 @@ import {
   AGENT_OAUTH_LIMITS,
   AGENT_OAUTH_LOOPBACK_HOSTS,
   AGENT_OAUTH_PRIVATE_USE_SCHEME_PATTERN,
+  bareHostname,
 } from "@/lib/constants/agent-oauth";
-import { hasCredentials, hasFragment, parseUrl } from "@/lib/auth/oauth/url";
-
-/** The three kinds of redirect URI registration accepts. */
-export type RedirectUriKind = "https" | "loopback" | "private_use";
+import {
+  hasCredentials,
+  hasFragment,
+  hasUnsafeUriCharacters,
+  parseUrl,
+} from "@/lib/auth/oauth/url";
+import { escapeRegExp } from "@/lib/utils/escape-regexp";
+import type { RedirectUriKind } from "@/types";
 
 export type RedirectUriValidation =
   | { ok: true; kinds: RedirectUriKind[] }
@@ -25,11 +34,14 @@ export type RedirectUriValidation =
 
 const HTTPS_PROTOCOL = "https:";
 const HTTP_PROTOCOL = "http:";
-const TRAILING_DOT = /\.$/;
 const LOOPBACK_DISPLAY_HOST = "localhost";
 
-// Splits a raw loopback URI into host, optional port and the rest (path and
-// query), so two loopback URIs can be compared with only the port ignored.
+// A raw loopback URI, split into host, optional port and the rest (path and
+// query) so two loopback URIs can be compared with only the port ignored.
+// Case-sensitive on purpose: RFC 8252 §7.3 matches the loopback host exactly,
+// so the scheme and host must be the lowercase literals, and a host URL would
+// rewrite into one (127.1, 0x7f000001, "127.0.0.1.", [0:0:0:0:0:0:0:1],
+// LOCALHOST) is refused rather than normalized.
 const LOOPBACK_URI_PATTERN = new RegExp(
   `^http://(${AGENT_OAUTH_LOOPBACK_HOSTS.map(escapeRegExp).join("|")})(?::(\\d{1,5}))?([/?].*)?$`
 );
@@ -37,6 +49,7 @@ const LOOPBACK_URI_PATTERN = new RegExp(
 const MESSAGES = {
   count: `redirect_uris must have 1 to ${AGENT_OAUTH_LIMITS.redirectUrisMax} entries`,
   length: `Each redirect URI must be at most ${AGENT_OAUTH_LIMITS.redirectUriMaxLength} characters`,
+  characters: "Redirect URIs must not contain whitespace, control characters or invalid Unicode",
   notUrl: "Each redirect URI must be an absolute URI",
   fragment: "Redirect URIs must not contain a fragment",
   credentials: "Redirect URIs must not contain credentials",
@@ -45,21 +58,12 @@ const MESSAGES = {
   scheme: "Redirect URI scheme is not allowed",
 } as const;
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
 function isLoopbackHost(hostname: string): boolean {
   return AGENT_OAUTH_LOOPBACK_HOSTS.some((host) => host === hostname);
 }
 
 function isDeniedScheme(scheme: string): boolean {
   return AGENT_OAUTH_DENIED_REDIRECT_SCHEMES.some((denied) => denied === scheme);
-}
-
-// A trailing dot names the same host in DNS, so "careerotter.io." is ours too.
-function bareHostname(hostname: string): string {
-  return hostname.replace(TRAILING_DOT, "");
 }
 
 /** The URI's kind by structure alone, before the own-host ban. */
@@ -80,8 +84,8 @@ function rejectionFor(url: URL): string {
 
 /**
  * The kind of one registered redirect URI, or why it's refused. `ownHosts`
- * are the hostnames of the accepted origins: a code must never land on our
- * own site, where page analytics would capture it.
+ * are bare hostnames that serve or redirect to this app: a code must never
+ * land on our own site, where page analytics would capture it.
  */
 function classifyForRegistration(
   raw: string,
@@ -90,40 +94,44 @@ function classifyForRegistration(
   if (raw.length > AGENT_OAUTH_LIMITS.redirectUriMaxLength) {
     return { ok: false, message: MESSAGES.length };
   }
+  if (hasUnsafeUriCharacters(raw)) return { ok: false, message: MESSAGES.characters };
   if (hasFragment(raw)) return { ok: false, message: MESSAGES.fragment };
   const url = parseUrl(raw);
   if (url === null) return { ok: false, message: MESSAGES.notUrl };
   if (hasCredentials(url)) return { ok: false, message: MESSAGES.credentials };
   const kind = structuralKind(url);
   if (kind === null) return { ok: false, message: rejectionFor(url) };
+  // The parsed host alone would accept spellings URL rewrites to a loopback
+  // host; the raw string must already be in the exact form matching uses.
+  if (kind === "loopback" && !LOOPBACK_URI_PATTERN.test(raw)) {
+    return { ok: false, message: MESSAGES.httpNotLoopback };
+  }
   if (kind === "https" && ownHosts.has(bareHostname(url.hostname))) {
     return { ok: false, message: MESSAGES.ownHost };
   }
   return { ok: true, kind };
 }
 
-function hostnamesOf(origins: readonly string[]): Set<string> {
-  return new Set(origins.map((origin) => bareHostname(new URL(origin).hostname)));
-}
-
 /**
- * Registration-time check of a client's redirect URIs (RFC 8252 and OAuth
- * 2.1 §2.3.1): 1 to 5 absolute URIs of at most 512 characters, none with a
- * fragment or credentials, each an https URI not on one of `acceptedOrigins`,
- * an http loopback URI (any port), or a private-use scheme outside the
- * denylist. Returns each URI's kind, in order.
+ * Registration-time check of a client's raw redirect URIs (RFC 8252 and
+ * OAuth 2.1 §2.3.1): 1 to 5 absolute URIs of at most 512 characters, none
+ * with whitespace, control characters, lone surrogates, a fragment or
+ * credentials, each an https URI not on one of `ownHosts` (see
+ * getOwnHostnames), an http loopback URI in its exact lowercase form (any
+ * port), or a private-use scheme outside the denylist. Returns each URI's
+ * kind, in order.
  */
 export function validateRedirectUris(
   uris: readonly string[],
-  acceptedOrigins: readonly string[]
+  ownHosts: readonly string[]
 ): RedirectUriValidation {
   if (uris.length === 0 || uris.length > AGENT_OAUTH_LIMITS.redirectUrisMax) {
     return { ok: false, message: MESSAGES.count };
   }
-  const ownHosts = hostnamesOf(acceptedOrigins);
+  const ownHostSet = new Set(ownHosts.map(bareHostname));
   const kinds: RedirectUriKind[] = [];
   for (const uri of uris) {
-    const classified = classifyForRegistration(uri, ownHosts);
+    const classified = classifyForRegistration(uri, ownHostSet);
     if (!classified.ok) return classified;
     kinds.push(classified.kind);
   }
