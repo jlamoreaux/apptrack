@@ -46,8 +46,8 @@ export default async function TryCompPage() {
       <div className="mb-6 space-y-1">
         <h1 className="text-2xl font-bold">Comp</h1>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          What you are paid, what it is worth year by year through your vest, up to five years out, and how it sits
-          against the market for your role. No account needed to try it.
+          Your pay today, year by year through your vest, and against the market for your role. No account
+          needed.
         </p>
       </div>
       <CompTracker mode="guest" />

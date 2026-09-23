@@ -337,7 +337,11 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-5">
+          <CardContent className="space-y-4 p-5">
+            <SectionHeading
+              title="Compare to the market"
+              hint="Your annual total comp against the range for your role and level."
+            />
             <MarketComparison
               roleTitle={roleTitle}
               level={level}
@@ -359,7 +363,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
       {/* Main column. On phones the wrappers dissolve and `order` interleaves the cards. */}
       <div className="contents lg:block lg:space-y-6">
         <Card className="order-1 lg:order-none">
-          <CardContent className="space-y-5 p-5">
+          <CardContent className="p-5">
             <div>
               <p className="text-xs text-muted-foreground">Annual total comp</p>
               <p className="text-4xl font-semibold text-foreground">
@@ -373,16 +377,16 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
                 {vest && ` over a ${Number(latest.vest_years)}-year vest`}
                 {isScenario && " at the simulated price"}
               </p>
+              {/* The headline averages the grant; the projection counts what
+                  lands in each calendar year, so year one can read higher or
+                  lower. Say so before the two numbers disagree on screen. */}
+              {projection?.hasVestSchedule && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  An average year across the vest. Calendar years below differ as the cliff and
+                  vest dates land.
+                </p>
+              )}
             </div>
-            <MarketComparison
-              roleTitle={roleTitle}
-              level={level}
-              onRoleTitleChange={setRoleTitle}
-              onLevelChange={setLevel}
-              marketRange={marketRange}
-              isPro={isPro}
-              annualTotal={breakdown?.total ?? null}
-            />
           </CardContent>
         </Card>
 
@@ -414,7 +418,25 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
           </Card>
         )}
 
-        <Card className="order-7 lg:order-none">
+        <Card className="order-6 lg:order-none">
+          <CardContent className="space-y-4 p-5">
+            <SectionHeading
+              title="Compare to the market"
+              hint="Your annual total comp against the range for your role and level."
+            />
+            <MarketComparison
+              roleTitle={roleTitle}
+              level={level}
+              onRoleTitleChange={setRoleTitle}
+              onLevelChange={setLevel}
+              marketRange={marketRange}
+              isPro={isPro}
+              annualTotal={breakdown?.total ?? null}
+            />
+          </CardContent>
+        </Card>
+
+        <Card className="order-8 lg:order-none">
           <CardContent className="space-y-2 p-5">
             <SectionHeading
               title="Your trajectory"
@@ -466,7 +488,7 @@ export function CompTracker({ mode = "account" }: CompTrackerProps) {
           </div>
         )}
 
-        <Card className="order-6 lg:order-none">
+        <Card className="order-7 lg:order-none">
           <CardContent className="space-y-4 p-5">
             <SectionHeading
               title="Log a change"
