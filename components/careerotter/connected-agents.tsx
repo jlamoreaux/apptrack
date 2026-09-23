@@ -13,6 +13,8 @@ import {
 } from "@/lib/client/agent-tokens.client";
 import type { AgentTokenRecord } from "@/types";
 import { AgentAccessError, AgentSectionHeading } from "./agent-access-shared";
+import { AgentOAuthSetup } from "./agent-oauth-setup";
+import { ConnectedApps } from "./connected-apps";
 import { AgentTokenCreateForm } from "./agent-token-create-form";
 import { AgentTokenList } from "./agent-token-list";
 import { AgentTokenReveal } from "./agent-token-reveal";
@@ -48,12 +50,41 @@ function LoadFailure({
   );
 }
 
+interface ConnectedAgentsProps {
+  /** Base URL for the personal access token snippets. */
+  appUrl: string;
+  /** isMcpOAuthEnabled(), resolved on the server. */
+  oauthEnabled: boolean;
+  /** The canonical MCP URL for the sign-in setup; only used when oauthEnabled. */
+  mcpUrl: string;
+}
+
 /**
- * Personal access tokens for MCP agents: list, create (shown once), revoke.
- * Talks only to the token API; the raw token is held in memory until the user
- * confirms they saved it.
+ * Agent access for the MCP server. With OAuth enabled, the "Sign in with your
+ * browser" setup and the connected apps list come first. Then personal access
+ * tokens: list, create (shown once), revoke. Talks only to the API routes; a
+ * raw token is held in memory until the user confirms they saved it.
  */
-export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Element {
+export function ConnectedAgents({ appUrl, oauthEnabled, mcpUrl }: ConnectedAgentsProps): React.JSX.Element {
+  // Bumped after revoke-all, which also revokes connected apps.
+  const [grantsReloadKey, setGrantsReloadKey] = useState(0);
+
+  return (
+    <div className="space-y-6">
+      {oauthEnabled && <AgentOAuthSetup mcpUrl={mcpUrl} />}
+      {oauthEnabled && <ConnectedApps reloadKey={grantsReloadKey} />}
+      <AgentTokens appUrl={appUrl} onRevokedAll={() => setGrantsReloadKey((key) => key + 1)} />
+    </div>
+  );
+}
+
+function AgentTokens({
+  appUrl,
+  onRevokedAll,
+}: {
+  appUrl: string;
+  onRevokedAll: () => void;
+}): React.JSX.Element {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -170,7 +201,14 @@ export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Eleme
           tokens={load.tokens}
           busy={busy}
           onRevoke={(id) => void runRevoke(() => revokeAgentToken(id))}
-          onRevokeAll={() => void runRevoke(revokeAllAgentTokens)}
+          onRevokeAll={() =>
+            void runRevoke(async () => {
+              const result = await revokeAllAgentTokens();
+              // Even a partial failure may have revoked some apps.
+              onRevokedAll();
+              return result;
+            })
+          }
         />
       </section>
     </div>

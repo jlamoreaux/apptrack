@@ -1,6 +1,43 @@
 import Link from "next/link";
-import { AGENT_ACCESS_SIGN_IN_HREF } from "@/lib/constants/agent-access-ui";
-import type { ApiFailureReason } from "@/lib/client/agent-tokens.client";
+import {
+  AGENT_ACCESS_SIGN_IN_HREF,
+  AGENT_SCOPE_DETAILS,
+  AGENT_TOKEN_NEVER_LABEL,
+} from "@/lib/constants/agent-access-ui";
+import type { AgentTokenScope } from "@/lib/constants/agent-access";
+import type { ApiFailureReason } from "@/lib/client/agent-api.client";
+import { formatLocalDate } from "@/lib/utils/date";
+
+// Token and app names are user- or client-supplied and may be one unbroken
+// string. overflow-wrap "anywhere" also lowers the min-content width, which
+// grid and flex parents size from, so a long name wraps instead of forcing
+// horizontal scroll.
+export const LONG_TEXT_WRAP = "min-w-0 break-words [overflow-wrap:anywhere]";
+
+/** A date, or "Never" for a null last-used or expiry date. */
+export function formatOptionalDate(value: string | null): string {
+  return value === null ? AGENT_TOKEN_NEVER_LABEL : formatLocalDate(value);
+}
+
+export function scopeLabels(scopes: readonly AgentTokenScope[]): string {
+  return scopes.map((scope) => AGENT_SCOPE_DETAILS[scope].label).join(", ");
+}
+
+/** One term and value in a token's or app's detail list. */
+export function AgentDetail({
+  term,
+  children,
+}: {
+  term: string;
+  children: React.ReactNode;
+}): React.JSX.Element {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{term}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
 
 /** Enough of an API failure (or a client-side validation message) to render. */
 export interface AgentAccessErrorDetail {

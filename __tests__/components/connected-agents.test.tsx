@@ -16,6 +16,7 @@ import { AGENT_ACCESS_FIELD_COPY, AGENT_SETUP_INSECURE_NOTICE, NEVER_EXPIRES } f
 import type { AgentTokenRecord } from "@/types";
 
 const SITE = "https://careerotter.test";
+const MCP_URL = `${SITE}/api/mcp`;
 // base64url of 32 bytes. The fixture is assembled at runtime from obviously
 // fake parts so secret scanners do not flag a literal full-length token.
 const FAKE_SECRET_LENGTH = 43;
@@ -117,7 +118,7 @@ function jsonBody(init: RequestInit): unknown {
 
 async function renderLoaded(tokens: AgentTokenRecord[] = [ACTIVE, REVOKED]): Promise<void> {
   mockList(tokens);
-  render(<ConnectedAgents appUrl={SITE} />);
+  render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
   await screen.findByRole("form", { name: /create an agent token/i });
 }
 
@@ -207,7 +208,7 @@ describe("ConnectedAgents list", () => {
 
   it("announces loading politely rather than as a status badge", () => {
     fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
-    render(<ConnectedAgents appUrl={SITE} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     const loading = screen.getByText(/loading connected agents/i);
     expect(loading).toHaveAttribute("aria-live", "polite");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
@@ -215,7 +216,7 @@ describe("ConnectedAgents list", () => {
 
   it("shows a load error inline with a Try again button that reloads", async () => {
     respond({ error: "Something went wrong" }, HTTP.serverError);
-    render(<ConnectedAgents appUrl={SITE} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
 
     mockList([ACTIVE]);
@@ -226,14 +227,14 @@ describe("ConnectedAgents list", () => {
 
   it("offers Try again when the network request fails", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    render(<ConnectedAgents appUrl={SITE} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not reach careerotter/i);
     expect(screen.getByRole("button", { name: "Try again" })).toHaveClass("min-h-11");
   });
 
   it("asks the user to sign in again when the session expired", async () => {
     respond({ error: "Unauthorized" }, HTTP.unauthorized);
-    render(<ConnectedAgents appUrl={SITE} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Your session expired. Sign in again.");
     expect(within(alert).getByRole("link", { name: /sign in again/i })).toHaveAttribute(
@@ -492,7 +493,7 @@ describe("ConnectedAgents reveal", () => {
 
   it("shows a notice instead of setup snippets when the site is not served over HTTPS", async () => {
     mockList([ACTIVE]);
-    render(<ConnectedAgents appUrl="http://careerotter.test" />);
+    render(<ConnectedAgents appUrl="http://careerotter.test" oauthEnabled={false} mcpUrl={MCP_URL} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     await createToken();
     expect(screen.getByText(AGENT_SETUP_INSECURE_NOTICE)).toBeInTheDocument();
@@ -556,8 +557,8 @@ describe("ConnectedAgents revoke", () => {
     await renderLoaded();
     fireEvent.click(screen.getByRole("button", { name: "Revoke all" }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent(/revoke all agent tokens/i);
-    expect(dialog).toHaveTextContent("Every connected agent loses access right away.");
+    expect(dialog).toHaveTextContent(/revoke all agent access/i);
+    expect(dialog).toHaveTextContent("Every agent token and connected app loses access right away.");
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     respond({ revoked: 1 });
@@ -643,14 +644,14 @@ describe("ConnectedAgents revoke", () => {
 describe("ConnectedAgents accessibility", () => {
   it("has no axe violations with a list and the create form", async () => {
     mockList([ACTIVE, REVOKED]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     expect(await axe(container, global.axeConfig)).toHaveNoViolations();
   });
 
   it("has no axe violations on the reveal panel", async () => {
     mockList([]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     await createToken([CREATED]);
     await screen.findByText(CREATED.name);
@@ -659,7 +660,7 @@ describe("ConnectedAgents accessibility", () => {
 
   it("has no axe violations with a rejected name", async () => {
     mockList([ACTIVE]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     respond({ error: "An active token with this name already exists" }, HTTP.conflict);
     submitCreate(ACTIVE.name);

@@ -190,3 +190,29 @@ export function buildAgentSetupSnippets(appUrl: string): AgentSetupSnippetSet {
     otherClients: `URL: ${endpoint}\nHeader: Authorization: Bearer ${TOKEN_PLACEHOLDER}`,
   };
 }
+
+export interface OAuthSetupSnippetSet {
+  endpoint: string;
+  claudeCode: string;
+  cursorConfig: string;
+}
+
+/**
+ * Setup for clients that sign in with OAuth: only the MCP URL, no token and no
+ * header. `mcpUrl` must be the canonical SITE_URL resource, since a client
+ * that connects through another host can't complete OAuth (the resource
+ * wouldn't match).
+ */
+export function buildOAuthSetupSnippets(mcpUrl: string): OAuthSetupSnippetSet {
+  return {
+    endpoint: mcpUrl,
+    claudeCode: `claude mcp add --transport http ${MCP_SERVER_NAME} ${mcpUrl}`,
+    cursorConfig: toJson({ mcpServers: { [MCP_SERVER_NAME]: { url: mcpUrl } } }),
+  };
+}
+
+export const CONNECTED_APP_COPY = {
+  sendsYouBackTo: "Sends you back to",
+  connected: "Connected",
+  empty: "No apps connected yet.",
+} as const;

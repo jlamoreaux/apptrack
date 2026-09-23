@@ -6,6 +6,7 @@ import { getUser } from "@/lib/supabase/server";
 import { DataExportButton } from "@/components/careerotter/data-export-button";
 import { ConnectedAgents } from "@/components/careerotter/connected-agents";
 import { getAppUrl } from "@/lib/constants/site-config";
+import { CANONICAL_MCP_RESOURCE, isMcpOAuthEnabled } from "@/lib/constants/agent-oauth";
 
 /**
  * Your data: how we treat it, export, and connected agents. Users log
@@ -33,7 +34,7 @@ export default async function DataPage(): Promise<React.JSX.Element> {
           <li>Export everything anytime, below.</li>
           <li>Delete your account and it is gone, wins included.</li>
           <li>
-            Agents you connect can read and write the data their token allows, and you can
+            Agents you connect can read and write only the data you allow them, and you can
             revoke them here.
           </li>
         </ul>
@@ -46,13 +47,19 @@ export default async function DataPage(): Promise<React.JSX.Element> {
               Connected agents
             </h2>
             <p className="text-sm text-muted-foreground">
-              Give an AI agent, like Claude Code, its own token to log wins and read your
-              career data on your behalf.
+              Connect an AI agent, like Claude Code, to log wins and read your career data on
+              your behalf.
             </p>
           </div>
           {/* Resolved here: VERCEL_URL is only set on the server, and site-config
-              can throw at module load, which should not happen in the browser. */}
-          <ConnectedAgents appUrl={getAppUrl()} />
+              can throw at module load, which should not happen in the browser. The
+              sign-in setup uses the canonical SITE_URL resource, because OAuth
+              can't complete through any other host (the resource wouldn't match). */}
+          <ConnectedAgents
+            appUrl={getAppUrl()}
+            oauthEnabled={isMcpOAuthEnabled()}
+            mcpUrl={CANONICAL_MCP_RESOURCE}
+          />
         </section>
       </main>
     </div>

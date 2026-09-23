@@ -325,16 +325,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the middleware gate matrix for both flags and preview
 
 ## Task 6: Connected apps UI and API
-- [ ] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
+- [x] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
   `[id]/route.ts` (DELETE). Both accept a session cookie only.
-- [ ] 6.2: The existing revoke-all route:
+- [x] 6.2: The existing revoke-all route:
   - also revokes grants, regardless of the flag
   - treats `42883` as zero grants revoked
   - on a partial failure, returns 500 with the counts
-- [ ] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
+- [x] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
   list, and the "Sign in with your browser" setup option. The flag reaches them
   as a prop from `app/(app)/dashboard/data/page.tsx`.
-- [ ] 6.4: Write tests for Task 6:
+- [x] 6.4: Write tests for Task 6:
   - the list shape and its 30-day window
   - OAuth disabled hides the list and the option
   - revoke: success; a foreign or missing id → 404

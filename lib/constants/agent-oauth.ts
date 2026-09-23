@@ -124,7 +124,15 @@ export const AGENT_OAUTH_LIMITS = {
   // parameters around redirect_to.
   supabaseRedirectAllowance: 512,
   requestBodyMaxBytes: 16 * 1024,
+  // Rows the connected-apps list returns. Reconnecting an app replaces its
+  // grant, so revoked rows inside the history window can pile up; the newest
+  // are the ones worth showing.
+  maxListedGrants: 100,
 } as const;
+
+// The connected-apps list shows active grants plus those revoked or expired
+// within this many days.
+export const AGENT_OAUTH_GRANT_HISTORY_DAYS = 30;
 
 export const AGENT_OAUTH_DEFAULT_CLIENT_NAME = "Unnamed app";
 
@@ -246,6 +254,9 @@ export const AGENT_OAUTH_REVOKE_REASONS = [
 ] as const;
 export type AgentOAuthRevokeReason =
   (typeof AGENT_OAUTH_REVOKE_REASONS)[number];
+
+// A user revoking one app on /dashboard/data.
+export const AGENT_OAUTH_USER_REVOKE_REASON = "user" satisfies AgentOAuthRevokeReason;
 
 // Errors the authorize handler sends back to the client's redirect_uri.
 export const AGENT_OAUTH_AUTHORIZE_ERROR_CODES = [

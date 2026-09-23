@@ -3,28 +3,17 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import {
-  AGENT_SCOPE_DETAILS,
-  AGENT_TOKEN_NEVER_LABEL,
-  AGENT_TOKEN_STATUS_LABELS,
-} from "@/lib/constants/agent-access-ui";
+import { AGENT_TOKEN_STATUS_LABELS } from "@/lib/constants/agent-access-ui";
 import { formatLocalDate } from "@/lib/utils/date";
 import type { AgentTokenRecord } from "@/types";
+import {
+  AgentDetail,
+  formatOptionalDate,
+  LONG_TEXT_WRAP,
+  scopeLabels,
+} from "./agent-access-shared";
 
 type PendingRevoke = { kind: "one"; token: AgentTokenRecord } | { kind: "all" } | null;
-
-// Token names are user-supplied and may be one unbroken string. overflow-wrap
-// "anywhere" also lowers the min-content width, which grid and flex parents
-// size from, so a long name wraps instead of forcing horizontal scroll.
-const LONG_TEXT_WRAP = "min-w-0 break-words [overflow-wrap:anywhere]";
-
-function formatOptionalDate(value: string | null): string {
-  return value === null ? AGENT_TOKEN_NEVER_LABEL : formatLocalDate(value);
-}
-
-function scopeLabels(token: AgentTokenRecord): string {
-  return token.scopes.map((scope) => AGENT_SCOPE_DETAILS[scope].label).join(", ");
-}
 
 function confirmCopy(pending: Exclude<PendingRevoke, null>): {
   title: string;
@@ -33,9 +22,9 @@ function confirmCopy(pending: Exclude<PendingRevoke, null>): {
 } {
   if (pending.kind === "all") {
     return {
-      title: "Revoke all agent tokens?",
+      title: "Revoke all agent access?",
       description:
-        "Every connected agent loses access right away. This cannot be undone; you would need to create new tokens.",
+        "Every agent token and connected app loses access right away. This cannot be undone; you would need to create new tokens and reconnect your apps.",
       confirmText: "Revoke all",
     };
   }
@@ -45,15 +34,6 @@ function confirmCopy(pending: Exclude<PendingRevoke, null>): {
       "Agents using this token lose access right away. This cannot be undone; you would need to create a new token.",
     confirmText: "Revoke",
   };
-}
-
-function TokenDetail({ term, children }: { term: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{term}</dt>
-      <dd>{children}</dd>
-    </div>
-  );
 }
 
 function TokenItem({
@@ -85,11 +65,11 @@ function TokenItem({
         )}
       </div>
       <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-        <TokenDetail term="Access">{scopeLabels(token)}</TokenDetail>
-        <TokenDetail term="Status">{AGENT_TOKEN_STATUS_LABELS[token.status]}</TokenDetail>
-        <TokenDetail term="Created">{formatLocalDate(token.created_at)}</TokenDetail>
-        <TokenDetail term="Last used">{formatOptionalDate(token.last_used_at)}</TokenDetail>
-        <TokenDetail term="Expires">{formatOptionalDate(token.expires_at)}</TokenDetail>
+        <AgentDetail term="Access">{scopeLabels(token.scopes)}</AgentDetail>
+        <AgentDetail term="Status">{AGENT_TOKEN_STATUS_LABELS[token.status]}</AgentDetail>
+        <AgentDetail term="Created">{formatLocalDate(token.created_at)}</AgentDetail>
+        <AgentDetail term="Last used">{formatOptionalDate(token.last_used_at)}</AgentDetail>
+        <AgentDetail term="Expires">{formatOptionalDate(token.expires_at)}</AgentDetail>
       </dl>
     </li>
   );

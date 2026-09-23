@@ -1405,6 +1405,41 @@ Critic review of this design, and how each point was resolved:
   (jose 6 is ESM-only, which Jest's loader can't run), with a signed
   extension JWT as a positive control.
 
+**Task 6 implementation notes**
+- The 30-day window is applied to when a grant ended: it's listed when it
+  isn't revoked or was revoked in the window, and has no expiry or expired
+  in the window (`AGENT_OAUTH_GRANT_HISTORY_DAYS`). A grant that expired
+  before the window and was then revoked by revoke-all (which revokes
+  expired grants too) stays hidden. Status reuses `agentTokenStatus`, so
+  revocation wins over expiry. The list is capped at 100 rows
+  (`AGENT_OAUTH_LIMITS.maxListedGrants`), newest first, since reconnecting
+  replaces a grant and revoked rows can pile up.
+- Grants don't store a redirect URI, so `redirectDisplay` comes from the
+  client's registered `redirect_uris` (embedded in the select), each passed
+  through `redirectUriDisplay`, deduplicated and joined with ", ".
+- GET checks the session before the flag (401 first); DELETE checks the
+  flag first (404 before touching the session), like the other OAuth
+  surfaces. A non-uuid id is 404 without a call. `mcp_oauth_revoked` is sent
+  with reason `user` only when the outcome is `revoked`, and with reason
+  `user_all` from revoke-all when it revoked at least one grant.
+- Revoke-all calls the grants function even when the tokens update fails,
+  so it cuts off everything it can. Success is
+  `{ revoked, tokensRevoked, grantsRevoked }` (`revoked` is the sum); any
+  failure is 500 `{ error, tokensRevoked, grantsRevoked }` with `null` for
+  the call that failed. A missing function (`42883` or `PGRST202`, via
+  `isMissingFunctionError`) counts as 0.
+- The revoke-all confirmation now reads "Revoke all agent access?" and says
+  connected apps lose access too. The Revoke all button still appears only
+  while a token is active; apps are revoked one by one otherwise.
+- The browser helpers the token client used moved to
+  `lib/client/agent-api.client.ts`, shared with `agent-grants.client.ts`.
+  The setup snippet block (`SetupSnippet`) and the list detail helpers
+  (`AgentDetail`, `scopeLabels`, `formatOptionalDate`, `LONG_TEXT_WRAP`) are
+  shared by the token and app UIs.
+- The data page passes `mcpUrl={CANONICAL_MCP_RESOURCE}` alongside
+  `oauthEnabled`: the sign-in snippets must use the SITE_URL host, while
+  the PAT snippets keep using `getAppUrl()`.
+
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could
   mislead. The hostname display does the job.
