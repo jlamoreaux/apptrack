@@ -14,7 +14,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import { emailDistinctId } from "@/lib/analytics/anonymize";
+import { MANUAL_SOURCE } from "@/lib/constants/careerotter";
 import {
   WIN_REST_SELECT,
   createWin,
@@ -64,9 +64,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // "manual". Client-supplied `source` is ignored so callers can't forge
   // "zero_to_case"/"recap"/"import"/"agent".
   const result = await createWin(createAdminClient(), user.id, input.value, {
-    source: "manual",
+    source: MANUAL_SOURCE,
     select: WIN_REST_SELECT,
-    distinctId: user.id ?? emailDistinctId(user.email ?? ""),
   });
   if (!result.ok) return domainErrorResponse(result);
 
