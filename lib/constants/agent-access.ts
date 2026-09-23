@@ -72,7 +72,7 @@ export const MCP_LIST_WINS = {
   maxLimit: 200,
 } as const;
 
-export const MCP_INSTRUCTIONS_VERSION = "1.0.0";
+export const MCP_INSTRUCTIONS_VERSION = "1.1.0";
 
 // Random bytes behind each token; 256 bits makes guessing infeasible.
 export const AGENT_TOKEN_SECRET_BYTES = 32;
@@ -106,3 +106,22 @@ export const MCP_UNAVAILABLE_RETRY_AFTER_SECONDS = 5;
 
 // Shown for unexpected tool failures; the real error is only logged.
 export const MCP_TOOL_FAILED_MESSAGE = "Tool failed; try again";
+
+// Tells the agent how to retry safely: a write may have committed even though
+// the result never arrived.
+export const MCP_TOOL_TIMEOUT_MESSAGE =
+  "The tool timed out. If it was a write, retry with the same external_ref to avoid duplicates.";
+
+const MS_PER_SECOND = 1000;
+// Room left under maxDuration to log and send the 504 before the platform
+// kills the function.
+const MCP_DEADLINE_HEADROOM_SECONDS = 5;
+
+// Deadlines on the MCP request path. A slow dependency must end in a clear
+// error while the function can still respond.
+export const MCP_DEADLINES_MS = {
+  tokenVerify: 5_000,
+  rateLimit: 2_000,
+  tool: 20_000,
+  request: (MCP_MAX_DURATION_SECONDS - MCP_DEADLINE_HEADROOM_SECONDS) * MS_PER_SECOND,
+} as const;

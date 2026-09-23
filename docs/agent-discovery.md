@@ -83,34 +83,55 @@ Notes before doing this:
 - The schema of the organization index that `_index._agents` points at is out of
   scope for the draft. CareerOtter would serve `/.well-known/ai-catalog.json`,
   which is what the ARD manifest above already is.
-- `_mcp._agents` and `_a2a._agents` records should **not** be added. They would
-  advertise an MCP server and an A2A agent that do not exist (see below).
+- `_mcp._agents` should **not** be added until the MCP server launches (see
+  below); before then it would advertise an endpoint that 404s. `_a2a._agents`
+  should not be added at all: there is no A2A agent.
 - The draft asks that the discovery zone be DNSSEC-signed so validating
   resolvers return authenticated data. Signing `careerotter.io` is a
   registrar/DNS-host operation, not a code change.
 
 ## Not published: OAuth, auth.md, and MCP
 
-Four commonly-audited discovery documents are intentionally absent, because
-publishing them would describe infrastructure CareerOtter does not have. An
-agent that reads a discovery document and then gets a 404 is worse off than one
-that found nothing and fell back to the website.
+CareerOtter has a remote MCP server at `/api/mcp` (`app/api/mcp/route.ts`):
+Streamable HTTP, stateless, JSON-RPC over POST, with no SSE stream. It is
+authenticated with personal access tokens (`co_pat_` prefix, verified by
+`lib/auth/agent-token.ts`) that an account holder creates and revokes on
+`/dashboard/data`. Each token carries scopes from `AGENT_TOKEN_SCOPES` in
+`lib/constants/agent-access.ts` (`wins:read`, `wins:write`, `career:read`,
+`comp:read`, `comp:write`; a write scope implies its read scope), and the
+server registers only the tools in `lib/mcp/tools/` that the token's scopes
+allow.
+
+The server is dark until launch: `middleware.ts` returns 404 for `/api/mcp`
+(and the token API) unless `CAREEROTTER_ENABLED=1`. Because a discovery document
+that points at a 404 is worse than none, nothing below advertises it yet, and
+`/llms.txt`, `/openapi.json`, and `/.well-known/api-catalog` do not mention it.
+
+Four commonly-audited discovery documents are intentionally absent:
 
 - **`/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`.**
-  CareerOtter is not an OAuth authorization server. Authentication is a Supabase
-  session cookie obtained by the first-party web app. There is no client
+  CareerOtter is not an OAuth authorization server. Web sign-in is a Supabase
+  session cookie obtained by the first-party app, and agent access uses personal
+  access tokens pasted into the client by the user. There is no client
   registration, no authorization endpoint, and no token endpoint a third party
   could use.
-- **`/.well-known/oauth-protected-resource`.** Same reason: it would have to name
-  authorization servers that can issue tokens for this resource, and none can.
-- **`/auth.md`.** Its whole purpose is agent registration instructions. There is
-  no agent registration.
-- **`/.well-known/mcp/server-card.json`.** There is no MCP server. The in-browser
-  WebMCP tools in `components/agents/webmcp-provider.tsx` are a different thing:
-  they run in the user's tab, are not reachable over the network, and are not
-  described by a server card.
+- **`/.well-known/oauth-protected-resource`.** The MCP server is a protected
+  resource, but not an OAuth one. Protected Resource Metadata exists to name the
+  authorization servers that issue tokens for a resource, and none does:
+  `co_pat_` tokens come from the dashboard, not from an OAuth flow. Publishing
+  it (or a `resource_metadata` parameter, which the MCP route's 401
+  `WWW-Authenticate: Bearer error="invalid_token"` deliberately omits) would
+  send spec-following MCP clients into an authorization flow that cannot
+  succeed, instead of prompting the user for a token.
+- **`/auth.md`.** Its purpose is agent registration instructions. There is no
+  agent registration; a person creates a token and hands it to their agent.
+- **`/.well-known/mcp/server-card.json`.** Not published yet. It should describe
+  a server clients can actually reach, so it is a launch follow-up to decide
+  alongside the DNS-AID `_mcp._agents` record, once `CAREEROTTER_ENABLED` is on
+  in production. The in-browser WebMCP tools in
+  `components/agents/webmcp-provider.tsx` are a different thing and remain
+  public-only: they run in the user's tab, expose no signed-in data, are not
+  reachable over the network, and are not described by a server card.
 
-These become worth publishing the day a public, token-authenticated API exists —
-not before. The prerequisite is a real API surface with its own authorization
-story, at which point `/openapi.json` and `/.well-known/api-catalog` grow to
-describe it and the OAuth documents follow.
+The OAuth documents become worth publishing if the MCP server gains an OAuth
+2.1 authorization server (the MCP authorization spec's flow), not before.
