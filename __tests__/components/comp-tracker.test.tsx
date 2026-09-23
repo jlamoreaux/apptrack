@@ -141,10 +141,39 @@ describe("with a share-based entry and a live price", () => {
     expect(screen.queryByRole("button", { name: new RegExp(`^${thisYear + 5}: total`) })).not.toBeInTheDocument();
 
     const table = screen.getByRole("table");
-    expect(within(table).getByText("Vested")).toBeInTheDocument();
-    expect(within(table).getByText("Unvested")).toBeInTheDocument();
+    // The vest starts this year and nothing has cleared the cliff, so the
+    // vested / still-to-vest split would only repeat the Stock row.
+    expect(within(table).getByText("Stock")).toBeInTheDocument();
+    expect(within(table).queryByText("Vested so far")).not.toBeInTheDocument();
+    expect(within(table).queryByText("Still to vest")).not.toBeInTheDocument();
     expect(within(table).getByText("Total comp")).toBeInTheDocument();
     expect(within(table).getByText("Est. take-home")).toBeInTheDocument();
+  });
+
+  it("explains that the headline averages the vest", async () => {
+    render(<CompTracker />);
+    expect(await screen.findByText(/An average year across the vest/)).toBeInTheDocument();
+  });
+
+  it("splits stock into vested and still to vest once part of the grant has vested", async () => {
+    respondWith({
+      entries: [{ ...entry, vest_start: `${thisYear - 2}-01-01` }],
+      marketRange: null,
+      isPro: false,
+      prices: { NET: quote },
+      priceFeedEnabled: true,
+    });
+    render(<CompTracker />);
+    await screen.findByText("Projected comp");
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Vested so far")).toBeInTheDocument();
+    expect(within(table).getByText("Still to vest")).toBeInTheDocument();
+  });
+
+  it("puts the market comparison in its own section", async () => {
+    render(<CompTracker />);
+    expect(await screen.findByText("Compare to the market")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tax rate for take-home")).toHaveValue(30);
   });
 
   it("shows the company behind the ticker with its price and day move", async () => {
