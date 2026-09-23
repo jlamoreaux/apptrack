@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { NavigationServer } from "@/components/navigation-server";
 import { getUser } from "@/lib/supabase/server";
 import { DataExportButton } from "@/components/careerotter/data-export-button";
+import { ConnectedAgents } from "@/components/careerotter/connected-agents";
 
 /**
  * Your data (CareerOtter M2c privacy posture). A plain-language statement plus
@@ -30,9 +31,26 @@ export default async function DataPage() {
           <li>We do not train models on your data.</li>
           <li>Export everything anytime, below.</li>
           <li>Delete your account and it is gone, wins included.</li>
+          <li>
+            Agents you connect can read and write the data their token allows, and you can
+            revoke them here.
+          </li>
         </ul>
 
         <DataExportButton />
+
+        <section aria-labelledby="connected-agents-heading" className="space-y-4 pt-4">
+          <div className="space-y-1">
+            <h2 id="connected-agents-heading" className="text-xl font-semibold">
+              Connected agents
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Give an AI agent, like Claude Code, its own token to log wins and read your
+              career data on your behalf.
+            </p>
+          </div>
+          <ConnectedAgents />
+        </section>
       </main>
     </div>
   );
