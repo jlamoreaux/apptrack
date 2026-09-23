@@ -216,8 +216,14 @@ gets 401.
 - `DELETE /api/careerotter/agent-tokens/:id` → revoke one. Non-uuid id → 404.
   Not the caller's → 404. Already revoked → 200 without changing `revoked_at`
   (`.is('revoked_at', null)` on the update, then a re-read).
-- `DELETE /api/careerotter/agent-tokens` → revoke every unrevoked token (expired ones included, so their names free up); returns the number of active tokens revoked as the
-  count.
+- `DELETE /api/careerotter/agent-tokens` → revoke all agent access: every
+  unrevoked token (expired ones included, so their names free up) and, once
+  MCP OAuth ships, every connected app (OAuth grant). Returns
+  `{ revoked, tokensRevoked, grantsRevoked }`: `tokensRevoked` and
+  `grantsRevoked` count the tokens and grants that were still active (expired
+  ones are revoked but not counted), and `revoked` is their sum. A failure is
+  500 `{ error, tokensRevoked, grantsRevoked }` with `null` for the call that
+  failed.
 
 ### UI
 

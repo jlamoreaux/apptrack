@@ -5,6 +5,7 @@ import { NavigationServer } from "@/components/navigation-server";
 import { getUser } from "@/lib/supabase/server";
 import { DataExportButton } from "@/components/careerotter/data-export-button";
 import { ConnectedAgents } from "@/components/careerotter/connected-agents";
+import { AgentOAuthSetup } from "@/components/careerotter/agent-oauth-setup";
 import { getAppUrl } from "@/lib/constants/site-config";
 import { CANONICAL_MCP_RESOURCE, isMcpOAuthEnabled } from "@/lib/constants/agent-oauth";
 
@@ -16,6 +17,7 @@ import { CANONICAL_MCP_RESOURCE, isMcpOAuthEnabled } from "@/lib/constants/agent
 export default async function DataPage(): Promise<React.JSX.Element> {
   const user = await getUser();
   if (!user) redirect("/login");
+  const oauthEnabled = isMcpOAuthEnabled();
 
   return (
     <div className="min-h-screen bg-background">
@@ -54,12 +56,12 @@ export default async function DataPage(): Promise<React.JSX.Element> {
           {/* Resolved here: VERCEL_URL is only set on the server, and site-config
               can throw at module load, which should not happen in the browser. The
               sign-in setup uses the canonical SITE_URL resource, because OAuth
-              can't complete through any other host (the resource wouldn't match). */}
-          <ConnectedAgents
-            appUrl={getAppUrl()}
-            oauthEnabled={isMcpOAuthEnabled()}
-            mcpUrl={CANONICAL_MCP_RESOURCE}
-          />
+              can't complete through any other host (the resource wouldn't match).
+              The setup is static, so it renders here rather than in the client tree. */}
+          <div className="space-y-6">
+            {oauthEnabled && <AgentOAuthSetup mcpUrl={CANONICAL_MCP_RESOURCE} />}
+            <ConnectedAgents appUrl={getAppUrl()} oauthEnabled={oauthEnabled} />
+          </div>
         </section>
       </main>
     </div>

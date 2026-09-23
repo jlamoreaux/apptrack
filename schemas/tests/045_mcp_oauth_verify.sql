@@ -519,10 +519,16 @@ select pg_temp.check('H: revoke_agent_oauth_token (access token) by its client -
   and not exists (select 1 from agent_oauth_tokens where grant_id = :'h2_grant'));
 select pg_temp.check('H: revoke_agent_oauth_token again -> not_found (tokens gone)',
   (select outcome = 'not_found' from revoke_agent_oauth_token(pg_temp.h('h2-rt'), pg_temp.cid('c2'))));
+-- An expired but unrevoked grant is revoked too, but not counted.
+select pg_temp.check('H: create + exchange a fourth grant for u6, then expire it',
+  (select outcome = 'ok' from create_agent_oauth_code(pg_temp.uid('u6'), pg_temp.cid('c4'), pg_temp.h('h4'), 'https://example.com/cb', :chal, array['wins:read'], null, :res)));
+select grant_id as h4_grant from exchange_agent_oauth_code(pg_temp.h('h4'), pg_temp.cid('c4'), pg_temp.h('h4-at'), pg_temp.h('h4-rt'), true) \gset
+update agent_oauth_grants set expires_at = now() - interval '1 minute' where id = :'h4_grant';
 select revoke_all_agent_oauth_grants(pg_temp.uid('u6')) as h_all1 \gset
-select pg_temp.check('H: revoke_all -> 1 (only h3 still active), reason user_all, no tokens left',
+select pg_temp.check('H: revoke_all -> 1 (h3 active; expired h4 revoked but not counted), reason user_all, no tokens left',
   :h_all1 = 1
   and (select revoke_reason = 'user_all' from agent_oauth_grants where id = :'h3_grant')
+  and (select revoked_at is not null and revoke_reason = 'user_all' from agent_oauth_grants where id = :'h4_grant')
   and (select revoke_reason = 'user' from agent_oauth_grants where id = :'h1_grant')
   and not exists (select 1 from agent_oauth_tokens t join agent_oauth_grants g on g.id = t.grant_id where g.user_id = pg_temp.uid('u6')));
 select pg_temp.check('H: revoke_all again -> 0', revoke_all_agent_oauth_grants(pg_temp.uid('u6')) = 0);

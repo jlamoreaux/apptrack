@@ -19,8 +19,8 @@ export function AgentOAuthSetup({ mcpUrl }: { mcpUrl: string }): React.JSX.Eleme
           Sign in with your browser
         </AgentSectionHeading>
         <p className="text-sm text-muted-foreground">
-          Add CareerOtter to your app with this URL. The first time it connects, you sign in
-          here and choose what it can access. No token to copy or store.
+          Add CareerOtter to your app with the URL below. The first time it connects, you sign
+          in to CareerOtter in your browser and choose what it can access.
         </p>
       </div>
       <SetupSnippet
@@ -38,6 +38,7 @@ export function AgentOAuthSetup({ mcpUrl }: { mcpUrl: string }): React.JSX.Eleme
       <SetupSnippet
         id="agent-oauth-snippet-cursor"
         title="Cursor (mcp.json)"
+        note="Add this to ~/.cursor/mcp.json to use it in every project, or to .cursor/mcp.json in one project."
         code={snippets.cursorConfig}
       />
     </section>

@@ -8,11 +8,12 @@
 import {
   acknowledge,
   agentApiRequest,
+  isAgentTokenScope,
+  isAgentTokenStatus,
   isNullableString,
   isRecord,
   type ApiResult,
 } from "@/lib/client/agent-api.client";
-import { isAgentTokenScope, isAgentTokenStatus } from "@/lib/client/agent-tokens.client";
 import type { AgentOAuthGrantSummary } from "@/types";
 
 const AGENT_GRANTS_ENDPOINT = "/api/careerotter/agent-grants";

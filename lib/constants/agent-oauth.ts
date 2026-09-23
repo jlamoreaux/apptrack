@@ -124,10 +124,13 @@ export const AGENT_OAUTH_LIMITS = {
   // parameters around redirect_to.
   supabaseRedirectAllowance: 512,
   requestBodyMaxBytes: 16 * 1024,
-  // Rows the connected-apps list returns. Reconnecting an app replaces its
-  // grant, so revoked rows inside the history window can pile up; the newest
-  // are the ones worth showing.
+  // Revoked or expired rows the connected-apps list returns. Reconnecting an
+  // app replaces its grant, so revoked rows inside the history window can pile
+  // up; the newest are the ones worth showing.
   maxListedGrants: 100,
+  // Active rows are read separately so history can't crowd them out. The
+  // per-user grant cap keeps this far lower; the limit only bounds the read.
+  maxListedActiveGrants: 1000,
 } as const;
 
 // The connected-apps list shows active grants plus those revoked or expired

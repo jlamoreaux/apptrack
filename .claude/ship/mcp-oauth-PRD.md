@@ -1406,14 +1406,19 @@ Critic review of this design, and how each point was resolved:
   extension JWT as a positive control.
 
 **Task 6 implementation notes**
-- The 30-day window is applied to when a grant ended: it's listed when it
-  isn't revoked or was revoked in the window, and has no expiry or expired
-  in the window (`AGENT_OAUTH_GRANT_HISTORY_DAYS`). A grant that expired
-  before the window and was then revoked by revoke-all (which revokes
-  expired grants too) stays hidden. Status reuses `agentTokenStatus`, so
-  revocation wins over expiry. The list is capped at 100 rows
-  (`AGENT_OAUTH_LIMITS.maxListedGrants`), newest first, since reconnecting
-  replaces a grant and revoked rows can pile up.
+- The list is two reads: active grants (not revoked, no expiry or expiring
+  after now), bounded only by a generous `maxListedActiveGrants` (1000; the
+  per-user cap keeps it at 10), then history. Active grants come first, then
+  history, each newest first, so a pile of revoked rows can't hide an active
+  one. History applies the 30-day window to when a grant ended: it's listed
+  when it isn't revoked or was revoked in the window, and has no expiry or
+  expired in the window (`AGENT_OAUTH_GRANT_HISTORY_DAYS`). A grant that
+  expired before the window and was then revoked by revoke-all (which
+  revokes expired grants too) stays hidden. History is capped at 100 rows
+  (`AGENT_OAUTH_LIMITS.maxListedGrants`), since reconnecting replaces a grant
+  and revoked rows can pile up. A grant returned by both reads (revoked
+  between them) is listed once. Status reuses `agentTokenStatus`, so
+  revocation wins over expiry.
 - Grants don't store a redirect URI, so `redirectDisplay` comes from the
   client's registered `redirect_uris` (embedded in the select), each passed
   through `redirectUriDisplay`, deduplicated and joined with ", ".
@@ -1427,18 +1432,32 @@ Critic review of this design, and how each point was resolved:
   `{ revoked, tokensRevoked, grantsRevoked }` (`revoked` is the sum); any
   failure is 500 `{ error, tokensRevoked, grantsRevoked }` with `null` for
   the call that failed. A missing function (`42883` or `PGRST202`, via
-  `isMissingFunctionError`) counts as 0.
-- The revoke-all confirmation now reads "Revoke all agent access?" and says
-  connected apps lose access too. The Revoke all button still appears only
-  while a token is active; apps are revoked one by one otherwise.
-- The browser helpers the token client used moved to
+  `isMissingFunctionError`) counts as 0; a test checks the RPC argument
+  names against 045's signatures, so a rename can't turn into a silent 0.
+- `revoke_all_agent_oauth_grants` revokes every unrevoked grant, expired ones
+  included, but returns only how many were unexpired, like `tokensRevoked`.
+  So `grantsRevoked` and the `mcp_oauth_revoked` (`user_all`) event reflect
+  live access cut off.
+- "Revoke all agent access" is its own section below the tokens, shown while
+  any token or connected app is active (ConnectedApps reports its active
+  state up). With OAuth on the confirmation says connected apps lose access
+  too; with it off it keeps the token-only copy. After any revoke-all,
+  successful or not, both lists are re-read, since a partial failure may
+  still have revoked some tokens or apps; the error stays shown. A 401 from
+  either list shows one "session expired" alert for the whole section.
+- The "Sign in with your browser" setup is a server component rendered by
+  the data page above `ConnectedAgents`.
+- The browser helpers the token client used, the scope and status guards,
+  and the `ApiFailure`/`ApiResult` types live in
   `lib/client/agent-api.client.ts`, shared with `agent-grants.client.ts`.
+  `LoadFailure` (error plus Try again) is shared from
+  `agent-access-shared.tsx`.
   The setup snippet block (`SetupSnippet`) and the list detail helpers
   (`AgentDetail`, `scopeLabels`, `formatOptionalDate`, `LONG_TEXT_WRAP`) are
   shared by the token and app UIs.
-- The data page passes `mcpUrl={CANONICAL_MCP_RESOURCE}` alongside
-  `oauthEnabled`: the sign-in snippets must use the SITE_URL host, while
-  the PAT snippets keep using `getAppUrl()`.
+- The data page passes `mcpUrl={CANONICAL_MCP_RESOURCE}` to the setup: the
+  sign-in snippets must use the SITE_URL host, while the PAT snippets keep
+  using `getAppUrl()`.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

@@ -216,3 +216,54 @@ export const CONNECTED_APP_COPY = {
   connected: "Connected",
   empty: "No apps connected yet.",
 } as const;
+
+export interface ConfirmCopy {
+  title: string;
+  description: string;
+  confirmText: string;
+}
+
+/**
+ * Revoke-all cuts off every token and connected app. While OAuth is off the
+ * user has only ever seen tokens, so the confirmation talks about tokens.
+ */
+export const REVOKE_ALL_COPY = {
+  heading: "Revoke all agent access",
+  button: "Revoke all agent access",
+  withApps: {
+    description:
+      "Cut off every agent token and connected app at once, for example if a device was lost.",
+    confirm: {
+      title: "Revoke all agent access?",
+      description:
+        "Every agent token and connected app loses access right away. This cannot be undone; you would need to create new tokens and reconnect your apps.",
+      confirmText: "Revoke all",
+    },
+  },
+  tokensOnly: {
+    description: "Cut off every agent token at once, for example if a device was lost.",
+    confirm: {
+      title: "Revoke all agent tokens?",
+      description:
+        "Every connected agent loses access right away. This cannot be undone; you would need to create new tokens.",
+      confirmText: "Revoke all",
+    },
+  },
+  done: "All agent access revoked.",
+} as const satisfies {
+  heading: string;
+  button: string;
+  withApps: { description: string; confirm: ConfirmCopy };
+  tokensOnly: { description: string; confirm: ConfirmCopy };
+  done: string;
+};
+
+// First Strong Isolate ... Pop Directional Isolate: keeps a right-to-left
+// name from reordering the text around it where a <bdi> element can't be used
+// (plain-string props such as aria-label or a dialog title).
+const FIRST_STRONG_ISOLATE = "⁨";
+const POP_DIRECTIONAL_ISOLATE = "⁩";
+
+export function isolateBidi(text: string): string {
+  return `${FIRST_STRONG_ISOLATE}${text}${POP_DIRECTIONAL_ISOLATE}`;
+}

@@ -1,11 +1,12 @@
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   AGENT_ACCESS_SIGN_IN_HREF,
   AGENT_SCOPE_DETAILS,
   AGENT_TOKEN_NEVER_LABEL,
 } from "@/lib/constants/agent-access-ui";
 import type { AgentTokenScope } from "@/lib/constants/agent-access";
-import type { ApiFailureReason } from "@/lib/client/agent-api.client";
+import type { ApiFailure, ApiFailureReason } from "@/lib/client/agent-api.client";
 import { formatLocalDate } from "@/lib/utils/date";
 
 // Token and app names are user- or client-supplied and may be one unbroken
@@ -71,6 +72,29 @@ export function AgentAccessError({
         </>
       )}
     </p>
+  );
+}
+
+/**
+ * A list that failed to load: the error, and Try again unless the session
+ * expired (retrying can't help; the error links to sign-in instead).
+ */
+export function LoadFailure({
+  failure,
+  onRetry,
+}: {
+  failure: ApiFailure;
+  onRetry: () => void;
+}): React.JSX.Element {
+  return (
+    <div className="space-y-3">
+      <AgentAccessError failure={failure} />
+      {failure.reason !== "unauthorized" && (
+        <Button type="button" variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      )}
+    </div>
   );
 }
 

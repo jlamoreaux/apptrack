@@ -8,6 +8,7 @@ import type { ApiFailure } from "@/lib/client/agent-api.client";
 import {
   AGENT_TOKEN_STATUS_LABELS,
   CONNECTED_APP_COPY,
+  isolateBidi,
 } from "@/lib/constants/agent-access-ui";
 import { formatLocalDate } from "@/lib/utils/date";
 import type { AgentOAuthGrantSummary } from "@/types";
@@ -16,6 +17,7 @@ import {
   AgentDetail,
   AgentSectionHeading,
   formatOptionalDate,
+  LoadFailure,
   LONG_TEXT_WRAP,
   scopeLabels,
 } from "./agent-access-shared";
@@ -56,7 +58,7 @@ function GrantItem({
             type="button"
             variant="outline"
             disabled={busy}
-            aria-label={`Revoke ${grant.clientName}`}
+            aria-label={`Revoke ${isolateBidi(grant.clientName)}`}
             onClick={() => onRevoke(grant)}
           >
             Revoke
@@ -76,13 +78,28 @@ function GrantItem({
   );
 }
 
+interface ConnectedAppsProps {
+  /** Changes when something else (revoke-all) may have changed the list. */
+  reloadKey: number;
+  /** True while another agent access action (revoke-all) is running. */
+  locked: boolean;
+  /** Whether any listed app is still active, for the Revoke all control. */
+  onActiveChange: (active: boolean) => void;
+  /** ConnectedAgents shows the one "session expired" alert for the page. */
+  onSessionExpired: (failure: ApiFailure) => void;
+}
+
 /**
  * Apps connected by signing in with the browser (OAuth grants): active ones
  * plus those revoked or expired in the last 30 days. Revoking goes through a
- * confirm step because it cuts off a running app immediately. `reloadKey`
- * changes when something else (revoke-all) may have changed the list.
+ * confirm step because it cuts off a running app immediately.
  */
-export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.Element {
+export function ConnectedApps({
+  reloadKey,
+  locked,
+  onActiveChange,
+  onSessionExpired,
+}: ConnectedAppsProps): React.JSX.Element {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [pending, setPending] = useState<AgentOAuthGrantSummary | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,14 +110,21 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
 
   // Loads can overlap (a revoke's refresh and a revoke-all reload) and resolve
   // out of order; only the newest may touch state.
-  const loadGrants = useCallback(async (): Promise<boolean> => {
+  const loadGrants = useCallback(async (): Promise<void> => {
     latestRequestRef.current += 1;
     const requestId = latestRequestRef.current;
     const result = await fetchAgentGrants();
-    if (!mountedRef.current || latestRequestRef.current !== requestId) return false;
+    if (!mountedRef.current || latestRequestRef.current !== requestId) return;
+    if (!result.ok && result.reason === "unauthorized") onSessionExpired(result);
     setLoad(result.ok ? { kind: "ready", grants: result.value } : { kind: "error", failure: result });
-    return result.ok;
-  }, []);
+  }, [onSessionExpired]);
+
+  // A fresh read (first load, Try again, or after revoke-all) replaces any
+  // earlier revoke error, which no longer describes the list shown.
+  const reload = useCallback((): void => {
+    setActionError(null);
+    void loadGrants();
+  }, [loadGrants]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -110,8 +134,13 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
   }, []);
 
   useEffect(() => {
-    void loadGrants();
-  }, [loadGrants, reloadKey]);
+    reload();
+  }, [reload, reloadKey]);
+
+  const anyActive = load.kind === "ready" && load.grants.some((grant) => grant.status === "active");
+  useEffect(() => {
+    onActiveChange(anyActive);
+  }, [anyActive, onActiveChange]);
 
   async function revoke(grant: AgentOAuthGrantSummary): Promise<void> {
     setBusy(true);
@@ -119,8 +148,12 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
     const result = await revokeAgentGrant(grant.id);
     if (!mountedRef.current) return;
     if (!result.ok) {
-      setActionError(result);
-      setBusy(false);
+      if (result.reason === "unauthorized") onSessionExpired(result);
+      else setActionError(result);
+      // The app may already be gone (404) or revoked elsewhere; re-read so the
+      // list matches the server, keeping the error above it.
+      await loadGrants();
+      if (mountedRef.current) setBusy(false);
       return;
     }
     await loadGrants();
@@ -145,15 +178,8 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
           Loading connected apps...
         </p>
       )}
-      {load.kind === "error" && (
-        <div className="space-y-3">
-          <AgentAccessError failure={load.failure} />
-          {load.failure.reason !== "unauthorized" && (
-            <Button type="button" variant="outline" onClick={() => void loadGrants()}>
-              Try again
-            </Button>
-          )}
-        </div>
+      {load.kind === "error" && load.failure.reason !== "unauthorized" && (
+        <LoadFailure failure={load.failure} onRetry={reload} />
       )}
       {load.kind === "ready" && load.grants.length === 0 && (
         <p className="text-sm text-muted-foreground">{CONNECTED_APP_COPY.empty}</p>
@@ -161,7 +187,12 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
       {load.kind === "ready" && load.grants.length > 0 && (
         <ul className="space-y-3" aria-label="Connected apps">
           {load.grants.map((grant) => (
-            <GrantItem key={grant.id} grant={grant} busy={busy} onRevoke={setPending} />
+            <GrantItem
+              key={grant.id}
+              grant={grant}
+              busy={busy || locked}
+              onRevoke={setPending}
+            />
           ))}
         </ul>
       )}
@@ -171,7 +202,7 @@ export function ConnectedApps({ reloadKey }: { reloadKey: number }): React.JSX.E
           onOpenChange={(open) => {
             if (!open) setPending(null);
           }}
-          title={`Revoke "${pending.clientName}"?`}
+          title={`Revoke "${isolateBidi(pending.clientName)}"?`}
           description="This app loses access right away. To use it again, reconnect it from the app and sign in."
           confirmText="Revoke"
           titleClassName={LONG_TEXT_WRAP}

@@ -6,11 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AGENT_TOKEN_LIMITS, type AgentTokenScope } from "@/lib/constants/agent-access";
 import { AGENT_TOKEN_FORM_MESSAGES, NEVER_EXPIRES } from "@/lib/constants/agent-access-ui";
-import {
-  createAgentToken,
-  type ApiFailure,
-  type CreatedAgentToken,
-} from "@/lib/client/agent-tokens.client";
+import { createAgentToken, type CreatedAgentToken } from "@/lib/client/agent-tokens.client";
+import type { ApiFailure } from "@/lib/client/agent-api.client";
 import { normalizeAgentTokenName } from "@/lib/utils/agent-token-scopes";
 import {
   AgentExpirySelect,

@@ -789,9 +789,10 @@ grant execute on function public.revoke_agent_oauth_grant (uuid, uuid, text)
   to service_role;
 
 -- ── revoke_all_agent_oauth_grants ──────────────────────────────────────────
--- Revokes every active grant the user has and deletes their tokens. Takes the
--- per-user lock so an exchange in flight can't add a grant after it. Idempotent.
--- Returns the number of grants this call revoked.
+-- Revokes every unrevoked grant the user has (expired ones too) and deletes
+-- their tokens. Takes the per-user lock so an exchange in flight can't add a
+-- grant after it. Idempotent. Returns how many of the grants this call revoked
+-- were still unexpired, i.e. how much live access it cut off.
 create or replace function public.revoke_all_agent_oauth_grants (
   p_user_id uuid
 )
@@ -806,11 +807,16 @@ declare
 begin
   perform pg_advisory_xact_lock(hashtext('agent_tokens:' || p_user_id::text));
 
-  update agent_oauth_grants g
-    set revoked_at = now(), revoke_reason = 'user_all'
-    where g.user_id = p_user_id
-      and g.revoked_at is null;
-  get diagnostics revoked_count = row_count;
+  with revoked as (
+    update agent_oauth_grants g
+      set revoked_at = now(), revoke_reason = 'user_all'
+      where g.user_id = p_user_id
+        and g.revoked_at is null
+      returning g.expires_at
+  )
+  select count(*) filter (where r.expires_at is null or r.expires_at > now())
+    into revoked_count
+    from revoked r;
 
   delete from agent_oauth_tokens t
     using agent_oauth_grants g

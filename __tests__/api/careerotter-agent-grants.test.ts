@@ -4,8 +4,9 @@
  * - auth: 401 without a session, and 401 with only a Bearer header, before
  *   any database access
  * - GET: { enabled: false, grants: [] } while OAuth is disabled, without a
- *   query; otherwise the summary shape, newest first, active grants plus
- *   those revoked or expired in the last 30 days, status (revocation wins
+ *   query; otherwise the summary shape, active grants (read on their own, so
+ *   the history cap can't hide one) then those revoked or expired in the
+ *   last 30 days, each newest first, status (revocation wins
  *   over expiry), the redirect display (hostname, loopback text), no-store
  * - DELETE one: 404 while OAuth is disabled; revokes with reason `user`;
  *   idempotent; a foreign or missing id is 404, a non-uuid id is 404 without
@@ -62,7 +63,22 @@ interface Admin {
   from: jest.Mock;
   rpc: jest.Mock;
   single: jest.Mock;
-  query: MockQuery;
+  active: MockQuery;
+  history: MockQuery;
+}
+
+interface QueryResponse {
+  data?: unknown;
+  error?: unknown;
+}
+
+function mockQuery(response: QueryResponse): MockQuery {
+  const query: MockQuery = {};
+  for (const method of ["select", "eq", "is", "or", "order", "limit"]) {
+    query[method] = jest.fn(() => query);
+  }
+  query.then = (resolve: (value: unknown) => void) => resolve({ data: [], error: null, ...response });
+  return query;
 }
 
 function setUser(user: unknown): void {
@@ -78,21 +94,21 @@ function setOAuthEnabled(enabled: boolean): void {
   else delete process.env.CAREEROTTER_MCP_OAUTH_ENABLED;
 }
 
-/** from() resolves to `list`; rpc(...).single() resolves to `revoke`. */
+/**
+ * The first from() is the active-grants read, the second the history read;
+ * rpc(...).single() resolves to `revoke`.
+ */
 function mockAdminClient(
-  list: { data?: unknown; error?: unknown } = {},
-  revoke: { data?: unknown; error?: unknown } = {}
+  { active = {}, history = {} }: { active?: QueryResponse; history?: QueryResponse } = {},
+  revoke: QueryResponse = {}
 ): Admin {
-  const query: MockQuery = {};
-  for (const method of ["select", "eq", "or", "order", "limit"]) {
-    query[method] = jest.fn(() => query);
-  }
-  query.then = (resolve: (value: unknown) => void) => resolve({ data: [], error: null, ...list });
-  const from = jest.fn(() => query);
+  const activeQuery = mockQuery(active);
+  const historyQuery = mockQuery(history);
+  const from = jest.fn().mockReturnValueOnce(activeQuery).mockReturnValueOnce(historyQuery);
   const single = jest.fn().mockResolvedValue({ data: null, error: null, ...revoke });
   const rpc = jest.fn(() => ({ single }));
   mockAdmin.mockReturnValue({ from, rpc });
-  return { from, rpc, single, query };
+  return { from, rpc, single, active: activeQuery, history: historyQuery };
 }
 
 function grantRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -176,7 +192,7 @@ describe("GET", () => {
   });
 
   it("returns the summary shape and never the client id, resource or revoke reason", async () => {
-    mockAdminClient({ data: [grantRow()] });
+    mockAdminClient({ active: { data: [grantRow()] } });
     const res = await GET();
     expect(res.headers.get("Cache-Control")).toBe("no-store");
     const body: { grants: AgentOAuthGrantSummary[] } = await res.json();
@@ -194,26 +210,72 @@ describe("GET", () => {
     ]);
   });
 
-  it("asks for the user's grants that ended in the last 30 days or not at all, newest first", async () => {
-    const { from, query } = mockAdminClient();
+  it("reads the user's active grants on their own, without the history cap", async () => {
+    const { from, active } = mockAdminClient();
     await listGrants();
-    expect(from).toHaveBeenCalledWith(AGENT_OAUTH_GRANTS_TABLE);
-    expect(query.eq).toHaveBeenCalledWith("user_id", USER.id);
-    expect(query.or).toHaveBeenCalledWith(`revoked_at.is.null,revoked_at.gte.${CUTOFF}`);
-    expect(query.or).toHaveBeenCalledWith(`expires_at.is.null,expires_at.gte.${CUTOFF}`);
-    expect(query.order).toHaveBeenCalledWith("created_at", { ascending: false });
-    expect(query.limit).toHaveBeenCalledWith(AGENT_OAUTH_LIMITS.maxListedGrants);
+    expect(from).toHaveBeenNthCalledWith(1, AGENT_OAUTH_GRANTS_TABLE);
+    expect(active.eq).toHaveBeenCalledWith("user_id", USER.id);
+    expect(active.is).toHaveBeenCalledWith("revoked_at", null);
+    expect(active.or).toHaveBeenCalledWith(`expires_at.is.null,expires_at.gt.${NOW.toISOString()}`);
+    expect(active.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(active.limit).toHaveBeenCalledWith(AGENT_OAUTH_LIMITS.maxListedActiveGrants);
+    expect(AGENT_OAUTH_LIMITS.maxListedActiveGrants).toBeGreaterThan(
+      AGENT_OAUTH_LIMITS.maxActiveGrantsPerUser
+    );
+  });
+
+  it("then the user's grants that ended in the last 30 days, newest first, capped", async () => {
+    const { from, history } = mockAdminClient();
+    await listGrants();
+    expect(from).toHaveBeenNthCalledWith(2, AGENT_OAUTH_GRANTS_TABLE);
+    expect(history.eq).toHaveBeenCalledWith("user_id", USER.id);
+    expect(history.or).toHaveBeenCalledWith(`revoked_at.not.is.null,expires_at.lte.${NOW.toISOString()}`);
+    expect(history.or).toHaveBeenCalledWith(`revoked_at.is.null,revoked_at.gte.${CUTOFF}`);
+    expect(history.or).toHaveBeenCalledWith(`expires_at.is.null,expires_at.gte.${CUTOFF}`);
+    expect(history.order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(history.limit).toHaveBeenCalledWith(AGENT_OAUTH_LIMITS.maxListedGrants);
     expect(CUTOFF).toBe("2026-08-24T12:00:00.000Z");
+  });
+
+  it("lists an active grant older than a full page of newer revoked ones, first", async () => {
+    const revoked = Array.from({ length: AGENT_OAUTH_LIMITS.maxListedGrants }, (_, index) =>
+      grantRow({
+        id: `revoked-${index}`,
+        created_at: new Date(NOW.getTime() - (index + 1) * 60_000).toISOString(),
+        revoked_at: NOW.toISOString(),
+      })
+    );
+    const old = grantRow({ id: "old-active", created_at: "2026-01-01T00:00:00.000Z" });
+    mockAdminClient({ active: { data: [old] }, history: { data: revoked } });
+    const grants = await listGrants();
+    expect(grants).toHaveLength(AGENT_OAUTH_LIMITS.maxListedGrants + 1);
+    expect(grants[0]).toMatchObject({ id: "old-active", status: "active" });
+    expect(grants.slice(1).map((grant) => grant.id)).toEqual(revoked.map((row) => row.id));
+  });
+
+  it("lists a grant returned by both reads once", async () => {
+    mockAdminClient({
+      active: { data: [grantRow({ id: "a" })] },
+      history: {
+        data: [
+          grantRow({ id: "a", revoked_at: NOW.toISOString() }),
+          grantRow({ id: "b", revoked_at: NOW.toISOString() }),
+        ],
+      },
+    });
+    expect((await listGrants()).map((grant) => grant.id)).toEqual(["a", "b"]);
   });
 
   it("marks expired and revoked grants, with revocation winning over expiry", async () => {
     mockAdminClient({
-      data: [
-        grantRow({ id: "a", expires_at: null }),
-        grantRow({ id: "b", expires_at: "2026-09-01T00:00:00.000Z" }),
-        grantRow({ id: "c", revoked_at: "2026-09-10T00:00:00.000Z" }),
-        grantRow({ id: "d", expires_at: "2026-09-01T00:00:00.000Z", revoked_at: "2026-09-02T00:00:00.000Z" }),
-      ],
+      active: { data: [grantRow({ id: "a", expires_at: null })] },
+      history: {
+        data: [
+          grantRow({ id: "b", expires_at: "2026-09-01T00:00:00.000Z" }),
+          grantRow({ id: "c", revoked_at: "2026-09-10T00:00:00.000Z" }),
+          grantRow({ id: "d", expires_at: "2026-09-01T00:00:00.000Z", revoked_at: "2026-09-02T00:00:00.000Z" }),
+        ],
+      },
     });
     const grants = await listGrants();
     expect(grants.map((grant) => [grant.id, grant.status])).toEqual([
@@ -227,19 +289,21 @@ describe("GET", () => {
 
   it("shows loopback redirects as an app on this computer, once per distinct display", async () => {
     mockAdminClient({
-      data: [
-        grantRow({
-          client: {
-            redirect_uris: [
-              "http://127.0.0.1:33418/callback",
-              "http://localhost:33418/other",
-              "http://localhost/callback",
-            ],
-          },
-        }),
-        grantRow({ id: "b", client: { redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"] } }),
-        grantRow({ id: "c", client: null }),
-      ],
+      active: {
+        data: [
+          grantRow({
+            client: {
+              redirect_uris: [
+                "http://127.0.0.1:33418/callback",
+                "http://localhost:33418/other",
+                "http://localhost/callback",
+              ],
+            },
+          }),
+          grantRow({ id: "b", client: { redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"] } }),
+          grantRow({ id: "c", client: null }),
+        ],
+      },
     });
     const grants = await listGrants();
     expect(grants.map((grant) => grant.redirectDisplay)).toEqual([
@@ -250,14 +314,18 @@ describe("GET", () => {
   });
 
   it("drops scopes it doesn't know", async () => {
-    mockAdminClient({ data: [grantRow({ scopes: ["wins:read", "admin:everything"] })] });
+    mockAdminClient({ active: { data: [grantRow({ scopes: ["wins:read", "admin:everything"] })] } });
     expect((await listGrants())[0].scopes).toEqual(["wins:read"]);
   });
 
   it("500 on a database error or an unexpected row", async () => {
-    mockAdminClient({ error: { message: "boom" } });
+    mockAdminClient({ active: { error: { message: "boom" } } });
     expect((await GET()).status).toBe(500);
-    mockAdminClient({ data: [grantRow({ client_name: null })] });
+    mockAdminClient({ history: { error: { message: "boom" } } });
+    expect((await GET()).status).toBe(500);
+    mockAdminClient({ active: { data: [grantRow({ client_name: null })] } });
+    expect((await GET()).status).toBe(500);
+    mockAdminClient({ history: { data: [grantRow({ client_name: null })] } });
     expect((await GET()).status).toBe(500);
   });
 });

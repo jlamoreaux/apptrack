@@ -4,22 +4,17 @@
  * and response JSON is narrowed with guards rather than trusted.
  */
 
-import {
-  AGENT_TOKEN_SCOPES,
-  type AgentTokenExpiryDays,
-  type AgentTokenScope,
-} from "@/lib/constants/agent-access";
-import { AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
+import type { AgentTokenExpiryDays, AgentTokenScope } from "@/lib/constants/agent-access";
 import {
   acknowledge,
   agentApiRequest,
+  isAgentTokenScope,
+  isAgentTokenStatus,
   isNullableString,
   isRecord,
   type ApiResult,
 } from "@/lib/client/agent-api.client";
-import type { AgentTokenRecord, AgentTokenStatus, CreatedAgentToken } from "@/types";
-
-export type { ApiFailure, ApiFailureReason, ApiResult } from "@/lib/client/agent-api.client";
+import type { AgentTokenRecord, CreatedAgentToken } from "@/types";
 
 const AGENT_TOKENS_ENDPOINT = "/api/careerotter/agent-tokens";
 
@@ -38,14 +33,6 @@ export interface CreateAgentTokenInput {
 }
 
 export type { CreatedAgentToken } from "@/types";
-
-export function isAgentTokenScope(value: unknown): value is AgentTokenScope {
-  return AGENT_TOKEN_SCOPES.some((scope) => scope === value);
-}
-
-export function isAgentTokenStatus(value: unknown): value is AgentTokenStatus {
-  return AGENT_TOKEN_STATUSES.some((status) => status === value);
-}
 
 function isAgentTokenRecord(value: unknown): value is AgentTokenRecord {
   if (!isRecord(value)) return false;

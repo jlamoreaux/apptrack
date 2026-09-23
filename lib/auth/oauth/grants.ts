@@ -58,8 +58,9 @@ const GRANT_SELECT =
 const UNEXPECTED_ROW_SHAPE = "Unexpected agent_oauth_grants row shape";
 const UNEXPECTED_REVOKE_RESULT = "Unexpected revoke_agent_oauth_grant result";
 const UNEXPECTED_REVOKE_ALL_RESULT = "Unexpected revoke_all_agent_oauth_grants result";
-// Several registered redirect URIs can share a display (two loopback ports on
-// one host), so the distinct ones are listed once each.
+// Several registered redirect URIs can share a display (the same port on two
+// loopback hosts, e.g. localhost:33418 and 127.0.0.1:33418), so the distinct
+// ones are listed once each.
 const REDIRECT_DISPLAY_SEPARATOR = ", ";
 
 const MESSAGES = {
@@ -135,11 +136,23 @@ function toSummaries(rows: unknown, now: Date): AgentOAuthGrantSummary[] | null 
   return valid.length === items.length ? valid.map((row) => toSummary(row, now)) : null;
 }
 
+function mergeActiveFirst(
+  active: AgentOAuthGrantSummary[],
+  history: AgentOAuthGrantSummary[]
+): AgentOAuthGrantSummary[] {
+  // The two reads aren't one snapshot, so a grant revoked between them can
+  // come back from both; it's listed once.
+  const seen = new Set(active.map((grant) => grant.id));
+  return [...active, ...history.filter((grant) => !seen.has(grant.id))];
+}
+
 /**
- * The user's active grants plus those revoked or expired within
- * AGENT_OAUTH_GRANT_HISTORY_DAYS, newest first. A grant that expired before
- * the window and was revoked inside it (revoke-all revokes expired grants
- * too) ended before the window, so it's left out.
+ * The user's active grants, then those revoked or expired within
+ * AGENT_OAUTH_GRANT_HISTORY_DAYS; each group newest first. Active grants are
+ * read on their own so a pile of revoked rows (reconnecting replaces a grant)
+ * can't push one past the history cap. A grant that expired before the window
+ * and was revoked inside it (revoke-all revokes expired grants too) ended
+ * before the window, so it's left out.
  */
 export async function listAgentGrants(
   admin: SupabaseClient,
@@ -147,19 +160,35 @@ export async function listAgentGrants(
   now: Date
 ): Promise<DomainResult<AgentOAuthGrantSummary[]>> {
   const context = failureContext(userId, "list");
+  const nowIso = now.toISOString();
   const cutoff = new Date(now.getTime() - AGENT_OAUTH_GRANT_HISTORY_DAYS * MS_PER_DAY).toISOString();
   return guarded(context, async () => {
-    const { data, error } = await admin
-      .from(AGENT_OAUTH_GRANTS_TABLE)
-      .select(GRANT_SELECT)
-      .eq("user_id", userId)
-      .or(`revoked_at.is.null,revoked_at.gte.${cutoff}`)
-      .or(`expires_at.is.null,expires_at.gte.${cutoff}`)
-      .order("created_at", { ascending: false })
-      .limit(AGENT_OAUTH_LIMITS.maxListedGrants);
-    if (error) return dbFailure(context, error);
-    const summaries = toSummaries(data, now);
-    return summaries ? ok(summaries) : dbFailure(context, UNEXPECTED_ROW_SHAPE);
+    const [active, history] = await Promise.all([
+      admin
+        .from(AGENT_OAUTH_GRANTS_TABLE)
+        .select(GRANT_SELECT)
+        .eq("user_id", userId)
+        .is("revoked_at", null)
+        .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+        .order("created_at", { ascending: false })
+        .limit(AGENT_OAUTH_LIMITS.maxListedActiveGrants),
+      admin
+        .from(AGENT_OAUTH_GRANTS_TABLE)
+        .select(GRANT_SELECT)
+        .eq("user_id", userId)
+        .or(`revoked_at.not.is.null,expires_at.lte.${nowIso}`)
+        .or(`revoked_at.is.null,revoked_at.gte.${cutoff}`)
+        .or(`expires_at.is.null,expires_at.gte.${cutoff}`)
+        .order("created_at", { ascending: false })
+        .limit(AGENT_OAUTH_LIMITS.maxListedGrants),
+    ]);
+    if (active.error) return dbFailure(context, active.error);
+    if (history.error) return dbFailure(context, history.error);
+    const activeSummaries = toSummaries(active.data, now);
+    const historySummaries = toSummaries(history.data, now);
+    return activeSummaries && historySummaries
+      ? ok(mergeActiveFirst(activeSummaries, historySummaries))
+      : dbFailure(context, UNEXPECTED_ROW_SHAPE);
   });
 }
 
@@ -206,10 +235,12 @@ export async function revokeAgentGrant(
 }
 
 /**
- * Revoke every active grant the user has (reason `user_all`) and return how
- * many. Runs whether or not OAuth is enabled, so turning the flag off and on
- * can't revive a grant the user meant to revoke. Before migration 045 has run
- * the function doesn't exist, and there can be no grants, so that counts as 0.
+ * Revoke every unrevoked grant the user has (reason `user_all`), expired ones
+ * included, and return how many of them were still unexpired: the live access
+ * this cut off, which is what the response and analytics report. Runs
+ * whether or not OAuth is enabled, so turning the flag off and on can't revive
+ * a grant the user meant to revoke. Before migration 045 has run the function
+ * doesn't exist, and there can be no grants, so that counts as 0.
  */
 export async function revokeAllAgentGrants(
   admin: SupabaseClient,

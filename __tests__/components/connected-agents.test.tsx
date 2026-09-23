@@ -16,7 +16,6 @@ import { AGENT_ACCESS_FIELD_COPY, AGENT_SETUP_INSECURE_NOTICE, NEVER_EXPIRES } f
 import type { AgentTokenRecord } from "@/types";
 
 const SITE = "https://careerotter.test";
-const MCP_URL = `${SITE}/api/mcp`;
 // base64url of 32 bytes. The fixture is assembled at runtime from obviously
 // fake parts so secret scanners do not flag a literal full-length token.
 const FAKE_SECRET_LENGTH = 43;
@@ -118,7 +117,7 @@ function jsonBody(init: RequestInit): unknown {
 
 async function renderLoaded(tokens: AgentTokenRecord[] = [ACTIVE, REVOKED]): Promise<void> {
   mockList(tokens);
-  render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+  render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
   await screen.findByRole("form", { name: /create an agent token/i });
 }
 
@@ -200,15 +199,15 @@ describe("ConnectedAgents list", () => {
     expect(within(list).getAllByRole("button", { name: /^revoke /i })).toHaveLength(1);
   });
 
-  it("says so when no agents are connected", async () => {
+  it("says so when there are no agent tokens", async () => {
     await renderLoaded([]);
-    expect(screen.getByText("No agents connected yet.")).toBeInTheDocument();
+    expect(screen.getByText("No agent tokens yet.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /revoke all/i })).not.toBeInTheDocument();
   });
 
   it("announces loading politely rather than as a status badge", () => {
     fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
-    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     const loading = screen.getByText(/loading connected agents/i);
     expect(loading).toHaveAttribute("aria-live", "polite");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
@@ -216,7 +215,7 @@ describe("ConnectedAgents list", () => {
 
   it("shows a load error inline with a Try again button that reloads", async () => {
     respond({ error: "Something went wrong" }, HTTP.serverError);
-    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
 
     mockList([ACTIVE]);
@@ -227,14 +226,14 @@ describe("ConnectedAgents list", () => {
 
   it("offers Try again when the network request fails", async () => {
     fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
-    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     expect(await screen.findByRole("alert")).toHaveTextContent(/could not reach careerotter/i);
     expect(screen.getByRole("button", { name: "Try again" })).toHaveClass("min-h-11");
   });
 
   it("asks the user to sign in again when the session expired", async () => {
     respond({ error: "Unauthorized" }, HTTP.unauthorized);
-    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Your session expired. Sign in again.");
     expect(within(alert).getByRole("link", { name: /sign in again/i })).toHaveAttribute(
@@ -400,9 +399,9 @@ describe("ConnectedAgents create form", () => {
 
   it("clears a stale revoke error after a successful create", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("button", { name: "Revoke all" }));
+    fireEvent.click(screen.getByRole("button", { name: "Revoke Claude Code laptop" }));
     respond({ error: "Something went wrong" }, HTTP.serverError);
-    await confirmInDialog("Revoke all");
+    await confirmInDialog("Revoke");
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
 
     await createToken();
@@ -493,7 +492,7 @@ describe("ConnectedAgents reveal", () => {
 
   it("shows a notice instead of setup snippets when the site is not served over HTTPS", async () => {
     mockList([ACTIVE]);
-    render(<ConnectedAgents appUrl="http://careerotter.test" oauthEnabled={false} mcpUrl={MCP_URL} />);
+    render(<ConnectedAgents appUrl="http://careerotter.test" oauthEnabled={false} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     await createToken();
     expect(screen.getByText(AGENT_SETUP_INSECURE_NOTICE)).toBeInTheDocument();
@@ -553,15 +552,24 @@ describe("ConnectedAgents revoke", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("revoke all asks for confirmation, then re-reads the list", async () => {
+  it("offers Revoke all agent access in its own section, not under the tokens heading", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("button", { name: "Revoke all" }));
+    const section = screen.getByRole("region", { name: "Revoke all agent access" });
+    expect(within(section).getByRole("button", { name: "Revoke all agent access" })).toBeInTheDocument();
+    const tokensSection = screen.getByRole("region", { name: "Your agent tokens" });
+    expect(within(tokensSection).queryByRole("button", { name: /revoke all/i })).not.toBeInTheDocument();
+  });
+
+  it("revoke all asks for confirmation (token-only copy while OAuth is off), then re-reads the list", async () => {
+    await renderLoaded();
+    fireEvent.click(screen.getByRole("button", { name: "Revoke all agent access" }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent(/revoke all agent access/i);
-    expect(dialog).toHaveTextContent("Every agent token and connected app loses access right away.");
+    expect(dialog).toHaveTextContent("Revoke all agent tokens?");
+    expect(dialog).toHaveTextContent("Every connected agent loses access right away.");
+    expect(dialog).not.toHaveTextContent(/connected app/i);
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
-    respond({ revoked: 1 });
+    respond({ revoked: 1, tokensRevoked: 1, grantsRevoked: 0 });
     mockList([{ ...ACTIVE, revoked_at: REVOKED.revoked_at, status: "revoked" }, REVOKED]);
     await confirmInDialog("Revoke all");
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
@@ -570,11 +578,12 @@ describe("ConnectedAgents revoke", () => {
     expect(init.method).toBe("DELETE");
     expect(requestAt(2).init.method).toBe("GET");
     await waitFor(() =>
-      expect(screen.queryByRole("button", { name: "Revoke all" })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole("button", { name: "Revoke all agent access" })
+      ).not.toBeInTheDocument()
     );
-    await waitFor(() =>
-      expect(screen.getByRole("heading", { name: "Your agent tokens" })).toHaveFocus()
-    );
+    expect(screen.getByRole("status")).toHaveTextContent("All agent access revoked.");
+    expect(screen.getByRole("heading", { name: "Revoke all agent access" })).toHaveFocus();
   });
 
   describe("overlapping refreshes resolving out of order", () => {
@@ -632,26 +641,39 @@ describe("ConnectedAgents revoke", () => {
     });
   });
 
-  it("shows a revoke failure inline", async () => {
+  it("shows a revoke-all failure inline and still re-reads the tokens", async () => {
     await renderLoaded();
-    fireEvent.click(screen.getByRole("button", { name: "Revoke all" }));
-    respond({ error: "Something went wrong" }, HTTP.serverError);
+    fireEvent.click(screen.getByRole("button", { name: "Revoke all agent access" }));
+    // A partial failure: the tokens were revoked, the apps call failed.
+    respond(
+      { error: "Failed to revoke everything. Try again.", tokensRevoked: 1, grantsRevoked: null },
+      HTTP.serverError
+    );
+    mockList([{ ...ACTIVE, revoked_at: REVOKED.revoked_at, status: "revoked" }, REVOKED]);
     await confirmInDialog("Revoke all");
-    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Failed to revoke everything. Try again.");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(requestAt(2)).toEqual({ url: TOKENS_URL, init: expect.objectContaining({ method: "GET" }) });
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Revoke Claude Code laptop" })).not.toBeInTheDocument()
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Failed to revoke everything. Try again.");
+    expect(within(screen.getByRole("region", { name: "Revoke all agent access" })).getByRole("alert")).toBe(alert);
   });
 });
 
 describe("ConnectedAgents accessibility", () => {
   it("has no axe violations with a list and the create form", async () => {
     mockList([ACTIVE, REVOKED]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     expect(await axe(container, global.axeConfig)).toHaveNoViolations();
   });
 
   it("has no axe violations on the reveal panel", async () => {
     mockList([]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     await createToken([CREATED]);
     await screen.findByText(CREATED.name);
@@ -660,7 +682,7 @@ describe("ConnectedAgents accessibility", () => {
 
   it("has no axe violations with a rejected name", async () => {
     mockList([ACTIVE]);
-    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} mcpUrl={MCP_URL} />);
+    const { container } = render(<ConnectedAgents appUrl={SITE} oauthEnabled={false} />);
     await screen.findByRole("form", { name: /create an agent token/i });
     respond({ error: "An active token with this name already exists" }, HTTP.conflict);
     submitCreate(ACTIVE.name);

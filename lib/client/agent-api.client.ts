@@ -4,8 +4,10 @@
  * failures carry a reason the UI can act on.
  */
 
-import { AGENT_API_NETWORK_ERROR } from "@/lib/constants/agent-access-ui";
+import { AGENT_TOKEN_SCOPES, type AgentTokenScope } from "@/lib/constants/agent-access";
+import { AGENT_API_NETWORK_ERROR, AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
 import { HTTP_STATUS } from "@/lib/constants/http-status";
+import type { AgentTokenStatus } from "@/types";
 
 const SHARED_MESSAGES = {
   network: AGENT_API_NETWORK_ERROR,
@@ -49,6 +51,15 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isNullableString(value: unknown): value is string | null {
   return value === null || typeof value === "string";
+}
+
+// Tokens and connected apps share scopes and statuses, so both parsers use these.
+export function isAgentTokenScope(value: unknown): value is AgentTokenScope {
+  return AGENT_TOKEN_SCOPES.some((scope) => scope === value);
+}
+
+export function isAgentTokenStatus(value: unknown): value is AgentTokenStatus {
+  return AGENT_TOKEN_STATUSES.some((status) => status === value);
 }
 
 async function readJson(response: Response): Promise<unknown> {

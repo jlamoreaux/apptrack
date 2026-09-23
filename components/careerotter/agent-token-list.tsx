@@ -13,29 +13,6 @@ import {
   scopeLabels,
 } from "./agent-access-shared";
 
-type PendingRevoke = { kind: "one"; token: AgentTokenRecord } | { kind: "all" } | null;
-
-function confirmCopy(pending: Exclude<PendingRevoke, null>): {
-  title: string;
-  description: string;
-  confirmText: string;
-} {
-  if (pending.kind === "all") {
-    return {
-      title: "Revoke all agent access?",
-      description:
-        "Every agent token and connected app loses access right away. This cannot be undone; you would need to create new tokens and reconnect your apps.",
-      confirmText: "Revoke all",
-    };
-  }
-  return {
-    title: `Revoke "${pending.token.name}"?`,
-    description:
-      "Agents using this token lose access right away. This cannot be undone; you would need to create a new token.",
-    confirmText: "Revoke",
-  };
-}
-
 function TokenItem({
   token,
   busy,
@@ -76,31 +53,27 @@ function TokenItem({
 }
 
 /**
- * The user's agent tokens, newest first. Revoking one or all goes through a
- * confirm step because it cuts off a running agent immediately.
+ * The user's agent tokens, newest first. Revoking one goes through a confirm
+ * step because it cuts off a running agent immediately. Revoking everything
+ * lives in ConnectedAgents, since it covers connected apps too.
  */
 export function AgentTokenList({
   tokens,
   busy,
   onRevoke,
-  onRevokeAll,
 }: {
   tokens: AgentTokenRecord[];
   busy: boolean;
   onRevoke: (id: string) => void;
-  onRevokeAll: () => void;
 }): React.JSX.Element {
-  const [pending, setPending] = useState<PendingRevoke>(null);
+  const [pending, setPending] = useState<AgentTokenRecord | null>(null);
 
   if (tokens.length === 0) {
-    return <p className="text-sm text-muted-foreground">No agents connected yet.</p>;
+    return <p className="text-sm text-muted-foreground">No agent tokens yet.</p>;
   }
 
-  const anyActive = tokens.some((token) => token.status === "active");
-
   function confirm(): void {
-    if (pending?.kind === "all") onRevokeAll();
-    else if (pending?.kind === "one") onRevoke(pending.token.id);
+    if (pending) onRevoke(pending.id);
     setPending(null);
   }
 
@@ -108,31 +81,18 @@ export function AgentTokenList({
     <div className="space-y-3">
       <ul className="space-y-3" aria-label="Agent tokens">
         {tokens.map((token) => (
-          <TokenItem
-            key={token.id}
-            token={token}
-            busy={busy}
-            onRevoke={(target) => setPending({ kind: "one", token: target })}
-          />
+          <TokenItem key={token.id} token={token} busy={busy} onRevoke={setPending} />
         ))}
       </ul>
-      {anyActive && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => setPending({ kind: "all" })}
-        >
-          Revoke all
-        </Button>
-      )}
       {pending && (
         <ConfirmDialog
           open
           onOpenChange={(open) => {
             if (!open) setPending(null);
           }}
-          {...confirmCopy(pending)}
+          title={`Revoke "${pending.name}"?`}
+          description="Agents using this token lose access right away. This cannot be undone; you would need to create a new token."
+          confirmText="Revoke"
           titleClassName={LONG_TEXT_WRAP}
           onConfirm={confirm}
           destructive
