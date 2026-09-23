@@ -456,11 +456,13 @@ the cleanup cron, and both tolerate a missing function (see below).
 ### Registration: `POST /api/oauth/register`
 
 - The JSON body is validated with `OAuthClientMetadataSchema`, then with our
-  rules.
+  rules. A schema failure on `redirect_uris` is `invalid_redirect_uri`; any
+  other schema failure is `invalid_client_metadata`.
 - **`redirect_uris`:** 1–5 entries, each at most 512 characters, absolute, with
-  no fragment. Each must be one of:
-  - an `https:` URL whose host isn't one of our accepted origins. A code must
-    never land on our own site, where page analytics would capture it.
+  no fragment and no credentials (`user:pass@`). Each must be one of:
+  - an `https:` URL whose host isn't one of our accepted origins' hosts (on any
+    port, and also with a trailing dot). A code must never land on our own
+    site, where page analytics would capture it.
   - an `http:` URL whose host is exactly `127.0.0.1`, `[::1]` or `localhost`,
     with any port or none (RFC 8252 §7.3)
   - a private-use scheme matching `^[a-z][a-z0-9+.-]{2,}$` that isn't in the
@@ -482,15 +484,21 @@ the cleanup cron, and both tolerate a missing function (see below).
   `redirect_uris`, `grant_types`, `response_types`, `token_endpoint_auth_method`
   and `client_name`.
 - **Errors:** 400 `invalid_redirect_uri` or `invalid_client_metadata` in the
-  RFC 7591 body.
+  RFC 7591 body, including for a non-JSON `Content-Type` or invalid JSON. Over
+  the body cap → 413 with the same body shape (`invalid_client_metadata`).
 - **Rate limits** (Upstash, namespaced keys):
   - 30 per IP per 10 minutes, generous because hosted clients register
     server-side from shared IPs
   - 2,000 per day globally
 
-  Registration fails closed with 503 if Redis is unavailable. Registration isn't
-  latency-sensitive, and failing open would remove the only bound.
-- 16 KB body cap. POST and OPTIONS only.
+  Registration fails closed with 503 (`temporarily_unavailable`, with
+  `Retry-After`) if Redis is unconfigured, errors or takes over 2 seconds.
+  Registration isn't latency-sensitive, and failing open would remove the only
+  bound. The per-IP bucket is charged first, so an IP over its limit doesn't
+  spend the global quota. Over a limit → 429 with `Retry-After` and the token
+  endpoint's body (`{ error: "invalid_request", error_description: "rate limited" }`).
+- 16 KB body cap. POST and OPTIONS only (Next.js answers other methods with
+  405).
 - CORS: `Access-Control-Allow-Origin: *`, `Allow-Methods: POST, OPTIONS`,
   `Allow-Headers: Content-Type, Authorization, MCP-Protocol-Version`.
 - Worst case, the global cap limits rows to 2,000 a day, each at most about
@@ -519,8 +527,9 @@ OAuth 2.1 §4.1.2.1.
    - `state` is longer than 512 characters → `invalid_request`
    - `resource` is present and doesn't normalize to an accepted MCP resource →
      `invalid_target`. Normalizing lowercases the scheme and host, drops a
-     default port and drops one trailing slash. The accepted set is
-     `<origin>/api/mcp` for each accepted origin.
+     default port and drops one trailing slash; a resource over 512
+     characters, or with a fragment or credentials, never normalizes. The
+     accepted set is `<origin>/api/mcp` for each accepted origin.
    - `scope` is longer than 256 characters → `invalid_request`
 3. **Scopes.** Unknown values (`openid`, `offline_access`, `profile`, …) are
    ignored, not rejected. Known values only affect what the consent screen
@@ -571,7 +580,8 @@ It renders:
   you just started connecting it."
 - **Where it will send you back**, prominently:
   - https URIs show the full hostname in bold, for example "claude.ai".
-  - Loopback URIs show "an app on this computer (localhost:PORT)".
+  - Loopback URIs show "an app on this computer (localhost:PORT)", or
+    "(localhost)" when the URI has no port.
   - Private-use schemes show "the <scheme> app".
 - `client_uri` as a link, if it's set and on the same registrable host as the
   redirect. Otherwise it's omitted, since it would be a phishing aid.
@@ -839,7 +849,9 @@ Middleware changes:
 ### Observability
 
 Analytics events are sent after the response and never contain token material:
-- `mcp_oauth_client_registered`: auth method and redirect kinds
+- `mcp_oauth_client_registered`: auth method and redirect kinds. There's no
+  user yet, so the distinct id is the `client_id`, sent with
+  `$process_person_profile: false`.
 - `mcp_oauth_connected`: scopes and client name, sent at the first successful
   code exchange
 - `mcp_oauth_revoked`: reason

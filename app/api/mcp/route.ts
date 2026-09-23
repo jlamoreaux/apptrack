@@ -32,6 +32,7 @@ import type { McpToolContext } from "@/lib/mcp/context";
 import { MCP_SERVER_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { registerTools } from "@/lib/mcp/server";
 import { SITE_URL } from "@/lib/constants/site-config";
+import { clientIp, readBodyWithinLimit } from "@/lib/http/request";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
@@ -84,7 +85,6 @@ const ALLOWED_METHOD = "POST";
 const BEARER_PATTERN = /^bearer\s+(.+)$/i;
 const MS_PER_SECOND = 1000;
 const MIN_RETRY_AFTER_SECONDS = 1;
-const UNKNOWN_IP = "unknown";
 
 // The adapter needs neither; dropping them keeps the token out of the inner
 // request and avoids a stale length on the rebuilt body.
@@ -179,8 +179,7 @@ function forbiddenOrigin(): Response {
 
 /** The raw body text, capped, parsing as JSON, and a single message (not a batch). */
 async function readJsonRpcBody(request: Request): Promise<Gate<string>> {
-  if (declaredLength(request) > MCP_MAX_BODY_BYTES) return reject(payloadTooLarge());
-  const text = await readCappedText(request.body, MCP_MAX_BODY_BYTES);
+  const text = await readBodyWithinLimit(request, MCP_MAX_BODY_BYTES);
   if (text === null) return reject(payloadTooLarge());
   const parsed = parseJson(text);
   if (!parsed.ok) return reject(jsonResponse(JSON_RPC_PARSE_ERROR, HTTP.badRequest));
@@ -188,33 +187,6 @@ async function readJsonRpcBody(request: Request): Promise<Gate<string>> {
     return reject(jsonResponse(JSON_RPC_BATCH_NOT_SUPPORTED, HTTP.badRequest));
   }
   return { ok: true, value: text };
-}
-
-function declaredLength(request: Request): number {
-  const header = request.headers.get("content-length");
-  const length = header === null ? 0 : Number(header);
-  return Number.isFinite(length) ? length : 0;
-}
-
-/** Reads the stream as UTF-8, or returns null as soon as it exceeds maxBytes. */
-async function readCappedText(
-  stream: ReadableStream<Uint8Array> | null,
-  maxBytes: number
-): Promise<string | null> {
-  if (stream === null) return "";
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let total = 0;
-  let text = "";
-  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
-    total += chunk.value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      return null;
-    }
-    text += decoder.decode(chunk.value, { stream: true });
-  }
-  return text + decoder.decode();
 }
 
 function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
@@ -296,11 +268,6 @@ function toContext(
 function bearerToken(header: string | null): string | null {
   const match = header?.trim().match(BEARER_PATTERN);
   return match ? match[1].trim() : null;
-}
-
-function clientIp(headers: Headers): string {
-  const forwardedFirstHop = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwardedFirstHop || headers.get("x-real-ip")?.trim() || UNKNOWN_IP;
 }
 
 /** A 401, or a 429 once this IP has failed too often. Spends one failure unit. */

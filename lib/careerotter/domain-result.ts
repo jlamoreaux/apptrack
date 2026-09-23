@@ -90,7 +90,7 @@ export async function guarded<T>(
  * schedule is logged as a warning and otherwise ignored.
  */
 export function trackAfterResponse(
-  context: Pick<FailureContext, "userId" | "action">,
+  context: Pick<FailureContext, "action"> & Partial<Pick<FailureContext, "userId">>,
   send: () => Promise<void>
 ): void {
   try {

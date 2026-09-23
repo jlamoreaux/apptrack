@@ -49,6 +49,9 @@ export const AGENT_OAUTH_PREFIXES = {
 // plenty; base64url of 16 bytes is the 22 characters the client_id CHECK wants.
 export const AGENT_OAUTH_CLIENT_ID_BYTES = 16;
 
+// RFC 7591 §3.2.1: 0 means the client secret never expires.
+export const AGENT_OAUTH_CLIENT_SECRET_NEVER_EXPIRES = 0;
+
 // ── Lifetimes ───────────────────────────────────────────────────────────────
 
 const SECONDS_PER_MINUTE = 60;
@@ -104,6 +107,11 @@ export const AGENT_OAUTH_LIMITS = {
 
 export const AGENT_OAUTH_DEFAULT_CLIENT_NAME = "Unnamed app";
 
+// Bidi embedding, override and isolate controls (U+202A–U+202E and
+// U+2066–U+2069). Stripped from client names, alongside control characters,
+// so a name can't reorder the text around it on the consent screen.
+export const AGENT_OAUTH_BIDI_CONTROL_PATTERN = /[\u202A-\u202E\u2066-\u2069]/gu;
+
 // RFC 7636: S256 only. The challenge is base64url(SHA-256), 43 characters.
 export const AGENT_OAUTH_PKCE = {
   method: "S256",
@@ -136,6 +144,14 @@ export const REQUIRED_AGENT_OAUTH_GRANT_TYPE =
   "authorization_code" satisfies AgentOAuthGrantType;
 
 export const AGENT_OAUTH_RESPONSE_TYPE = "code";
+
+// RFC 7591 §3.2.2 error codes from the registration endpoint.
+export const AGENT_OAUTH_REGISTRATION_ERROR_CODES = [
+  "invalid_redirect_uri",
+  "invalid_client_metadata",
+] as const;
+export type AgentOAuthRegistrationErrorCode =
+  (typeof AGENT_OAUTH_REGISTRATION_ERROR_CODES)[number];
 
 export const AGENT_OAUTH_TOKEN_KINDS = ["access", "refresh"] as const;
 export type AgentOAuthTokenKind = (typeof AGENT_OAUTH_TOKEN_KINDS)[number];
@@ -215,7 +231,9 @@ export const AGENT_OAUTH_DENIED_REDIRECT_SCHEMES = [
   "ftp",
 ] as const;
 
-// ── Database functions (migration 045) ──────────────────────────────────────
+// ── Database (migration 045) ────────────────────────────────────────────────
+
+export const AGENT_OAUTH_CLIENTS_TABLE = "agent_oauth_clients";
 
 export const AGENT_OAUTH_RPC = {
   createCode: "create_agent_oauth_code",
@@ -284,6 +302,17 @@ export const AGENT_OAUTH_RATE_LIMITS = {
   // Same numbers as a PAT, keyed by grant id.
   perGrant: { ...AGENT_RATE_LIMITS.perToken, keyPrefix: "mcp-oauth-grant:" },
 } as const satisfies Record<string, AgentRateLimit>;
+
+// Rate-limit checks are abandoned after this; registration then fails closed.
+export const AGENT_OAUTH_DEADLINES_MS = {
+  rateLimit: 2_000,
+} as const;
+
+// Body of a 429 from the registration, token and revocation endpoints.
+export const AGENT_OAUTH_RATE_LIMITED_ERROR = {
+  error: "invalid_request",
+  error_description: "rate limited",
+} as const;
 
 // ── Endpoints ───────────────────────────────────────────────────────────────
 

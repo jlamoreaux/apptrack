@@ -102,36 +102,36 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
       `invalid_grant`, not an FK error
 
 ## Task 2: Secrets, redirect URIs, registration and metadata
-- [ ] 2.1: Generalize `lib/auth/agent-token.ts` into a shared prefixed-secret
+- [x] 2.1: Generalize `lib/auth/agent-token.ts` into a shared prefixed-secret
   helper (`generatePrefixedSecret`, `hasValidPrefixedSecretFormat`,
   `hashSecret`). The PAT functions become wrappers with unchanged behavior.
-- [ ] 2.2: `lib/auth/oauth/redirect-uri.ts`:
+- [x] 2.2: `lib/auth/oauth/redirect-uri.ts`:
   - registration-time validation: https unless the host is ours, loopback
     http, private-use schemes checked against the denylist, no fragments
   - matching: exact, except that the port is ignored for loopback URIs
   - display text
-- [ ] 2.3: `lib/auth/oauth/resource.ts`: normalize a resource and check it
+- [x] 2.3: `lib/auth/oauth/resource.ts`: normalize a resource and check it
   against the accepted origins.
-- [ ] 2.4: `lib/auth/oauth/clients.ts`:
+- [x] 2.4: `lib/auth/oauth/clients.ts`:
   - `registerClient`: SDK schema, then our rules; stores `grant_types`;
     sanitizes the name (control and bidi characters stripped, code-point
     truncation); issues a secret when the auth method needs one
   - `authenticateClient`: none, Basic (form-decoded) or post; the method must
     match the registration; compares digests timing-safely
-- [ ] 2.5: `app/api/oauth/register/route.ts`:
+- [x] 2.5: `app/api/oauth/register/route.ts`:
   - POST and OPTIONS, CORS, 16 KB body cap
   - per-IP and global rate limits, failing closed with 503
   - RFC 7591 success and error bodies
   - OAuth-enabled check
   - `mcp_oauth_client_registered` sent after the response
-- [ ] 2.6: The metadata routes:
+- [x] 2.6: The metadata routes:
   - `app/.well-known/oauth-authorization-server/route.ts`
   - `app/.well-known/oauth-protected-resource/route.ts`
   - `app/.well-known/oauth-protected-resource/api/mcp/route.ts`
 
   All three use the accepted-origins logic, CORS with `Allow-Headers`, a
   60-second cache and the OAuth-enabled check.
-- [ ] 2.7: Write tests for Task 2:
+- [x] 2.7: Write tests for Task 2:
   - PAT suites unchanged and green; the new prefixes round-trip
   - the redirect URI matrix: https, our own host rejected, loopback with and
     without a port, `http://example.com` rejected, `cursor://` accepted,

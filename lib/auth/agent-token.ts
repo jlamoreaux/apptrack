@@ -1,28 +1,25 @@
 /**
  * Personal access tokens for CareerOtter agents (the MCP server).
  *
- * Token format: `co_pat_` + base64url(32 random bytes) + `_` + checksum, where
- * the checksum is the CRC32 of everything before the final underscore, in
- * base36. The checksum lets the MCP route reject typos and junk without a
- * database query, and makes leaked tokens recognizable to secret scanners.
+ * Token format: `co_pat_` + base64url(32 random bytes) + `_` + checksum (see
+ * lib/auth/prefixed-secret.ts). The checksum lets the MCP route reject typos
+ * and junk without a database query, and makes leaked tokens recognizable to
+ * secret scanners.
  *
  * Only the SHA-256 hash is stored (agent_tokens.token_hash); lookup is by hash
  * through its unique index. Service functions take the service-role admin
  * client, scope every query to the acting user, and never throw.
  */
 
-import { createHash, randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AGENT_COMP_SCOPES,
   AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
-  AGENT_TOKEN_CHECKSUM_LENGTH,
   AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
   AGENT_TOKEN_LIMIT_ERROR,
   AGENT_TOKEN_LIMITS,
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
-  AGENT_TOKEN_SECRET_BYTES,
   CREATE_AGENT_TOKEN_RPC,
   DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
   LAST_USED_TOUCH_INTERVAL_MS,
@@ -30,6 +27,11 @@ import {
   type AgentTokenExpiryDays,
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
+import {
+  generatePrefixedSecret,
+  hashSecret,
+  hasValidPrefixedSecretFormat,
+} from "@/lib/auth/prefixed-secret";
 import { RAISE_EXCEPTION_CODE } from "@/lib/constants/postgres";
 import {
   codePointLength,
@@ -107,24 +109,7 @@ const TOKEN_SELECT =
   "id, user_id, name, token_prefix, scopes, created_at, last_used_at, expires_at, revoked_at";
 const REVOKED_SELECT = "id, expires_at";
 const UNEXPECTED_ROW_SHAPE = "Unexpected agent_tokens row shape";
-const BASE36_RADIX = 36;
-const CHECKSUM_SEPARATOR = "_";
 const WHITESPACE_RUN = /\s+/g;
-
-// base64url without padding: 4 characters per 3 bytes, rounded up.
-const SECRET_LENGTH = Math.ceil((AGENT_TOKEN_SECRET_BYTES * 4) / 3);
-const TOKEN_PATTERN = new RegExp(
-  `^${AGENT_TOKEN_PREFIX}[A-Za-z0-9_-]{${SECRET_LENGTH}}${CHECKSUM_SEPARATOR}[0-9a-z]{${AGENT_TOKEN_CHECKSUM_LENGTH}}$`
-);
-
-// Standard (IEEE 802.3, reflected) CRC32. Implemented here because the
-// installed Node typings predate zlib.crc32.
-const CRC32_POLYNOMIAL = 0xedb88320;
-const CRC32_INITIAL = 0xffffffff;
-const BYTE_VALUE_COUNT = 256;
-const BITS_PER_BYTE = 8;
-const BYTE_MASK = 0xff;
-const CRC32_TABLE = buildCrc32Table();
 
 const MESSAGES = {
   bodyInvalid: "Request body must be a JSON object",
@@ -169,54 +154,20 @@ function failureContext(userId: string, operation: keyof typeof FAILURES): Failu
 
 // ── format ─────────────────────────────────────────────────────────────────
 
-function buildCrc32Table(): Uint32Array {
-  const table = new Uint32Array(BYTE_VALUE_COUNT);
-  for (let n = 0; n < table.length; n++) {
-    let crc = n;
-    for (let bit = 0; bit < BITS_PER_BYTE; bit++) {
-      crc = crc & 1 ? CRC32_POLYNOMIAL ^ (crc >>> 1) : crc >>> 1;
-    }
-    table[n] = crc >>> 0;
-  }
-  return table;
-}
-
-function crc32(text: string): number {
-  let crc = CRC32_INITIAL;
-  for (const byte of Buffer.from(text, "utf8")) {
-    crc = CRC32_TABLE[(crc ^ byte) & BYTE_MASK] ^ (crc >>> BITS_PER_BYTE);
-  }
-  return (crc ^ CRC32_INITIAL) >>> 0;
-}
-
-function checksumOf(body: string): string {
-  return crc32(body)
-    .toString(BASE36_RADIX)
-    .padStart(AGENT_TOKEN_CHECKSUM_LENGTH, "0");
-}
-
 /** Mint a new token. Store only `hash` and `prefix`; show `raw` once. */
 export function generateAgentToken(): GeneratedAgentToken {
-  const body =
-    AGENT_TOKEN_PREFIX + randomBytes(AGENT_TOKEN_SECRET_BYTES).toString("base64url");
-  const raw = `${body}${CHECKSUM_SEPARATOR}${checksumOf(body)}`;
-  return {
-    raw,
-    hash: hashAgentToken(raw),
-    prefix: raw.slice(0, AGENT_TOKEN_LIMITS.displayPrefixLength),
-  };
+  const { raw, hash } = generatePrefixedSecret(AGENT_TOKEN_PREFIX);
+  return { raw, hash, prefix: raw.slice(0, AGENT_TOKEN_LIMITS.displayPrefixLength) };
 }
 
 /** True when `raw` has the token shape and a matching checksum. No DB access. */
 export function hasValidAgentTokenFormat(raw: unknown): raw is string {
-  if (typeof raw !== "string" || !TOKEN_PATTERN.test(raw)) return false;
-  const separatorIndex = raw.lastIndexOf(CHECKSUM_SEPARATOR);
-  return checksumOf(raw.slice(0, separatorIndex)) === raw.slice(separatorIndex + 1);
+  return hasValidPrefixedSecretFormat(raw, AGENT_TOKEN_PREFIX);
 }
 
 /** SHA-256 hex of the full raw token, as stored in agent_tokens.token_hash. */
 export function hashAgentToken(raw: string): string {
-  return createHash("sha256").update(raw, "utf8").digest("hex");
+  return hashSecret(raw);
 }
 
 // ── scopes ─────────────────────────────────────────────────────────────────
