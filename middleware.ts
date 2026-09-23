@@ -19,6 +19,7 @@ function isCareerotterSurface(pathname: string): boolean {
     "/dashboard/wins",
     "/dashboard/coach",
     "/dashboard/comp",
+    "/try/comp", // the comp tracker without an account
     "/dashboard/data", // privacy/data page
     "/dashboard/review-prep",
   ]

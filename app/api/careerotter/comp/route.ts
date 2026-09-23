@@ -24,10 +24,10 @@ import {
   createCompEntry,
   listCompEntries,
   toCompEntry,
-  type StoredCompEntry,
 } from "@/lib/careerotter/comp-service";
 import { isPlainObject } from "@/lib/careerotter/domain-result";
 import { domainErrorResponse } from "@/lib/careerotter/domain-response";
+import { normalizeTickers } from "@/lib/careerotter/tickers";
 import { MANUAL_SOURCE } from "@/lib/constants/careerotter";
 
 const MESSAGES = {
@@ -35,13 +35,6 @@ const MESSAGES = {
   invalidJson: "Invalid JSON body",
   bodyNotObject: "Request body must be a JSON object",
 } as const;
-
-function trackedTickers(entries: StoredCompEntry[]): string[] {
-  const tickers = entries
-    .map((entry) => entry.ticker?.trim() ?? "")
-    .filter((ticker) => ticker.length > 0);
-  return [...new Set(tickers)];
-}
 
 // Benchmark is Pro-only; entry/history is free.
 async function benchmarkFor(
@@ -71,7 +64,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Prices for the tickers this user tracks: cached by the daily cron and
   // refreshed live here when a ticker is new or its quote has gone stale, so a
   // just-added ticker gets a price on the first page load rather than tomorrow.
-  const prices = await loadQuotes(admin, trackedTickers(listed.value));
+  const tickers = normalizeTickers(listed.value.map((entry) => entry.ticker));
+  const prices = await loadQuotes(admin, tickers);
 
   return NextResponse.json({
     entries: listed.value.map(toCompEntry),
@@ -101,7 +95,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: MESSAGES.bodyNotObject }, { status: 400 });
   }
 
-  // external_ref is the agent idempotency key; the web form never sends one.
+  // The service validates with the same shared validator the entry form and
+  // the guest cache use, so nothing a guest saved before signing up can be
+  // rejected here on import. external_ref is the agent idempotency key; the
+  // web form never sends one.
   const created = await createCompEntry(
     createAdminClient(),
     user.id,

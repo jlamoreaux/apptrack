@@ -7,7 +7,7 @@ import { CheckList } from "@/components/ui/check-list"
 import { FeatureIcon } from "@/components/ui/feature-icon"
 import { WebPageSchema } from "@/components/seo/structured-data"
 import { SITE_CONFIG } from "@/lib/constants/site-config"
-import { FREE_TOOLS, ROLE_LANDING_PAGES } from "@/lib/constants/free-tools"
+import { ACCOUNT_TOOLS, FREE_TOOLS, ROLE_LANDING_PAGES } from "@/lib/constants/free-tools"
 
 const canonicalUrl = `${SITE_CONFIG.url}/free-tools`
 
@@ -77,6 +77,31 @@ export default function FreeToolsPage() {
             </Link>
           ))}
         </div>
+
+        {/* Account tools */}
+        <section className="mb-16">
+          <h2 className="text-2xl font-bold mb-2 text-center">
+            Free with an account
+          </h2>
+          <p className="text-center text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Sign up free and the rest of the product opens up: track your pay against the market, log wins as they happen, and turn them into a review-ready case.
+          </p>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {ACCOUNT_TOOLS.map((tool) => (
+              <Link
+                key={tool.href}
+                href={tool.href}
+                className="flex items-start gap-3 p-4 border rounded-lg hover:border-primary transition-colors"
+              >
+                <FeatureIcon icon={tool.icon} color={tool.iconColor} />
+                <div>
+                  <h3 className="font-semibold mb-1">{tool.title}</h3>
+                  <p className="text-sm text-muted-foreground">{tool.shortDescription}</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
 
         {/* Role-Specific Cover Letters */}
         <section className="mb-16">

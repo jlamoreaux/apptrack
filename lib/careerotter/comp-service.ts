@@ -12,24 +12,30 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompEntry } from "@/lib/careerotter/comp-projection";
 import {
-  AGENT_SOURCE,
-  COMP_LIMITS,
-  COMP_SOURCES,
-  VEST_YEARS_MIN_LABEL,
-  type CompSource,
-} from "@/lib/constants/careerotter";
+  checkCliffFitsVest,
+  COMP_ENTRY_MESSAGES,
+  parseAmount,
+  parseEffectiveDate,
+  parseNote,
+  parseShares,
+  parseTicker,
+  parseVestCliff,
+  parseVestStart,
+  parseVestYears,
+  validateCompEntryInput,
+  type FieldResult,
+} from "@/lib/careerotter/comp-entry-validation";
+import { AGENT_SOURCE, COMP_SOURCES, type CompSource } from "@/lib/constants/careerotter";
 import { AGENT_WRITE_QUOTAS } from "@/lib/constants/agent-access";
-import { MONTHS_PER_YEAR, MS_PER_DAY } from "@/lib/constants/dates";
+import { MS_PER_DAY } from "@/lib/constants/dates";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { isValidUUID } from "@/lib/utils/api-validation";
 import {
-  codePointLength,
   conflict,
   dbFailure,
   findRowByExternalRef,
   guarded,
-  hasNulCharacter,
   invalid,
   isCalendarDate,
   isPlainObject,
@@ -39,45 +45,20 @@ import {
   overQuota,
   parseExternalRef,
   trackAfterResponse,
-  truncateCodePoints,
   type FailureContext,
 } from "@/lib/careerotter/domain-result";
 import type { DomainResult } from "@/types";
-
-const TICKER_PATTERN = /^[A-Z0-9][A-Z0-9.\-]*$/;
 
 const COMP_TABLE = "comp_entries";
 const EXTERNAL_REF_CONSTRAINT = "comp_entries_user_external_ref_key";
 const COMP_SERVICE_SELECT =
   "id, effective_date, base, bonus, equity, currency, note, ticker, shares, vest_start, vest_years, vest_cliff_months, source, external_ref, updated_at, created_at";
 
-function formatLimit(value: number, scale: number): string {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: scale,
-    maximumFractionDigits: scale,
-  }).format(value);
-}
-
-const AMOUNT_MAX_LABEL = formatLimit(COMP_LIMITS.amountMax, COMP_LIMITS.amountScale);
-const SHARES_MAX_LABEL = formatLimit(COMP_LIMITS.sharesMax, COMP_LIMITS.sharesScale);
-
+// Field rules and their messages live in comp-entry-validation.ts, shared
+// with the entry form and the guest cache; these are the service's own.
 const MESSAGES = {
   patchNotObject: "Comp entry changes must be a JSON object",
-  effectiveDate: "effective_date must be a valid YYYY-MM-DD date",
-  base: "base must be a non-negative number",
-  amountType: (field: string): string => `${field} must be a non-negative number`,
-  amountTooLarge: (field: string): string =>
-    `${field} must be no larger than ${AMOUNT_MAX_LABEL}`,
-  ticker: `ticker must be 1-${COMP_LIMITS.tickerMax} letters, digits, dots or hyphens`,
-  shares: `shares must be a non-negative number no larger than ${SHARES_MAX_LABEL}`,
   note: "note must be a string",
-  noteNul: "note must not contain null characters",
-  noteTooLong: `note must be ${COMP_LIMITS.noteMax} characters or fewer`,
-  vestStart: "vest_start must be a valid YYYY-MM-DD date",
-  vestYears: `vest_years must be at least ${COMP_LIMITS.vestYearsMin} (${VEST_YEARS_MIN_LABEL}) and at most ${COMP_LIMITS.vestYearsMax}`,
-  vestCliff: `vest_cliff_months must be a whole number between 0 and ${COMP_LIMITS.vestCliffMonthsMax}`,
-  cliffNeedsVest: "vest_cliff_months requires vest_years",
-  cliffTooLong: "vest_cliff_months cannot exceed the vesting duration",
   immutable: "external_ref and source cannot be changed",
   notFound: "Comp entry not found",
   refConflict: "A comp entry with this external_ref was removed while saving; try again",
@@ -155,8 +136,6 @@ export interface CurrentCompEntries<T> {
 
 type FieldParser<K extends CompFieldName> = (raw: unknown) => DomainResult<CompFields[K]>;
 type AmountFields = Pick<CompFields, "base" | "bonus" | "equity">;
-type GrantFields = Pick<CompFields, "ticker" | "shares">;
-type VestFields = Pick<CompFields, "vest_start" | "vest_years" | "vest_cliff_months">;
 
 function failureContext(
   userId: string,
@@ -169,169 +148,20 @@ function failureContext(
 
 // ── field validation ───────────────────────────────────────────────────────
 
+function fromField<T>(result: FieldResult<T>): DomainResult<T> {
+  return result.ok ? ok(result.value) : invalid(result.error);
+}
+
 function isPresent(value: unknown): boolean {
   return value !== undefined && value !== null;
 }
 
-function nonNegativeNumber(value: unknown): number | null {
-  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
-  return null;
-}
-
-function parseEffectiveDate(raw: unknown): DomainResult<string> {
-  return isCalendarDate(raw) ? ok(raw) : invalid(MESSAGES.effectiveDate);
-}
-
-function parseBase(raw: unknown): DomainResult<number> {
-  const base = nonNegativeNumber(raw);
-  if (base === null) return invalid(MESSAGES.base);
-  if (base > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge("base"));
-  return ok(base);
-}
-
-// On create, bonus and equity are optional: anything that isn't a
-// non-negative number is stored as 0, but a real number too large for the
-// column is an error rather than silently zeroed.
-function parseOptionalAmount(field: string, raw: unknown): DomainResult<number> {
-  const amount = nonNegativeNumber(raw);
-  if (amount === null) return ok(0);
-  if (amount > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge(field));
-  return ok(amount);
-}
-
-function parseStrictAmount(field: string, raw: unknown): DomainResult<number> {
-  const amount = nonNegativeNumber(raw);
-  if (amount === null) return invalid(MESSAGES.amountType(field));
-  if (amount > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge(field));
-  return ok(amount);
-}
-
-// On create, over-long notes are truncated; on update they are rejected.
-function parseNoteText(value: string, truncate: boolean): DomainResult<string | null> {
-  if (hasNulCharacter(value)) return invalid(MESSAGES.noteNul);
-  const note = value.trim();
-  if (!truncate && codePointLength(note) > COMP_LIMITS.noteMax) {
-    return invalid(MESSAGES.noteTooLong);
-  }
-  return ok(truncateCodePoints(note, COMP_LIMITS.noteMax) || null);
-}
-
-function parseNote(raw: unknown): DomainResult<string | null> {
-  return typeof raw === "string" ? parseNoteText(raw, true) : ok(null);
-}
-
-// Over-long tickers are rejected rather than truncated: a truncated symbol
-// names a different security.
-function parseTickerText(value: string): DomainResult<string | null> {
-  const ticker = value.trim().toUpperCase();
-  if (ticker === "") return ok(null);
-  if (ticker.length > COMP_LIMITS.tickerMax || !TICKER_PATTERN.test(ticker)) {
-    return invalid(MESSAGES.ticker);
-  }
-  return ok(ticker);
-}
-
-function parseTicker(raw: unknown): DomainResult<string | null> {
-  return typeof raw === "string" ? parseTickerText(raw) : ok(null);
-}
-
-// Optional, but a supplied value must be storable: rejected rather than
-// silently dropped, so bad input is never lost without a message.
-function parseShares(raw: unknown): DomainResult<number | null> {
-  if (!isPresent(raw)) return ok(null);
-  const shares = nonNegativeNumber(raw);
-  if (shares === null || shares > COMP_LIMITS.sharesMax) return invalid(MESSAGES.shares);
-  return ok(shares);
-}
-
-function parseVestStart(raw: unknown): DomainResult<string | null> {
-  if (!isPresent(raw) || raw === "") return ok(null);
-  return isCalendarDate(raw) ? ok(raw) : invalid(MESSAGES.vestStart);
-}
-
-function parseVestYears(raw: unknown): DomainResult<number | null> {
-  if (!isPresent(raw)) return ok(null);
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return invalid(MESSAGES.vestYears);
-  if (raw < COMP_LIMITS.vestYearsMin || raw > COMP_LIMITS.vestYearsMax) {
-    return invalid(MESSAGES.vestYears);
-  }
-  return ok(raw);
-}
-
-function parseVestCliff(raw: unknown): DomainResult<number | null> {
-  if (!isPresent(raw)) return ok(null);
-  if (typeof raw !== "number" || !Number.isInteger(raw)) return invalid(MESSAGES.vestCliff);
-  if (raw < 0 || raw > COMP_LIMITS.vestCliffMonthsMax) return invalid(MESSAGES.vestCliff);
-  return ok(raw);
-}
-
-// A cliff only means something relative to a vest schedule: without a duration
-// the projection would silently ignore it, and a cliff longer than the vest
-// describes a schedule that never pays until after it ends.
-function checkCliffFitsVest(
-  cliffMonths: number | null,
-  vestYears: number | null
-): DomainResult<null> {
-  if (cliffMonths === null || cliffMonths === 0) return ok(null);
-  if (vestYears === null) return invalid(MESSAGES.cliffNeedsVest);
-  if (cliffMonths > Math.round(vestYears * MONTHS_PER_YEAR)) {
-    return invalid(MESSAGES.cliffTooLong);
-  }
-  return ok(null);
-}
-
-function parseAmounts(input: CompFieldsInput): DomainResult<AmountFields> {
-  const base = parseBase(input.base);
-  if (!base.ok) return base;
-  const bonus = parseOptionalAmount("bonus", input.bonus);
-  if (!bonus.ok) return bonus;
-  const equity = parseOptionalAmount("equity", input.equity);
-  if (!equity.ok) return equity;
-  return ok({ base: base.value, bonus: bonus.value, equity: equity.value });
-}
-
-function parseGrant(input: CompFieldsInput): DomainResult<GrantFields> {
-  const ticker = parseTicker(input.ticker);
-  if (!ticker.ok) return ticker;
-  const shares = parseShares(input.shares);
-  if (!shares.ok) return shares;
-  return ok({ ticker: ticker.value, shares: shares.value });
-}
-
-function parseVesting(input: CompFieldsInput): DomainResult<VestFields> {
-  const vestStart = parseVestStart(input.vest_start);
-  if (!vestStart.ok) return vestStart;
-  const vestYears = parseVestYears(input.vest_years);
-  if (!vestYears.ok) return vestYears;
-  const cliff = parseVestCliff(input.vest_cliff_months);
-  if (!cliff.ok) return cliff;
-  const fits = checkCliffFitsVest(cliff.value, vestYears.value);
-  if (!fits.ok) return fits;
-  return ok({
-    vest_start: vestStart.value,
-    vest_years: vestYears.value,
-    vest_cliff_months: cliff.value,
-  });
-}
-
+// The shared validator is the single source of field rules, so the form, the
+// guest cache, REST and MCP all accept exactly the same entries.
 function validateCompFields(input: CompFieldsInput): DomainResult<CompFields> {
-  const effectiveDate = parseEffectiveDate(input.effective_date);
-  if (!effectiveDate.ok) return effectiveDate;
-  const amounts = parseAmounts(input);
-  if (!amounts.ok) return amounts;
-  const note = parseNote(input.note);
-  if (!note.ok) return note;
-  const grant = parseGrant(input);
-  if (!grant.ok) return grant;
-  const vesting = parseVesting(input);
-  if (!vesting.ok) return vesting;
-  return ok({
-    effective_date: effectiveDate.value,
-    ...amounts.value,
-    note: note.value,
-    ...grant.value,
-    ...vesting.value,
-  });
+  const checked = validateCompEntryInput(input);
+  if (!checked.ok) return invalid(checked.error);
+  return ok({ ...checked.value, note: checked.note });
 }
 
 function parseOptionalExternalRef(raw: unknown): DomainResult<string | null> {
@@ -339,9 +169,8 @@ function parseOptionalExternalRef(raw: unknown): DomainResult<string | null> {
 }
 
 /**
- * Validates and normalizes a new comp entry. Invalid optional bonus/equity are
- * stored as 0; note is trimmed and capped; ticker is trimmed and uppercased
- * before its length and charset are checked.
+ * Validates and normalizes a new comp entry with the shared validator
+ * (validateCompEntryInput), then the agent's optional external_ref.
  */
 export function validateCompInput(input: CompInput): DomainResult<ValidCompInput> {
   const fields = validateCompFields(input);
@@ -356,31 +185,36 @@ export function validateCompInput(input: CompInput): DomainResult<ValidCompInput
 // Update parsers take a present value: null clears (where a field can be
 // cleared) and anything else must already be valid, with none of the
 // create-time coercions.
-function clearable<T>(
+function strict<T>(parse: (raw: unknown) => FieldResult<T>): (raw: unknown) => DomainResult<T> {
+  return (raw) => fromField(parse(raw));
+}
+
+function clearable<T, C>(
   parse: (raw: unknown) => DomainResult<T>,
-  cleared: T
-): (raw: unknown) => DomainResult<T> {
-  return (raw: unknown): DomainResult<T> => (raw === null ? ok(cleared) : parse(raw));
+  cleared: C
+): (raw: unknown) => DomainResult<T | C> {
+  return (raw: unknown): DomainResult<T | C> => (raw === null ? ok(cleared) : parse(raw));
 }
 
 function strictText(
-  parse: (value: string) => DomainResult<string | null>,
+  parse: (value: string) => FieldResult<string | null>,
   message: string
 ): (raw: unknown) => DomainResult<string | null> {
-  return (raw) => (typeof raw === "string" ? parse(raw) : invalid(message));
+  return (raw) => (typeof raw === "string" ? fromField(parse(raw)) : invalid(message));
 }
 
 const PATCH_PARSERS: { [K in CompFieldName]: FieldParser<K> } = {
-  effective_date: parseEffectiveDate,
-  base: parseBase,
-  bonus: clearable((raw) => parseStrictAmount("bonus", raw), 0),
-  equity: clearable((raw) => parseStrictAmount("equity", raw), 0),
-  note: clearable(strictText((value) => parseNoteText(value, false), MESSAGES.note), null),
-  ticker: clearable(strictText(parseTickerText, MESSAGES.ticker), null),
-  shares: parseShares,
-  vest_start: parseVestStart,
-  vest_years: parseVestYears,
-  vest_cliff_months: parseVestCliff,
+  effective_date: strict(parseEffectiveDate),
+  base: strict((raw) => parseAmount("base", raw)),
+  bonus: clearable(strict((raw) => parseAmount("bonus", raw)), 0),
+  equity: clearable(strict((raw) => parseAmount("equity", raw)), 0),
+  note: clearable(strictText((value) => parseNote(value, false), MESSAGES.note), null),
+  ticker: clearable(strictText(parseTicker, COMP_ENTRY_MESSAGES.ticker), null),
+  shares: clearable(strict(parseShares), null),
+  // An empty vest_start clears it, as it reads as "not provided" on create.
+  vest_start: (raw) => (raw === "" ? ok(null) : clearable(strict(parseVestStart), null)(raw)),
+  vest_years: clearable(strict(parseVestYears), null),
+  vest_cliff_months: clearable(strict(parseVestCliff), null),
 };
 
 function applyPatchField<K extends CompFieldName>(
@@ -418,7 +252,7 @@ function mergePatch(
 ): DomainResult<CompFields> {
   const merged: CompFields = { ...toCompFields(existing), ...patch };
   const fits = checkCliffFitsVest(merged.vest_cliff_months, merged.vest_years);
-  return fits.ok ? ok(merged) : fits;
+  return fits.ok ? ok(merged) : invalid(fits.error);
 }
 
 // ── row mapping ────────────────────────────────────────────────────────────

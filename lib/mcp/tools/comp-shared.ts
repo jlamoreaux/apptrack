@@ -14,7 +14,8 @@ import {
   type VestSummary,
 } from "@/lib/careerotter/comp-projection";
 import { listCompEntries, type StoredCompEntry } from "@/lib/careerotter/comp-service";
-import { normalizeTicker, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { readValidCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTicker } from "@/lib/careerotter/tickers";
 import { COMP_SOURCES } from "@/lib/constants/careerotter";
 import {
   MCP_ANCHOR_PRICE_SOURCES,
@@ -187,7 +188,7 @@ export function sumTotals(rows: readonly ProjectionYear[]): number {
 
 // ── projection years ───────────────────────────────────────────────────────
 
-export function projectionYears(firstYear: number, count: number): number[] {
+export function consecutiveYears(firstYear: number, count: number): number[] {
   return Array.from({ length: count }, (_, offset) => firstYear + offset);
 }
 
@@ -203,7 +204,7 @@ export function loadCachedQuotes(
   tickers: readonly (string | null)[]
 ): Promise<DomainResult<Record<string, StockQuote>>> {
   const present = tickers.filter((ticker): ticker is string => ticker !== null);
-  return readCachedQuotes(ctx.admin, present);
+  return readValidCachedQuotes(ctx.admin, present);
 }
 
 function quoteFor(

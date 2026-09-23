@@ -20,7 +20,7 @@ export default async function CompPage() {
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Comp</h1>
           <p className="max-w-2xl text-sm text-muted-foreground">
-            What you are paid, what it is worth over the next three years, and how it sits
+            What you are paid, what it is worth year by year through your vest, up to five years out, and how it sits
             against the market for your role. The number you ask for next starts here.
           </p>
         </div>

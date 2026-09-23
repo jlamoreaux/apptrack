@@ -1,5 +1,5 @@
 import { SITE_CONFIG } from "@/lib/constants/site-config";
-import { FREE_TOOLS } from "@/lib/constants/free-tools";
+import { ACCOUNT_TOOLS, FREE_TOOLS } from "@/lib/constants/free-tools";
 import { PRICING_TIERS } from "@/lib/constants/homepage-content";
 import { getAllPosts } from "@/lib/blog";
 import { AGENT_SKILLS, skillUrl } from "@/lib/agent-discovery/skills";
@@ -19,6 +19,10 @@ function url(pathname: string): string {
 export function GET(): Response {
   const tools = FREE_TOOLS.map(
     (tool) => `- [${tool.title}](${url(tool.href)}): ${tool.shortDescription}. Free, no account.`,
+  ).join("\n");
+
+  const accountTools = ACCOUNT_TOOLS.map(
+    (tool) => `- [${tool.title}](${url(tool.href)}): ${tool.shortDescription}. Free account required.`,
   ).join("\n");
 
   const pricing = PRICING_TIERS.map(
@@ -46,6 +50,10 @@ header estimating the cost.
 ## Free tools
 
 ${tools}
+
+## In the app
+
+${accountTools}
 
 ## Pricing
 

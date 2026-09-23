@@ -51,7 +51,7 @@ import {
   priceFreshnessOutput,
   priceSourceOutput,
   projectionRowOutput,
-  projectionYears,
+  consecutiveYears,
   projectionYearsInput,
   sharePriceInput,
   sumTotals,
@@ -264,7 +264,7 @@ async function buildProjector(
   const tickers = [current?.ticker ?? null, ...packages.map((pkg) => pkg.entry.ticker)];
   const quotes = await loadCachedQuotes(ctx, tickers);
   if (!quotes.ok) return quotes;
-  const years = projectionYears(input.asOf.year, input.years);
+  const years = consecutiveYears(input.asOf.year, input.years);
   return ok({ years, asOf: input.asOf, now: ctx.now, quotes: quotes.value });
 }
 

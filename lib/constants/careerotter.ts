@@ -95,6 +95,18 @@ export const WIN_LIMITS = {
 export const MANUAL_SOURCE = "manual" as const satisfies WinSource & CompSource;
 export const AGENT_SOURCE = "agent" as const satisfies WinSource & CompSource;
 
+// ─── Comp tracker ───
+
+// Where a guest's comp entries live in the browser until they sign up, and how
+// long they survive there. Bumping the key discards entries written by older
+// code.
+export const GUEST_COMP_STORAGE_KEY = "careerotter.guest-comp.v1";
+export const GUEST_COMP_TTL_MS = 24 * 60 * 60 * 1000;
+
+// Most tickers the public cached-quote endpoint answers per request; the
+// guest page batches its lookups to match.
+export const GUEST_QUOTE_BATCH = 5;
+
 // vest_years is numeric(4,2): two decimal places.
 const VEST_YEARS_SCALE = 2;
 const VEST_YEARS_FACTOR = 10 ** VEST_YEARS_SCALE;
@@ -103,9 +115,11 @@ const VEST_YEARS_FACTOR = 10 ** VEST_YEARS_SCALE;
 const VEST_MIN_MONTHS = 1;
 export const VEST_YEARS_MIN_LABEL = "one month";
 
-// Field caps for comp entries, mirroring the column types in 033/035/040.
-// The *Scale values are the column's decimal places, used to format the caps
-// in validation messages.
+// Field caps for a comp entry, mirroring the column types in 033/035/040 and
+// enforced by the shared validator (lib/careerotter/comp-entry-validation.ts)
+// in the entry form, the guest cache, the REST API and the MCP tools. The
+// *Scale values are the column's decimal places, used to format the caps in
+// validation messages.
 export const COMP_LIMITS = {
   // numeric(12,2)
   amountMax: 9_999_999_999.99,

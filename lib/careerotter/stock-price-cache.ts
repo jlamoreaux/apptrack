@@ -11,8 +11,11 @@
  *
  * Dark without FINNHUB_API_KEY: only the cache is read.
  *
- * readCachedQuotes is the select-only variant for the MCP tools, which must
- * never spend the Finnhub budget or write the shared cache.
+ * readCachedQuotes and loadCachedQuotes are the select-only variants for the
+ * guest page's public endpoint, which must never let anonymous traffic drive
+ * Finnhub usage. readValidCachedQuotes is the select-only variant for the MCP
+ * tools, which must never spend the Finnhub budget or write the shared cache,
+ * and which need a read failure reported rather than swallowed.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -20,6 +23,7 @@ import type { StockQuote } from "@/lib/careerotter/comp-projection";
 import { fetchProfile, fetchQuote, isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { normalizeTicker, normalizeTickers } from "@/lib/careerotter/tickers";
 import type { DomainResult } from "@/types";
 
 /** How old a cached quote may be before a page view refreshes it. */
@@ -71,8 +75,57 @@ function isStale(row: StockPriceRow | undefined, now: number): boolean {
   return !Number.isFinite(at) || now - at > QUOTE_TTL_MS;
 }
 
-function selectCachedRows(admin: SupabaseClient, tickers: readonly string[]) {
-  return admin.from(STOCK_PRICES_TABLE).select(SELECT_COLUMNS).in("ticker", [...tickers]);
+interface CachedRowsRead {
+  rows: unknown[];
+  error: unknown;
+}
+
+async function selectCachedRows(
+  admin: SupabaseClient,
+  tickers: readonly string[]
+): Promise<CachedRowsRead> {
+  const { data, error } = await admin
+    .from(STOCK_PRICES_TABLE)
+    .select(SELECT_COLUMNS)
+    .in("ticker", [...tickers]);
+  return { rows: Array.isArray(data) ? data : [], error };
+}
+
+function logReadFailure(error: unknown): void {
+  loggerService.error("Failed to read cached stock prices", error, {
+    category: LogCategory.DATABASE,
+    action: "stock_prices_read_failed",
+  });
+}
+
+/**
+ * The cached rows for the given tickers, keyed by ticker, without touching
+ * the feed. The guest page's public endpoint uses this on its own so that
+ * anonymous traffic can never drive Finnhub usage. A read failure is logged
+ * and yields an empty map.
+ */
+export async function readCachedQuotes(
+  admin: SupabaseClient,
+  tickers: string[]
+): Promise<Map<string, StockPriceRow>> {
+  const cached = new Map<string, StockPriceRow>();
+  if (tickers.length === 0) return cached;
+  const { rows, error } = await selectCachedRows(admin, tickers);
+  if (error) logReadFailure(error);
+  for (const row of rows as StockPriceRow[]) cached.set(row.ticker, row);
+  return cached;
+}
+
+/** Cached quotes only, in the shape the page consumes. */
+export async function loadCachedQuotes(
+  admin: SupabaseClient,
+  tickers: string[]
+): Promise<Record<string, StockQuote>> {
+  const quotes: Record<string, StockQuote> = {};
+  for (const [ticker, row] of await readCachedQuotes(admin, tickers)) {
+    quotes[ticker] = rowToQuote(row);
+  }
+  return quotes;
 }
 
 /**
@@ -86,19 +139,8 @@ export async function loadQuotes(
   const quotes: Record<string, StockQuote> = {};
   if (tickers.length === 0) return quotes;
 
-  const { data: rows, error } = await selectCachedRows(admin, tickers);
-  if (error) {
-    loggerService.error("Failed to read cached stock prices", error, {
-      category: LogCategory.DATABASE,
-      action: "stock_prices_read_failed",
-    });
-  }
-
-  const cached = new Map<string, StockPriceRow>();
-  for (const row of (rows ?? []) as StockPriceRow[]) {
-    cached.set(row.ticker, row);
-    quotes[row.ticker] = rowToQuote(row);
-  }
+  const cached = await readCachedQuotes(admin, tickers);
+  for (const [ticker, row] of cached) quotes[ticker] = rowToQuote(row);
 
   if (!isPriceFeedConfigured()) return quotes;
 
@@ -175,16 +217,6 @@ function isStockPriceRow(value: unknown): value is StockPriceRow {
     "price" in value && hasPositivePrice(value.price);
 }
 
-/** A ticker as stored: trimmed and uppercased. */
-export function normalizeTicker(ticker: string): string {
-  return ticker.trim().toUpperCase();
-}
-
-function normalizeTickers(tickers: readonly string[]): string[] {
-  const normalized = tickers.map(normalizeTicker);
-  return [...new Set(normalized.filter((ticker) => ticker.length > 0))];
-}
-
 // A quote no one can date cannot be judged fresh or stale, so it is dropped.
 // as_of is returned in UTC ISO form (Postgres sends "+00:00" offsets), so
 // consumers can compare and serialize it without re-parsing.
@@ -195,10 +227,10 @@ function toCachedQuote(row: unknown): { ticker: string; quote: StockQuote } | nu
   return { ticker: normalizeTicker(row.ticker), quote: { ...rowToQuote(row), as_of: asOf } };
 }
 
-function quotesFromRows(rows: unknown): Record<string, StockQuote> {
+function quotesFromRows(rows: readonly unknown[]): Record<string, StockQuote> {
   const quotes: Record<string, StockQuote> = {};
   let dropped = 0;
-  for (const row of Array.isArray(rows) ? rows : []) {
+  for (const row of rows) {
     const cached = toCachedQuote(row);
     if (cached === null) dropped += 1;
     else quotes[cached.ticker] = cached.quote;
@@ -215,18 +247,20 @@ function quotesFromRows(rows: unknown): Record<string, StockQuote> {
 
 /**
  * Cached quotes for the given tickers, keyed by (normalized) ticker, straight
- * from stock_prices: no feed call and no write. Tickers with no cached row
- * are absent; rows without a positive price or a parseable as_of are dropped
- * with a warning. as_of is returned as a UTC ISO timestamp.
+ * from stock_prices: no feed call and no write. Tickers are normalized with
+ * normalizeTickers, so blanks and non-ticker strings are skipped. Tickers
+ * with no cached row are absent; rows without a positive price or a parseable
+ * as_of are dropped with a warning. as_of is returned as a UTC ISO timestamp.
+ * Unlike readCachedQuotes, a read failure is a `db` result, not an empty set.
  */
-export async function readCachedQuotes(
+export async function readValidCachedQuotes(
   admin: SupabaseClient,
   tickers: readonly string[]
 ): Promise<DomainResult<Record<string, StockQuote>>> {
   const unique = normalizeTickers(tickers);
   if (unique.length === 0) return { ok: true, value: {} };
   try {
-    const { data: rows, error } = await selectCachedRows(admin, unique);
+    const { rows, error } = await selectCachedRows(admin, unique);
     if (error) return cachedQuotesFailure(error);
     return { ok: true, value: quotesFromRows(rows) };
   } catch (error) {
@@ -235,9 +269,6 @@ export async function readCachedQuotes(
 }
 
 function cachedQuotesFailure(error: unknown): DomainResult<Record<string, StockQuote>> {
-  loggerService.error("Failed to read cached stock prices", error, {
-    category: LogCategory.DATABASE,
-    action: "stock_prices_read_failed",
-  });
+  logReadFailure(error);
   return { ok: false, kind: "db", message: "Failed to load stock quotes" };
 }

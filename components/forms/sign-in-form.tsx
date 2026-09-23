@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { isValidInternalPath } from "@/lib/utils/internal-path";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +18,16 @@ const signInSchema = z.object({
 });
 
 type SignInFormData = z.infer<typeof signInSchema>;
+
+/**
+ * Where to go after signing in: the page that sent the user here (the
+ * middleware sets redirectTo when it bounces a protected page, and the
+ * guest comp page sets it to return there), else the dashboard.
+ */
+function afterSignInPath(): string {
+  const requested = new URLSearchParams(window.location.search).get("redirectTo");
+  return isValidInternalPath(requested) ? requested : "/dashboard";
+}
 
 export function SignInForm() {
   const [loading, setLoading] = useState(false);
@@ -50,15 +61,15 @@ export function SignInForm() {
           });
           
           const { needsOnboarding } = await response.json();
-          
+
           if (needsOnboarding) {
             router.push("/onboarding/welcome");
           } else {
-            router.push("/dashboard");
+            router.push(afterSignInPath());
           }
         } catch (error) {
-          // If check fails, default to dashboard
-          router.push("/dashboard");
+          // If check fails, default to the dashboard (or where they came from)
+          router.push(afterSignInPath());
         }
         router.refresh();
       }

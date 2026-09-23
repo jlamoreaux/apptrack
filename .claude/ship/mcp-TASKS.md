@@ -61,7 +61,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - `currentCompEntry(entries, asOf)` → `{ current, upcoming }`
 - [x] 3.2: Create `lib/careerotter/plan.ts` `isProUser(admin, userId)` using the
   admin client, `isEntitledStatus` and `isOnProOrHigher`.
-- [x] 3.3: Add `readCachedQuotes(admin, tickers)` (select-only) to
+- [x] 3.3: Add `readValidCachedQuotes(admin, tickers)` (select-only; named `readCachedQuotes` before the merge with main) to
   `lib/careerotter/stock-price-cache.ts`.
 - [x] 3.4: Refactor `app/api/careerotter/comp/route.ts` and `[id]/route.ts` onto
   the service. Comp GET returns 500 when the entries query errors; non-uuid id →

@@ -173,6 +173,32 @@ export function grantValue(entry: CompEntry, sharePrice: number | null): number 
   return Number(entry.equity);
 }
 
+export const PROJECTION_MIN_YEARS = 3;
+export const PROJECTION_MAX_YEARS = 5;
+
+/**
+ * The calendar years the projection covers: from the current year through
+ * the year the grant finishes vesting, never fewer than three, never more
+ * than five. Without a vest schedule, the three-year default.
+ */
+export function projectionYears(entry: CompEntry, currentYear: number): number[] {
+  const schedule = scheduleFor(entry);
+  let count = PROJECTION_MIN_YEARS;
+  if (schedule) {
+    const totalMonths = Math.round(schedule.vestYears * 12);
+    const end = addMonthsClamped(schedule.start, totalMonths);
+    // Linear vesting accrues up to the end, so a vest that ends at midnight on
+    // Jan 1 pays its last slice in the prior year. A cliff as long as the vest
+    // pays the whole grant on the end date itself, which
+    // grantFractionVestedBetween counts in the year that starts then.
+    const lumpAtEnd = schedule.cliffMonths >= totalMonths;
+    const endsOnJan1 = end.getMonth() === 0 && end.getDate() === 1;
+    const lastYear = endsOnJan1 && !lumpAtEnd ? end.getFullYear() - 1 : end.getFullYear();
+    count = Math.min(PROJECTION_MAX_YEARS, Math.max(PROJECTION_MIN_YEARS, lastYear - currentYear + 1));
+  }
+  return Array.from({ length: count }, (_, i) => currentYear + i);
+}
+
 export interface ProjectionYear {
   year: number;
   salary: number;

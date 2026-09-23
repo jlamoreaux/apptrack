@@ -13,7 +13,7 @@ import {
 } from "@/lib/careerotter/comp-projection";
 import { currentCompEntry, type StoredCompEntry } from "@/lib/careerotter/comp-service";
 import { invalid, notFound, ok, overQuota } from "@/lib/careerotter/domain-result";
-import { normalizeTicker } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTicker } from "@/lib/careerotter/tickers";
 import {
   COMP_LEVELS,
   COMP_ROLE_FAMILIES,
@@ -52,7 +52,7 @@ import {
   priceFreshnessOutput,
   priceSourceOutput,
   projectionRowOutput,
-  projectionYears,
+  consecutiveYears,
   projectionYearsInput,
   sharePriceInput,
   storedEntryOutput,
@@ -233,7 +233,7 @@ function projectEntry(
 ): ProjectOutput {
   const projection = projectComp(entry, {
     sharePrice: point.price,
-    years: projectionYears(window.asOf.year, window.years),
+    years: consecutiveYears(window.asOf.year, window.years),
     asOf: window.asOf.instant,
   });
   return {
@@ -323,7 +323,7 @@ function toQuoteOutput(ticker: string, quote: StockQuote): QuoteOutput {
   };
 }
 
-// readCachedQuotes keys quotes by normalized ticker and drops rows without a
+// readValidCachedQuotes keys quotes by normalized ticker and drops rows without a
 // positive price or a readable as_of, so anything it did not return is missing.
 function splitQuotes(
   tickers: readonly string[],

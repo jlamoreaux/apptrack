@@ -299,9 +299,12 @@ Messages never include Supabase error text. Ids are validated as uuids up front
   derives Pro with `isEntitledStatus` and `isOnProOrHigher`, because
   `PermissionMiddleware.getUserPlanInfo` uses the cookie client and reads every
   token caller as Free. A DB error → `{ ok: false, kind: 'db' }`.
-- `lib/careerotter/stock-price-cache.ts`: add `readCachedQuotes(admin, tickers)`,
-  a select-only read of `stock_prices` with no Finnhub call and no upsert.
-  MCP tools never call `loadQuotes`.
+- `lib/careerotter/stock-price-cache.ts`: add `readValidCachedQuotes(admin, tickers)`,
+  a select-only read of `stock_prices` with no Finnhub call and no upsert that
+  returns a `DomainResult` (a read error is `db`, not an empty set). It shares
+  the query with `readCachedQuotes`/`loadCachedQuotes` (used by the
+  guest page's public quote endpoint) and normalizes tickers with
+  `lib/careerotter/tickers.ts`. MCP tools never call `loadQuotes`.
 
 #### Deliberate REST behavior changes (bug fixes enabled by the refactor)
 
@@ -318,6 +321,16 @@ Messages never include Supabase error text. Ids are validated as uuids up front
 | Vest event (e.g. a cliff) exactly at midnight on Jan 1 (bug fix in `grantFractionVestedBetween`, which is documented as [from, to)); also changes the comp page chart for that case | counted in the previous year's row | counted in the new year's row |
 
 Existing tests that encode the old behavior are updated in the same task.
+
+The comp field rules (amount caps, ticker charset and length, the one-month
+`vest_years` minimum, NUL rejection, code-point-safe note truncation) live in
+the shared client-safe validator `lib/careerotter/comp-entry-validation.ts`
+(`validateCompEntryInput`), which `comp-service.ts` delegates to. Because the
+entry form and the guest cache/import use the same validator, the stricter
+rules above also apply in the entry form (the error shows inline before
+anything is saved) and in guest mode (a cached guest entry that no longer
+passes is dropped on read rather than posted and rejected on import). Field
+caps live in one constant, `COMP_LIMITS` in `lib/constants/careerotter.ts`.
 
 ### MCP route: `app/api/mcp/route.ts`
 
@@ -507,7 +520,7 @@ Critique (PRD review agent) → resolution.
   oracle) → write implies read; enforced by API normalization and the scope
   helper.
 - `loadQuotes` calls Finnhub and writes the global cache → new
-  `readCachedQuotes`, MCP never calls `loadQuotes`, ticker charset validation,
+  `readValidCachedQuotes`, MCP never calls `loadQuotes`, ticker charset validation,
   per-user comp quotas.
 - Recap cron unbounded select lets one user's backfill drop others' wins →
   paginate the recap cron; per-user agent write quotas.

@@ -1,5 +1,17 @@
-import { FileText, Target, MessageSquare, Flame, LucideIcon } from "lucide-react"
+import {
+  FileText,
+  Target,
+  MessageSquare,
+  Flame,
+  DollarSign,
+  Trophy,
+  ClipboardList,
+  MessageSquareText,
+  Building2,
+  LucideIcon,
+} from "lucide-react"
 import { FeatureIconColor } from "@/components/ui/feature-icon"
+import type { AccountTool } from "@/types"
 
 export interface FreeTool {
   title: string
@@ -52,6 +64,19 @@ export const FREE_TOOLS: FreeTool[] = [
     ],
   },
   {
+    title: "Comp Tracker",
+    description: "See your total comp, base plus bonus plus equity, projected year by year through your vest, up to five years out, and valued at the live stock price. Try it without an account; sign up to keep it.",
+    shortDescription: "Track your pay against the market",
+    href: "/try/comp",
+    icon: DollarSign,
+    iconColor: "green",
+    features: [
+      "Projection through your vest, up to five years",
+      "Live stock price simulator",
+      "Market range for your role",
+    ],
+  },
+  {
     title: "Resume Roast",
     description: "Get brutally honest, entertaining feedback on your resume. Find out what recruiters really think.",
     shortDescription: "Get brutally honest resume feedback",
@@ -65,6 +90,41 @@ export const FREE_TOOLS: FreeTool[] = [
     ],
   },
 ]
+
+// Tools that live in the app and need a (free) account. Listed on the
+// marketing surfaces next to the try-without-signing-up tools so the whole
+// product is discoverable from the nav; the middleware sends a logged-out
+// visitor to login with a redirect back to the page they picked.
+export const ACCOUNT_TOOLS = [
+  {
+    title: "Wins Log",
+    shortDescription: "Log your wins and build your case",
+    href: "/dashboard/wins",
+    icon: Trophy,
+    iconColor: "orange",
+  },
+  {
+    title: "Review Prep",
+    shortDescription: "Turn your wins into a review-ready doc",
+    href: "/dashboard/review-prep",
+    icon: ClipboardList,
+    iconColor: "purple",
+  },
+  {
+    title: "Career Coach",
+    shortDescription: "Coaching grounded in your logged wins",
+    href: "/dashboard/coach",
+    icon: MessageSquareText,
+    iconColor: "blue",
+  },
+  {
+    title: "Application Tracker",
+    shortDescription: "Track every application, free forever",
+    href: "/dashboard/applications",
+    icon: Building2,
+    iconColor: "indigo",
+  },
+] satisfies AccountTool[]
 
 // Role-specific cover letter landing pages — each generates a pre-rendered SEO page
 export const ROLE_LANDING_PAGES = [

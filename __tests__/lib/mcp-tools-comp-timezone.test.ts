@@ -16,7 +16,7 @@ import { spawnSync } from "child_process";
 import path from "path";
 import { COMP_TOOLS } from "@/lib/mcp/tools/comp";
 import { listCompEntries, type StoredCompEntry } from "@/lib/careerotter/comp-service";
-import { readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { readValidCachedQuotes } from "@/lib/careerotter/stock-price-cache";
 import { call, recordField, structuredOf } from "@/__tests__/utils/test-helpers/mcp-client";
 import type { McpMocks } from "@/__tests__/utils/test-helpers/mcp-mocks";
 
@@ -32,7 +32,7 @@ jest.mock("@/lib/careerotter/comp-service", () => ({
 }));
 jest.mock("@/lib/careerotter/stock-price-cache", () => ({
   ...jest.requireActual<object>("@/lib/careerotter/stock-price-cache"),
-  readCachedQuotes: jest.fn(),
+  readValidCachedQuotes: jest.fn(),
 }));
 
 const PROBE_ZONE = "Asia/Tokyo";
@@ -67,7 +67,7 @@ const GRANT: StoredCompEntry = {
 (inProbeZone ? describe : describe.skip)(`default as_of in ${PROBE_ZONE}`, () => {
   beforeEach(() => {
     jest.mocked(listCompEntries).mockResolvedValue({ ok: true, value: [GRANT] });
-    jest.mocked(readCachedQuotes).mockResolvedValue({ ok: true, value: {} });
+    jest.mocked(readValidCachedQuotes).mockResolvedValue({ ok: true, value: {} });
   });
 
   it("runs with the zone applied", () => {

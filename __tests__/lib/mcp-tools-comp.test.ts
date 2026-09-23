@@ -28,7 +28,8 @@ import {
   updateCompEntry,
   type StoredCompEntry,
 } from "@/lib/careerotter/comp-service";
-import { loadQuotes, normalizeTicker, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { loadQuotes, readValidCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTicker } from "@/lib/careerotter/tickers";
 import { isProUser } from "@/lib/careerotter/plan";
 import { compDelta, lookupMarketRange, MARKET_DATA_SOURCE } from "@/lib/careerotter/market-data";
 import { MS_PER_DAY } from "@/lib/constants/dates";
@@ -71,7 +72,7 @@ jest.mock("@/lib/careerotter/comp-service", () => ({
 jest.mock("@/lib/careerotter/stock-price-cache", () => ({
   ...jest.requireActual<object>("@/lib/careerotter/stock-price-cache"),
   loadQuotes: jest.fn(),
-  readCachedQuotes: jest.fn(),
+  readValidCachedQuotes: jest.fn(),
 }));
 jest.mock("@/lib/careerotter/plan", () => ({ isProUser: jest.fn() }));
 
@@ -79,7 +80,7 @@ const mockList = jest.mocked(listCompEntries);
 const mockCreate = jest.mocked(createCompEntry);
 const mockUpdate = jest.mocked(updateCompEntry);
 const mockDelete = jest.mocked(deleteCompEntry);
-const mockReadQuotes = jest.mocked(readCachedQuotes);
+const mockReadQuotes = jest.mocked(readValidCachedQuotes);
 const mockLoadQuotes = jest.mocked(loadQuotes);
 const mockIsPro = jest.mocked(isProUser);
 const mockFetch = jest.fn();
