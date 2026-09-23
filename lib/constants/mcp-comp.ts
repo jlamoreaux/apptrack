@@ -3,6 +3,8 @@
  * (lib/mcp/tools/comp-*.ts).
  */
 
+import type { CompDelta } from "@/lib/careerotter/market-data";
+
 /** project_comp and evaluate_offer: how many calendar years to project, starting with the as_of year. */
 export const MCP_COMP_PROJECTION_YEARS = {
   min: 1,
@@ -23,6 +25,7 @@ export const MCP_EVALUATE_OFFER = {
 
 // Default labels for offer packages, by position.
 export const MCP_OFFER_PACKAGE_LABELS = ["Package A", "Package B"] as const;
+export const MCP_OFFER_CURRENT_LABEL = "Current package";
 
 // What evaluate_offer deliberately leaves out of its totals, stated in every
 // result so an agent does not present the numbers as complete.
@@ -39,6 +42,9 @@ export type McpPriceSource = (typeof MCP_PRICE_SOURCES)[number];
 // The sources an entry's own anchor price can have; "given" needs a caller.
 export const MCP_ANCHOR_PRICE_SOURCES = ["quote", "implied", "none"] as const;
 export type McpAnchorPriceSource = (typeof MCP_ANCHOR_PRICE_SOURCES)[number];
+
+// Mirrors CompDelta["direction"] in lib/careerotter/market-data.ts.
+export const MCP_MARKET_DELTA_DIRECTIONS = ["under", "over", "at"] as const satisfies readonly CompDelta["direction"][];
 
 export const MCP_COMP_MESSAGES = {
   benchmarkRequiresPro: "The market benchmark requires CareerOtter Pro.",
