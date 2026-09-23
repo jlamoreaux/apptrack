@@ -57,6 +57,12 @@
 
 ## Owner-only launch steps (after the above is green)
 
+0. Run migration 044 **before the code from PR #226 deploys to any environment with
+   `CAREEROTTER_ENABLED=1`**: `./scripts/run-schema.sh schemas/migrations/044_mcp_agent_access.sql`.
+   The comp REST routes (not only `/api/mcp`) read and write its new columns, so
+   without it `GET`/`POST /api/careerotter/comp` return 500. It runs in one
+   transaction, and `run-schema.sh` exits 0 even when it rolls back, so read the
+   psql output for errors rather than trusting the exit code.
 1. Merge order per `phase2-ROLLOUT.md`: M0 → M2a → M2b/M3/M4/M5/M2c (flag OFF) → M6 →
    M7 → **M1 rebrand last**.
 2. Domain cutover: point `careerotter.io`, set Vercel env per environment (incl.
@@ -71,9 +77,7 @@
 6. Retire the banner at cutover + 30 days (`NEXT_PUBLIC_REBRAND_BANNER=off`).
 7. MCP server (`/api/mcp`) and personal access tokens — before setting
    `CAREEROTTER_ENABLED=1`:
-   - Run migration 044: `./scripts/run-schema.sh schemas/migrations/044_mcp_agent_access.sql`.
-     It runs in one transaction, and `run-schema.sh` exits 0 even when it rolls back,
-     so read the psql output for errors rather than trusting the exit code.
+   - Confirm migration 044 has run (step 0).
    - Update `app/llms.txt/route.ts` and `content/agent-skills/careerotter-public-api/SKILL.md`,
      which both say there is no MCP server / no programmatic access. `llms.txt` is
      `force-static`, so the change needs a redeploy; the skill's digest is published,

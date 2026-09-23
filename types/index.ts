@@ -420,6 +420,12 @@ export interface AgentTokenRecord {
   status: AgentTokenStatus;
 }
 
+/** The create response: the raw token (returned only here, never stored) and its public record. */
+export interface CreatedAgentToken {
+  token: string;
+  record: AgentTokenRecord;
+}
+
 /** Failure categories shared by the REST routes and MCP tools that call a service. */
 export type DomainErrorKind =
   | "validation"

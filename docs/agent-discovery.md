@@ -93,7 +93,10 @@ Notes before doing this:
 ## Not published: OAuth, auth.md, and MCP
 
 CareerOtter has a remote MCP server at `/api/mcp` (`app/api/mcp/route.ts`):
-Streamable HTTP, stateless, JSON-RPC over POST, with no SSE stream. It is
+Streamable HTTP, stateless, JSON-RPC over POST. Each POST response is a
+single `text/event-stream` message, so clients must send
+`Accept: application/json, text/event-stream`; there is no standalone GET SSE
+stream (GET returns 405). It is
 authenticated with personal access tokens (`co_pat_` prefix, verified by
 `lib/auth/agent-token.ts`) that an account holder creates and revokes on
 `/dashboard/data`. Each token carries scopes from `AGENT_TOKEN_SCOPES` in

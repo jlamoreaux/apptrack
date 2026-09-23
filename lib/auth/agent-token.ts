@@ -50,6 +50,7 @@ import { isValidUUID } from "@/lib/utils/api-validation";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import type {
+  CreatedAgentToken,
   AgentTokenRecord,
   AgentTokenScope,
   AgentTokenStatus,
@@ -74,10 +75,7 @@ export type AgentTokenVerification =
     }
   | { ok: false; reason: "invalid" | "unavailable" };
 
-export interface CreatedAgentToken {
-  token: string;
-  record: AgentTokenRecord;
-}
+export type { CreatedAgentToken } from "@/types";
 
 /**
  * Outcome of revoking all of a user's tokens. `revoked` counts every token

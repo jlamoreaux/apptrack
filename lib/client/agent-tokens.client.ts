@@ -10,7 +10,7 @@ import {
   type AgentTokenScope,
 } from "@/lib/constants/agent-access";
 import { AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
-import type { AgentTokenRecord, AgentTokenStatus } from "@/types";
+import type { AgentTokenRecord, AgentTokenStatus, CreatedAgentToken } from "@/types";
 
 const AGENT_TOKENS_ENDPOINT = "/api/careerotter/agent-tokens";
 
@@ -61,10 +61,7 @@ export interface CreateAgentTokenInput {
   expires_in_days: AgentTokenExpiryDays | null;
 }
 
-export interface CreatedAgentToken {
-  token: string;
-  record: AgentTokenRecord;
-}
+export type { CreatedAgentToken } from "@/types";
 
 const STATUS_REASONS: ReadonlyMap<number, ApiFailureReason> = new Map([
   [HTTP_STATUS.badRequest, "invalid"],
