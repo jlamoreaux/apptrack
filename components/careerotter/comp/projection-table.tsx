@@ -41,10 +41,30 @@ function Cell({ value, className = "" }: { value: number; className?: string }) 
   );
 }
 
+/** A muted sub-row under Stock; a dash where the value is zero. */
+function SplitRow({ label, values }: { label: string; values: { year: number; value: number }[] }) {
+  return (
+    <tr className="text-xs text-muted-foreground">
+      <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-[18px] pr-3 text-left font-normal">
+        {label}
+      </th>
+      {values.map(({ year, value }) => (
+        <td key={year} className="whitespace-nowrap py-1 pl-2 text-right tabular-nums sm:pl-3">
+          {value > 0 ? (
+            <span title={formatUsd(value)}>{formatCompactUsd(value)}</span>
+          ) : (
+            <span aria-label="none">–</span>
+          )}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 /**
- * The chart's table twin: every projected number, by year, with stock split
- * into what has vested and what is still to come. Take-home is a rough
- * estimate the user controls with one rate; no jurisdiction math.
+ * The chart's table twin: every projected number, by year, rows in the same
+ * top-to-bottom order as the stacked columns. Take-home is a rough estimate
+ * the user controls with one rate; no jurisdiction math.
  */
 export function ProjectionTable({
   years,
@@ -84,6 +104,10 @@ export function ProjectionTable({
   }, [years.length]);
 
   // The row-label column stays put while the years scroll under it.
+  // The vested / still-to-vest split only says something once part of the
+  // grant has vested; before the cliff it would repeat the Stock row as
+  // "still to vest" beside a line of dashes.
+  const showVestSplit = hasVestSchedule && years.some((y) => y.stockVested > 0);
   const headClass =
     "sticky left-0 z-10 bg-card py-2 pr-2 text-left font-normal text-muted-foreground sm:pr-3";
   return (
@@ -115,15 +139,6 @@ export function ProjectionTable({
           <tbody>
             <tr>
               <th scope="row" className={headClass}>
-                <Swatch seriesKey="salary" />
-                Salary
-              </th>
-              {years.map((y) => (
-                <Cell key={y.year} value={y.salary} />
-              ))}
-            </tr>
-            <tr>
-              <th scope="row" className={headClass}>
                 <Swatch seriesKey="incentives" />
                 Incentives
               </th>
@@ -140,38 +155,27 @@ export function ProjectionTable({
                 <Cell key={y.year} value={y.stock} />
               ))}
             </tr>
-            {hasVestSchedule && (
+            {showVestSplit && (
               <>
-                <tr className="text-xs text-muted-foreground">
-                  <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-[18px] pr-3 text-left font-normal">
-                    Vested
-                  </th>
-                  {years.map((y) => (
-                    <td key={y.year} className="whitespace-nowrap py-1 pl-2 text-right tabular-nums sm:pl-3">
-                      {y.stockVested > 0 ? (
-                        <span title={formatUsd(y.stockVested)}>{formatCompactUsd(y.stockVested)}</span>
-                      ) : (
-                        <span aria-label="none">–</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-                <tr className="text-xs text-muted-foreground">
-                  <th scope="row" className="sticky left-0 z-10 bg-card py-1 pl-[18px] pr-3 text-left font-normal">
-                    Unvested
-                  </th>
-                  {years.map((y) => (
-                    <td key={y.year} className="whitespace-nowrap py-1 pl-2 text-right tabular-nums sm:pl-3">
-                      {y.stockUnvested > 0 ? (
-                        <span title={formatUsd(y.stockUnvested)}>{formatCompactUsd(y.stockUnvested)}</span>
-                      ) : (
-                        <span aria-label="none">–</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
+                <SplitRow
+                  label="Vested so far"
+                  values={years.map((y) => ({ year: y.year, value: y.stockVested }))}
+                />
+                <SplitRow
+                  label="Still to vest"
+                  values={years.map((y) => ({ year: y.year, value: y.stockUnvested }))}
+                />
               </>
             )}
+            <tr>
+              <th scope="row" className={headClass}>
+                <Swatch seriesKey="salary" />
+                Salary
+              </th>
+              {years.map((y) => (
+                <Cell key={y.year} value={y.salary} />
+              ))}
+            </tr>
             <tr className="border-t border-border">
               <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card py-2 pr-2 text-left font-semibold text-foreground sm:pr-3">
                 Total comp
@@ -198,32 +202,40 @@ export function ProjectionTable({
           />
         )}
       </div>
-      {years.length > 3 && (
-        <p className="text-xs text-muted-foreground sm:hidden">
-          {years.length} years; swipe the table sideways for the rest.
-        </p>
+      {scrollable && (
+        <p className="text-xs text-muted-foreground">Swipe the table sideways for the later years.</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-        <Label htmlFor="tax-rate" className="text-xs font-normal text-muted-foreground">
-          Take-home assumes an effective tax rate of
-        </Label>
-        <Input
-          id="tax-rate"
-          type="number"
-          inputMode="numeric"
-          min="0"
-          max="60"
-          step="1"
-          value={taxRate}
-          onChange={(e) => {
-            const v = Number(e.target.value);
-            if (Number.isFinite(v)) onTaxRateChange(Math.min(60, Math.max(0, v)));
-          }}
-          className="min-h-[44px] w-16 text-center text-sm"
-          aria-describedby="tax-rate-hint"
-        />
-        <span id="tax-rate-hint">%. Set it to match your own rate.</span>
+      <div className="space-y-1.5">
+        <Label htmlFor="tax-rate">Tax rate for take-home</Label>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <div className="relative">
+            <Input
+              id="tax-rate"
+              type="number"
+              inputMode="numeric"
+              min="0"
+              max="60"
+              step="1"
+              value={taxRate}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) onTaxRateChange(Math.min(60, Math.max(0, v)));
+              }}
+              className="min-h-[44px] w-24 pr-8 text-sm tabular-nums"
+              aria-describedby="tax-rate-hint"
+            />
+            <span
+              className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+              aria-hidden="true"
+            >
+              %
+            </span>
+          </div>
+          <p id="tax-rate-hint" className="text-xs text-muted-foreground">
+            Your effective rate. Drives the take-home row.
+          </p>
+        </div>
       </div>
     </div>
   );

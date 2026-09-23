@@ -17,6 +17,18 @@ export const COMP_SERIES = [
 
 type SeriesKey = (typeof COMP_SERIES)[number]["key"];
 
+/** Series top to bottom, the order a reader meets them on the stack. */
+export const COMP_SERIES_TOP_DOWN = [...COMP_SERIES].reverse();
+
+/**
+ * Plot height in pixels. Every vertical position below is computed in pixels
+ * from this rather than as a percentage: WebKit does not resolve percentage
+ * heights inside a <button>, and on iOS Safari the columns collapsed to nothing.
+ */
+const PLOT_HEIGHT = 200;
+/** Gap between stacked segments, in pixels. */
+const SEGMENT_GAP = 2;
+
 interface ProjectionChartProps {
   years: ProjectionYear[];
   hasVestSchedule: boolean;
@@ -35,8 +47,8 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
   const maxTotal = Math.max(0, ...years.map((y) => y.total));
   const ticks = niceTicks(maxTotal);
   const top = ticks[ticks.length - 1] || 1;
-  /** A value as a percentage of the plot height. */
-  const pct = (v: number) => (top > 0 ? (v / top) * 100 : 0);
+  /** A value as a pixel height on the plot. */
+  const px = (v: number) => (top > 0 ? (v / top) * PLOT_HEIGHT : 0);
 
   const activeYear = active !== null ? years.find((y) => y.year === active) ?? null : null;
   const activeIndex = activeYear ? years.indexOf(activeYear) : -1;
@@ -48,15 +60,15 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
         table below lists the same values.
       </figcaption>
 
-      {/* Top padding leaves room for the cap labels and the top axis tick. */}
-      <div className="relative flex h-56 select-none pt-5">
+      {/* Top margin leaves room for the cap labels and the top axis tick. */}
+      <div className="relative mt-5 flex select-none" style={{ height: PLOT_HEIGHT }}>
         {/* Y axis */}
         <div className="relative w-14 shrink-0 text-[11px] tabular-nums text-muted-foreground">
           {ticks.map((t) => (
             <span
               key={t}
               className="absolute right-2 -translate-y-1/2"
-              style={{ bottom: `${pct(t)}%` }}
+              style={{ top: PLOT_HEIGHT - px(t) }}
             >
               {formatCompactUsd(t)}
             </span>
@@ -70,7 +82,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
               key={t}
               aria-hidden="true"
               className={t === 0 ? "absolute inset-x-0 border-t border-border" : "absolute inset-x-0 border-t border-border/50"}
-              style={{ bottom: `${pct(t)}%` }}
+              style={{ top: PLOT_HEIGHT - px(t) }}
             />
           ))}
 
@@ -84,7 +96,8 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
                 <button
                   key={y.year}
                   type="button"
-                  className="group relative flex h-full w-full max-w-[64px] flex-col justify-end rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                  className="group relative block w-full max-w-[64px] rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
+                  style={{ height: PLOT_HEIGHT }}
                   onPointerEnter={() => setActive(y.year)}
                   onPointerLeave={() => setActive((cur) => (cur === y.year ? null : cur))}
                   onFocus={() => setActive(y.year)}
@@ -99,25 +112,27 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
                       "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1 text-xs font-medium tabular-nums text-foreground" +
                       (years.length > 3 ? " hidden sm:block" : "")
                     }
-                    style={{ bottom: `${pct(y.total)}%` }}
+                    style={{ bottom: px(y.total) }}
                     aria-hidden="true"
                   >
                     {formatCompactUsd(y.total)}
                   </span>
-                  {/* Segments render top-down; column-reverse stacks them bottom-up with a 2px surface gap. */}
-                  <span
-                    className="flex h-full w-full flex-col-reverse gap-[2px]"
-                    aria-hidden="true"
-                  >
-                    {segments.map((s, i) => (
+                  {/* Pinned to the column's floor and laid out top-down in plain
+                      block flow, so the stack needs no flexbox inside the button. */}
+                  <span className="absolute inset-x-0 bottom-0 block" aria-hidden="true">
+                    {[...segments].reverse().map((s, i) => (
                       <span
                         key={s.key}
                         className={
                           "block w-full transition-[filter] " +
-                          (i === segments.length - 1 ? "rounded-t" : "") +
+                          (i === 0 ? "rounded-t" : "") +
                           (isActive ? " brightness-110" : "")
                         }
-                        style={{ height: `${pct(s.value)}%`, backgroundColor: s.color }}
+                        style={{
+                          height: Math.max(0, px(s.value) - (i > 0 ? SEGMENT_GAP : 0)),
+                          marginTop: i > 0 ? SEGMENT_GAP : 0,
+                          backgroundColor: s.color,
+                        }}
                       />
                     ))}
                   </span>
@@ -140,7 +155,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
             >
               <p className="mb-1 font-medium text-foreground">{activeYear.year}</p>
               <dl className="space-y-0.5">
-                {[...COMP_SERIES].reverse().map((s) => (
+                {COMP_SERIES_TOP_DOWN.map((s) => (
                   <div key={s.key}>
                     <div className="flex items-center justify-between gap-3">
                       <dt className="flex items-center gap-1.5 text-muted-foreground">
@@ -193,7 +208,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
       </div>
 
       <ul className="flex flex-wrap gap-x-4 gap-y-1 pl-14 text-xs text-muted-foreground" aria-label="Legend">
-        {COMP_SERIES.map((s) => (
+        {COMP_SERIES_TOP_DOWN.map((s) => (
           <li key={s.key} className="flex items-center gap-1.5">
             <span
               className="inline-block h-2.5 w-2.5 rounded-sm"

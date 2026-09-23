@@ -286,13 +286,17 @@
   }
 }
 
-/* Ensure sufficient color contrast for all interactive elements */
-button, 
-input, 
-select, 
-textarea, 
+/* Minimum touch target size. Checkboxes, radios and switches are left out:
+   their controls draw a 16px box and get the 44px target from a wrapper, and
+   a 44px min-height on the box itself stretches it into a tall oval. :where()
+   keeps the specificity of a bare element selector, so min-h-* utilities
+   still override it. */
+button:where(:not([role="checkbox"], [role="radio"], [role="switch"])),
+input:where(:not([type="checkbox"], [type="radio"])),
+select,
+textarea,
 a[href] {
-  min-height: 44px; /* Minimum touch target size */
+  min-height: 44px;
 }
 
 /* Status badge accessibility improvements */
