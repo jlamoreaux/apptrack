@@ -9,13 +9,23 @@ import { createClient } from "@/lib/supabase/server";
 
 export const UNAUTHORIZED_STATUS = 401;
 
-/** The signed-in user's id from the session cookie, or null. */
-export async function getSessionUserId(): Promise<string | null> {
+export interface SessionUser {
+  id: string;
+  email: string | null;
+}
+
+/** The signed-in user from the session cookie, or null. */
+export async function getSessionUser(): Promise<SessionUser | null> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  return user?.id ?? null;
+  return user ? { id: user.id, email: user.email ?? null } : null;
+}
+
+/** The signed-in user's id from the session cookie, or null. */
+export async function getSessionUserId(): Promise<string | null> {
+  return (await getSessionUser())?.id ?? null;
 }
 
 export function unauthorizedResponse(): NextResponse {

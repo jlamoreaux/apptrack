@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
+import { AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes"
+import { resolveInternalUrl } from "@/lib/utils/internal-path"
 import {
   MARKDOWN_PATH_PARAM,
   MARKDOWN_REWRITE_PATH,
@@ -124,9 +126,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Redirect authenticated users away from auth pages
+    // Redirect authenticated users away from auth pages, to where they were
+    // headed (a valid redirectTo, e.g. an app connection's consent page)
     if ((request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/signup") && user) {
-      return NextResponse.redirect(new URL("/dashboard", request.url))
+      const requested = resolveInternalUrl(
+        request.nextUrl.searchParams.get(AUTH_REDIRECT_TO_PARAM),
+        request.nextUrl.origin
+      )
+      return NextResponse.redirect(requested ?? new URL("/dashboard", request.url))
     }
 
     return supabaseResponse

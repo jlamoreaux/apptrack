@@ -15,6 +15,7 @@ import type { AgentTokenScope } from "@/lib/constants/agent-access";
 // the CHECKs and function outcomes in migration 045.
 export type {
   AgentOAuthAuthorizeErrorCode,
+  AgentOAuthConsentDecision,
   AgentOAuthCreateCodeOutcome,
   AgentOAuthExchangeOutcome,
   AgentOAuthGrantType,
@@ -27,6 +28,7 @@ export type {
 } from "@/lib/constants/agent-oauth";
 import type {
   AgentOAuthAuthorizeErrorCode,
+  AgentOAuthConsentDecision,
   AgentOAuthCreateCodeOutcome,
   AgentOAuthExchangeOutcome,
   AgentOAuthGrantType,
@@ -535,6 +537,42 @@ export interface AgentOAuthAuthorizeParams {
   scope: string | null;
 }
 
+/**
+ * The body the consent screen posts to POST /api/oauth/authorize: the
+ * canonical authorization request parameters, revalidated by the server, plus
+ * the user's decision. Scopes and expiry are read only when approving.
+ */
+export interface AgentOAuthConsentRequestBody {
+  params: Record<string, string>;
+  decision: AgentOAuthConsentDecision;
+  scopes?: AgentTokenScope[];
+  /** Null means the grant never expires. */
+  expiresInDays?: number | null;
+}
+
+/** What the consent screen renders for a validated request and signed-in user. */
+export interface AgentOAuthConsentView {
+  clientName: string;
+  /** Where the app sends the user back, e.g. "claude.ai" or "the cursor app". */
+  returnDestination: string;
+  /** The app's website, only when it's on the redirect's own https host. */
+  clientUri: string | null;
+  email: string | null;
+  /** Known scopes the app asked for; labelled on the picker. */
+  requestedScopes: AgentTokenScope[];
+  /** The canonical request parameters, posted back with the decision. */
+  requestParams: Record<string, string>;
+  /** This page's own path, for returning here after signing out and back in. */
+  consentPath: string;
+  hasActiveGrant: boolean;
+  atCap: boolean;
+}
+
+/** POST /api/oauth/authorize's success body: where the browser goes next. */
+export interface AgentOAuthConsentResponseBody {
+  redirectUrl: string;
+}
+
 /** Why an authorization request can't be redirected back to the client. */
 export type AgentOAuthAuthorizeFatalReason =
   | "unknown_client"
@@ -543,10 +581,12 @@ export type AgentOAuthAuthorizeFatalReason =
 /**
  * Outcome of validating an authorization request (OAuth 2.1 §4.1.2.1):
  * `fatal` goes to /oauth/error and never to the client, `redirect_error` goes
- * to the client's redirect_uri, and `ok` continues to login or consent.
+ * to the client's redirect_uri, `ok` continues to login or consent, and
+ * `unavailable` means the client couldn't be looked up.
  */
 export type AgentOAuthAuthorizeValidation =
   | { kind: "fatal"; reason: AgentOAuthAuthorizeFatalReason }
+  | { kind: "unavailable" }
   | {
       kind: "redirect_error";
       redirectUri: string;

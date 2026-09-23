@@ -2,7 +2,9 @@
  * Tests for auth server actions
  *
  * Key coverage: emailRedirectTo is passed to Supabase on signup so
- * confirmation emails land users on the welcome page, not the homepage.
+ * confirmation emails land users on the welcome page, not the homepage, and
+ * carries a validated redirectTo as the callback's `next` (anything that
+ * isn't an internal path is dropped server-side).
  */
 
 import { signUpWithPassword, signInWithPassword } from "@/lib/actions/auth";
@@ -186,6 +188,34 @@ describe("signUpWithPassword", () => {
       })
     );
   });
+});
+
+describe("signUpWithPassword redirectTo", () => {
+  const CONSENT_PATH = "/oauth/consent?client_id=co_client_x&redirect_uri=https%3A%2F%2Fclaude.ai%2Fcb";
+
+  function emailRedirectTo(): string {
+    return mockSignUp.mock.calls[0][0].options.emailRedirectTo;
+  }
+
+  beforeEach(() => {
+    mockSignUp.mockResolvedValue({ data: { user: { id: "u1" }, session: null }, error: null });
+  });
+
+  it("carries a valid redirectTo as the callback's next", async () => {
+    await signUpWithPassword("test@example.com", "Password1!", "Test User", undefined, undefined, CONSENT_PATH);
+    expect(emailRedirectTo()).toBe(
+      `https://careerotter.io/auth/callback?next=${encodeURIComponent(CONSENT_PATH)}`
+    );
+    expect(new URL(emailRedirectTo()).searchParams.get("next")).toBe(CONSENT_PATH);
+  });
+
+  it.each(["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)"])(
+    "drops %s",
+    async (redirectTo) => {
+      await signUpWithPassword("test@example.com", "Password1!", "Test User", undefined, undefined, redirectTo);
+      expect(emailRedirectTo()).toBe("https://careerotter.io/auth/callback");
+    }
+  );
 });
 
 describe("signInWithPassword", () => {

@@ -17,6 +17,8 @@ import { GoogleSignInButton } from "@/components/auth/google-signin-button";
 import { Gift, Sparkles, HeartHandshake, Tag } from "lucide-react";
 import { trackCampaignSignupIntent } from "@/lib/analytics/campaign-events";
 import { useUTMTracking } from "@/lib/hooks/use-utm-tracking";
+import { AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes";
+import { loginHref, validInternalPath } from "@/lib/utils/auth-redirect";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
@@ -31,6 +33,9 @@ export default function SignUpPageClient() {
   const isDiscountOffer = intent === "discount";
   const promoFromUrl = searchParams.get("promo");
   const hasPreviewSession = !!sessionId;
+  // Where to go once signed up (e.g. an app connection's consent page); it
+  // wins over the offer and preview destinations below.
+  const redirectTo = validInternalPath(searchParams.get(AUTH_REDIRECT_TO_PARAM));
   const [showEmailForm, setShowEmailForm] = useState(false);
 
   useEffect(() => {
@@ -174,7 +179,8 @@ export default function SignUpPageClient() {
             <GoogleSignInButton
               context="signup"
               redirectTo={
-                sessionId
+                redirectTo ??
+                (sessionId
                   ? `/try/unlock?session=${encodeURIComponent(sessionId)}`
                   : isLayoffOffer
                   ? "/onboarding/welcome?promo=NEWSTART"
@@ -182,7 +188,7 @@ export default function SignUpPageClient() {
                   ? `/onboarding/welcome?promo=${encodeURIComponent(promoFromUrl ?? "REDDIT50")}`
                   : isTrialOffer
                   ? "/onboarding/welcome?promo=REDDIT7"
-                  : undefined
+                  : undefined)
               }
               className="mb-4"
             />
@@ -207,12 +213,12 @@ export default function SignUpPageClient() {
                     <span className="bg-card px-2 text-muted-foreground">or continue with email</span>
                   </div>
                 </div>
-                <SignUpForm />
+                <SignUpForm redirectTo={redirectTo} />
               </>
             )}
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
-              <Link href="/login" className="underline">
+              <Link href={loginHref(redirectTo)} className="underline">
                 Sign in
               </Link>
             </div>

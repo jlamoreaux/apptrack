@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isValidInternalPath } from "@/lib/utils/internal-path";
+import { APP_ROUTES, AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -20,13 +21,26 @@ const signInSchema = z.object({
 type SignInFormData = z.infer<typeof signInSchema>;
 
 /**
- * Where to go after signing in: the page that sent the user here (the
- * middleware sets redirectTo when it bounces a protected page, and the
- * guest comp page sets it to return there), else the dashboard.
+ * Where to go after signing in. The page that sent the user here comes first
+ * (the middleware sets redirectTo when it bounces a protected page, the guest
+ * comp page sets it to return there, and an app connection sets it to its
+ * consent page); a new user without one goes to onboarding; everyone else to
+ * the dashboard.
  */
-function afterSignInPath(): string {
-  const requested = new URLSearchParams(window.location.search).get("redirectTo");
-  return isValidInternalPath(requested) ? requested : "/dashboard";
+async function afterSignInPath(userId: string): Promise<string> {
+  const requested = new URLSearchParams(window.location.search).get(AUTH_REDIRECT_TO_PARAM);
+  if (isValidInternalPath(requested)) return requested;
+  try {
+    const response = await fetch("/api/auth/check-new-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    const { needsOnboarding } = await response.json();
+    return needsOnboarding ? APP_ROUTES.ONBOARDING_WELCOME : APP_ROUTES.DASHBOARD.ROOT;
+  } catch {
+    return APP_ROUTES.DASHBOARD.ROOT;
+  }
 }
 
 export function SignInForm() {
@@ -52,25 +66,7 @@ export function SignInForm() {
       if (result.error) {
         setError(result.error);
       } else if (result.user) {
-        // Check if this is a new user who needs onboarding via API
-        try {
-          const response = await fetch("/api/auth/check-new-user", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: result.user.id }),
-          });
-          
-          const { needsOnboarding } = await response.json();
-
-          if (needsOnboarding) {
-            router.push("/onboarding/welcome");
-          } else {
-            router.push(afterSignInPath());
-          }
-        } catch (error) {
-          // If check fails, default to the dashboard (or where they came from)
-          router.push(afterSignInPath());
-        }
+        router.push(await afterSignInPath(result.user.id));
         router.refresh();
       }
     } catch (error) {

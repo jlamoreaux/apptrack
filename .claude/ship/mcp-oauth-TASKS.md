@@ -152,19 +152,19 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     preflight headers, 404 on a preview deployment
 
 ## Task 3: Authorize handler, consent screen, consent API and sign-in path
-- [ ] 3.1: `lib/auth/oauth/authorize-params.ts`: one validator returning
+- [x] 3.1: `lib/auth/oauth/authorize-params.ts`: one validator returning
   `fatal`, `redirect_error` (with a code) or `ok` (with canonical params, the
   normalized resource and the known scopes requested), plus a canonical-query
   builder.
-- [ ] 3.2: `app/oauth/authorize/route.ts`: fatal → `/oauth/error`; redirect
+- [x] 3.2: `app/oauth/authorize/route.ts`: fatal → `/oauth/error`; redirect
   errors → the client, with `error`, `state` and `iss`; signed out → login with
   the canonical `redirectTo`; signed in → `/oauth/consent?`.
-- [ ] 3.3: `app/oauth/error/page.tsx`: a static card.
-- [ ] 3.4: Extract the scope picker and expiry select from
+- [x] 3.3: `app/oauth/error/page.tsx`: a static card.
+- [x] 3.4: Extract the scope picker and expiry select from
   `components/careerotter/agent-token-create-form.tsx` into a shared component,
   with an optional "Requested by the app" label. The token form uses it
   unchanged.
-- [ ] 3.5: `app/oauth/consent/page.tsx`:
+- [x] 3.5: `app/oauth/consent/page.tsx`:
   - force-dynamic; awaits `searchParams`; OAuth-enabled check; revalidates
   - new accounts (`isNewUser`) are redirected to
     `/onboarding/welcome?next=<consent URL>` before rendering
@@ -173,16 +173,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     picker (PAT defaults, requested scopes labelled)
   - shows the replaces-access note, the cap message, Approve and Deny, and the
     no-account line
-- [ ] 3.6: The consent form client component: posts JSON, shows messages for
+- [x] 3.6: The consent form client component: posts JSON, shows messages for
   400, 409 and 5xx, and navigates to `redirectUrl`.
-- [ ] 3.7: `app/api/oauth/authorize/route.ts`:
+- [x] 3.7: `app/api/oauth/authorize/route.ts`:
   - OAuth-enabled check, session cookie only, JSON content type and
     same-origin `Origin`
   - revalidates the request and applies the scope and expiry rules
   - calls `create_agent_oauth_code`, returning 409 at the cap
   - builds the approve and deny redirect URLs with `URLSearchParams`,
     keeping the existing query
-- [ ] 3.8: Sign-in and sign-up path:
+- [x] 3.8: Sign-in and sign-up path:
   - the signup page reads `redirectTo` and passes it to its Google button and
     to `SignUpForm`
   - `signUpWithPassword` takes an optional `redirectTo`, validated
@@ -196,10 +196,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the sign-in form prefers a valid `redirectTo` over onboarding
   - the middleware's rule for a signed-in user on `/login` honors a valid
     `redirectTo`
-- [ ] 3.9: `next.config.mjs`: set `frame-ancestors 'none'` and
+- [x] 3.9: `next.config.mjs`: set `frame-ancestors 'none'` and
   `X-Frame-Options: DENY` for `/oauth/:path*`, merged with
   `agentDiscoveryHeaders()`.
-- [ ] 3.10: Write tests for Task 3:
+- [x] 3.10: Write tests for Task 3:
   - validator matrix:
     - an unknown client, an unregistered or missing redirect → fatal
     - a loopback URI on a different port → ok

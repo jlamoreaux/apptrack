@@ -146,6 +146,41 @@ export const REQUIRED_AGENT_OAUTH_GRANT_TYPE =
 
 export const AGENT_OAUTH_RESPONSE_TYPE = "code";
 
+// Authorization request parameters (OAuth 2.1 §4.1.1, RFC 8707), in the order
+// the canonical consent query carries them.
+export const AGENT_OAUTH_AUTHORIZE_PARAMS = {
+  responseType: "response_type",
+  clientId: "client_id",
+  redirectUri: "redirect_uri",
+  state: "state",
+  codeChallenge: "code_challenge",
+  codeChallengeMethod: "code_challenge_method",
+  resource: "resource",
+  scope: "scope",
+} as const;
+
+// Authorization response parameters (OAuth 2.1 §4.1.2, RFC 9207).
+export const AGENT_OAUTH_RESPONSE_PARAMS = {
+  code: "code",
+  state: "state",
+  issuer: "iss",
+  error: "error",
+  errorDescription: "error_description",
+} as const;
+
+// Sent to the client when the user denies the request (OAuth 2.1 §4.1.2.1).
+export const AGENT_OAUTH_ACCESS_DENIED_ERROR = "access_denied";
+
+export const AGENT_OAUTH_CONSENT_DECISIONS = ["approve", "deny"] as const;
+export type AgentOAuthConsentDecision =
+  (typeof AGENT_OAUTH_CONSENT_DECISIONS)[number];
+
+// /oauth/error?reason=… picks the card's copy; anything else shows `invalid`.
+export const AGENT_OAUTH_ERROR_PAGE_REASONS = ["invalid", "unavailable"] as const;
+export type AgentOAuthErrorPageReason =
+  (typeof AGENT_OAUTH_ERROR_PAGE_REASONS)[number];
+export const AGENT_OAUTH_ERROR_PAGE_REASON_PARAM = "reason";
+
 // RFC 7591 §3.2.2 error codes from the registration endpoint.
 export const AGENT_OAUTH_REGISTRATION_ERROR_CODES = [
   "invalid_redirect_uri",
@@ -235,6 +270,7 @@ export const AGENT_OAUTH_DENIED_REDIRECT_SCHEMES = [
 // ── Database (migration 045) ────────────────────────────────────────────────
 
 export const AGENT_OAUTH_CLIENTS_TABLE = "agent_oauth_clients";
+export const AGENT_OAUTH_GRANTS_TABLE = "agent_oauth_grants";
 
 export const AGENT_OAUTH_RPC = {
   createCode: "create_agent_oauth_code",

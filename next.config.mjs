@@ -1,5 +1,6 @@
 import { withPostHogConfig } from "@posthog/nextjs-config";
 import { agentDiscoveryHeaders } from "./lib/constants/agent-discovery-links.mjs";
+import { oauthFramingHeaders } from "./lib/constants/oauth-framing-headers.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -14,7 +15,7 @@ const nextConfig = {
   },
   serverExternalPackages: ["pdf-parse", "mammoth", "winston-loki", "snappy"],
   async headers() {
-    return agentDiscoveryHeaders();
+    return [...agentDiscoveryHeaders(), ...oauthFramingHeaders()];
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

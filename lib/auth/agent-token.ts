@@ -406,10 +406,15 @@ export async function listAgentTokens(
   });
 }
 
-interface ValidatedTokenInput {
-  name: string;
+/** Scopes and expiry that satisfy the PAT rules, shared with OAuth consent. */
+export interface ValidatedAccessChoice {
   scopes: AgentTokenScope[];
+  /** Null means never expires. */
   expiresInDays: AgentTokenExpiryDays | null;
+}
+
+interface ValidatedTokenInput extends ValidatedAccessChoice {
+  name: string;
 }
 
 /**
@@ -441,18 +446,32 @@ function hasCompScope(scopes: readonly AgentTokenScope[]): boolean {
   return scopes.some((scope) => AGENT_COMP_SCOPES.includes(scope));
 }
 
-function validateTokenInput(raw: unknown): DomainResult<ValidatedTokenInput> {
-  if (!isPlainObject(raw)) return invalid(MESSAGES.bodyInvalid);
-  const name = parseName(raw.name);
-  if (!name.ok) return name;
-  const scopes = normalizeScopes(raw.scopes);
+/**
+ * The PAT rules for what a credential may do and for how long: scopes are
+ * normalized (write implies read), the expiry is one of the options, null
+ * (never) or absent (the default), and a comp scope requires an expiry.
+ */
+export function validateAccessChoice(
+  rawScopes: unknown,
+  rawExpiresInDays: unknown
+): DomainResult<ValidatedAccessChoice> {
+  const scopes = normalizeScopes(rawScopes);
   if (!scopes.ok) return scopes;
-  const expiresInDays = parseExpiryDays(raw.expires_in_days);
+  const expiresInDays = parseExpiryDays(rawExpiresInDays);
   if (!expiresInDays.ok) return expiresInDays;
   if (expiresInDays.value === null && hasCompScope(scopes.value)) {
     return invalid(MESSAGES.compNeverExpires);
   }
-  return ok({ name: name.value, scopes: scopes.value, expiresInDays: expiresInDays.value });
+  return ok({ scopes: scopes.value, expiresInDays: expiresInDays.value });
+}
+
+function validateTokenInput(raw: unknown): DomainResult<ValidatedTokenInput> {
+  if (!isPlainObject(raw)) return invalid(MESSAGES.bodyInvalid);
+  const name = parseName(raw.name);
+  if (!name.ok) return name;
+  const access = validateAccessChoice(raw.scopes, raw.expires_in_days);
+  if (!access.ok) return access;
+  return ok({ name: name.value, ...access.value });
 }
 
 function expiresAtFor(days: AgentTokenExpiryDays | null, now: Date): string | null {

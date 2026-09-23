@@ -18,11 +18,14 @@
  *   secret, unknown client, malformed Basic (including a bare "Basic") and
  *   two methods at once are invalid_client with usedBasic when Basic was
  *   used; a lookup error is `unavailable`
+ * - findClient: the record without its secret hash; an id that can't be ours
+ *   is not_found without a query; a lookup error is `unavailable`
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   authenticateClient,
+  findClient,
   registerClient,
   validateClientRegistration,
 } from "@/lib/auth/oauth/clients";
@@ -562,5 +565,32 @@ describe("authenticateClient", () => {
     expect(await authenticateClient(thrown.admin, new Headers(), form)).toEqual({ ok: false, kind: "unavailable" });
     const malformed = adminResolving({ data: { ...clientRow("none", null), grant_types: ["bogus"] }, error: null });
     expect(await authenticateClient(malformed.admin, new Headers(), form)).toEqual({ ok: false, kind: "unavailable" });
+  });
+});
+
+describe("findClient", () => {
+  it("returns the client without its secret hash", async () => {
+    const mock = adminResolving({ data: clientRow("client_secret_post"), error: null });
+    const result = await findClient(mock.admin, CLIENT_ID);
+    expect(result).toEqual({
+      kind: "found",
+      client: expect.not.objectContaining({ client_secret_hash: expect.anything() }),
+    });
+    expect(mock.eq).toHaveBeenCalledWith("client_id", CLIENT_ID);
+  });
+
+  it("reports an id that can't be ours as not found without a query", async () => {
+    const mock = adminResolving({ data: clientRow("none", null), error: null });
+    expect(await findClient(mock.admin, "claude")).toEqual({ kind: "not_found" });
+    expect(mock.from).not.toHaveBeenCalled();
+  });
+
+  it("reports a missing client as not found and a lookup error as unavailable", async () => {
+    expect(await findClient(adminResolving({ data: null, error: null }).admin, CLIENT_ID)).toEqual({
+      kind: "not_found",
+    });
+    expect(
+      await findClient(adminResolving({ data: null, error: { message: "down" } }).admin, CLIENT_ID)
+    ).toEqual({ kind: "unavailable" });
   });
 });

@@ -9,7 +9,7 @@
  * rejection). Redirect URIs are checked and stored as the raw strings sent;
  * the MCP SDK's OAuthClientMetadataSchema is only a gate after our rules.
  * Confidential clients get a `co_cs_` secret that is returned once and stored
- * as its SHA-256 digest. Rows go through the service-role client;
+ * as its SHA-256 digest. findClient serves the authorization request. Rows go through the service-role client;
  * agent_oauth_clients has RLS on and no policies.
  */
 
@@ -450,6 +450,26 @@ async function findClientRow(admin: SupabaseClient, clientId: string): Promise<C
     logLookupFailure(error);
     return { kind: "unavailable" };
   }
+}
+
+/** Result of looking a client up by id; `unavailable` means the database couldn't be reached. */
+export type OAuthClientLookup =
+  | { kind: "found"; client: AgentOAuthClientRecord }
+  | { kind: "not_found" }
+  | { kind: "unavailable" };
+
+/**
+ * The registered client with `clientId`, without its secret hash. An id that
+ * can't be one of ours is `not_found` without a query. Never throws.
+ */
+export async function findClient(
+  admin: SupabaseClient,
+  clientId: string
+): Promise<OAuthClientLookup> {
+  if (!CLIENT_ID_PATTERN.test(clientId)) return { kind: "not_found" };
+  const lookup = await findClientRow(admin, clientId);
+  if (lookup.kind !== "found") return lookup;
+  return { kind: "found", client: toClientRecord(lookup.row) };
 }
 
 /** application/x-www-form-urlencoded decoding, or null when malformed. */

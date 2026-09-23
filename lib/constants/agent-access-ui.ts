@@ -81,7 +81,7 @@ export const AGENT_TOKEN_FORM_MESSAGES = {
   scopesRequired: "Choose at least one thing this agent can do.",
 } as const;
 
-const DATA_PAGE_PATH = "/dashboard/data";
+export const DATA_PAGE_PATH = "/dashboard/data";
 
 /** Where a 401 from the token API sends the user, returning them here after sign-in. */
 export const AGENT_ACCESS_SIGN_IN_HREF = `${APP_ROUTES.LOGIN}?redirectTo=${DATA_PAGE_PATH}`;

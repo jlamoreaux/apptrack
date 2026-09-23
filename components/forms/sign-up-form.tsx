@@ -87,7 +87,12 @@ function PasswordCriteria({
   );
 }
 
-export function SignUpForm() {
+/**
+ * `redirectTo` is where to go once signed up (a validated internal path); it
+ * reaches the confirmation email's link too, and wins over the onboarding,
+ * promo and preview destinations.
+ */
+export function SignUpForm({ redirectTo = null }: { redirectTo?: string | null }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordCriteria, setPasswordCriteria] = useState({
@@ -171,7 +176,8 @@ export function SignUpForm() {
         data.password,
         data.name,
         trafficSource || undefined,
-        trafficSourceTrial || undefined
+        trafficSourceTrial || undefined,
+        redirectTo ?? undefined
       );
 
       if (result.error) {
@@ -239,8 +245,12 @@ export function SignUpForm() {
           // Redirect to email confirmation page
           router.push("/auth/confirm-email");
         } else {
+          // Where the user was headed before signing up comes first
+          if (redirectTo !== null) {
+            router.push(redirectTo);
+          }
           // If user came from preview session, redirect to unlock page
-          if (previewSessionId) {
+          else if (previewSessionId) {
             router.push(`/try/unlock?session=${previewSessionId}`);
           }
           // If user came from layoff-offer, redirect with promo code

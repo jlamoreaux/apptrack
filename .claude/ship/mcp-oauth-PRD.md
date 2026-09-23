@@ -559,13 +559,22 @@ OAuth 2.1 §4.1.2.1.
      characters, or with a fragment or credentials, never normalizes. The
      accepted set is `<origin>/api/mcp` for each accepted origin.
    - `scope` is longer than 256 characters → `invalid_request`
+   A repeated parameter is refused (RFC 6749 §3.1): a repeated `client_id` or
+   `redirect_uri` is fatal, a repeated `resource` is `invalid_target`, and
+   any other is `invalid_request`. An empty value counts as absent. `state`
+   is echoed on an error only when it's a single value within the limit.
+   If the client lookup itself fails, the user sees `/oauth/error` with an
+   "unavailable" card (`?reason=unavailable`), and the POST answers 503.
 3. **Scopes.** Unknown values (`openid`, `offline_access`, `profile`, …) are
    ignored, not rejected. Known values only affect what the consent screen
    shows as requested (see below).
 4. **Next step.** The handler rebuilds a canonical query from the validated
-   parameters with `URLSearchParams`:
-   `client_id`, `redirect_uri` (the registered string as sent), `state`,
-   `code_challenge`, the normalized `resource` and `scope`.
+   parameters with `URLSearchParams`: `response_type=code`, `client_id`,
+   `redirect_uri` (as sent), `state`, `code_challenge`,
+   `code_challenge_method=S256`, the normalized `resource` and `scope` (as
+   sent, so the consent screen can label it). The two fixed values are
+   carried so the consent page and the POST revalidate the query with the
+   same validator, unchanged.
    - Signed out: redirect to `/login?redirectTo=` +
      `encodeURIComponent("/oauth/consent?" + canonicalQuery)`.
    - Signed in: redirect to `/oauth/consent?` + the canonical query.
@@ -611,9 +620,12 @@ It renders:
   - Loopback URIs show "an app on this computer (localhost:PORT)", or
     "(localhost)" when the URI has no port.
   - Private-use schemes show "the <scheme> app".
-- `client_uri` as a link, if it's set and on the same registrable host as the
-  redirect. Otherwise it's omitted, since it would be a phishing aid.
-- The signed-in email and a "Not you? Sign out" link.
+- `client_uri` as a link, if it's set, both it and the redirect are https,
+  and they're on the same host (compared case-insensitively, ignoring a
+  trailing dot; no public-suffix lookup, so a sibling subdomain doesn't
+  count). Otherwise it's omitted, since it would be a phishing aid.
+- The signed-in email and a "Not you? Sign out" button, which signs out and
+  opens login with this consent URL as `redirectTo`.
 - The scope picker and expiry select, extracted from
   `agent-token-create-form.tsx` into a shared component. The defaults are
   always the PAT defaults (`wins:read`, `wins:write`), whatever the client
@@ -623,7 +635,8 @@ It renders:
 - If the user already has an active grant for this app: "Approving replaces
   this app's current access."
 - If the user is at the 10-app cap and this app has no active grant: a message
-  and a link to `/dashboard/data`, with no Approve button.
+  and a link to `/dashboard/data`, with no Approve button and no picker.
+  Deny stays, so the app hears `access_denied` rather than waiting.
 - Approve and Deny buttons, each at least 44px tall. No emojis and no pills.
 - "Don't have an account? Create one, then reconnect from your app."
 
@@ -633,13 +646,15 @@ It renders:
   `GoogleSignInButton`. The button already encodes it into the callback's
   `next`.
 - `components/forms/sign-in-form.tsx`: a valid `redirectTo` wins over the
-  onboarding redirect.
-- `middleware.ts`: the rule that sends a signed-in user on `/login` to
-  `/dashboard` sends them to a valid `redirectTo` instead.
+  onboarding redirect (the new-user check isn't made at all then; the
+  consent page runs its own).
+- `middleware.ts`: the rule that sends a signed-in user on `/login` or
+  `/signup` to `/dashboard` sends them to a valid `redirectTo` instead,
+  checked with `resolveInternalUrl`.
 - Sign-up carries the destination too:
   - `app/(marketing)/signup/signup-page-client.tsx` reads and validates
     `redirectTo` and passes it to its `GoogleSignInButton`, which already takes
-    a `redirectTo` prop.
+    a `redirectTo` prop. It wins over the preview and offer destinations.
   - It also passes `redirectTo` to `SignUpForm`, and `signUpWithPassword` gains
     an optional `redirectTo`, validated server-side with
     `isValidInternalPath`. The confirmation email then links to
@@ -650,8 +665,8 @@ It renders:
     `redirectTo` across.
 - Onboarding honors `next`: `app/(app)/onboarding/welcome/page.tsx` reads
   `next` and validates it with `isValidInternalPath`. Its non-checkout exits go
-  there instead of `/dashboard`: finishing on the free plan, and the "already
-  on a paid plan" redirect. Paid-plan checkout still goes through Stripe and
+  there instead: finishing on the free plan (instead of the first-job step),
+  and the "already on a paid plan" redirect (instead of `/dashboard`). Paid-plan checkout still goes through Stripe and
   returns to the dashboard; that's a non-goal.
 - Launch checklist: confirm that Supabase's redirect allow-list already accepts
   `https://careerotter.io/auth/callback?next=…`. Google sign-in with `next`
@@ -663,18 +678,27 @@ It renders:
 - It checks both flags and accepts only a session cookie (via
   `getSessionUserId`). It requires `Content-Type: application/json` and an
   `Origin` equal to the request origin; otherwise it returns 403.
-- **Body:** the canonical parameters plus
-  `{ decision, scopes?, expiresInDays? }`. The server re-runs the full
-  validation.
+- **Body:** `{ params, decision, scopes?, expiresInDays? }`, where `params`
+  is the canonical query as an object of strings. The server re-runs the full
+  validation: fatal → 400, a lookup failure → 503, a redirect error →
+  `{ redirectUrl }` of that error. No session → 401. A malformed body → 400;
+  over the 16 KB cap → 413. Every answer is `no-store`.
 - **Approve:**
-  1. Normalize the scopes. Comp scopes without an expiry → 400.
-  2. Call `create_agent_oauth_code`. At the cap → 409.
+  1. Normalize the scopes with the PAT rules (`validateAccessChoice` in
+     `lib/auth/agent-token.ts`, shared with token creation): known scopes,
+     write implies read; `expiresInDays` one of 30, 90, 365 or null (never),
+     defaulting to 90 when omitted. Comp scopes without an expiry → 400.
+  2. Call `create_agent_oauth_code` with a `co_code_` code's digest and the
+     lifetime as an interval string (`'90 days'`, or null). At the cap → 409;
+     `invalid_client` (deleted since validation) → 400; an RPC failure → 503.
   3. Respond with `{ redirectUrl }`: the stored redirect URI plus `code`,
      `state` and `iss`, appended with `URLSearchParams` so any existing query
      is kept. No fragment is ever added.
 - **Deny:** `{ redirectUrl }` with `error=access_denied`, `state` and `iss`.
-- The redirect URI is always the exact registered string (or the loopback
-  match), and it was validated at registration.
+- The browser is sent to the redirect URI as presented, which is the exact
+  registered string or a loopback match differing only in port (the port the
+  client is listening on). The code stores the registered string, which the
+  token endpoint matches with loopback matching.
 - Double submit: each approval creates a new code. Only the one the browser
   follows is used, and the others expire.
 
@@ -1115,6 +1139,17 @@ Critic review of this design, and how each point was resolved:
   like the other functions.
 - A `*` in `CAREEROTTER_MCP_EXTRA_ORIGINS` was accepted and never matched →
   rejected at parse time.
+
+**Task 3 implementation notes**
+- The canonical query also carries `response_type` and
+  `code_challenge_method`, so one validator serves all three callers.
+- A failed client or grant lookup shows an "unavailable" card on
+  `/oauth/error` rather than the invalid-link one.
+- `client_uri` is compared by exact host, since there's no public-suffix list
+  in the repo.
+- At the cap, Deny remains so the app gets `access_denied`.
+- Full-page navigations from the consent screen go through
+  `lib/utils/browser-navigation.ts`, a seam tests can replace.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could
