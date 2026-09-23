@@ -10,6 +10,9 @@
  * cached row in place, and a failed write still returns the fresh quote.
  *
  * Dark without FINNHUB_API_KEY: only the cache is read.
+ *
+ * readCachedQuotes is the select-only variant for the MCP tools, which must
+ * never spend the Finnhub budget or write the shared cache.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -17,6 +20,7 @@ import type { StockQuote } from "@/lib/careerotter/comp-projection";
 import { fetchProfile, fetchQuote, isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import type { DomainResult } from "@/types";
 
 /** How old a cached quote may be before a page view refreshes it. */
 export const QUOTE_TTL_MS = 15 * 60 * 1000;
@@ -145,4 +149,45 @@ export async function loadQuotes(
   );
 
   return quotes;
+}
+
+function isStockPriceRow(value: unknown): value is StockPriceRow {
+  if (typeof value !== "object" || value === null) return false;
+  return "ticker" in value && typeof value.ticker === "string" &&
+    "as_of" in value && typeof value.as_of === "string";
+}
+
+/**
+ * Cached quotes for the given tickers, keyed by ticker, straight from
+ * stock_prices: no feed call and no write. Tickers with no cached row are
+ * absent.
+ */
+export async function readCachedQuotes(
+  admin: SupabaseClient,
+  tickers: readonly string[]
+): Promise<DomainResult<Record<string, StockQuote>>> {
+  const quotes: Record<string, StockQuote> = {};
+  const unique = [...new Set(tickers)];
+  if (unique.length === 0) return { ok: true, value: quotes };
+  try {
+    const { data: rows, error } = await admin
+      .from("stock_prices")
+      .select(SELECT_COLUMNS)
+      .in("ticker", unique);
+    if (error) return cachedQuotesFailure(error);
+    for (const row of Array.isArray(rows) ? rows : []) {
+      if (isStockPriceRow(row)) quotes[row.ticker] = rowToQuote(row);
+    }
+    return { ok: true, value: quotes };
+  } catch (error) {
+    return cachedQuotesFailure(error);
+  }
+}
+
+function cachedQuotesFailure(error: unknown): DomainResult<Record<string, StockQuote>> {
+  loggerService.error("Failed to read cached stock prices", error, {
+    category: LogCategory.DATABASE,
+    action: "stock_prices_read_failed",
+  });
+  return { ok: false, kind: "db", message: "Failed to load stock quotes" };
 }

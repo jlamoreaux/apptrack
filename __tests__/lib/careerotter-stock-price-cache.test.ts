@@ -2,10 +2,10 @@
 /**
  * On-demand quote cache: serves cached rows, refreshes missing or stale
  * tickers live and writes them back, and only reads the cache when the feed
- * is dark.
+ * is dark. readCachedQuotes is select-only: never the feed, never a write.
  */
 
-import { loadQuotes, QUOTE_TTL_MS } from "@/lib/careerotter/stock-price-cache";
+import { loadQuotes, QUOTE_TTL_MS, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
 import { fetchProfile, fetchQuote } from "@/lib/careerotter/stock-price";
 
 jest.mock("@/lib/careerotter/stock-price", () => ({
@@ -22,9 +22,9 @@ const mockProfile = fetchProfile as jest.Mock;
 const ORIGINAL_KEY = process.env.FINNHUB_API_KEY;
 
 /** A fake admin client: `.from("stock_prices").select().in()` resolves rows; upsert is recorded. */
-function fakeAdmin(rows: unknown[], upsertError: unknown = null) {
+function fakeAdmin(rows: unknown[], upsertError: unknown = null, readError: unknown = null) {
   const upsert = jest.fn().mockResolvedValue({ error: upsertError });
-  const inFn = jest.fn().mockResolvedValue({ data: rows, error: null });
+  const inFn = jest.fn().mockResolvedValue({ data: readError ? null : rows, error: readError });
   const select = jest.fn(() => ({ in: inFn }));
   const from = jest.fn(() => ({ select, upsert }));
   return { client: { from } as never, upsert, inFn };
@@ -130,4 +130,47 @@ it("only reads the cache when the feed is dark", async () => {
   expect(quotes.NEW).toBeUndefined();
   expect(mockQuote).not.toHaveBeenCalled();
   expect(upsert).not.toHaveBeenCalled();
+});
+
+describe("readCachedQuotes", () => {
+  const originalFetch = global.fetch;
+  const fetchSpy = jest.fn();
+
+  beforeEach(() => {
+    global.fetch = fetchSpy;
+  });
+  afterEach(() => {
+    global.fetch = originalFetch;
+  });
+
+  it("returns cached rows, even stale ones, without the feed or a write", async () => {
+    const { client, upsert, inFn } = fakeAdmin([
+      { ticker: "NET", price: "90", as_of: stale(), change: "1.5" },
+    ]);
+    const result = await readCachedQuotes(client, ["NET", "NEW", "NET"]);
+    expect(result).toMatchObject({ ok: true, value: { NET: { price: 90, change: 1.5 } } });
+    expect(result.ok && result.value.NEW).toBeFalsy();
+    expect(inFn).toHaveBeenCalledWith("ticker", ["NET", "NEW"]);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(mockQuote).not.toHaveBeenCalled();
+    expect(mockProfile).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty map for no tickers without querying", async () => {
+    const { client, inFn } = fakeAdmin([]);
+    expect(await readCachedQuotes(client, [])).toEqual({ ok: true, value: {} });
+    expect(inFn).not.toHaveBeenCalled();
+  });
+
+  it("maps a read error to db", async () => {
+    const { client, upsert } = fakeAdmin([], null, { message: "boom" });
+    expect(await readCachedQuotes(client, ["NET"])).toEqual({
+      ok: false,
+      kind: "db",
+      message: "Failed to load stock quotes",
+    });
+    expect(upsert).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
 });
