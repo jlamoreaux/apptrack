@@ -457,6 +457,13 @@ export interface CreatedAgentToken {
 /** How an MCP request authenticated: a personal access token or an OAuth grant. */
 export type AgentCredentialKind = "pat" | "oauth";
 
+/**
+ * Why the MCP route refused a presented bearer token, as told to the client
+ * in `error_description`. PAT failures, malformed bearers and unknown OAuth
+ * tokens are all `invalid`.
+ */
+export type McpBearerTokenFailure = "invalid" | "expired" | "revoked";
+
 // ─── CareerOtter MCP OAuth (migration 045) ───
 
 /** An agent_oauth_clients row. Never carries client_secret_hash. */

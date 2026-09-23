@@ -912,7 +912,7 @@ It renders:
   - anything else → today's format failure
 - **OAuth path:** checksum pre-check, then hash lookup (under the existing
   abortable deadline), then the per-grant rate limit
-  (`agentRate:oauth:<grantId>`, the same numbers as per-token).
+  (`mcp-oauth-grant:<grantId>`, the same numbers as per-token).
   - The context gets `credentialKind: "oauth"`.
   - `touchGrantLastUsed` updates `agent_oauth_grants`, throttled to once every
     5 minutes.
@@ -1355,6 +1355,44 @@ Critic review of this design, and how each point was resolved:
   `lib/auth/prefixed-secret.ts` for PKCE and client secrets; `HTTP_STATUS`
   everywhere in the OAuth code; the cross-module types in `types/index.ts`;
   shared test fixtures in `__tests__/utils/test-helpers/oauth-fake-db.ts`.
+
+**Task 5 implementation notes**
+- The per-grant limiter key is `mcp-oauth-grant:<grantId>`
+  (`AGENT_OAUTH_RATE_LIMITS.perGrant`, set in Task 1), not
+  `agentRate:oauth:<grantId>`.
+- Like the PAT lockout, `oauthFailPerIp` is read (without charging) before
+  the lookup, so an IP that has spent it gets 429 without a database query,
+  even for a valid `co_oat_` token, until the window moves on. It's charged
+  for every `co_oat_` failure, including a bad checksum; at 600/min that
+  only bites a very noisy shared IP. The PAT lockout isn't consulted on the
+  OAuth path, so an IP locked out by PAT failures can still use OAuth tokens.
+- With OAuth enabled, `error="invalid_token"` and `error_description` are
+  added only when a bearer token was presented. A request with another scheme
+  (for example `Basic`) or an empty header is still a malformed bearer, counted
+  toward the PAT lockout as before, but its challenge carries no error code
+  (RFC 6750 §3.1). The discovery-probe 401 body is `{"error":"unauthorized"}`;
+  every other 401 body stays `{"error":"invalid_token"}`.
+- `error_description` is "The access token is invalid" (bad checksum, not
+  found, a refused PAT, a malformed bearer), "The access token has expired"
+  or "The access token has been revoked"
+  (`MCP_BEARER_FAILURE_DESCRIPTIONS`). Parameter values are sent as
+  quoted-strings with `"` and `\` escaped.
+- The challenge's origin comes from `advertisedMcpOrigin` in
+  `lib/auth/oauth/resource.ts`, which `advertisedMcpResource` now uses too.
+- The server instructions gained an "Access" section (version 1.2.0): the
+  agent has only the tools the connection was granted and asks the user to
+  reconnect and grant more access when it needs others.
+- `mcp_tool_called` carries `credential_kind`; tool error logs and the
+  request-timeout log carry `credentialKind`.
+- Middleware: the OAuth gate covers `/oauth` and `/oauth/*`,
+  `/api/oauth` and `/api/oauth/*`, and `/.well-known/oauth-*`. The
+  `/api/careerotter/agent-grants*` routes (Task 6) aren't OAuth-gated in
+  middleware: the GET must answer `{ enabled: false, grants: [] }` when OAuth
+  is off, and the `CAREEROTTER_ENABLED` gate already covers
+  `/api/careerotter/*`, so the flag check stays in the handlers.
+- The containment suite loads the real `jose` through Node's own `require`
+  (jose 6 is ESM-only, which Jest's loader can't run), with a signed
+  extension JWT as a positive control.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

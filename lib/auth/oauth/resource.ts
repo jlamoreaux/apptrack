@@ -10,12 +10,12 @@
 
 import {
   AGENT_OAUTH_LIMITS,
-  CANONICAL_MCP_RESOURCE,
   getAcceptedMcpOrigins,
   getAcceptedMcpResources,
   mcpResourceUrl,
 } from "@/lib/constants/agent-oauth";
 import { hasCredentials, hasFragment, parseUrl } from "@/lib/auth/oauth/url";
+import { SITE_URL } from "@/lib/constants/site-config";
 
 const TRAILING_SLASH = /\/$/;
 
@@ -41,13 +41,19 @@ export function toAcceptedMcpResource(raw: string): string | null {
 }
 
 /**
+ * The origin to advertise the MCP resource on for a request: its own origin
+ * when that origin is accepted, otherwise SITE_URL.
+ */
+export function advertisedMcpOrigin(requestUrl: string): string {
+  const origin = parseUrl(requestUrl)?.origin;
+  if (origin !== undefined && getAcceptedMcpOrigins().includes(origin)) return origin;
+  return SITE_URL;
+}
+
+/**
  * The MCP resource to advertise for a request: its own origin's when that
  * origin is accepted, otherwise SITE_URL's.
  */
 export function advertisedMcpResource(requestUrl: string): string {
-  const origin = parseUrl(requestUrl)?.origin;
-  if (origin !== undefined && getAcceptedMcpOrigins().includes(origin)) {
-    return mcpResourceUrl(origin);
-  }
-  return CANONICAL_MCP_RESOURCE;
+  return mcpResourceUrl(advertisedMcpOrigin(requestUrl));
 }

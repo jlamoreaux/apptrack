@@ -288,7 +288,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - cron: requires auth, calls the function, `42883` is a no-op
 
 ## Task 5: OAuth tokens at the MCP route
-- [ ] 5.1: `app/api/mcp/route.ts`:
+- [x] 5.1: `app/api/mcp/route.ts`:
   - `co_oat_` dispatch, the lookup under the abortable deadline, and the
     per-grant rate limit
   - failure accounting: with OAuth on, a missing header isn't counted and
@@ -297,16 +297,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - `WWW-Authenticate` with `resource_metadata` and the `scope` hint, plus
     `error="invalid_token"` when a token was presented
   - touch and rate-limit calls branch on `credentialKind`
-- [ ] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
+- [x] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
   `lib/mcp/define-tool.ts`: add `credentialKind` to analytics. Server
   instructions: tell the agent to have the user reconnect when it needs more
   scopes.
-- [ ] 5.3: `middleware.ts`:
+- [x] 5.3: `middleware.ts`:
   - `isCareerotterSurface` gains the new paths
   - the OAuth-enabled gate
   - matcher entries for `/api/oauth/:path*` and the cleanup cron
   - the early return extended to `/.well-known/oauth-*` and `/api/oauth/*`
-- [ ] 5.4: Write tests for Task 5:
+- [x] 5.4: Write tests for Task 5:
   - an active `co_oat_` token gets exactly its grant's tools
   - expired, revoked, not-found and bad-checksum tokens get 401 with the right
     `WWW-Authenticate`

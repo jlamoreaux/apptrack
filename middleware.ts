@@ -11,6 +11,11 @@ import {
   hasMarkdownRendering,
   prefersMarkdown,
 } from "@/lib/agent-discovery/markdown-negotiation"
+import {
+  AGENT_OAUTH_PATHS,
+  isCareerotterEnabled,
+  isMcpOAuthEnabled,
+} from "@/lib/constants/agent-oauth"
 
 // CareerOtter Phase 2 surfaces (merged to main ahead of launch) stay hidden
 // until the launch switch is flipped. Matched with segment boundaries so a route
@@ -33,7 +38,9 @@ function isCareerotterSurface(pathname: string): boolean {
     pathname.startsWith("/api/wins/") ||
     pathname === "/api/wins" ||
     pathname === "/api/cron/careerotter-recap" ||
-    isMcpPath(pathname)
+    pathname === AGENT_OAUTH_PATHS.cleanupCron ||
+    isMcpPath(pathname) ||
+    isOAuthSurface(pathname)
   )
 }
 
@@ -41,20 +48,45 @@ function isMcpPath(pathname: string): boolean {
   return pathname === "/api/mcp" || pathname.startsWith("/api/mcp/")
 }
 
+// The OAuth authorization server: its pages, its API and its discovery
+// documents. All of it 404s unless isMcpOAuthEnabled(). The cleanup cron is
+// not included: it runs whenever CareerOtter is on, so rows keep getting
+// cleaned up while OAuth is switched off.
+function isOAuthSurface(pathname: string): boolean {
+  return isOAuthPage(pathname) || isOAuthMachinePath(pathname)
+}
+
+function isOAuthPage(pathname: string): boolean {
+  return pathname === "/oauth" || pathname.startsWith("/oauth/")
+}
+
+// Answered to OAuth clients, apart from the consent decision, whose route
+// reads the session cookie itself. Like /api/mcp they skip the session
+// refresh, the legacy-host redirect and markdown negotiation.
+function isOAuthMachinePath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/.well-known/oauth-") ||
+    pathname === "/api/oauth" ||
+    pathname.startsWith("/api/oauth/")
+  )
+}
+
 export async function middleware(request: NextRequest) {
   // Hard launch gate, evaluated before anything else: 404 the not-yet-launched
   // CareerOtter routes unless CAREEROTTER_ENABLED=1. Keeps them unreachable in
   // production while their code sits merged-but-dark on main.
-  if (
-    process.env.CAREEROTTER_ENABLED !== "1" &&
-    isCareerotterSurface(request.nextUrl.pathname)
-  ) {
-    return new NextResponse("Not Found", { status: 404 })
+  const { pathname } = request.nextUrl
+  if (!isCareerotterEnabled() && isCareerotterSurface(pathname)) {
+    return notFound()
+  }
+  // The OAuth server also needs its own flag, and stays off on previews.
+  if (!isMcpOAuthEnabled() && isOAuthSurface(pathname)) {
+    return notFound()
   }
 
-  // The MCP route authenticates its own bearer tokens, so it skips the Supabase
-  // session refresh and legacy-host redirects below.
-  if (isMcpPath(request.nextUrl.pathname)) {
+  // The MCP route and the OAuth endpoints authenticate their own callers, so
+  // they skip the Supabase session refresh and legacy-host redirects below.
+  if (isMcpPath(pathname) || isOAuthMachinePath(pathname)) {
     return NextResponse.next()
   }
 
@@ -145,6 +177,10 @@ export async function middleware(request: NextRequest) {
   }
 }
 
+function notFound(): NextResponse {
+  return new NextResponse("Not Found", { status: 404 })
+}
+
 export const config = {
   matcher: [
     /*
@@ -162,5 +198,8 @@ export const config = {
     "/api/cron/careerotter-recap",
     "/api/mcp",
     "/api/mcp/:path*",
+    // /oauth/* pages and /.well-known/oauth-* are covered by the first pattern.
+    "/api/oauth/:path*",
+    "/api/cron/agent-oauth-cleanup",
   ],
 }

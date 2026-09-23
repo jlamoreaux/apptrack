@@ -15,6 +15,7 @@ import {
 import { DEFAULT_AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access-ui";
 import { SITE_URL } from "@/lib/constants/site-config";
 import { LEGACY_HOSTS } from "@/lib/rebrand-redirect";
+import type { McpBearerTokenFailure } from "@/types";
 
 // ── Gating ──────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,14 @@ export type AgentOAuthTokenErrorCode =
 // Sent in the 401 challenge so SDK-based clients request the PAT defaults
 // rather than every supported scope.
 export const AGENT_OAUTH_DEFAULT_SCOPE_HINT = DEFAULT_AGENT_TOKEN_SCOPES.join(AGENT_OAUTH_SCOPE_SEPARATOR);
+
+// error_description in the MCP route's invalid_token challenge (RFC 6750 §3).
+// Values must stay within RFC 6750's error_description charset: no " or \.
+export const MCP_BEARER_FAILURE_DESCRIPTIONS = {
+  invalid: "The access token is invalid",
+  expired: "The access token has expired",
+  revoked: "The access token has been revoked",
+} as const satisfies Record<McpBearerTokenFailure, string>;
 
 // ── Redirect URIs ───────────────────────────────────────────────────────────
 

@@ -74,7 +74,7 @@ export const MCP_LIST_WINS = {
   maxLimit: 200,
 } as const;
 
-export const MCP_INSTRUCTIONS_VERSION = "1.1.0";
+export const MCP_INSTRUCTIONS_VERSION = "1.2.0";
 
 // Random bytes behind each token; 256 bits makes guessing infeasible.
 export const AGENT_TOKEN_SECRET_BYTES = 32;
