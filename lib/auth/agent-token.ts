@@ -218,8 +218,9 @@ export function normalizeScopes(input: unknown): DomainResult<AgentTokenScope[]>
   if (!Array.isArray(input) || input.length === 0) {
     return invalid(MESSAGES.scopesRequired);
   }
+  const requested: unknown[] = input;
   const granted = new Set<AgentTokenScope>();
-  for (const scope of input) {
+  for (const scope of requested) {
     if (!isAgentTokenScope(scope)) return invalid(`Unknown scope: ${String(scope)}`);
     granted.add(scope);
     impliedScopes(scope).forEach((implied) => granted.add(implied));
