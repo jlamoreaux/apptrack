@@ -4,11 +4,21 @@
  */
 
 import { MCP_INSTRUCTIONS_VERSION } from "@/lib/constants/agent-access";
-import { WIN_TAG_OPTIONS } from "@/lib/constants/careerotter";
+import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
 
-// Reuses the in-app hints so agents and the UI describe each area the same way.
+// The in-app hints speak to the user as "you"; here "you" is the agent, so
+// each hint is restated about the user. Keyed by tag so a new tag fails to
+// compile until it has an agent-facing definition.
+const AGENT_TAG_HINTS = {
+  delivery: "Something the user shipped and what it moved",
+  leadership: "A call the user made, or someone they unblocked",
+  collaboration: "Work of theirs that crossed a team boundary",
+  craft: "Something the user made better that nobody asked them to",
+} as const satisfies Record<WinTag, string>;
+
+// Order and tag set come from WIN_TAG_OPTIONS so agents and the UI agree.
 const WIN_TAG_LINES = WIN_TAG_OPTIONS.map(
-  ({ value, hint }) => `- ${value}: ${hint}.`
+  ({ value }) => `- ${value}: ${AGENT_TAG_HINTS[value]}.`
 );
 
 const SECTIONS: readonly (readonly string[])[] = [

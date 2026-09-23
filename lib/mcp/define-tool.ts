@@ -1,12 +1,11 @@
 /**
  * The single path for registering MCP tools. `defineTool` captures a tool's
  * schemas and handler; `registerDefinedTools` registers only the tools the
- * token's scopes allow. The wrapped handler never throws, maps service
- * failures to `isError` results, validates structured output, and records
- * `mcp_tool_called` after the response.
+ * token's scopes allow. The wrapped handler never throws, bounds each run by a
+ * deadline, maps service failures to `isError` results, validates structured
+ * output, and records `mcp_tool_called` after the response.
  */
 
-import { after } from "next/server";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type {
@@ -16,9 +15,15 @@ import type {
 import { hasScope } from "@/lib/auth/agent-token";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
-import { MCP_TOOL_FAILED_MESSAGE } from "@/lib/constants/agent-access";
+import {
+  MCP_DEADLINES_MS,
+  MCP_TOOL_FAILED_MESSAGE,
+  MCP_TOOL_TIMEOUT_MESSAGE,
+} from "@/lib/constants/agent-access";
+import { trackAfterResponse } from "@/lib/careerotter/domain-result";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { withTimeout } from "@/lib/utils/with-timeout";
 import type { AgentTokenScope, DomainErrorKind, DomainResult } from "@/types";
 import type { McpToolContext } from "./context";
 
@@ -60,11 +65,15 @@ export interface DefinedTool {
   register(server: McpServer, ctx: McpToolContext): void;
 }
 
-/** Failure categories reported in `mcp_tool_called.error_kind`. */
+/**
+ * Failure categories reported in `mcp_tool_called.error_kind`. Calls with
+ * invalid arguments never reach the wrapper: the SDK validates them first and
+ * answers with its own isError result.
+ */
 export type McpToolErrorKind =
   | DomainErrorKind
-  | "invalid_input"
   | "invalid_output"
+  | "timeout"
   | "exception";
 
 interface ToolOutcome {
@@ -72,14 +81,12 @@ interface ToolOutcome {
   errorKind: McpToolErrorKind | null;
 }
 
-const INVALID_INPUT_MESSAGE = "Invalid tool arguments";
-
 export function defineTool<I extends z.ZodRawShape, O extends z.ZodRawShape>(
   spec: ToolSpec<I, O>
 ): DefinedTool {
   const inputObject = z.object(spec.inputSchema);
   // Widened so the SDK types the callback argument as unknown; the handler
-  // re-parses it with the typed schema below instead of trusting a cast.
+  // re-parses it with the typed schema instead of trusting a cast.
   const registeredInput: z.ZodTypeAny = inputObject;
   return {
     name: spec.name,
@@ -112,8 +119,10 @@ export function registerDefinedTools(
   }
 }
 
-// A registration error (such as a duplicate name) must not abort the request:
-// mcp-handler does not await server setup, so a throw would hang the response.
+// A registration error (such as a duplicate name) must not abort the request.
+// mcp-handler awaits server setup, but createServerResponseAdapter calls its
+// mcpHandler without awaiting it, so a throw would become an unobserved
+// rejection and the response would never be written.
 function registerOne(server: McpServer, ctx: McpToolContext, tool: DefinedTool): void {
   try {
     tool.register(server, ctx);
@@ -145,15 +154,22 @@ async function settleTool<I extends z.ZodRawShape, O extends z.ZodRawShape>(
   args: unknown
 ): Promise<ToolOutcome> {
   try {
-    const input = inputObject.safeParse(args);
-    if (!input.success) return failure("invalid_input", INVALID_INPUT_MESSAGE);
-    const result = await spec.run(ctx, input.data);
-    if (!result.ok) return failure(result.kind, result.message);
-    return success(spec, ctx, result.value);
+    // The SDK already validated args against this schema; parsing again only
+    // recovers the static type, so a failure here is an unexpected exception.
+    const input = inputObject.parse(args);
+    const run = await withTimeout(spec.run(ctx, input), MCP_DEADLINES_MS.tool);
+    if (run.timedOut) return timedOut(ctx, spec.name);
+    if (!run.value.ok) return failure(run.value.kind, run.value.message);
+    return success(spec, ctx, run.value.value);
   } catch (error) {
     logToolError("MCP tool threw", error, ctx, spec.name);
     return failure("exception", MCP_TOOL_FAILED_MESSAGE);
   }
+}
+
+function timedOut(ctx: McpToolContext, tool: string): ToolOutcome {
+  logToolError("MCP tool timed out", undefined, ctx, tool);
+  return failure("timeout", MCP_TOOL_TIMEOUT_MESSAGE);
 }
 
 function success<I extends z.ZodRawShape, O extends z.ZodRawShape>(
@@ -194,41 +210,18 @@ function logToolError(
   });
 }
 
-// Analytics must never change a tool result, so both scheduling and sending
-// failures are logged and dropped.
+// captureServerEvent never rejects, and trackAfterResponse logs a failure to
+// schedule, so analytics can never change a tool result.
 function trackToolCall(
   ctx: McpToolContext,
   tool: string,
   errorKind: McpToolErrorKind | null
 ): void {
-  try {
-    after(() => sendToolCalledEvent(ctx, tool, errorKind));
-  } catch (error) {
-    logAnalyticsFailure(error, ctx, tool);
-  }
-}
-
-async function sendToolCalledEvent(
-  ctx: McpToolContext,
-  tool: string,
-  errorKind: McpToolErrorKind | null
-): Promise<void> {
-  try {
-    await captureServerEvent(ctx.userId, CAREEROTTER_EVENT_NAMES.MCP_TOOL_CALLED, {
+  trackAfterResponse({ userId: ctx.userId, action: "mcp_tool_called" }, () =>
+    captureServerEvent(ctx.userId, CAREEROTTER_EVENT_NAMES.MCP_TOOL_CALLED, {
       tool,
       ok: errorKind === null,
       error_kind: errorKind,
-    });
-  } catch (error) {
-    logAnalyticsFailure(error, ctx, tool);
-  }
-}
-
-function logAnalyticsFailure(error: unknown, ctx: McpToolContext, tool: string): void {
-  loggerService.warn("Failed to record mcp_tool_called", {
-    category: LogCategory.BUSINESS,
-    userId: ctx.userId,
-    action: "mcp_tool_called",
-    metadata: { tool, error: error instanceof Error ? error.message : String(error) },
-  });
+    })
+  );
 }
