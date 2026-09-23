@@ -111,10 +111,14 @@ export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Eleme
     setActionError(null);
     const result = await call();
     if (!mountedRef.current) return;
-    if (result.ok) await refreshTokens();
-    else setActionError(result);
+    if (!result.ok) {
+      setActionError(result);
+      setBusy(false);
+      return;
+    }
+    await refreshTokens();
     setBusy(false);
-    if (result.ok) setFocusTarget("list");
+    setFocusTarget("list");
   }
 
   if (load.kind === "loading") {

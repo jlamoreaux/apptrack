@@ -5,13 +5,14 @@ import { NavigationServer } from "@/components/navigation-server";
 import { getUser } from "@/lib/supabase/server";
 import { DataExportButton } from "@/components/careerotter/data-export-button";
 import { ConnectedAgents } from "@/components/careerotter/connected-agents";
+import { getAppUrl } from "@/lib/constants/site-config";
 
 /**
- * Your data (CareerOtter M2c privacy posture). A plain-language statement plus
- * one-click export. Users log employer-confidential material, so the posture is
- * stated before we ask for it (RFC §5).
+ * Your data: how we treat it, export, and connected agents. Users log
+ * employer-confidential material, so the privacy posture sits next to the
+ * controls that act on it.
  */
-export default async function DataPage() {
+export default async function DataPage(): Promise<React.JSX.Element> {
   const user = await getUser();
   if (!user) redirect("/login");
 
@@ -49,7 +50,9 @@ export default async function DataPage() {
               career data on your behalf.
             </p>
           </div>
-          <ConnectedAgents />
+          {/* Resolved on the server: site-config validates env at load and would
+              throw in the client bundle, and VERCEL_URL is server-only. */}
+          <ConnectedAgents appUrl={getAppUrl()} />
         </section>
       </main>
     </div>
