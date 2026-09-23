@@ -6,6 +6,9 @@
  * - OAuth disabled -> 404
  * - a foreign or missing Origin, or a non-JSON body -> 403
  * - no session -> 401
+ * - a session that isn't the user the screen was rendered for
+ *   (expectedUserId) -> 409 account_changed, nothing validated or stored; a
+ *   missing expectedUserId -> 400
  * - approve: create_agent_oauth_code gets the code's digest, the registered
  *   redirect, normalized scopes (write implies read), the grant lifetime as
  *   an interval (or null for never) and the canonical resource; the answer
@@ -30,6 +33,7 @@ import {
   AGENT_OAUTH_RPC,
   CANONICAL_MCP_RESOURCE,
 } from "@/lib/constants/agent-oauth";
+import { OAUTH_CONSENT_MESSAGES } from "@/lib/constants/agent-oauth-ui";
 
 const fetchPrimitives = jest.requireActual("next/dist/compiled/@edge-runtime/primitives");
 global.Request = fetchPrimitives.Request;
@@ -114,6 +118,7 @@ function approveBody(overrides: Record<string, unknown> = {}): Record<string, un
   return {
     params: requestParams(),
     decision: "approve",
+    expectedUserId: USER_ID,
     scopes: ["wins:write"],
     expiresInDays: 90,
     ...overrides,
@@ -168,6 +173,21 @@ describe("POST /api/oauth/authorize: gates", () => {
     mockSessionUserId.mockResolvedValue(null);
     const response: Response = await POST(post(approveBody()));
     expect(response.status).toBe(401);
+    expect(mockAdmin).not.toHaveBeenCalled();
+  });
+
+  it.each(["approve", "deny"])("409s account_changed when another account is signed in (%s)", async (decision) => {
+    mockSessionUserId.mockResolvedValue("99999999-2222-4333-8444-555555555555");
+    const response: Response = await POST(post(approveBody({ decision })));
+    expect(response.status).toBe(409);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      error: "account_changed",
+      message: OAUTH_CONSENT_MESSAGES.accountChanged,
+    });
+    expect(OAUTH_CONSENT_MESSAGES.accountChanged).toBe(
+      "You're signed in as a different account. Reload to continue."
+    );
     expect(mockAdmin).not.toHaveBeenCalled();
   });
 });
@@ -239,7 +259,7 @@ describe("POST /api/oauth/authorize: approve", () => {
 describe("POST /api/oauth/authorize: deny and revalidation", () => {
   it("answers a denial with access_denied, state and iss", async () => {
     const { rpc } = admin();
-    const url = await redirectUrlOf(await POST(post({ params: requestParams(), decision: "deny" })));
+    const url = await redirectUrlOf(await POST(post({ params: requestParams(), decision: "deny", expectedUserId: USER_ID })));
     expect(url.searchParams.get("error")).toBe("access_denied");
     expect(url.searchParams.get("state")).toBe(STATE);
     expect(url.searchParams.get("iss")).toBe(AGENT_OAUTH_ISSUER);
@@ -269,9 +289,11 @@ describe("POST /api/oauth/authorize: deny and revalidation", () => {
 
   it.each([
     ["invalid JSON", "{"],
-    ["a missing decision", { params: requestParams() }],
-    ["an unknown decision", { params: requestParams(), decision: "maybe" }],
-    ["non-string params", { params: { client_id: 1 }, decision: "deny" }],
+    ["a missing decision", { params: requestParams(), expectedUserId: USER_ID }],
+    ["an unknown decision", { params: requestParams(), decision: "maybe", expectedUserId: USER_ID }],
+    ["non-string params", { params: { client_id: 1 }, decision: "deny", expectedUserId: USER_ID }],
+    ["a missing expectedUserId", { params: requestParams(), decision: "deny" }],
+    ["a non-string expectedUserId", { params: requestParams(), decision: "deny", expectedUserId: 1 }],
   ])("400s %s", async (_label, body) => {
     admin();
     const response: Response = await POST(post(body));

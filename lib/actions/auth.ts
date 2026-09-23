@@ -5,9 +5,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { signUpSchema, signInSchema, profileUpdateSchema } from "./schemas";
 import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
-import { getAppUrl } from "@/lib/constants/site-config";
-import { AUTH_CALLBACK_NEXT_PARAM } from "@/lib/constants/routes";
-import { isValidInternalPath } from "@/lib/utils/internal-path";
+import { getAppUrl, SITE_URL } from "@/lib/constants/site-config";
+import { authCallbackUrl, validInternalPath } from "@/lib/utils/auth-redirect";
 
 // Form-based auth actions
 export async function signUpAction(formData: FormData) {
@@ -38,7 +37,7 @@ export async function signUpAction(formData: FormData) {
         data: {
           full_name: name,
         },
-        emailRedirectTo: `${appUrl}/auth/callback`,
+        emailRedirectTo: authCallbackUrl(appUrl, null),
       },
     });
 
@@ -134,9 +133,7 @@ export async function signUpWithPassword(
     const appUrl = getAppUrl();
     // A server action takes any value from the client, so the destination is
     // checked here; anything that isn't an internal path is dropped.
-    const next = isValidInternalPath(redirectTo)
-      ? `?${AUTH_CALLBACK_NEXT_PARAM}=${encodeURIComponent(redirectTo)}`
-      : "";
+    const destination = validInternalPath(redirectTo, SITE_URL);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -146,7 +143,7 @@ export async function signUpWithPassword(
           traffic_source: trafficSource,
           traffic_source_trial: trafficSourceTrial,
         },
-        emailRedirectTo: `${appUrl}/auth/callback${next}`,
+        emailRedirectTo: authCallbackUrl(appUrl, destination),
       },
     });
 

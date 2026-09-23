@@ -76,6 +76,16 @@ export const AGENT_TOKEN_EXPIRY_CHOICES: readonly {
 /** Shown for a null last-used or expiry date. */
 export const AGENT_TOKEN_NEVER_LABEL = "Never";
 
+/** Labels and help shared by the token form and the OAuth consent screen's access fields. */
+export const AGENT_ACCESS_FIELD_COPY = {
+  expiresAfter: "Expires after",
+  compMustExpire: "Access that includes comp must expire, because comp is your most sensitive data.",
+} as const;
+
+/** Shown when a browser call to a CareerOtter API can't reach the server at all. */
+export const AGENT_API_NETWORK_ERROR =
+  "Could not reach CareerOtter. Check your connection and try again.";
+
 export const AGENT_TOKEN_FORM_MESSAGES = {
   nameRequired: "Enter a name for this token.",
   scopesRequired: "Choose at least one thing this agent can do.",

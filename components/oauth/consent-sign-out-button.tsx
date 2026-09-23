@@ -39,7 +39,7 @@ export function ConsentSignOutButton({ consentPath }: { consentPath: string }): 
       <Button
         type="button"
         variant="link"
-        className="px-1"
+        className="min-h-11 px-1"
         disabled={busy}
         onClick={() => void handleSignOut()}
       >

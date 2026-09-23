@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { isValidInternalPath } from "@/lib/utils/internal-path";
+import { validInternalPath } from "@/lib/utils/auth-redirect";
 import { APP_ROUTES, AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,8 +28,11 @@ type SignInFormData = z.infer<typeof signInSchema>;
  * the dashboard.
  */
 async function afterSignInPath(userId: string): Promise<string> {
-  const requested = new URLSearchParams(window.location.search).get(AUTH_REDIRECT_TO_PARAM);
-  if (isValidInternalPath(requested)) return requested;
+  const requested = validInternalPath(
+    new URLSearchParams(window.location.search).get(AUTH_REDIRECT_TO_PARAM),
+    window.location.origin
+  );
+  if (requested !== null) return requested;
   try {
     const response = await fetch("/api/auth/check-new-user", {
       method: "POST",

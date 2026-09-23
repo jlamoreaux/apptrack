@@ -209,7 +209,7 @@ describe("signUpWithPassword redirectTo", () => {
     expect(new URL(emailRedirectTo()).searchParams.get("next")).toBe(CONSENT_PATH);
   });
 
-  it.each(["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)"])(
+  it.each(["https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)", "/\t/evil.com", "/\n/evil.com", "/\r/evil.com"])(
     "drops %s",
     async (redirectTo) => {
       await signUpWithPassword("test@example.com", "Password1!", "Test User", undefined, undefined, redirectTo);

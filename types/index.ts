@@ -545,6 +545,11 @@ export interface AgentOAuthAuthorizeParams {
 export interface AgentOAuthConsentRequestBody {
   params: Record<string, string>;
   decision: AgentOAuthConsentDecision;
+  /**
+   * The user the consent screen was rendered for; the server refuses the
+   * decision (409 account_changed) when the session is now someone else.
+   */
+  expectedUserId: string;
   scopes?: AgentTokenScope[];
   /** Null means the grant never expires. */
   expiresInDays?: number | null;
@@ -560,6 +565,8 @@ export interface AgentOAuthConsentView {
   email: string | null;
   /** Known scopes the app asked for; labelled on the picker. */
   requestedScopes: AgentTokenScope[];
+  /** The signed-in user the screen is rendered for, posted back as expectedUserId. */
+  userId: string;
   /** The canonical request parameters, posted back with the decision. */
   requestParams: Record<string, string>;
   /** This page's own path, for returning here after signing out and back in. */
@@ -571,6 +578,21 @@ export interface AgentOAuthConsentView {
 /** POST /api/oauth/authorize's success body: where the browser goes next. */
 export interface AgentOAuthConsentResponseBody {
   redirectUrl: string;
+}
+
+/** POST /api/oauth/authorize's 409 when the session no longer matches the screen. */
+export interface AgentOAuthAccountChangedBody {
+  error: "account_changed";
+  message: string;
+}
+
+/** A Next.js searchParams value, which repeats as an array. */
+export type SearchParamValue = string | string[] | undefined;
+
+/** The signed-in user from the session cookie. */
+export interface SessionUser {
+  id: string;
+  email: string | null;
 }
 
 /** Why an authorization request can't be redirected back to the client. */

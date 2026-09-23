@@ -66,6 +66,9 @@ describe("signed-in users on the auth pages", () => {
     ["no redirectTo", "/login"],
     ["an absolute redirectTo", "/login?redirectTo=https%3A%2F%2Fevil.example%2F"],
     ["a protocol-relative redirectTo", "/login?redirectTo=%2F%2Fevil.example%2F"],
+    ["a tab the URL parser strips", "/login?redirectTo=%2F%09%2Fevil.example"],
+    ["a line feed the URL parser strips", "/login?redirectTo=%2F%0A%2Fevil.example"],
+    ["a carriage return the URL parser strips", "/login?redirectTo=%2F%0D%2Fevil.example"],
   ])("goes to the dashboard with %s", async (_label, path) => {
     signedIn({ id: "u1" });
     const response = await middleware(pageRequest(path));

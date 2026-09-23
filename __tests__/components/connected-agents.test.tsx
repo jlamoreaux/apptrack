@@ -12,7 +12,7 @@ import {
   AGENT_TOKEN_PREFIX,
   DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
 } from "@/lib/constants/agent-access";
-import { AGENT_SETUP_INSECURE_NOTICE, NEVER_EXPIRES } from "@/lib/constants/agent-access-ui";
+import { AGENT_ACCESS_FIELD_COPY, AGENT_SETUP_INSECURE_NOTICE, NEVER_EXPIRES } from "@/lib/constants/agent-access-ui";
 import type { AgentTokenRecord } from "@/types";
 
 const SITE = "https://careerotter.test";
@@ -303,7 +303,7 @@ describe("ConnectedAgents create form", () => {
     fireEvent.click(checkbox("Comp: read"));
     expect(neverOption()).toBeDisabled();
     expect(expirySelect().value).toBe(DEFAULT_EXPIRY_VALUE);
-    expect(screen.getByText(/comp access must expire/i)).toBeInTheDocument();
+    expect(screen.getByText(AGENT_ACCESS_FIELD_COPY.compMustExpire)).toBeInTheDocument();
   });
 
   it("marks the name as required", async () => {

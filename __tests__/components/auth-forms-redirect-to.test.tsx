@@ -5,6 +5,9 @@
  * - sign-up: redirectTo reaches signUpWithPassword (for the confirmation
  *   link), and with no confirmation needed the form goes there ahead of its
  *   onboarding, promo and preview destinations
+ * - neither form ever pushes a path that leaves the origin: control
+ *   characters the URL parser strips (/\t/evil.com, raw or as %09, %0a, %0d),
+ *   backslashes and protocol-relative paths are dropped
  */
 
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -79,6 +82,18 @@ describe("SignInForm", () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/onboarding/welcome"));
   });
 
+  it.each(["%2F%09%2Fevil.com", "%2F%0a%2Fevil.com", "%2F%0d%2Fevil.com", "/%09/evil.com", "%2F%5Cevil.com", "%2F%2Fevil.com"])(
+    "never leaves the origin for redirectTo=%s",
+    async (raw) => {
+      visit(`/login?redirectTo=${raw}`);
+      mockSignIn.mockResolvedValue({ user: { id: "u1" } });
+      mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ needsOnboarding: false }) });
+      render(<SignInForm />);
+      fillSignIn();
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
+    }
+  );
+
   it("ignores an absolute redirectTo", async () => {
     visit("/login?redirectTo=https%3A%2F%2Fevil.example%2F");
     mockSignIn.mockResolvedValue({ user: { id: "u1" } });
@@ -99,6 +114,17 @@ describe("SignUpForm", () => {
     expect(mockSignUp).toHaveBeenCalledWith("me@example.com", PASSWORD, "Me", undefined, undefined, CONSENT_PATH);
     expect(mockPush).toHaveBeenCalledTimes(1);
   });
+
+  it.each(["/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\\evil.com", "//evil.com"])(
+    "never pushes an off-origin redirectTo %j, falling back to onboarding",
+    async (redirectTo) => {
+      mockSignUp.mockResolvedValue({ success: true, user: { id: "u1" }, requiresEmailConfirmation: false });
+      render(<SignUpForm redirectTo={redirectTo} />);
+      fillSignUp();
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/onboarding/welcome"));
+      expect(mockPush).not.toHaveBeenCalledWith(redirectTo);
+    }
+  );
 
   it("goes to the confirmation page when confirmation is needed", async () => {
     mockSignUp.mockResolvedValue({ success: true, user: { id: "u1" }, requiresEmailConfirmation: true });

@@ -5,7 +5,8 @@
  * - the request is revalidated: fatal or unavailable -> /oauth/error, a
  *   redirect error -> the client
  * - signed out -> login, returning here
- * - a brand-new account -> onboarding, returning here when it finishes
+ * - a brand-new account -> onboarding, returning here when it finishes with
+ *   a marker (onboarded=1) so it's never sent to onboarding twice
  * - otherwise the screen, with the user's grant state for this app
  * Nothing is written; the consent URL carries the whole request.
  */
@@ -13,6 +14,7 @@
 import {
   authorizationErrorRedirectUrl,
   canonicalAuthorizeQuery,
+  consentPathAfterOnboarding,
   consentPathFor,
   oauthErrorPath,
   searchParamsFromRecord,
@@ -22,11 +24,22 @@ import { loadConsentGrantState } from "@/lib/auth/oauth/consent";
 import { redirectUriDisplay } from "@/lib/auth/oauth/redirect-uri";
 import { parseUrl } from "@/lib/auth/oauth/url";
 import { getSessionUser } from "@/lib/auth/session-user";
-import { bareHostname, isMcpOAuthEnabled } from "@/lib/constants/agent-oauth";
+import {
+  AGENT_OAUTH_ONBOARDED_PARAM,
+  AGENT_OAUTH_ONBOARDED_VALUE,
+  bareHostname,
+  isMcpOAuthEnabled,
+} from "@/lib/constants/agent-oauth";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import { loginHref, onboardingHref, type SearchParamValue } from "@/lib/utils/auth-redirect";
-import { isNewUser } from "@/lib/utils/user-onboarding";
-import type { AgentOAuthAuthorizeParams, AgentOAuthClientRecord, AgentOAuthConsentView } from "@/types";
+import { loginHref, onboardingHref } from "@/lib/utils/auth-redirect";
+import { needsOnboardingBeforeConsent } from "@/lib/utils/user-onboarding";
+import type {
+  AgentOAuthAuthorizeParams,
+  AgentOAuthClientRecord,
+  AgentOAuthConsentView,
+  SearchParamValue,
+  SessionUser,
+} from "@/types";
 
 export type ConsentPageResolution =
   | { kind: "not_found" }
@@ -57,15 +70,16 @@ function consentView(
   client: AgentOAuthClientRecord,
   params: AgentOAuthAuthorizeParams,
   requestedScopes: AgentOAuthConsentView["requestedScopes"],
-  email: string | null,
+  user: SessionUser,
   grants: { hasActiveGrant: boolean; atCap: boolean }
 ): AgentOAuthConsentView {
   return {
     clientName: client.client_name,
     returnDestination: redirectUriDisplay(params.redirectUri),
     clientUri: sameHostClientUri(client.client_uri, params.redirectUri),
-    email,
+    email: user.email,
     requestedScopes,
+    userId: user.id,
     requestParams: Object.fromEntries(canonicalAuthorizeQuery(params)),
     consentPath: consentPathFor(params),
     hasActiveGrant: grants.hasActiveGrant,
@@ -90,12 +104,16 @@ export async function resolveConsentPage(
   const consentPath = consentPathFor(validation.params);
   const user = await getSessionUser();
   if (user === null) return redirectTo(loginHref(consentPath));
-  if (await isNewUser(user.id)) return redirectTo(onboardingHref(consentPath));
+  const returnedFromOnboarding =
+    searchParams[AGENT_OAUTH_ONBOARDED_PARAM] === AGENT_OAUTH_ONBOARDED_VALUE;
+  if (!returnedFromOnboarding && (await needsOnboardingBeforeConsent(user.id))) {
+    return redirectTo(onboardingHref(consentPathAfterOnboarding(validation.params)));
+  }
 
   const grants = await loadConsentGrantState(admin, user.id, validation.client.client_id, now);
   if (grants.kind === "unavailable") return redirectTo(oauthErrorPath("unavailable"));
   return {
     kind: "render",
-    view: consentView(validation.client, validation.params, validation.requestedScopes, user.email, grants),
+    view: consentView(validation.client, validation.params, validation.requestedScopes, user, grants),
   };
 }

@@ -101,8 +101,20 @@ export const AGENT_OAUTH_LIMITS = {
   clientNameMax: 100,
   clientUriMaxLength: 512,
   resourceMaxLength: 512,
-  stateMaxLength: 512,
+  // UTF-8 bytes, not UTF-16 code units: URLs carry bytes, and a multi-byte
+  // state would otherwise outgrow the URL budget below.
+  stateMaxBytes: 512,
   scopeParamMaxLength: 256,
+  // The canonical consent path (/oauth/consent?<query>). It's carried through
+  // login, the auth callback's next and Supabase's redirect_to, each level
+  // percent-encoding the one inside it; a request whose path is longer than
+  // this, or whose worst-case nesting (see consentPathFitsBudget) is longer
+  // than nestedRedirectMaxLength, is refused as invalid_request.
+  consentPathMaxLength: 6 * 1024,
+  nestedRedirectMaxLength: 8 * 1024,
+  // Room kept inside nestedRedirectMaxLength for Supabase's own URL and the
+  // parameters around redirect_to.
+  supabaseRedirectAllowance: 512,
   requestBodyMaxBytes: 16 * 1024,
 } as const;
 
@@ -180,6 +192,13 @@ export const AGENT_OAUTH_ERROR_PAGE_REASONS = ["invalid", "unavailable"] as cons
 export type AgentOAuthErrorPageReason =
   (typeof AGENT_OAUTH_ERROR_PAGE_REASONS)[number];
 export const AGENT_OAUTH_ERROR_PAGE_REASON_PARAM = "reason";
+
+// Added to the consent URL that onboarding returns to, so the consent page
+// doesn't send the same user to onboarding a second time. Not part of the
+// authorization request: the validator ignores it and the canonical query
+// never carries it.
+export const AGENT_OAUTH_ONBOARDED_PARAM = "onboarded";
+export const AGENT_OAUTH_ONBOARDED_VALUE = "1";
 
 // RFC 7591 §3.2.2 error codes from the registration endpoint.
 export const AGENT_OAUTH_REGISTRATION_ERROR_CODES = [

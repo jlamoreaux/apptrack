@@ -5,7 +5,9 @@ import { AuthLayout } from "@/components/auth-layout"
 import { SignInForm } from "@/components/forms/sign-in-form"
 import { GoogleSignInButton } from "@/components/auth/google-signin-button"
 import { AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes"
-import { signupHref, validInternalPath, type SearchParamValue } from "@/lib/utils/auth-redirect"
+import { SITE_URL } from "@/lib/constants/site-config"
+import { signupHref, validInternalPath } from "@/lib/utils/auth-redirect"
+import type { SearchParamValue } from "@/types"
 
 export const metadata: Metadata = {
   title: "Login | CareerOtter",
@@ -22,7 +24,7 @@ export default async function LoginPage({
 }) {
   // Where to go after signing in: the Google button carries it through the
   // auth callback, and the email form reads it from the URL itself.
-  const redirectTo = validInternalPath((await searchParams)[AUTH_REDIRECT_TO_PARAM])
+  const redirectTo = validInternalPath((await searchParams)[AUTH_REDIRECT_TO_PARAM], SITE_URL)
 
   return (
     <AuthLayout>

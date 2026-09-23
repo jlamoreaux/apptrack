@@ -42,6 +42,7 @@ export const APP_ROUTES = {
 // The query parameters that carry a post-auth destination through login and
 // sign-up (redirectTo), the auth callback (next) and onboarding (next).
 export const AUTH_REDIRECT_TO_PARAM = "redirectTo";
+export const AUTH_CALLBACK_PATH = "/auth/callback";
 export const AUTH_CALLBACK_NEXT_PARAM = "next";
 export const ONBOARDING_NEXT_PARAM = "next";
 

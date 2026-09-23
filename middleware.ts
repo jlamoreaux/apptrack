@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
-import { AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes"
+import { APP_ROUTES, AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes"
 import { resolveInternalUrl } from "@/lib/utils/internal-path"
 import {
   MARKDOWN_PATH_PARAM,
@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.searchParams.get(AUTH_REDIRECT_TO_PARAM),
         request.nextUrl.origin
       )
-      return NextResponse.redirect(requested ?? new URL("/dashboard", request.url))
+      return NextResponse.redirect(requested ?? new URL(APP_ROUTES.DASHBOARD.ROOT, request.url))
     }
 
     return supabaseResponse

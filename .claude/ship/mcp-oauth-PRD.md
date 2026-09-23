@@ -385,7 +385,10 @@ null.
    client that loses the race and presents the superseded token revokes the
    grant, which is the price of not letting an attacker who races the client
    keep a chain of its own.
-6. If the token hasn't been consumed and has expired, returns `invalid_grant`.
+6. If the token has expired, returns `invalid_grant`: an unconsumed token, and
+   also a consumed one inside the grace window (no reissue for it). This runs
+   after the reuse checks in step 4, so an expired superseded or replayed
+   token still revokes the grant.
 7. Otherwise, and after a grace reissue:
    - sets `consumed_at` on the presented token (normal rotation only)
    - inserts the new access token (expires at `least(now() + 24h, grant expiry)`)
@@ -552,7 +555,8 @@ OAuth 2.1 §4.1.2.1.
    - `response_type` isn't `code` → `unsupported_response_type`
    - `code_challenge` is missing or isn't 43 base64url characters, or
      `code_challenge_method` isn't `S256` → `invalid_request`
-   - `state` is longer than 512 characters → `invalid_request`
+   - `state` is longer than 512 bytes (UTF-8, not UTF-16 code units) →
+     `invalid_request`
    - `resource` is present and doesn't normalize to an accepted MCP resource →
      `invalid_target`. Normalizing lowercases the scheme and host, drops a
      default port and drops one trailing slash; a resource over 512
@@ -579,8 +583,21 @@ OAuth 2.1 §4.1.2.1.
      `encodeURIComponent("/oauth/consent?" + canonicalQuery)`.
    - Signed in: redirect to `/oauth/consent?` + the canonical query.
 
-   The canonical query is at most about 1.5 KB. Nested three times (login, then
-   the callback's `next`, then Supabase's `redirect_to`), it stays under 6 KB.
+   **URL budget.** Each level of nesting percent-encodes the one inside it,
+   so a `%XX` triplet grows to `%25XX` and a `+` to `%2B`; a request of
+   maximum-length but ordinary values (a 512-character https redirect, a
+   512-byte base64url state, a 256-character scope) gives a canonical path of
+   about 1.6 KB and a deepest nesting of about 2.1 KB, while adversarial
+   characters can triple that. So the validator measures the request's own
+   nesting instead of relying on per-field limits: the canonical consent path
+   must be at most 6 KB (`consentPathMaxLength`), and its worst-case nesting
+   (the login href, inside the auth callback's `next`, inside Supabase's
+   `redirect_to`; the sign-up `emailRedirectTo` inside Supabase's email link
+   is measured too) plus 512 characters for Supabase's own URL must be at
+   most 8 KB (`nestedRedirectMaxLength`). Otherwise the request is a redirect
+   error, `invalid_request` with "request too large". A test builds the
+   login href, the Google chain and `emailRedirectTo` from maximum-length
+   inputs and asserts each is under 8 KB.
    Because the values are encoded, `isValidInternalPath` never sees `://`.
 5. The route handler's redirects to the client use `NextResponse.redirect`
    (a 302 with an absolute `Location`). That works for https, loopback and
@@ -595,11 +612,19 @@ which is a Promise in Next 15, and then:
 1. Checks both flags.
 2. Runs the same validation module, sending fatal results to `/oauth/error`.
 3. Redirects signed-out users to login, as above.
-4. For signed-in users, calls `isNewUser(userId)` (`lib/utils/user-onboarding.ts`).
-   It returns true only for an account under 5 minutes old that hasn't finished
-   onboarding. If so, the page redirects to
-   `/onboarding/welcome?next=<encodeURIComponent(this consent URL)>`, and
-   onboarding sends the user back here when it finishes.
+4. For signed-in users, calls `needsOnboardingBeforeConsent(userId)`
+   (`lib/utils/user-onboarding.ts`), a strict form of `isNewUser`. It returns
+   true only when the profile row exists, `onboarding_completed` isn't true,
+   the account is under 5 minutes old, and there's no paid plan and no
+   application; a missing row or any failed query means false (unlike
+   `isNewUser`, which treats a missing row as new). If so, the page redirects
+   to `/onboarding/welcome?next=<encodeURIComponent(this consent URL +
+   "&onboarded=1")>`, and onboarding sends the user back there when it
+   finishes. The `onboarded=1` marker is a one-shot: a consent request that
+   carries it (exactly one value, `1`) skips the check, so the user can't be
+   bounced to onboarding a second time even if the account still looks new.
+   The validator ignores the marker and the canonical query never carries
+   it, so it can't reach the POST or a later login redirect.
 
 This one check covers every sign-up route (email with confirmation, email
 without, Google), so the callback and the sign-in and sign-up forms don't need
@@ -613,8 +638,10 @@ merged with the existing `agentDiscoveryHeaders()`:
 `Content-Security-Policy: frame-ancestors 'none'` and `X-Frame-Options: DENY`.
 
 It renders:
-- The app name, then "CareerOtter hasn't verified this app. Only continue if
-  you just started connecting it."
+- An `h1`: the app name, isolated in `<bdi>` so a right-to-left name can't
+  reorder the sentence, then "wants to connect to your CareerOtter account".
+  Below it, "CareerOtter hasn't verified this app. Only continue if you just
+  started connecting it."
 - **Where it will send you back**, prominently:
   - https URIs show the full hostname in bold, for example "claude.ai".
   - Loopback URIs show "an app on this computer (localhost:PORT)", or
@@ -624,8 +651,10 @@ It renders:
   and they're on the same host (compared case-insensitively, ignoring a
   trailing dot; no public-suffix lookup, so a sibling subdomain doesn't
   count). Otherwise it's omitted, since it would be a phishing aid.
-- The signed-in email and a "Not you? Sign out" button, which signs out and
-  opens login with this consent URL as `redirectTo`.
+- The signed-in email and a "Not you? Sign out" link-style button (at least
+  44px tall), which signs out and opens login with this consent URL as
+  `redirectTo`. The signed-in user's id is also rendered into the form and
+  posted as `expectedUserId` (see the decision below).
 - The scope picker and expiry select, extracted from
   `agent-token-create-form.tsx` into a shared component. The defaults are
   always the PAT defaults (`wins:read`, `wins:write`), whatever the client
@@ -638,11 +667,22 @@ It renders:
   and a link to `/dashboard/data`, with no Approve button and no picker.
   Deny stays, so the app hears `access_denied` rather than waiting.
 - Approve and Deny buttons, each at least 44px tall. No emojis and no pills.
+- An always-mounted `aria-live="assertive"` error region above the buttons.
+  When a decision fails, the message appears there and focus moves to it.
 - "Don't have an account? Create one, then reconnect from your app."
 
 **Sign-in path.** These fixes are listed in PR #226's trade-offs.
+- **Every redirect target is resolved, not just string-checked.**
+  `isValidInternalPath` refuses control characters (U+0000 to U+001F, U+007F)
+  and any whitespace, since the URL parser strips tab, LF and CR (so
+  `/\t/evil.com`, or `/%09/evil.com` once decoded, would otherwise parse as
+  `//evil.com`). `validInternalPath` (`lib/utils/auth-redirect.ts`) resolves
+  the value with `resolveInternalUrl` against the page's origin in the
+  browser and `SITE_URL` on the server, and returns the parsed pathname,
+  search and hash, which is what the login page, the sign-in and sign-up
+  forms, the sign-up page, onboarding and `signUpWithPassword` navigate to.
 - `app/(marketing)/login/page.tsx` awaits `searchParams`, validates
-  `redirectTo` with `isValidInternalPath`, and passes it to
+  `redirectTo` with `validInternalPath`, and passes it to
   `GoogleSignInButton`. The button already encodes it into the callback's
   `next`.
 - `components/forms/sign-in-form.tsx`: a valid `redirectTo` wins over the
@@ -657,14 +697,14 @@ It renders:
     a `redirectTo` prop. It wins over the preview and offer destinations.
   - It also passes `redirectTo` to `SignUpForm`, and `signUpWithPassword` gains
     an optional `redirectTo`, validated server-side with
-    `isValidInternalPath`. The confirmation email then links to
+    `validInternalPath`. The confirmation email then links to
     `/auth/callback?next=<encoded redirectTo>` instead of `/auth/callback`.
   - When no confirmation is required, the form goes to `redirectTo`, ahead of
     its onboarding, promo and preview branches.
   - The login page's "Sign up" link and the signup page's "Sign in" link carry
     `redirectTo` across.
 - Onboarding honors `next`: `app/(app)/onboarding/welcome/page.tsx` reads
-  `next` and validates it with `isValidInternalPath`. Its non-checkout exits go
+  `next` and validates it with `validInternalPath`. Its non-checkout exits go
   there instead: finishing on the free plan (instead of the first-job step),
   and the "already on a paid plan" redirect (instead of `/dashboard`). Paid-plan checkout still goes through Stripe and
   returns to the dashboard; that's a non-goal.
@@ -678,10 +718,18 @@ It renders:
 - It checks both flags and accepts only a session cookie (via
   `getSessionUserId`). It requires `Content-Type: application/json` and an
   `Origin` equal to the request origin; otherwise it returns 403.
-- **Body:** `{ params, decision, scopes?, expiresInDays? }`, where `params`
-  is the canonical query as an object of strings. The server re-runs the full
+- **Body:** `{ params, decision, expectedUserId, scopes?, expiresInDays? }`,
+  where `params` is the canonical query as an object of strings and
+  `expectedUserId` is the user the consent screen was rendered for. When the
+  session is now someone else (for example, after signing in as another
+  account in a second tab), the answer is 409
+  `{ error: "account_changed", message: "You're signed in as a different
+  account. Reload to continue." }`, checked before anything is validated or
+  stored. A missing or non-string `expectedUserId` is a malformed body. The server re-runs the full
   validation: fatal → 400, a lookup failure → 503, a redirect error →
-  `{ redirectUrl }` of that error. No session → 401. A malformed body → 400;
+  `{ redirectUrl }` of that error. No session → 401; the consent form then
+  navigates to login with this consent path as `redirectTo`, rather than
+  leaving the user on a dead screen. A malformed body → 400;
   over the 16 KB cap → 413. Every answer is `no-store`.
 - **Approve:**
   1. Normalize the scopes with the PAT rules (`validateAccessChoice` in
@@ -699,8 +747,10 @@ It renders:
   registered string or a loopback match differing only in port (the port the
   client is listening on). The code stores the registered string, which the
   token endpoint matches with loopback matching.
-- Double submit: each approval creates a new code. Only the one the browser
-  follows is used, and the others expire.
+- Double submit: the form sets an in-flight ref synchronously on the first
+  click, before React disables the buttons, so two rapid clicks send one
+  request. Should two approvals still arrive (two tabs), each creates a new
+  code; only the one the browser follows is used, and the others expire.
 
 ### Token endpoint: `POST /api/oauth/token`
 
@@ -1150,6 +1200,31 @@ Critic review of this design, and how each point was resolved:
 - At the cap, Deny remains so the app gets `access_denied`.
 - Full-page navigations from the consent screen go through
   `lib/utils/browser-navigation.ts`, a seam tests can replace.
+
+**Review of Task 3**
+- Open redirect: `/\t/evil.com` (and `\n`, `\r`, or `%09`/`%0a`/`%0d` once
+  decoded) passed `isValidInternalPath` and parsed off-origin →
+  control characters and whitespace are refused, and every client and server
+  redirect of a user-supplied path navigates to the parsed path from
+  `resolveInternalUrl` (`validInternalPath`, `safeInternalPath`).
+- Onboarding loop: `isNewUser` is true when the profile query fails or
+  returns no row → the consent page uses the strict
+  `needsOnboardingBeforeConsent`, and the consent URL onboarding returns to
+  carries a one-shot `onboarded=1` marker the page honors and the validator
+  ignores.
+- Account switch mid-consent → `expectedUserId` in the POST; 409
+  `account_changed` asks the user to reload.
+- Session expiry mid-consent stranded the user → a 401 navigates to login
+  returning to the consent path.
+- URL length → state is limited in UTF-8 bytes, and the canonical path and
+  its worst-case nesting are capped at 6 KB and 8 KB ("request too large").
+- Double submit → an in-flight ref set synchronously.
+- A right-to-left client name could reorder the heading → `<bdi>`.
+- Accessibility → the heading is an `h1`, errors go to an always-mounted
+  assertive region that takes focus, and the sign-out link-button is 44px.
+- CodeRabbit: a consumed refresh token that had expired could still get a
+  grace reissue → `invalid_grant`, checked after reuse detection so
+  superseded-token reuse still revokes.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

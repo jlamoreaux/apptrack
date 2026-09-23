@@ -11,8 +11,9 @@ import { ConsentSignOutButton } from "./consent-sign-out-button";
 const LINK_CLASS = "inline-flex min-h-11 items-center font-medium underline underline-offset-4";
 
 /**
- * The consent screen: which app is asking, the unverified notice, where it
- * sends the user back, who is signed in, and the decision form. At the
+ * The consent screen: which app is asking (its name in <bdi>, so a
+ * right-to-left name can't reorder the heading), the unverified notice,
+ * where it sends the user back, who is signed in, and the decision form. At the
  * connected-app cap (with no grant for this app to replace) there is no
  * Approve button, only a way to manage connected apps or deny.
  */
@@ -22,8 +23,10 @@ export function ConsentScreen({ view }: { view: AgentOAuthConsentView }): React.
     <AuthLayout>
       <Card>
         <CardHeader>
-          <CardTitle className="break-words text-xl leading-snug">
-            {OAUTH_CONSENT_COPY.heading(view.clientName)}
+          <CardTitle asChild className="break-words text-xl leading-snug">
+            <h1>
+              <bdi>{view.clientName}</bdi> {OAUTH_CONSENT_COPY.headingAfterName}
+            </h1>
           </CardTitle>
           <CardDescription>{OAUTH_CONSENT_COPY.unverified}</CardDescription>
         </CardHeader>
@@ -67,6 +70,8 @@ export function ConsentScreen({ view }: { view: AgentOAuthConsentView }): React.
           <ConsentForm
             requestParams={view.requestParams}
             requestedScopes={view.requestedScopes}
+            userId={view.userId}
+            consentPath={view.consentPath}
             canApprove={canApprove}
           />
 

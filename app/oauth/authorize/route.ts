@@ -24,14 +24,13 @@ import {
 import { oauthNotFound } from "@/lib/auth/oauth/http";
 import { getSessionUserId } from "@/lib/auth/session-user";
 import { isMcpOAuthEnabled } from "@/lib/constants/agent-oauth";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loginHref } from "@/lib/utils/auth-redirect";
 import type { AgentOAuthAuthorizeValidation } from "@/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const HTTP_FOUND = 302;
 
 /** Where the browser goes next: an internal path or the client's absolute URL. */
 async function nextLocation(validation: AgentOAuthAuthorizeValidation): Promise<string> {
@@ -55,5 +54,5 @@ export async function GET(request: Request): Promise<Response> {
   const requestUrl = new URL(request.url);
   const validation = await validateAuthorizeRequest(createAdminClient(), requestUrl.searchParams);
   const location = new URL(await nextLocation(validation), requestUrl.origin);
-  return NextResponse.redirect(location, HTTP_FOUND);
+  return NextResponse.redirect(location, HTTP_STATUS.FOUND);
 }

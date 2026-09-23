@@ -3,7 +3,8 @@
  * page) on its non-checkout exits:
  * - finishing on the free plan goes to `next` instead of the first-job step
  * - a user already on a paid plan is sent to `next` instead of /dashboard
- * - an invalid `next` falls back to the usual destinations
+ * - an invalid `next` falls back to the usual destinations, including
+ *   control characters the URL parser strips (/\t/evil.com and friends)
  * Paid checkout still goes through Stripe (a non-goal).
  */
 
@@ -101,7 +102,7 @@ describe("onboarding next", () => {
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith(CONSENT_PATH));
   });
 
-  it.each(["https://evil.example/", "//evil.example/"])(
+  it.each(["https://evil.example/", "//evil.example/", "/\t/evil.com", "/\n/evil.com", "/\r/evil.com", "/\\evil.com"])(
     "falls back to /dashboard for a paid user with next %s",
     async (next) => {
       mockSearchParams = new URLSearchParams({ next });
@@ -111,6 +112,24 @@ describe("onboarding next", () => {
       expect(mockPush).not.toHaveBeenCalledWith(next);
     }
   );
+
+  it.each(["/%09/evil.com", "/%0a/evil.com", "/%0d/evil.com"])(
+    "ignores next=%s once decoded, on the free plan",
+    async (raw) => {
+      mockSearchParams = new URLSearchParams(`next=${raw}`);
+      render(<OnboardingWelcomePage />);
+      fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
+      await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/onboarding/first-job"));
+    }
+  );
+
+  it("returns to a consent next with its onboarded marker intact", async () => {
+    const marked = `${CONSENT_PATH}&onboarded=1`;
+    mockSearchParams = new URLSearchParams({ next: marked });
+    render(<OnboardingWelcomePage />);
+    fireEvent.click(screen.getByRole("button", { name: "Start Free" }));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith(marked));
+  });
 
   it("ignores an invalid next on the free plan", async () => {
     mockSearchParams = new URLSearchParams({ next: "https://evil.example/" });

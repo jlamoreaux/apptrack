@@ -25,6 +25,8 @@ import {
   AGENT_OAUTH_ERROR_PAGE_REASON_PARAM,
   AGENT_OAUTH_ISSUER,
   AGENT_OAUTH_LIMITS,
+  AGENT_OAUTH_ONBOARDED_PARAM,
+  AGENT_OAUTH_ONBOARDED_VALUE,
   AGENT_OAUTH_PATHS,
   AGENT_OAUTH_PKCE,
   AGENT_OAUTH_RESPONSE_PARAMS,
@@ -33,6 +35,8 @@ import {
   type AgentOAuthAuthorizeErrorCode,
   type AgentOAuthErrorPageReason,
 } from "@/lib/constants/agent-oauth";
+import { SITE_URL } from "@/lib/constants/site-config";
+import { authCallbackUrl, loginHref } from "@/lib/utils/auth-redirect";
 import type {
   AgentOAuthAuthorizeFatalReason,
   AgentOAuthAuthorizeParams,
@@ -62,12 +66,13 @@ const CODE_CHALLENGE_PATTERN = new RegExp(
 
 const MESSAGES = {
   responseType: `response_type must be "${AGENT_OAUTH_RESPONSE_TYPE}"`,
-  state: `state must be a single value of at most ${AGENT_OAUTH_LIMITS.stateMaxLength} characters`,
+  state: `state must be a single value of at most ${AGENT_OAUTH_LIMITS.stateMaxBytes} bytes`,
   codeChallenge: `code_challenge must be ${AGENT_OAUTH_PKCE.challengeLength} base64url characters`,
   codeChallengeMethod: `code_challenge_method must be ${AGENT_OAUTH_PKCE.method}`,
   scope: `scope must be a single value of at most ${AGENT_OAUTH_LIMITS.scopeParamMaxLength} characters`,
   resource: "resource must be this server's MCP endpoint",
   accessDenied: "The user denied the request",
+  tooLarge: "request too large",
 } as const;
 
 // ── reading ────────────────────────────────────────────────────────────────
@@ -108,13 +113,31 @@ function invalidRequest(description: string): RedirectErrorDetail {
   return { error: "invalid_request", description };
 }
 
-function isWithin(read: SingleParam, maxLength: number): read is { ok: true; value: string | null } {
-  return read.ok && (read.value === null || read.value.length <= maxLength);
+const utf8 = new TextEncoder();
+
+function utf8ByteLength(value: string): number {
+  return utf8.encode(value).length;
+}
+
+function codeUnitLength(value: string): number {
+  return value.length;
+}
+
+function isWithin(
+  read: SingleParam,
+  max: number,
+  measure: (value: string) => number = codeUnitLength
+): read is { ok: true; value: string | null } {
+  return read.ok && (read.value === null || measure(read.value) <= max);
+}
+
+function isStateWithinLimit(state: SingleParam): state is { ok: true; value: string | null } {
+  return isWithin(state, AGENT_OAUTH_LIMITS.stateMaxBytes, utf8ByteLength);
 }
 
 /** The state to echo back: only a single value within the limit. */
 function echoableState(state: SingleParam): string | null {
-  return isWithin(state, AGENT_OAUTH_LIMITS.stateMaxLength) ? state.value : null;
+  return isStateWithinLimit(state) ? state.value : null;
 }
 
 function checkResponseType(params: AuthorizeRequestParams): RedirectErrorDetail | null {
@@ -174,7 +197,7 @@ function validateRedirectableParams(
 
   const responseTypeProblem = checkResponseType(params);
   if (responseTypeProblem !== null) return reject(responseTypeProblem);
-  if (!isWithin(state, AGENT_OAUTH_LIMITS.stateMaxLength)) {
+  if (!isStateWithinLimit(state)) {
     return reject(invalidRequest(MESSAGES.state));
   }
   const challenge = readCodeChallenge(params);
@@ -185,16 +208,17 @@ function validateRedirectableParams(
   const resource = readResource(params);
   if (!resource.ok) return reject(resource.detail);
 
-  return {
-    kind: "valid",
-    params: {
-      ...base,
-      state: state.value,
-      codeChallenge: challenge.value,
-      resource: resource.value,
-      scope: scope.value,
-    },
+  const validated: AgentOAuthAuthorizeParams = {
+    ...base,
+    state: state.value,
+    codeChallenge: challenge.value,
+    resource: resource.value,
+    scope: scope.value,
   };
+  if (!consentPathFitsBudget(consentPathFor(validated))) {
+    return reject(invalidRequest(MESSAGES.tooLarge));
+  }
+  return { kind: "valid", params: validated };
 }
 
 /**
@@ -263,6 +287,37 @@ export function oauthErrorPath(reason: AgentOAuthErrorPageReason): string {
 /** The consent page's path for a validated request. */
 export function consentPathFor(params: AgentOAuthAuthorizeParams): string {
   return `${AGENT_OAUTH_PATHS.consent}${QUERY_START}${canonicalAuthorizeQuery(params)}`;
+}
+
+/**
+ * The consent path onboarding returns to: the same request plus the marker
+ * that stops the consent page sending the user to onboarding again.
+ */
+export function consentPathAfterOnboarding(params: AgentOAuthAuthorizeParams): string {
+  const marker = new URLSearchParams({ [AGENT_OAUTH_ONBOARDED_PARAM]: AGENT_OAUTH_ONBOARDED_VALUE });
+  return `${consentPathFor(params)}${QUERY_SEPARATOR}${marker}`;
+}
+
+/**
+ * The longest URL value a consent path ends up nested in, assuming the worst
+ * chain: the login href, inside the auth callback's `next`, inside Supabase's
+ * `redirect_to` (Google sign-in). The sign-up confirmation email nests one
+ * level less (the callback's `next`, inside the email link's `redirect_to`)
+ * and is measured too. Each level percent-encodes the one inside it.
+ */
+export function nestedConsentPathLength(consentPath: string): number {
+  const viaLogin = authCallbackUrl(SITE_URL, loginHref(consentPath));
+  const viaEmail = authCallbackUrl(SITE_URL, consentPath);
+  return Math.max(encodeURIComponent(viaLogin).length, encodeURIComponent(viaEmail).length);
+}
+
+/** Whether a consent path, and every URL it's nested in, stays within the URL budget. */
+export function consentPathFitsBudget(consentPath: string): boolean {
+  const limits = AGENT_OAUTH_LIMITS;
+  return (
+    consentPath.length <= limits.consentPathMaxLength &&
+    nestedConsentPathLength(consentPath) + limits.supabaseRedirectAllowance <= limits.nestedRedirectMaxLength
+  );
 }
 
 /**

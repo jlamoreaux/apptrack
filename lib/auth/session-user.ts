@@ -5,14 +5,9 @@
  */
 
 import { NextResponse } from "next/server";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 import { createClient } from "@/lib/supabase/server";
-
-export const UNAUTHORIZED_STATUS = 401;
-
-export interface SessionUser {
-  id: string;
-  email: string | null;
-}
+import type { SessionUser } from "@/types";
 
 /** The signed-in user from the session cookie, or null. */
 export async function getSessionUser(): Promise<SessionUser | null> {
@@ -29,5 +24,5 @@ export async function getSessionUserId(): Promise<string | null> {
 }
 
 export function unauthorizedResponse(): NextResponse {
-  return NextResponse.json({ error: "Unauthorized" }, { status: UNAUTHORIZED_STATUS });
+  return NextResponse.json({ error: "Unauthorized" }, { status: HTTP_STATUS.UNAUTHORIZED });
 }

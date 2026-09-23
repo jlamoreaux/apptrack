@@ -19,7 +19,7 @@ import { usePromoCodes } from "@/hooks/use-promo-codes";
 import { createCheckoutSession, buildCheckoutFallbackUrl } from "@/lib/checkout/create-checkout";
 import { UI_DELAYS } from "@/lib/constants/timeouts";
 import { APP_ROUTES, ONBOARDING_NEXT_PARAM } from "@/lib/constants/routes";
-import { validInternalPath } from "@/lib/utils/auth-redirect";
+import { redirectOrigin, validInternalPath } from "@/lib/utils/auth-redirect";
 
 export default function OnboardingWelcomePage() {
   const { user, loading } = useSupabaseAuth();
@@ -52,7 +52,7 @@ export default function OnboardingWelcomePage() {
   const searchParams = useSearchParams();
   // Where to go after onboarding without a checkout (e.g. back to an app
   // connection's consent page). Paid checkout returns via Stripe instead.
-  const next = validInternalPath(searchParams.get(ONBOARDING_NEXT_PARAM));
+  const next = validInternalPath(searchParams.get(ONBOARDING_NEXT_PARAM), redirectOrigin());
 
   // Auto-apply promo code from URL param or localStorage (layoff-offer flow)
   const autoPromoAppliedRef = useRef(false);

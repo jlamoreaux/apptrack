@@ -26,9 +26,6 @@ const FIELD_IDS = {
   formError: "agent-token-form-error",
 } as const;
 
-const NEVER_DISABLED_HELP =
-  "Tokens with comp access must expire, because comp is your most sensitive data.";
-
 /** API rejections that are about the name (bad characters or already in use). */
 function isNameFailure(failure: ApiFailure): boolean {
   return failure.reason === "invalid" || failure.reason === "conflict";
@@ -158,7 +155,6 @@ export function AgentTokenCreateForm({
       <AgentExpirySelect
         value={expiry}
         neverAllowed={neverAllowed}
-        neverDisabledHelp={NEVER_DISABLED_HELP}
         onChange={setExpiry}
       />
 

@@ -18,7 +18,7 @@ import { Gift, Sparkles, HeartHandshake, Tag } from "lucide-react";
 import { trackCampaignSignupIntent } from "@/lib/analytics/campaign-events";
 import { useUTMTracking } from "@/lib/hooks/use-utm-tracking";
 import { AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes";
-import { loginHref, validInternalPath } from "@/lib/utils/auth-redirect";
+import { loginHref, redirectOrigin, validInternalPath } from "@/lib/utils/auth-redirect";
 
 export default function SignUpPageClient() {
   const searchParams = useSearchParams();
@@ -35,7 +35,7 @@ export default function SignUpPageClient() {
   const hasPreviewSession = !!sessionId;
   // Where to go once signed up (e.g. an app connection's consent page); it
   // wins over the offer and preview destinations below.
-  const redirectTo = validInternalPath(searchParams.get(AUTH_REDIRECT_TO_PARAM));
+  const redirectTo = validInternalPath(searchParams.get(AUTH_REDIRECT_TO_PARAM), redirectOrigin());
   const [showEmailForm, setShowEmailForm] = useState(false);
 
   useEffect(() => {

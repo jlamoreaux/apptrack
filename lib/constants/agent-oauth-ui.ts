@@ -3,6 +3,7 @@
  * form. Client-safe: no server imports.
  */
 
+import { AGENT_API_NETWORK_ERROR } from "@/lib/constants/agent-access-ui";
 import type { AgentOAuthErrorPageReason } from "@/lib/constants/agent-oauth";
 
 export const OAUTH_ERROR_PAGE_COPY = {
@@ -16,8 +17,12 @@ export const OAUTH_ERROR_PAGE_COPY = {
   },
 } as const satisfies Record<AgentOAuthErrorPageReason, { title: string; body: string }>;
 
+export const OAUTH_ERROR_PAGE_DASHBOARD_LINK = "Go to your dashboard";
+
 export const OAUTH_CONSENT_COPY = {
-  heading: (clientName: string) => `${clientName} wants to connect to your CareerOtter account`,
+  // Follows the app's name, which is rendered in its own <bdi> so a
+  // right-to-left name can't reorder the rest of the sentence.
+  headingAfterName: "wants to connect to your CareerOtter account",
   unverified:
     "CareerOtter hasn't verified this app. Only continue if you just started connecting it.",
   returnTo: "After you choose, you'll go back to",
@@ -28,7 +33,6 @@ export const OAUTH_CONSENT_COPY = {
   formLabel: "Approve or deny this app",
   scopesLegend: "What this app can do",
   requestedByApp: "Requested by the app",
-  expiryHelp: "Access that includes comp must expire, because comp is your most sensitive data.",
   replacesAccess: "Approving replaces this app's current access.",
   atCap: (max: number) =>
     `You already have ${max} connected apps. Remove one before connecting another.`,
@@ -45,5 +49,6 @@ export const OAUTH_CONSENT_MESSAGES = {
   unauthorized: "Your session ended. Sign in again, then start again from your app.",
   atCap: "You have too many connected apps. Remove one on your data page, then try again.",
   retry: "Something went wrong. Try again in a moment.",
-  network: "Could not reach CareerOtter. Check your connection and try again.",
+  accountChanged: "You're signed in as a different account. Reload to continue.",
+  network: AGENT_API_NETWORK_ERROR,
 } as const;

@@ -356,6 +356,27 @@ end $$;
 select pg_temp.check('G3: the failed calls consumed nothing',
   (select consumed_at is null from agent_oauth_tokens where token_hash = pg_temp.h('g3-rt2')));
 
+-- ═══ G3b. A consumed token that expired inside the grace window gets no reissue ═══
+select pg_temp.check('G3b: create code',
+  (select outcome = 'ok' from create_agent_oauth_code(pg_temp.uid('u4'), pg_temp.cid('c10'), pg_temp.h('g3b'), 'https://example.com/cb', :chal, array['wins:read'], null, :res)));
+select * from exchange_agent_oauth_code(pg_temp.h('g3b'), pg_temp.cid('c10'), pg_temp.h('g3b-at0'), pg_temp.h('g3b-rt0'), true) \gset g3b_
+select pg_temp.check('G3b: rotate -> ok',
+  (select outcome = 'ok' from rotate_agent_oauth_refresh(pg_temp.h('g3b-rt0'), pg_temp.cid('c10'), pg_temp.h('g3b-at1'), pg_temp.h('g3b-rt1'))));
+update agent_oauth_tokens set expires_at = now() - interval '1 second' where token_hash = pg_temp.h('g3b-rt0');
+select (select outcome = 'invalid_grant' from rotate_agent_oauth_refresh(pg_temp.h('g3b-rt0'), pg_temp.cid('c10'), pg_temp.h('g3b-at2'), pg_temp.h('g3b-rt2'))) as split_9 \gset
+select pg_temp.check('G3b: expired consumed token inside the window -> invalid_grant, no reissue, nothing superseded, grant active',
+  :'split_9' = 't'
+  and (select grace_reissues = 0 from agent_oauth_tokens where token_hash = pg_temp.h('g3b-rt0'))
+  and not exists (select 1 from agent_oauth_tokens where token_hash in (pg_temp.h('g3b-at2'), pg_temp.h('g3b-rt2')))
+  and (select superseded_at is null from agent_oauth_tokens where token_hash = pg_temp.h('g3b-rt1'))
+  and exists (select 1 from agent_oauth_tokens where token_hash = pg_temp.h('g3b-at1'))
+  and (select revoked_at is null from agent_oauth_grants where id = :'g3b_grant_id'));
+select pg_temp.check('G3b: the live successor still rotates',
+  (select outcome = 'ok' from rotate_agent_oauth_refresh(pg_temp.h('g3b-rt1'), pg_temp.cid('c10'), pg_temp.h('g3b-at3'), pg_temp.h('g3b-rt3'))));
+select pg_temp.check('G3b: an expired consumed token whose successor was used is still reuse',
+  (select outcome = 'refresh_reuse' and grant_id = :'g3b_grant_id'
+   from rotate_agent_oauth_refresh(pg_temp.h('g3b-rt0'), pg_temp.cid('c10'), pg_temp.h('g3b-at4'), pg_temp.h('g3b-rt4'))));
+
 -- ═══ G4. Racing grace reissue supersedes the earlier successor; presenting it is reuse ═══
 select pg_temp.check('G4: create code',
   (select outcome = 'ok' from create_agent_oauth_code(pg_temp.uid('u5'), pg_temp.cid('c4'), pg_temp.h('g4'), 'https://example.com/cb', :chal, array['wins:read'], null, :res)));

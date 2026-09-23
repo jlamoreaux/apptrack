@@ -10,9 +10,9 @@ import {
   isMcpOAuthEnabled,
   type AgentOAuthErrorPageReason,
 } from "@/lib/constants/agent-oauth";
-import { OAUTH_ERROR_PAGE_COPY } from "@/lib/constants/agent-oauth-ui";
+import { OAUTH_ERROR_PAGE_COPY, OAUTH_ERROR_PAGE_DASHBOARD_LINK } from "@/lib/constants/agent-oauth-ui";
 import { APP_ROUTES } from "@/lib/constants/routes";
-import type { SearchParamValue } from "@/lib/utils/auth-redirect";
+import type { SearchParamValue } from "@/types";
 
 export const metadata: Metadata = {
   title: "Connection problem | CareerOtter",
@@ -45,7 +45,7 @@ export default async function OAuthErrorPage({
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link href={APP_ROUTES.DASHBOARD.ROOT}>Go to your dashboard</Link>
+            <Link href={APP_ROUTES.DASHBOARD.ROOT}>{OAUTH_ERROR_PAGE_DASHBOARD_LINK}</Link>
           </Button>
         </CardContent>
       </Card>

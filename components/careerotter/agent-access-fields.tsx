@@ -16,6 +16,7 @@ import {
   type AgentTokenScope,
 } from "@/lib/constants/agent-access";
 import {
+  AGENT_ACCESS_FIELD_COPY,
   AGENT_SCOPE_DETAILS,
   AGENT_TOKEN_EXPIRY_CHOICES,
   DEFAULT_AGENT_TOKEN_SCOPES,
@@ -142,21 +143,19 @@ export function AgentScopeChecklist({
   );
 }
 
-/** The expiry options; "Never" is disabled, with `neverDisabledHelp` shown, when not allowed. */
+/** The expiry options; "Never" is disabled, with a note on why, when a comp scope is checked. */
 export function AgentExpirySelect({
   value,
   neverAllowed,
-  neverDisabledHelp,
   onChange,
 }: {
   value: AgentTokenExpiryChoice;
   neverAllowed: boolean;
-  neverDisabledHelp: string;
   onChange: (value: AgentTokenExpiryChoice) => void;
 }): React.JSX.Element {
   return (
     <div className="space-y-2">
-      <Label htmlFor={EXPIRY_FIELD_IDS.select}>Expires after</Label>
+      <Label htmlFor={EXPIRY_FIELD_IDS.select}>{AGENT_ACCESS_FIELD_COPY.expiresAfter}</Label>
       <NativeSelect
         id={EXPIRY_FIELD_IDS.select}
         value={String(value)}
@@ -175,7 +174,7 @@ export function AgentExpirySelect({
       </NativeSelect>
       {!neverAllowed && (
         <p id={EXPIRY_FIELD_IDS.help} className="text-sm text-muted-foreground">
-          {neverDisabledHelp}
+          {AGENT_ACCESS_FIELD_COPY.compMustExpire}
         </p>
       )}
     </div>

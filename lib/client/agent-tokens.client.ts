@@ -9,24 +9,18 @@ import {
   type AgentTokenExpiryDays,
   type AgentTokenScope,
 } from "@/lib/constants/agent-access";
-import { AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
+import { AGENT_API_NETWORK_ERROR, AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 import type { AgentTokenRecord, AgentTokenStatus, CreatedAgentToken } from "@/types";
 
 const AGENT_TOKENS_ENDPOINT = "/api/careerotter/agent-tokens";
-
-const HTTP_STATUS = {
-  badRequest: 400,
-  unauthorized: 401,
-  conflict: 409,
-  tooManyRequests: 429,
-} as const;
 
 const FALLBACK_MESSAGES = {
   load: "Could not load your connected agents.",
   create: "Could not create that token. Try again.",
   revoke: "Could not revoke that token. Try again.",
   revokeAll: "Could not revoke your tokens. Try again.",
-  network: "Could not reach CareerOtter. Check your connection and try again.",
+  network: AGENT_API_NETWORK_ERROR,
   sessionExpired: "Your session expired.",
   rateLimited: "Too many requests.",
 } as const;
@@ -64,10 +58,10 @@ export interface CreateAgentTokenInput {
 export type { CreatedAgentToken } from "@/types";
 
 const STATUS_REASONS: ReadonlyMap<number, ApiFailureReason> = new Map([
-  [HTTP_STATUS.badRequest, "invalid"],
-  [HTTP_STATUS.unauthorized, "unauthorized"],
-  [HTTP_STATUS.conflict, "conflict"],
-  [HTTP_STATUS.tooManyRequests, "rate_limited"],
+  [HTTP_STATUS.BAD_REQUEST, "invalid"],
+  [HTTP_STATUS.UNAUTHORIZED, "unauthorized"],
+  [HTTP_STATUS.CONFLICT, "conflict"],
+  [HTTP_STATUS.TOO_MANY_REQUESTS, "rate_limited"],
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

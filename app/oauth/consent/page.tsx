@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ConsentScreen } from "@/components/oauth/consent-screen";
 import { resolveConsentPage } from "@/lib/auth/oauth/consent-page";
-import type { SearchParamValue } from "@/lib/utils/auth-redirect";
+import type { SearchParamValue } from "@/types";
 
 export const dynamic = "force-dynamic";
 

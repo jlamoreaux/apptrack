@@ -5,8 +5,10 @@
  * - revalidation: an unknown client -> /oauth/error, a lookup failure ->
  *   the unavailable card, a redirect error -> the client
  * - signed out -> login with this consent URL as redirectTo
- * - a new account -> onboarding with this consent URL as next; an existing
- *   account sees consent
+ * - a new account -> onboarding with this consent URL (plus onboarded=1) as
+ *   next; returning with the marker shows consent even if the account still
+ *   looks new, so there's no loop; the marker isn't carried in the canonical
+ *   params; an existing account sees consent
  * - the view: the return destination, the requested scopes, the canonical
  *   params, client_uri only on the redirect's https host, the replace note
  *   and the cap (counting only other apps' active grants)
@@ -16,7 +18,7 @@
 import { resolveConsentPage, sameHostClientUri } from "@/lib/auth/oauth/consent-page";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { getSessionUser } from "@/lib/auth/session-user";
-import { isNewUser } from "@/lib/utils/user-onboarding";
+import { needsOnboardingBeforeConsent } from "@/lib/utils/user-onboarding";
 import {
   AGENT_OAUTH_CLIENTS_TABLE,
   AGENT_OAUTH_GRANTS_TABLE,
@@ -27,14 +29,14 @@ import type { AgentOAuthConsentView } from "@/types";
 
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
 jest.mock("@/lib/auth/session-user", () => ({ getSessionUser: jest.fn() }));
-jest.mock("@/lib/utils/user-onboarding", () => ({ isNewUser: jest.fn() }));
+jest.mock("@/lib/utils/user-onboarding", () => ({ needsOnboardingBeforeConsent: jest.fn() }));
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
 }));
 
 const mockAdmin = createAdminClient as jest.Mock;
 const mockSessionUser = getSessionUser as jest.Mock;
-const mockIsNewUser = isNewUser as jest.Mock;
+const mockNeedsOnboarding = needsOnboardingBeforeConsent as jest.Mock;
 
 const NOW = new Date("2026-09-23T12:00:00.000Z");
 const USER = { id: "11111111-2222-4333-8444-555555555555", email: "me@example.com" };
@@ -114,7 +116,7 @@ beforeEach(() => {
   delete process.env.VERCEL_ENV;
   adminWith({ data: clientRow(), error: null });
   mockSessionUser.mockResolvedValue(USER);
-  mockIsNewUser.mockResolvedValue(false);
+  mockNeedsOnboarding.mockResolvedValue(false);
 });
 
 afterAll(() => {
@@ -157,11 +159,11 @@ describe("resolveConsentPage: routing", () => {
     if (resolution.kind !== "redirect") throw new Error("expected redirect");
     const redirectTo = new URL(resolution.location, "https://careerotter.io").searchParams.get("redirectTo");
     expect(redirectTo?.startsWith("/oauth/consent?")).toBe(true);
-    expect(mockIsNewUser).not.toHaveBeenCalled();
+    expect(mockNeedsOnboarding).not.toHaveBeenCalled();
   });
 
   it("sends a new account through onboarding with this consent URL as next", async () => {
-    mockIsNewUser.mockResolvedValue(true);
+    mockNeedsOnboarding.mockResolvedValue(true);
     const resolution = await resolveConsentPage(searchParams(), NOW);
     if (resolution.kind !== "redirect") throw new Error("expected redirect");
     const url = new URL(resolution.location, "https://careerotter.io");
@@ -170,7 +172,34 @@ describe("resolveConsentPage: routing", () => {
     const consent = new URL(next, "https://careerotter.io");
     expect(consent.pathname).toBe("/oauth/consent");
     expect(consent.searchParams.get("client_id")).toBe(CLIENT_ID);
-    expect(mockIsNewUser).toHaveBeenCalledWith(USER.id);
+    expect(mockNeedsOnboarding).toHaveBeenCalledWith(USER.id);
+  });
+
+  it("doesn't loop: back from onboarding, consent renders even though the account still looks new", async () => {
+    mockNeedsOnboarding.mockResolvedValue(true);
+    const first = await resolveConsentPage(searchParams(), NOW);
+    if (first.kind !== "redirect") throw new Error("expected redirect");
+    const next = new URL(first.location, "https://careerotter.io").searchParams.get("next") ?? "";
+    const returned = new URL(next, "https://careerotter.io");
+    expect(returned.searchParams.get("onboarded")).toBe("1");
+
+    // Onboarding sends the user to `next` as given; the page sees its query.
+    const second = await resolveConsentPage(Object.fromEntries(returned.searchParams), NOW);
+    expect(second.kind).toBe("render");
+    if (second.kind !== "render") return;
+    expect(second.view.requestParams).not.toHaveProperty("onboarded");
+    expect(second.view.consentPath).not.toContain("onboarded");
+    expect(mockNeedsOnboarding).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["a repeated marker", ["1", "1"]],
+    ["another value", "true"],
+  ])("ignores %s and checks onboarding as usual", async (_label, marker) => {
+    mockNeedsOnboarding.mockResolvedValue(true);
+    const resolution = await resolveConsentPage({ ...searchParams(), onboarded: marker }, NOW);
+    expect(resolution.kind).toBe("redirect");
+    expect(mockNeedsOnboarding).toHaveBeenCalledWith(USER.id);
   });
 
   it("shows consent to an existing account", async () => {
@@ -194,6 +223,7 @@ describe("resolveConsentPage: view", () => {
       returnDestination: "claude.ai",
       clientUri: "https://claude.ai/about",
       email: USER.email,
+      userId: USER.id,
       requestedScopes: ["wins:read", "wins:write", "career:read", "comp:read", "comp:write"],
       hasActiveGrant: false,
       atCap: false,

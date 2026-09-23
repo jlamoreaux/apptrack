@@ -577,7 +577,8 @@ grant execute on function public.exchange_agent_oauth_code (
 -- - a consumed token past the reissue limit
 --
 -- A grant with under a minute left gets invalid_grant, so expires_in is never
--- 0 and no dead refresh token is issued.
+-- 0 and no dead refresh token is issued. So does an expired token, including
+-- a consumed one inside the grace window (after the reuse checks above).
 -- outcome: 'ok' | 'invalid_grant' | 'refresh_reuse' (the grant is now revoked).
 create or replace function public.rotate_agent_oauth_refresh (
   p_refresh_hash text,
@@ -666,6 +667,13 @@ begin
     perform agent_oauth_revoke_grant_row(grant_row.id, 'refresh_reuse');
     outcome := 'refresh_reuse';
     grant_id := grant_row.id;
+    return;
+  end if;
+
+  -- A consumed token that has expired since gets no grace reissue. Checked
+  -- after reuse detection, so a superseded or replayed token still revokes.
+  if token_row.consumed_at is not null and token_row.expires_at <= now() then
+    outcome := 'invalid_grant';
     return;
   end if;
 

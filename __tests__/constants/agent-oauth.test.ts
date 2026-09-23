@@ -347,6 +347,18 @@ describe("agent OAuth functions in migration 045", () => {
     expect(source).toMatch(/agent_oauth_issue_tokens\([\s\S]*?p_new_refresh_hash,\s+p_refresh_hash\s*\)/);
   });
 
+  it("rotation refuses an expired consumed token after reuse detection and before the grace reissue", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.rotateRefresh);
+    const reuseBranch = source.indexOf("if is_reuse then");
+    const expiredConsumed = source.search(
+      /if token_row\.consumed_at is not null and token_row\.expires_at <= now\(\) then\s+outcome := 'invalid_grant';\s+return;/
+    );
+    const graceReissue = source.indexOf("set grace_reissues = t.grace_reissues + 1");
+    expect(reuseBranch).toBeGreaterThan(-1);
+    expect(expiredConsumed).toBeGreaterThan(reuseBranch);
+    expect(graceReissue).toBeGreaterThan(expiredConsumed);
+  });
+
   it("cleanup revokes idle grants set-based under skip-locked row locks, and deletes clients before codes", () => {
     const source = functionSource(AGENT_OAUTH_RPC.deleteExpiredRows);
     expect(source).toMatch(/order by g\.id\s+for update skip locked/);

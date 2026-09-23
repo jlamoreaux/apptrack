@@ -5,16 +5,21 @@
  *   repeated redirect_uri (never redirected)
  * - unavailable when the client lookup fails
  * - redirect errors: wrong or missing response_type, plain or missing PKCE,
- *   overlong or repeated state (not echoed), overlong scope, foreign or
- *   malformed resource; each carries the presented redirect and valid state
+ *   overlong (in UTF-8 bytes) or repeated state (not echoed), overlong scope,
+ *   foreign or malformed resource; each carries the presented redirect and
+ *   valid state
  * - ok: a loopback URI on another port (redirect to the presented URI, store
  *   the registered one), an absent resource becomes the canonical one, a
  *   resource with a trailing slash normalizes, openid and offline_access are
  *   ignored
  * - the canonical query rebuilds only validated values, round-trips through
- *   the validator, and stays within the size budget when nested through
- *   login, the auth callback and Supabase, passing isValidInternalPath even
- *   when the original parameters were unencoded
+ *   the validator, and passes isValidInternalPath even when the original
+ *   parameters were unencoded
+ * - URL budget: with maximum-length inputs, the login href, the Google
+ *   sign-in chain (login href inside the callback's next inside Supabase's
+ *   redirect_to) and the sign-up emailRedirectTo inside Supabase's email link
+ *   all stay under 8 KB; a request whose nesting would exceed it is refused
+ *   as invalid_request ("request too large")
  * - redirect URLs keep the redirect's own query, never add a fragment, and
  *   always carry iss (and state when present)
  */
@@ -25,7 +30,9 @@ import {
   authorizationCodeRedirectUrl,
   authorizationErrorRedirectUrl,
   canonicalAuthorizeQuery,
+  consentPathFitsBudget,
   consentPathFor,
+  nestedConsentPathLength,
   oauthErrorPath,
   searchParamsFromRecord,
   validateAuthorizeRequest,
@@ -37,7 +44,7 @@ import {
   CANONICAL_MCP_RESOURCE,
 } from "@/lib/constants/agent-oauth";
 import { SITE_URL } from "@/lib/constants/site-config";
-import { loginHref } from "@/lib/utils/auth-redirect";
+import { authCallbackUrl, loginHref } from "@/lib/utils/auth-redirect";
 import { isValidInternalPath } from "@/lib/utils/internal-path";
 import type { AgentOAuthAuthorizeParams, AgentOAuthAuthorizeValidation } from "@/types";
 
@@ -51,9 +58,14 @@ const LOOPBACK_REDIRECT = "http://127.0.0.1:33418/callback";
 const CHALLENGE = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM";
 const STATE = "af0ifjsldkj";
 
-// Supabase's own redirect_to wrapper, the third level of nesting.
-const SUPABASE_AUTHORIZE = "https://project.supabase.co/auth/v1/authorize?provider=google&redirect_to=";
-const NESTED_REDIRECT_BUDGET_BYTES = 6 * 1024;
+// Supabase's own URLs around redirect_to: Google sign-in and the sign-up
+// confirmation email's link (a 20-character project ref, PKCE and token
+// parameters at their real lengths).
+const SUPABASE_AUTHORIZE =
+  "https://abcdefghijklmnopqrst.supabase.co/auth/v1/authorize?provider=google&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=s256&redirect_to=";
+const SUPABASE_VERIFY = `https://abcdefghijklmnopqrst.supabase.co/auth/v1/verify?token=pkce_${"a".repeat(56)}&type=signup&redirect_to=`;
+// The documented budget for any URL the consent path is nested in.
+const URL_BUDGET = 8 * 1024;
 
 function clientRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -181,7 +193,7 @@ describe("validateAuthorizeRequest: redirect errors", () => {
 
   it("refuses an overlong state without echoing it", async () => {
     const result = await validate(
-      validRequest({ state: "s".repeat(AGENT_OAUTH_LIMITS.stateMaxLength + 1) })
+      validRequest({ state: "s".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes + 1) })
     );
     expect(result).toMatchObject({ kind: "redirect_error", error: "invalid_request", state: null });
   });
@@ -192,8 +204,19 @@ describe("validateAuthorizeRequest: redirect errors", () => {
   });
 
   it("accepts a state at the limit", async () => {
-    const state = "s".repeat(AGENT_OAUTH_LIMITS.stateMaxLength);
+    const state = "s".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes);
     expect((await okParams(validRequest({ state }))).state).toBe(state);
+  });
+
+  it("measures state in UTF-8 bytes, not UTF-16 code units", async () => {
+    const twoByte = "\u00E9";
+    const atLimit = twoByte.repeat(AGENT_OAUTH_LIMITS.stateMaxBytes / 2);
+    expect((await okParams(validRequest({ state: atLimit }))).state).toBe(atLimit);
+
+    const threeByte = "\u20AC".repeat(Math.floor(AGENT_OAUTH_LIMITS.stateMaxBytes / 3) + 1);
+    expect(threeByte.length).toBeLessThan(AGENT_OAUTH_LIMITS.stateMaxBytes);
+    const result = await validate(validRequest({ state: threeByte }));
+    expect(result).toMatchObject({ kind: "redirect_error", error: "invalid_request", state: null });
   });
 });
 
@@ -249,10 +272,10 @@ describe("canonical query", () => {
     expect(consentPathFor(params)).toBe(`/oauth/consent?${canonicalAuthorizeQuery(params)}`);
   });
 
-  it("stays within the nested size budget and passes isValidInternalPath with unencoded input", async () => {
+  it("passes isValidInternalPath through the login href with unencoded input", async () => {
     const longRedirect = `${HTTPS_REDIRECT}?next=https://claude.ai/${"p".repeat(300)}`;
     const params = await paramsRegisteredFor(longRedirect, {
-      state: "s".repeat(AGENT_OAUTH_LIMITS.stateMaxLength),
+      state: "s".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes),
       scope: "wins:read wins:write career:read comp:read comp:write openid offline_access",
     });
 
@@ -260,10 +283,87 @@ describe("canonical query", () => {
     const redirectTo = new URL(loginHref(consentPath), SITE_URL).searchParams.get("redirectTo");
     expect(redirectTo).toBe(consentPath);
     expect(isValidInternalPath(redirectTo)).toBe(true);
+  });
+});
 
-    const callback = `${SITE_URL}/auth/callback?next=${encodeURIComponent(consentPath)}`;
-    const supabaseUrl = `${SUPABASE_AUTHORIZE}${encodeURIComponent(callback)}`;
-    expect(supabaseUrl.length).toBeLessThan(NESTED_REDIRECT_BUDGET_BYTES);
+describe("consent URL budget", () => {
+  /** Every URL a consent path is carried in, as the app and Supabase build them. */
+  function nestedUrls(consentPath: string): Record<string, string> {
+    const login = loginHref(consentPath);
+    // Google sign-in from the login page, taken one level deeper than it
+    // really goes (the login href itself inside the callback's next).
+    const googleCallback = authCallbackUrl(SITE_URL, login);
+    // The sign-up confirmation email: signUpWithPassword's emailRedirectTo.
+    const emailRedirectTo = authCallbackUrl(SITE_URL, consentPath);
+    return {
+      consentPath,
+      login,
+      googleCallback,
+      supabaseAuthorize: `${SUPABASE_AUTHORIZE}${encodeURIComponent(googleCallback)}`,
+      emailRedirectTo,
+      supabaseVerify: `${SUPABASE_VERIFY}${encodeURIComponent(emailRedirectTo)}`,
+    };
+  }
+
+  // 512 characters, the registration maximum.
+  const MAX_REDIRECT = `https://app.example/${"p".repeat(AGENT_OAUTH_LIMITS.redirectUriMaxLength - 20)}`;
+  const MAX_SCOPE = "wins:read wins:write career:read comp:read comp:write "
+    .repeat(6)
+    .slice(0, AGENT_OAUTH_LIMITS.scopeParamMaxLength)
+    .trimEnd();
+
+  it("keeps every nested URL under 8 KB with maximum-length inputs", async () => {
+    expect(MAX_REDIRECT).toHaveLength(AGENT_OAUTH_LIMITS.redirectUriMaxLength);
+    const params = await paramsRegisteredFor(MAX_REDIRECT, {
+      state: "A".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes),
+      scope: MAX_SCOPE,
+      resource: CANONICAL_MCP_RESOURCE,
+    });
+    const urls = nestedUrls(consentPathFor(params));
+    expect(urls.consentPath.length).toBeLessThanOrEqual(AGENT_OAUTH_LIMITS.consentPathMaxLength);
+    for (const [label, url] of Object.entries(urls)) {
+      // The label names the offending URL if this fails.
+      expect([label, url.length < URL_BUDGET]).toEqual([label, true]);
+    }
+  });
+
+  it("keeps every nested URL under 8 KB with a maximum multi-byte state", async () => {
+    const params = await paramsRegisteredFor(HTTPS_REDIRECT, {
+      state: "\u00E9".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes / 2),
+      scope: MAX_SCOPE,
+    });
+    for (const url of Object.values(nestedUrls(consentPathFor(params)))) {
+      expect(url.length).toBeLessThan(URL_BUDGET);
+    }
+  });
+
+  it("refuses a request whose nesting would exceed the budget as request too large", async () => {
+    const reservedHeavy = `https://app.example/${"/".repeat(AGENT_OAUTH_LIMITS.redirectUriMaxLength - 20)}`;
+    const result = await validateAuthorizeRequest(
+      adminReturning({ data: clientRow({ redirect_uris: [reservedHeavy] }), error: null }).admin,
+      validRequest({
+        redirect_uri: reservedHeavy,
+        state: "\u00E9".repeat(AGENT_OAUTH_LIMITS.stateMaxBytes / 2),
+        scope: " ".repeat(AGENT_OAUTH_LIMITS.scopeParamMaxLength),
+      })
+    );
+    expect(result).toMatchObject({
+      kind: "redirect_error",
+      redirectUri: reservedHeavy,
+      error: "invalid_request",
+      description: "request too large",
+    });
+  });
+
+  it("accepts anything that fits, and every accepted path's Supabase URLs fit too", () => {
+    const small = "/oauth/consent?client_id=a";
+    expect(consentPathFitsBudget(small)).toBe(true);
+    const tooLong = `/oauth/consent?state=${"a".repeat(AGENT_OAUTH_LIMITS.consentPathMaxLength)}`;
+    expect(consentPathFitsBudget(tooLong)).toBe(false);
+    const nestsTooDeep = `/oauth/consent?state=${"%C3%A9".repeat(700)}`;
+    expect(nestsTooDeep.length).toBeLessThan(AGENT_OAUTH_LIMITS.consentPathMaxLength);
+    expect(nestedConsentPathLength(nestsTooDeep)).toBeGreaterThan(AGENT_OAUTH_LIMITS.nestedRedirectMaxLength);
+    expect(consentPathFitsBudget(nestsTooDeep)).toBe(false);
   });
 });
 
