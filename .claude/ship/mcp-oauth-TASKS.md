@@ -238,16 +238,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the token-form suites stay green
 
 ## Task 4: Token and revocation endpoints, cleanup cron
-- [ ] 4.1: `lib/auth/oauth/pkce.ts`: verifier charset and length checks, and a
+- [x] 4.1: `lib/auth/oauth/pkce.ts`: verifier charset and length checks, and a
   timing-safe comparison of the S256 challenge.
-- [ ] 4.2: `lib/auth/oauth/tokens.ts`:
+- [x] 4.2: `lib/auth/oauth/tokens.ts`:
   - `exchangeAuthorizationCode`: loads the code, verifies PKCE, checks the
     resource, then calls the RPC
   - `refreshTokens`: checks resource, scope and grant type, then calls the RPC
   - `lookupAccessToken`: returns `active`, `expired`, `revoked` or
     `not_found`
   - `touchGrantLastUsed`: throttled
-- [ ] 4.3: `app/api/oauth/token/route.ts`:
+- [x] 4.3: `app/api/oauth/token/route.ts`:
   - form parsing, a 16 KB body cap, CORS, `no-store` and `Pragma`
   - client authentication
   - both grant types, with the real `expires_in`
@@ -257,11 +257,11 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     to; 429 with `Retry-After`
   - RFC error bodies and security logs
   - `mcp_oauth_connected` on the first exchange
-- [ ] 4.4: `app/api/oauth/revoke/route.ts` (RFC 7009).
-- [ ] 4.5: `app/api/cron/agent-oauth-cleanup/route.ts`: `verifyCronAuth`, gated
+- [x] 4.4: `app/api/oauth/revoke/route.ts` (RFC 7009).
+- [x] 4.5: `app/api/cron/agent-oauth-cleanup/route.ts`: `verifyCronAuth`, gated
   on `CAREEROTTER_ENABLED`, treats `42883` as a no-op, and has a daily entry in
   `vercel.json`.
-- [ ] 4.6: Write tests for Task 4:
+- [x] 4.6: Write tests for Task 4:
   - PKCE: the RFC 7636 appendix B vector passes; a wrong verifier, a short
     verifier or a bad charset fails
   - token endpoint:

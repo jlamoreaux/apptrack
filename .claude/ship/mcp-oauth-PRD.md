@@ -785,7 +785,8 @@ It renders:
     4. If `resource` is present, it must normalize to the code's resource.
     5. Call `exchange_agent_oauth_code`, which handles expiry, reuse and the
        cap atomically.
-  - A mismatch before step 5 is `invalid_grant` and has no side effects.
+  - A mismatch before step 5 is `invalid_grant` (a `resource` mismatch is
+    `invalid_target`, RFC 8707) and has no side effects.
   - The RPC's `grant_cap` result → `invalid_grant` with the description
     "Too many connected apps. Remove one on your CareerOtter data page."
   - `p_issue_refresh` is set only when the client registered the
@@ -822,6 +823,8 @@ It renders:
 - Always returns 200 with an empty body, including for unknown tokens
   (RFC 7009).
 - CORS headers as for registration.
+- Rate limits: the token endpoint's two buckets, shared with it (per client
+  after authentication succeeds; failed authentication per IP).
 
 ### Metadata
 
@@ -946,7 +949,9 @@ page, and also in middleware where the matcher reaches:
 
 The cleanup cron (`/api/cron/agent-oauth-cleanup`) is gated on
 `CAREEROTTER_ENABLED` only, so rows keep getting cleaned up while the OAuth flag
-is off. It treats a missing function (`42883`) as a no-op.
+is off. It treats a missing function as a no-op: Postgres `42883`, or
+PostgREST's `PGRST202`, which is what an RPC to a function that doesn't exist
+actually returns.
 
 Middleware changes:
 - `isCareerotterSurface` gains the new page and cron paths.
@@ -1225,6 +1230,37 @@ Critic review of this design, and how each point was resolved:
 - CodeRabbit: a consumed refresh token that had expired could still get a
   grace reissue → `invalid_grant`, checked after reuse detection so
   superseded-token reuse still revokes.
+
+**Task 4 implementation notes**
+- A `resource` that doesn't match the code's (or, on refresh, the grant's) is
+  `invalid_target` rather than `invalid_grant`, as RFC 8707 §2 specifies. It
+  is still checked before the RPC, with no side effects.
+- A repeated parameter (RFC 6749 §3.2) is `invalid_request`, and a repeated
+  `resource` is `invalid_target`; both are answered before client
+  authentication.
+- A missing `code_verifier` is `invalid_request`; one outside the RFC 7636
+  charset or length is `invalid_grant`, like a wrong one. The stored and
+  computed challenges are compared as SHA-256 digests of the strings, so the
+  comparison is fixed-length and exact.
+- Refresh looks the presented token up, joined to its grant, before rotating:
+  an unknown token, an access token or another client's token is
+  `invalid_grant` without calling `rotate_agent_oauth_refresh`, and `resource`
+  and `scope` are checked against that grant.
+- A failed client authentication over the per-IP limit gets 429 instead of
+  401. The client lookup still runs first: checking the bucket before
+  authenticating would let failures from a shared IP block that IP's
+  successful clients.
+- A client lookup failure is 503 `temporarily_unavailable`, as is Redis being
+  unavailable for either bucket.
+- `mcp_oauth_revoked` from the revocation endpoint uses the `client_id` as the
+  distinct id with `$process_person_profile: false`, since
+  `revoke_agent_oauth_token` returns no user.
+- The Basic challenge is `WWW-Authenticate: Basic realm="CareerOtter"`.
+- The cleanup cron answers 404 (before cron auth) when `CAREEROTTER_ENABLED`
+  is off, like the middleware gate, and runs daily at 03:30 UTC.
+- The fail-closed rate-limit check and the 429/503 bodies moved to
+  `lib/auth/oauth/rate-limit.ts`, shared by registration, token and
+  revocation.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

@@ -1,5 +1,7 @@
 /** Response helpers shared by the OAuth endpoints and metadata documents. */
 
+import { AGENT_OAUTH_FORM_CONTENT_TYPE } from "@/lib/constants/agent-oauth";
+
 const HTTP_NO_CONTENT = 204;
 const HTTP_NOT_FOUND = 404;
 const JSON_CONTENT_TYPE = "application/json";
@@ -25,8 +27,17 @@ export function oauthPreflight(corsHeaders: Readonly<Record<string, string>>): R
   return new Response(null, { status: HTTP_NO_CONTENT, headers: corsHeaders });
 }
 
+/** The Content-Type's media type, lowercased and without parameters. */
+function mediaTypeOf(headers: Headers): string | undefined {
+  return headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+}
+
 /** True when the Content-Type's media type is application/json. */
 export function isJsonContentType(headers: Headers): boolean {
-  const mediaType = headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
-  return mediaType === JSON_CONTENT_TYPE;
+  return mediaTypeOf(headers) === JSON_CONTENT_TYPE;
+}
+
+/** True when the Content-Type's media type is application/x-www-form-urlencoded. */
+export function isFormContentType(headers: Headers): boolean {
+  return mediaTypeOf(headers) === AGENT_OAUTH_FORM_CONTENT_TYPE;
 }

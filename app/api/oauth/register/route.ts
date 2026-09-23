@@ -24,31 +24,28 @@ import {
   oauthNotFound,
   oauthPreflight,
 } from "@/lib/auth/oauth/http";
+import {
+  checkOAuthRateLimit,
+  oauthRateLimitedResponse,
+  oauthUnavailableResponse,
+  type OAuthLimitVerdict,
+} from "@/lib/auth/oauth/rate-limit";
 import { trackAfterResponse } from "@/lib/careerotter/domain-result";
-import { MCP_UNAVAILABLE_RETRY_AFTER_SECONDS } from "@/lib/constants/agent-access";
 import {
   AGENT_OAUTH_CLIENT_SECRET_NEVER_EXPIRES,
-  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_ENDPOINT_CORS_HEADERS,
   AGENT_OAUTH_LIMITS,
   AGENT_OAUTH_NO_STORE_HEADERS,
-  AGENT_OAUTH_RATE_LIMITED_ERROR,
   AGENT_OAUTH_RATE_LIMITS,
   AGENT_OAUTH_RESPONSE_TYPE,
   isMcpOAuthEnabled,
   type AgentOAuthRegistrationErrorCode,
 } from "@/lib/constants/agent-oauth";
-import {
-  clientIp,
-  rateLimitIpKey,
-  readBodyWithinLimit,
-  retryAfterSeconds,
-} from "@/lib/http/request";
+import { clientIp, rateLimitIpKey, readBodyWithinLimit } from "@/lib/http/request";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import { withTimeout } from "@/lib/utils/with-timeout";
 import type { RegisteredClient } from "@/types";
 
 export const runtime = "nodejs";
@@ -57,9 +54,7 @@ const HTTP = {
   created: 201,
   badRequest: 400,
   payloadTooLarge: 413,
-  tooManyRequests: 429,
   internalError: 500,
-  unavailable: 503,
 } as const;
 
 const RESPONSE_HEADERS = {
@@ -78,10 +73,7 @@ const MESSAGES = {
 
 type RegistrationLimit = "per_ip" | "per_ip_daily" | "global";
 
-type LimitVerdict =
-  | { kind: "allowed" }
-  | { kind: "limited"; retryAfterSeconds: number }
-  | { kind: "unavailable" };
+const RATE_LIMIT_LOG = { action: "mcp_oauth_register_rate_limit_error" } as const;
 
 const perIpLimiter = createRateLimiter(
   AGENT_OAUTH_RATE_LIMITS.registerPerIp.tokens,
@@ -145,8 +137,6 @@ async function readJsonBody(
 
 // ── rate limits ────────────────────────────────────────────────────────────
 
-type RateLimiter = NonNullable<ReturnType<typeof createRateLimiter>>;
-
 /**
  * Charges the 10-minute per-IP bucket, then the daily one, for every request.
  * `ipKey` is the client's rate-limit key (an IPv6 client's /64). Null when
@@ -155,10 +145,10 @@ type RateLimiter = NonNullable<ReturnType<typeof createRateLimiter>>;
 async function perIpLimitResponse(ipKey: string): Promise<Response | null> {
   const now = Date.now();
   const perIpKey = `${AGENT_OAUTH_RATE_LIMITS.registerPerIp.keyPrefix}${ipKey}`;
-  const perIp = await checkLimit(perIpLimiter, perIpKey, now);
+  const perIp = await checkOAuthRateLimit(perIpLimiter, perIpKey, now, RATE_LIMIT_LOG);
   if (perIp.kind !== "allowed") return limitFailure(perIp, "per_ip");
   const dailyKey = `${AGENT_OAUTH_RATE_LIMITS.registerPerIpDaily.keyPrefix}${ipKey}`;
-  const daily = await checkLimit(perIpDailyLimiter, dailyKey, now);
+  const daily = await checkOAuthRateLimit(perIpDailyLimiter, dailyKey, now, RATE_LIMIT_LOG);
   if (daily.kind !== "allowed") return limitFailure(daily, "per_ip_daily");
   return null;
 }
@@ -170,58 +160,24 @@ async function perIpLimitResponse(ipKey: string): Promise<Response | null> {
  */
 async function globalLimitResponse(): Promise<Response | null> {
   const globalKey = AGENT_OAUTH_RATE_LIMITS.registerGlobal.keyPrefix;
-  const global = await checkLimit(globalLimiter, globalKey, Date.now());
+  const global = await checkOAuthRateLimit(globalLimiter, globalKey, Date.now(), RATE_LIMIT_LOG);
   if (global.kind !== "allowed") return limitFailure(global, "global");
   return null;
 }
 
-/** Fails closed: no Redis, an error or a slow answer is `unavailable`. */
-async function checkLimit(
-  limiter: RateLimiter | null,
-  key: string,
-  now: number
-): Promise<LimitVerdict> {
-  if (limiter === null) {
-    return limiterUnavailable("Registration rate limiter is not configured", undefined);
-  }
-  try {
-    const outcome = await withTimeout(limiter.limit(key), AGENT_OAUTH_DEADLINES_MS.rateLimit);
-    if (outcome.timedOut) return limiterUnavailable("Registration rate limiter timed out", undefined);
-    if (outcome.value.success) return { kind: "allowed" };
-    return { kind: "limited", retryAfterSeconds: retryAfterSeconds(outcome.value.reset, now) };
-  } catch (error) {
-    return limiterUnavailable("Registration rate limiter failed", error);
-  }
-}
-
-function limiterUnavailable(message: string, error: unknown): LimitVerdict {
-  loggerService.error(message, error, {
-    category: LogCategory.SECURITY,
-    action: "mcp_oauth_register_rate_limit_error",
-  });
-  return { kind: "unavailable" };
-}
-
 function limitFailure(
-  verdict: Exclude<LimitVerdict, { kind: "allowed" }>,
+  verdict: Exclude<OAuthLimitVerdict, { kind: "allowed" }>,
   limit: RegistrationLimit
 ): Response {
   if (verdict.kind === "unavailable") {
-    return oauthJson(
-      { error: "temporarily_unavailable", error_description: MESSAGES.unavailable },
-      HTTP.unavailable,
-      { ...RESPONSE_HEADERS, "Retry-After": String(MCP_UNAVAILABLE_RETRY_AFTER_SECONDS) }
-    );
+    return oauthUnavailableResponse(MESSAGES.unavailable, RESPONSE_HEADERS);
   }
   loggerService.warn("OAuth client registration rate limited", {
     category: LogCategory.SECURITY,
     action: "mcp_oauth_register_rate_limited",
     metadata: { limit },
   });
-  return oauthJson(AGENT_OAUTH_RATE_LIMITED_ERROR, HTTP.tooManyRequests, {
-    ...RESPONSE_HEADERS,
-    "Retry-After": String(verdict.retryAfterSeconds),
-  });
+  return oauthRateLimitedResponse(verdict.retryAfterSeconds, RESPONSE_HEADERS);
 }
 
 // ── responses ──────────────────────────────────────────────────────────────

@@ -7,7 +7,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { EXTERNAL_REF_MAX } from "@/lib/constants/careerotter";
-import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
+import {
+  FUNCTION_NOT_FOUND_CODE,
+  UNDEFINED_FUNCTION_CODE,
+  UNIQUE_VIOLATION_CODE,
+} from "@/lib/constants/postgres";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import {
@@ -124,6 +128,18 @@ export function isUniqueViolationOn(error: unknown, constraintName: string): boo
   if (!isPlainObject(error) || error.code !== UNIQUE_VIOLATION_CODE) return false;
   return [error.message, error.details].some(
     (text) => typeof text === "string" && text.includes(constraintName)
+  );
+}
+
+/**
+ * True when an RPC failed because its function doesn't exist, as before the
+ * migration that adds it has run: Postgres reports undefined_function, and
+ * PostgREST reports a function missing from its schema cache.
+ */
+export function isMissingFunctionError(error: unknown): boolean {
+  return (
+    isPlainObject(error) &&
+    (error.code === UNDEFINED_FUNCTION_CODE || error.code === FUNCTION_NOT_FOUND_CODE)
   );
 }
 

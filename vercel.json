@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/careerotter-stock-prices",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/agent-oauth-cleanup",
+      "schedule": "30 3 * * *"
     }
   ]
 }

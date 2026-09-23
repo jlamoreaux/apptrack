@@ -20,6 +20,8 @@ export const CAREEROTTER_EVENT_NAMES = {
   // Agent access (MCP server)
   MCP_TOOL_CALLED: "mcp_tool_called",
   MCP_OAUTH_CLIENT_REGISTERED: "mcp_oauth_client_registered",
+  MCP_OAUTH_CONNECTED: "mcp_oauth_connected",
+  MCP_OAUTH_REVOKED: "mcp_oauth_revoked",
 } as const;
 
 export type CareerotterEventName =

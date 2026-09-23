@@ -22,6 +22,14 @@ const ENV_FLAG_ON = "1";
 const VERCEL_PREVIEW_ENV = "preview";
 
 /**
+ * True when CAREEROTTER_ENABLED is "1". The OAuth cleanup cron is gated on
+ * this alone, so rows keep getting cleaned up while the OAuth flag is off.
+ */
+export function isCareerotterEnabled(): boolean {
+  return process.env.CAREEROTTER_ENABLED === ENV_FLAG_ON;
+}
+
+/**
  * True only when both CAREEROTTER_ENABLED and CAREEROTTER_MCP_OAUTH_ENABLED
  * are "1" and this isn't a Vercel preview. On a preview the issuer would still
  * be the production origin, and previews may share the production database,
@@ -30,7 +38,7 @@ const VERCEL_PREVIEW_ENV = "preview";
  */
 export function isMcpOAuthEnabled(): boolean {
   return (
-    process.env.CAREEROTTER_ENABLED === ENV_FLAG_ON &&
+    isCareerotterEnabled() &&
     process.env.CAREEROTTER_MCP_OAUTH_ENABLED === ENV_FLAG_ON &&
     process.env.VERCEL_ENV !== VERCEL_PREVIEW_ENV
   );
@@ -233,6 +241,36 @@ export const AGENT_OAUTH_AUTHORIZE_ERROR_CODES = [
 export type AgentOAuthAuthorizeErrorCode =
   (typeof AGENT_OAUTH_AUTHORIZE_ERROR_CODES)[number];
 
+// Token and revocation request parameters (RFC 6749 §4.1.3, §6; RFC 7636
+// §4.5; RFC 7009 §2.1; RFC 8707 §2.2). Each may appear at most once.
+export const AGENT_OAUTH_TOKEN_PARAMS = {
+  grantType: "grant_type",
+  code: "code",
+  redirectUri: "redirect_uri",
+  codeVerifier: "code_verifier",
+  refreshToken: "refresh_token",
+  resource: "resource",
+  scope: "scope",
+  clientId: "client_id",
+  clientSecret: "client_secret",
+  token: "token",
+  tokenTypeHint: "token_type_hint",
+} as const;
+
+// RFC 6749 §5.1.
+export const AGENT_OAUTH_TOKEN_TYPE = "Bearer";
+
+// The token and revocation endpoints accept only this body type (RFC 6749 §3.2).
+export const AGENT_OAUTH_FORM_CONTENT_TYPE = "application/x-www-form-urlencoded";
+
+// Sent with a 401 invalid_client when the client used HTTP Basic (RFC 6749 §5.2).
+export const AGENT_OAUTH_BASIC_CHALLENGE = 'Basic realm="CareerOtter"';
+
+// The token endpoint's invalid_grant description when the user is at the
+// active-grant cap.
+export const AGENT_OAUTH_GRANT_CAP_DESCRIPTION =
+  "Too many connected apps. Remove one on your CareerOtter data page.";
+
 // RFC 6749 §5.2, plus invalid_target from RFC 8707.
 export const AGENT_OAUTH_TOKEN_ERROR_CODES = [
   "invalid_request",
@@ -290,6 +328,8 @@ export const AGENT_OAUTH_DENIED_REDIRECT_SCHEMES = [
 
 export const AGENT_OAUTH_CLIENTS_TABLE = "agent_oauth_clients";
 export const AGENT_OAUTH_GRANTS_TABLE = "agent_oauth_grants";
+export const AGENT_OAUTH_TOKENS_TABLE = "agent_oauth_tokens";
+export const AGENT_OAUTH_CODES_TABLE = "agent_oauth_codes";
 
 export const AGENT_OAUTH_RPC = {
   createCode: "create_agent_oauth_code",
@@ -367,6 +407,10 @@ export const AGENT_OAUTH_RATE_LIMITS = {
 export const AGENT_OAUTH_DEADLINES_MS = {
   rateLimit: 2_000,
 } as const;
+
+// The error code of a 503 from the registration, token and revocation
+// endpoints (RFC 6749 §4.1.2.1), sent with Retry-After.
+export const AGENT_OAUTH_UNAVAILABLE_ERROR = "temporarily_unavailable";
 
 // Body of a 429 from the registration, token and revocation endpoints.
 export const AGENT_OAUTH_RATE_LIMITED_ERROR = {

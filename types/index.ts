@@ -686,6 +686,91 @@ export interface AgentOAuthCleanupResult {
   clients_deleted: number;
 }
 
+/**
+ * What the token endpoint issued. The raw tokens go to the client once and are
+ * never stored (only their SHA-256 digests are) or logged.
+ */
+export interface AgentOAuthIssuedTokens {
+  accessToken: string;
+  /** Null when the client didn't register the refresh_token grant. */
+  refreshToken: string | null;
+  /** Whole seconds the access token has left, from the database: at most 24 hours, capped by the grant. */
+  expiresIn: number;
+  scopes: AgentTokenScope[];
+  grantId: string;
+  userId: string;
+}
+
+/** A successful code exchange also names the app, for the connected event. */
+export interface AgentOAuthCodeExchangeTokens extends AgentOAuthIssuedTokens {
+  clientName: string;
+}
+
+/** Why the token endpoint refused a grant; for security logs, never the response. */
+export type AgentOAuthTokenRejectionReason =
+  | "malformed_code"
+  | "unknown_code"
+  | "client_mismatch"
+  | "redirect_uri_mismatch"
+  | "pkce_failed"
+  | "resource_mismatch"
+  | "code_invalid"
+  | "code_reuse"
+  | "grant_cap"
+  | "refresh_not_registered"
+  | "malformed_refresh_token"
+  | "unknown_refresh_token"
+  | "scope_not_granted"
+  | "refresh_invalid"
+  | "refresh_reuse";
+
+/**
+ * Outcome of a code exchange or refresh. `rejected` carries the RFC 6749 §5.2
+ * error to send; `unavailable` means the database couldn't be reached.
+ */
+export type AgentOAuthTokenGrantResult<T extends AgentOAuthIssuedTokens> =
+  | { ok: true; tokens: T }
+  | {
+      ok: false;
+      kind: "rejected";
+      error: AgentOAuthTokenErrorCode;
+      description: string;
+      reason: AgentOAuthTokenRejectionReason;
+    }
+  | { ok: false; kind: "unavailable" };
+
+/**
+ * An access token looked up by its digest at the MCP route. `revoked` and
+ * `expired` cover the token and its grant; `unavailable` means the database
+ * couldn't be reached (or the caller aborted).
+ */
+export type AgentOAuthAccessTokenLookup =
+  | {
+      kind: "active";
+      grantId: string;
+      userId: string;
+      scopes: AgentTokenScope[];
+      lastUsedAt: Date;
+    }
+  | { kind: "expired" }
+  | { kind: "revoked" }
+  | { kind: "not_found" }
+  | { kind: "unavailable" };
+
+/** Outcome of a client's RFC 7009 revocation request. */
+export type AgentOAuthTokenRevocation =
+  | { ok: true; outcome: AgentOAuthRevokeOutcome; grantId: string | null }
+  | { ok: false; kind: "unavailable" };
+
+/**
+ * Outcome of the cleanup cron's call. `missing_function` means migration 045
+ * hasn't run yet.
+ */
+export type AgentOAuthCleanupRun =
+  | { kind: "ok"; counts: AgentOAuthCleanupResult }
+  | { kind: "missing_function" }
+  | { kind: "failed" };
+
 /** Failure categories shared by the REST routes and MCP tools that call a service. */
 export type DomainErrorKind =
   | "validation"
