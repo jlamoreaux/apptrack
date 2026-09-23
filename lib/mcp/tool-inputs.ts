@@ -1,6 +1,7 @@
 /**
  * Input schemas and the as_of resolver shared by the MCP tools, so every tool
- * accepts dates, ids and external_ref the same way.
+ * accepts dates, ids, external_ref and JSON-encoded structured arguments the
+ * same way.
  */
 
 import { z } from "zod";
@@ -45,6 +46,37 @@ export function recordIdInput(noun: string): z.ZodString {
 }
 
 export const externalRefInput = z.string().optional().describe(MCP_EXTERNAL_REF_DESCRIPTION);
+
+function isJsonContainer(value: unknown): boolean {
+  return typeof value === "object" && value !== null;
+}
+
+/**
+ * The array or object a JSON string encodes, else the value unchanged. Invalid
+ * JSON and JSON scalars are left as the original string so the schema rejects
+ * it with its usual message.
+ */
+function decodeJsonContainer(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    const decoded: unknown = JSON.parse(value);
+    return isJsonContainer(decoded) ? decoded : value;
+  } catch {
+    return value;
+  }
+}
+
+/**
+ * Accepts an array or object argument either as is or as a JSON string, since
+ * some MCP clients send nested arguments stringified. The advertised JSON
+ * Schema is the wrapped schema's own (the SDK converts effects by their input
+ * schema), so clients are still told to send the structured value.
+ */
+export function jsonEncodedInput<T extends z.ZodTypeAny>(
+  schema: T
+): z.ZodEffects<T, z.output<T>, unknown> {
+  return z.preprocess(decodeJsonContainer, schema);
+}
 
 export interface ResolvedAsOf {
   /** The YYYY-MM-DD date entries are picked by. */

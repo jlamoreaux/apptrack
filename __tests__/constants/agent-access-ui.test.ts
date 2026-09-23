@@ -1,5 +1,6 @@
 /**
- * Setup snippets and scope selection for the Connected agents UI.
+ * Setup snippets, the HTTPS-or-loopback base URL check, and scope selection
+ * for the Connected agents UI.
  */
 
 import { AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access";
@@ -8,6 +9,7 @@ import {
   AGENT_TOKEN_STATUSES,
   AGENT_TOKEN_STATUS_LABELS,
   buildAgentSetupSnippets,
+  isSafeMcpBaseUrl,
 } from "@/lib/constants/agent-access-ui";
 import {
   includesCompScope,
@@ -16,6 +18,35 @@ import {
 } from "@/lib/utils/agent-token-scopes";
 
 const SITE = "https://careerotter.test";
+
+describe("isSafeMcpBaseUrl", () => {
+  it.each(["https://careerotter.io", "https://staging.careerotter.io:8443"])(
+    "allows HTTPS: %s",
+    (url) => {
+      expect(isSafeMcpBaseUrl(url)).toBe(true);
+    }
+  );
+
+  it.each(["http://localhost:3000", "http://127.0.0.1:3000", "http://[::1]:3000"])(
+    "allows plain HTTP to a loopback host: %s",
+    (url) => {
+      expect(isSafeMcpBaseUrl(url)).toBe(true);
+    }
+  );
+
+  it.each([
+    "http://careerotter.io",
+    "http://192.168.1.10:3000",
+    "http://localhost.evil.example",
+    "ftp://localhost",
+  ])("rejects a URL that would send the token in clear text: %s", (url) => {
+    expect(isSafeMcpBaseUrl(url)).toBe(false);
+  });
+
+  it.each(["", "not a url", "careerotter.io"])("rejects an invalid URL: %p", (url) => {
+    expect(isSafeMcpBaseUrl(url)).toBe(false);
+  });
+});
 
 describe("buildAgentSetupSnippets", () => {
   const snippets = buildAgentSetupSnippets(SITE);

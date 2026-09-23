@@ -7,7 +7,8 @@
  *   carries token_hash, 422 at the active-token limit, 409 on a duplicate
  *   active name, 400 for "never" with a comp scope, 400 on invalid JSON,
  *   429 when rate limited, request proceeds when the limiter throws, 400 for
- *   non-object bodies and malformed fields, 422 count excludes expired tokens
+ *   non-object bodies and malformed fields. Creation goes through the atomic
+ *   create_agent_token RPC (limit and expired-name release live in SQL).
  * - GET: list never includes token_hash, no-store
  * - DELETE one: idempotent, non-uuid id -> 404, 500 on update or re-read error
  * - DELETE all: revokes expired tokens too, returns the count of active ones
@@ -22,11 +23,13 @@ import { getAuthenticatedUser, verifyExtensionToken } from "@/lib/auth/extension
 import { hasValidAgentTokenFormat, generateAgentToken } from "@/lib/auth/agent-token";
 import {
   AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
+  AGENT_TOKEN_LIMIT_ERROR,
   AGENT_TOKEN_LIMITS,
+  CREATE_AGENT_TOKEN_RPC,
   DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
-import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
+import { RAISE_EXCEPTION_CODE, UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 
 const mockLimit = jest.fn();
 
@@ -89,6 +92,23 @@ function adminWithResults(...results: QueryResult[]): MockQuery[] {
   });
   mockAdmin.mockReturnValue({ from });
   return queries;
+}
+
+type RpcArgs = Record<string, unknown>;
+
+/**
+ * Admin-client mock for token creation: rpc(...).single() resolves to
+ * `result`. Returns the rpc mock so tests can inspect the arguments.
+ */
+function adminWithRpc(result: QueryResult): jest.Mock {
+  const single = jest.fn().mockResolvedValue({ data: null, error: null, ...result });
+  const rpc = jest.fn(() => ({ single }));
+  mockAdmin.mockReturnValue({ from: jest.fn(), rpc });
+  return rpc;
+}
+
+function rpcArgs(rpc: jest.Mock): RpcArgs {
+  return rpc.mock.calls[0][1];
 }
 
 function storedRow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -155,7 +175,7 @@ describe("authentication", () => {
 
 describe("POST", () => {
   it("201 returns the raw token once, no-store, and a record without the hash", async () => {
-    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
+    const rpc = adminWithRpc({ data: storedRow() });
     const res = await POST(postReq(VALID_BODY));
     const body = await res.json();
 
@@ -166,11 +186,14 @@ describe("POST", () => {
     expect(body.record).not.toHaveProperty("user_id");
     expect(body.record).toMatchObject({ id: TOKEN_ID, status: "active" });
 
-    const inserted = (queries[2].insert as jest.Mock).mock.calls[0][0];
-    expect(inserted.token_hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(inserted.token_hash).not.toBe(body.token);
-    expect(inserted.scopes).toEqual(["wins:read", "wins:write"]);
-    expect(body.token.startsWith(inserted.token_prefix)).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(CREATE_AGENT_TOKEN_RPC, expect.any(Object));
+    const args = rpcArgs(rpc);
+    expect(args.p_user_id).toBe(USER.id);
+    expect(args.p_token_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(args.p_token_hash).not.toBe(body.token);
+    expect(args.p_scopes).toEqual(["wins:read", "wins:write"]);
+    expect(args.p_max_active).toBe(AGENT_TOKEN_LIMITS.maxActivePerUser);
+    expect(body.token.startsWith(String(args.p_token_prefix))).toBe(true);
   });
 
   it("rate limits on the pat-create key", async () => {
@@ -214,10 +237,10 @@ describe("POST", () => {
   });
 
   it("allows a never-expiring token without comp scopes", async () => {
-    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow({ expires_at: null }) });
+    const rpc = adminWithRpc({ data: storedRow({ expires_at: null }) });
     const res = await POST(postReq({ name: "x", scopes: ["wins:read"], expires_in_days: null }));
     expect(res.status).toBe(201);
-    expect((queries[2].insert as jest.Mock).mock.calls[0][0].expires_at).toBeNull();
+    expect(rpcArgs(rpc).p_expires_at).toBeNull();
   });
 
   it("400 for missing scopes, unknown scopes, bad expiry or a blank name", async () => {
@@ -234,62 +257,44 @@ describe("POST", () => {
   });
 
   it("defaults the expiry", async () => {
-    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
+    const rpc = adminWithRpc({ data: storedRow() });
     const before = Date.now();
     await POST(postReq({ name: "x", scopes: ["wins:read"] }));
-    const expiresAt = Date.parse((queries[2].insert as jest.Mock).mock.calls[0][0].expires_at);
+    const expiresAt = Date.parse(String(rpcArgs(rpc).p_expires_at));
     const days = (expiresAt - before) / MS_PER_DAY;
     expect(Math.round(days)).toBe(DEFAULT_AGENT_TOKEN_EXPIRY_DAYS);
   });
 
   it("422 at the active-token limit", async () => {
-    const queries = adminWithResults({ count: AGENT_TOKEN_LIMITS.maxActivePerUser });
+    adminWithRpc({ error: { code: RAISE_EXCEPTION_CODE, message: AGENT_TOKEN_LIMIT_ERROR } });
     const res = await POST(postReq(VALID_BODY));
     expect(res.status).toBe(422);
-    expect(queries).toHaveLength(1);
-    expect(queries[0].is).toHaveBeenCalledWith("revoked_at", null);
   });
 
-  it("counts only unexpired tokens toward the limit", async () => {
-    const queries = adminWithResults({ count: AGENT_TOKEN_LIMITS.maxActivePerUser });
-    const before = new Date().toISOString();
-    await POST(postReq(VALID_BODY));
-    const filter: string = (queries[0].or as jest.Mock).mock.calls[0][0];
-    expect(filter).toMatch(/^expires_at\.is\.null,expires_at\.gt\."(.+)"$/);
-    const cutoff = filter.match(/gt\."(.+)"$/)?.[1] ?? "";
-    expect(cutoff >= before).toBe(true);
-  });
-
-  it("reuses an expired token's name by revoking it first", async () => {
-    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
-    expect((await POST(postReq(VALID_BODY))).status).toBe(201);
-    expect(queries[1].update).toHaveBeenCalledWith({ revoked_at: expect.any(String) });
-    expect(queries[1].eq).toHaveBeenCalledWith("name", VALID_BODY.name);
-    expect(queries[1].lte).toHaveBeenCalledWith("expires_at", expect.any(String));
+  it("passes the normalized name so SQL can release an expired holder", async () => {
+    const rpc = adminWithRpc({ data: storedRow() });
+    expect((await POST(postReq({ ...VALID_BODY, name: "  Claude   Code " }))).status).toBe(201);
+    expect(rpcArgs(rpc).p_name).toBe("Claude Code");
   });
 
   it("proceeds when the rate limiter throws", async () => {
     mockLimit.mockRejectedValue(new Error("redis down"));
-    adminWithResults({ count: 0 }, {}, { data: storedRow() });
+    adminWithRpc({ data: storedRow() });
     expect((await POST(postReq(VALID_BODY))).status).toBe(201);
   });
 
   it("409 on a duplicate active name", async () => {
-    adminWithResults(
-      { count: 1 },
-      {},
-      {
-        error: {
-          code: UNIQUE_VIOLATION_CODE,
-          message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
-        },
-      }
-    );
+    adminWithRpc({
+      error: {
+        code: UNIQUE_VIOLATION_CODE,
+        message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
+      },
+    });
     expect((await POST(postReq(VALID_BODY))).status).toBe(409);
   });
 
   it("500 on a DB error", async () => {
-    adminWithResults({ error: { message: "boom" } });
+    adminWithRpc({ error: { message: "boom" } });
     const res = await POST(postReq(VALID_BODY));
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain("boom");

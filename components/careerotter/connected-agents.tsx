@@ -62,13 +62,24 @@ export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Eleme
   const createHeadingRef = useRef<HTMLHeadingElement>(null);
   const listHeadingRef = useRef<HTMLHeadingElement>(null);
   const mountedRef = useRef(false);
+  const latestListRequestRef = useRef(0);
+
+  // Reads can overlap (a create's refresh and a revoke's refresh, or a retry)
+  // and resolve out of order; only the newest may touch state, so an older
+  // response never overwrites a newer list or error.
+  const beginListRequest = useCallback((): (() => boolean) => {
+    latestListRequestRef.current += 1;
+    const requestId = latestListRequestRef.current;
+    return () => mountedRef.current && latestListRequestRef.current === requestId;
+  }, []);
 
   const loadTokens = useCallback(async (): Promise<void> => {
+    const isLatest = beginListRequest();
     setLoad({ kind: "loading" });
     const result = await fetchAgentTokens();
-    if (!mountedRef.current) return;
+    if (!isLatest()) return;
     setLoad(result.ok ? { kind: "ready", tokens: result.value } : { kind: "error", failure: result });
-  }, []);
+  }, [beginListRequest]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -89,8 +100,9 @@ export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Eleme
   // The server may change more than the row acted on (create revokes an
   // expired token holding the same name), so re-read rather than patch.
   async function refreshTokens(): Promise<void> {
+    const isLatest = beginListRequest();
     const result = await fetchAgentTokens();
-    if (!mountedRef.current) return;
+    if (!isLatest()) return;
     if (result.ok) setLoad({ kind: "ready", tokens: result.value });
     else setActionError(result);
   }

@@ -35,6 +35,7 @@ import { compDelta, lookupMarketRange, MARKET_DATA_SOURCE } from "@/lib/careerot
 import { MS_PER_DAY } from "@/lib/constants/dates";
 import {
   MCP_COMP_MESSAGES,
+  MCP_EVALUATE_OFFER,
   MCP_OFFER_CURRENT_LABEL,
   MCP_OFFER_NOT_MODELED,
   MCP_QUOTE_STALE_AFTER_DAYS,
@@ -46,6 +47,7 @@ import {
   call as callTool,
   errorTextOf,
   listTools,
+  recordField,
   recordsField,
   structuredOf,
   textOf,
@@ -670,6 +672,52 @@ describe("evaluate_offer", () => {
     { packages: [{ ...OFFER, bonus: -1 }] },
   ])("rejects malformed packages %#", async (args) => {
     expect(await callError("evaluate_offer", args)).toMatch(INVALID_ARGUMENTS);
+  });
+
+  describe("JSON-encoded arguments", () => {
+    const plain = { packages: [{ ...OFFER, share_prices: [10, 50] }] };
+
+    it.each([
+      ["packages", { packages: JSON.stringify(plain.packages) }],
+      ["each package", { packages: plain.packages.map((pkg) => JSON.stringify(pkg)) }],
+      ["share_prices", { packages: [{ ...OFFER, share_prices: JSON.stringify([10, 50]) }] }],
+    ])("accepts stringified %s like the structured value", async (_label, args) => {
+      expect(await callOk("evaluate_offer", args)).toEqual(await callOk("evaluate_offer", plain));
+    });
+
+    it.each([
+      ["packages", { packages: "[{\"base\": 1" }],
+      ["share_prices", { packages: [{ ...OFFER, share_prices: "[10, 50" }] }],
+      ["a JSON scalar", { packages: "42" }],
+    ])("rejects invalid JSON in %s as a validation error", async (_label, args) => {
+      expect(await callError("evaluate_offer", args)).toMatch(INVALID_ARGUMENTS);
+    });
+
+    it("still validates the decoded value", async () => {
+      const args = { packages: JSON.stringify([{ ...OFFER, bonus: -1 }]) };
+      expect(await callError("evaluate_offer", args)).toMatch(INVALID_ARGUMENTS);
+    });
+
+    it("advertises packages and share_prices as structured JSON Schema", async () => {
+      const tools = await listTools(HARNESS, ["comp:read"]);
+      const schema = tools.find((tool) => tool.name === "evaluate_offer")?.inputSchema;
+      if (!schema) throw new Error("evaluate_offer is not listed");
+      const packages = recordField(recordField(schema, "properties"), "packages");
+      expect(packages).toMatchObject({
+        type: "array",
+        minItems: MCP_EVALUATE_OFFER.minPackages,
+        maxItems: MCP_EVALUATE_OFFER.maxPackages,
+      });
+      const item = recordField(packages, "items");
+      expect(item).toMatchObject({ type: "object", required: ["base"] });
+      const sharePrices = recordField(recordField(item, "properties"), "share_prices");
+      expect(sharePrices).toMatchObject({
+        type: "array",
+        maxItems: MCP_EVALUATE_OFFER.maxScenariosPerPackage,
+        items: { type: "number" },
+      });
+      expect(typeof sharePrices.description).toBe("string");
+    });
   });
 });
 

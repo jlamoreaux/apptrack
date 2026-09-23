@@ -18,16 +18,19 @@ import {
   AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
   AGENT_TOKEN_CHECKSUM_LENGTH,
   AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
+  AGENT_TOKEN_LIMIT_ERROR,
   AGENT_TOKEN_LIMITS,
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
   AGENT_TOKEN_SECRET_BYTES,
+  CREATE_AGENT_TOKEN_RPC,
   DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
   LAST_USED_TOUCH_INTERVAL_MS,
   SCOPE_IMPLIES,
   type AgentTokenExpiryDays,
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
+import { RAISE_EXCEPTION_CODE } from "@/lib/constants/postgres";
 import {
   codePointLength,
   conflict,
@@ -106,7 +109,6 @@ const TOKEN_SELECT =
   "id, user_id, name, token_prefix, scopes, created_at, last_used_at, expires_at, revoked_at";
 const REVOKED_SELECT = "id, expires_at";
 const UNEXPECTED_ROW_SHAPE = "Unexpected agent_tokens row shape";
-const MISSING_COUNT = "Active token count missing";
 const BASE36_RADIX = 36;
 const CHECKSUM_SEPARATOR = "_";
 const WHITESPACE_RUN = /\s+/g;
@@ -319,12 +321,6 @@ function toAgentTokenRecord(row: AgentTokenRow, now: Date): AgentTokenRecord {
   };
 }
 
-// PostgREST `or` filter matching tokens that have not expired at `now`. The
-// timestamp is quoted because it contains PostgREST-reserved characters.
-function notExpiredFilter(now: Date): string {
-  return `expires_at.is.null,expires_at.gt."${now.toISOString()}"`;
-}
-
 // ── verification ───────────────────────────────────────────────────────────
 
 const UNAVAILABLE: AgentTokenVerification = { ok: false, reason: "unavailable" };
@@ -340,13 +336,11 @@ function logVerifyFailure(message: string, error: unknown): void {
 
 async function findTokenByHash(
   admin: SupabaseClient,
-  hash: string
+  hash: string,
+  signal: AbortSignal | undefined
 ): Promise<{ row: unknown; error: unknown }> {
-  const { data, error } = await admin
-    .from(TOKEN_TABLE)
-    .select(TOKEN_SELECT)
-    .eq("token_hash", hash)
-    .maybeSingle();
+  const query = admin.from(TOKEN_TABLE).select(TOKEN_SELECT).eq("token_hash", hash);
+  const { data, error } = await (signal ? query.abortSignal(signal) : query).maybeSingle();
   return { row: data, error };
 }
 
@@ -365,9 +359,12 @@ function verificationFromRow(row: AgentTokenRow, now: Date): AgentTokenVerificat
 async function lookupVerification(
   admin: SupabaseClient,
   raw: string,
-  now: Date
+  now: Date,
+  signal: AbortSignal | undefined
 ): Promise<AgentTokenVerification> {
-  const { row, error } = await findTokenByHash(admin, hashAgentToken(raw));
+  const { row, error } = await findTokenByHash(admin, hashAgentToken(raw), signal);
+  // The caller aborted because it stopped waiting and already reported why.
+  if (signal?.aborted) return UNAVAILABLE;
   if (error) {
     logVerifyFailure("Agent token lookup failed", error);
     return UNAVAILABLE;
@@ -383,17 +380,20 @@ async function lookupVerification(
 /**
  * Resolve a raw bearer token to its owner and scopes. `invalid` means reject
  * with 401 (bad format, unknown, revoked, expired); `unavailable` means the
- * database could not be reached and the caller should answer 503.
+ * database could not be reached and the caller should answer 503. Aborting
+ * `signal` cancels the lookup request and yields `unavailable`.
  */
 export async function verifyAgentToken(
   admin: SupabaseClient,
   raw: unknown,
-  now: Date = new Date()
+  now: Date = new Date(),
+  signal?: AbortSignal
 ): Promise<AgentTokenVerification> {
   if (!hasValidAgentTokenFormat(raw)) return INVALID;
   try {
-    return await lookupVerification(admin, raw, now);
+    return await lookupVerification(admin, raw, now, signal);
   } catch (error) {
+    if (signal?.aborted) return UNAVAILABLE;
     logVerifyFailure("Agent token lookup threw", error);
     return UNAVAILABLE;
   }
@@ -509,56 +509,24 @@ function validateTokenInput(raw: unknown): DomainResult<ValidatedTokenInput> {
   return ok({ name: name.value, scopes: scopes.value, expiresInDays: expiresInDays.value });
 }
 
-/**
- * Count-then-insert: concurrent creates can each pass this check, so the limit
- * can be exceeded by up to the number of parallel requests. The per-user
- * create rate limit bounds that when Redis is available.
- */
-async function ensureBelowActiveLimit(
-  admin: SupabaseClient,
-  userId: string,
-  now: Date,
-  context: FailureContext
-): Promise<DomainResult<null>> {
-  const { count, error } = await admin
-    .from(TOKEN_TABLE)
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("revoked_at", null)
-    .or(notExpiredFilter(now));
-  if (error) return dbFailure(context, error);
-  if (count === null) return dbFailure(context, MISSING_COUNT);
-  if (count >= AGENT_TOKEN_LIMITS.maxActivePerUser) return overQuota(MESSAGES.limitReached);
-  return ok(null);
-}
-
-/**
- * The active-name index only exempts revoked rows, so an expired token would
- * otherwise hold its name forever. Revoking it frees the name for reuse.
- */
-async function releaseExpiredName(
-  admin: SupabaseClient,
-  userId: string,
-  name: string,
-  now: Date,
-  context: FailureContext
-): Promise<DomainResult<null>> {
-  const nowIso = now.toISOString();
-  const { error } = await admin
-    .from(TOKEN_TABLE)
-    .update({ revoked_at: nowIso })
-    .eq("user_id", userId)
-    .eq("name", name)
-    .is("revoked_at", null)
-    .lte("expires_at", nowIso);
-  return error ? dbFailure(context, error) : ok(null);
-}
-
 function expiresAtFor(days: AgentTokenExpiryDays | null, now: Date): string | null {
   return days === null ? null : new Date(now.getTime() + days * MS_PER_DAY).toISOString();
 }
 
-async function insertTokenRow(
+function isTokenLimitError(error: unknown): boolean {
+  return (
+    isPlainObject(error) &&
+    error.code === RAISE_EXCEPTION_CODE &&
+    error.message === AGENT_TOKEN_LIMIT_ERROR
+  );
+}
+
+/**
+ * create_agent_token (migration 044) takes a per-user lock, revokes expired
+ * tokens holding the name, checks the active-token limit and inserts, all in
+ * one transaction, so concurrent creates cannot exceed the limit.
+ */
+async function insertTokenAtomically(
   admin: SupabaseClient,
   userId: string,
   input: ValidatedTokenInput,
@@ -566,35 +534,17 @@ async function insertTokenRow(
   now: Date
 ): Promise<{ data: unknown; error: unknown }> {
   const { data, error } = await admin
-    .from(TOKEN_TABLE)
-    .insert({
-      user_id: userId,
-      name: input.name,
-      token_hash: generated.hash,
-      token_prefix: generated.prefix,
-      scopes: input.scopes,
-      expires_at: expiresAtFor(input.expiresInDays, now),
+    .rpc(CREATE_AGENT_TOKEN_RPC, {
+      p_user_id: userId,
+      p_name: input.name,
+      p_token_hash: generated.hash,
+      p_token_prefix: generated.prefix,
+      p_scopes: input.scopes,
+      p_expires_at: expiresAtFor(input.expiresInDays, now),
+      p_max_active: AGENT_TOKEN_LIMITS.maxActivePerUser,
     })
-    .select(TOKEN_SELECT)
     .single();
   return { data, error };
-}
-
-async function insertToken(
-  admin: SupabaseClient,
-  userId: string,
-  input: ValidatedTokenInput,
-  now: Date,
-  context: FailureContext
-): Promise<DomainResult<CreatedAgentToken>> {
-  const generated = generateAgentToken();
-  const { data, error } = await insertTokenRow(admin, userId, input, generated, now);
-  if (isUniqueViolationOn(error, AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT)) {
-    return conflict(MESSAGES.nameTaken);
-  }
-  if (error) return dbFailure(context, error);
-  if (!isAgentTokenRow(data)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
-  return ok({ token: generated.raw, record: toAgentTokenRecord(data, now) });
 }
 
 /**
@@ -612,12 +562,26 @@ export async function createAgentToken(
   if (!validated.ok) return validated;
   const context = failureContext(userId, "create");
   return guarded(context, async () => {
-    const room = await ensureBelowActiveLimit(admin, userId, now, context);
-    if (!room.ok) return room;
-    const released = await releaseExpiredName(admin, userId, validated.value.name, now, context);
-    if (!released.ok) return released;
-    return insertToken(admin, userId, validated.value, now, context);
+    const generated = generateAgentToken();
+    const inserted = await insertTokenAtomically(admin, userId, validated.value, generated, now);
+    return toCreateResult(inserted, generated, now, context);
   });
+}
+
+/** Maps the RPC outcome: limit error to quota, active-name clash to conflict. */
+function toCreateResult(
+  { data, error }: { data: unknown; error: unknown },
+  generated: GeneratedAgentToken,
+  now: Date,
+  context: FailureContext
+): DomainResult<CreatedAgentToken> {
+  if (isTokenLimitError(error)) return overQuota(MESSAGES.limitReached);
+  if (isUniqueViolationOn(error, AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT)) {
+    return conflict(MESSAGES.nameTaken);
+  }
+  if (error) return dbFailure(context, error);
+  if (!isAgentTokenRow(data)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
+  return ok({ token: generated.raw, record: toAgentTokenRecord(data, now) });
 }
 
 async function loadOwnRecord(

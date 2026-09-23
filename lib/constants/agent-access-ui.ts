@@ -96,6 +96,32 @@ const TOKEN_PASTE_PLACEHOLDER = "<paste token>";
 const TOKEN_PLACEHOLDER = "<token>";
 const JSON_INDENT = 2;
 
+const SECURE_PROTOCOL = "https:";
+const LOOPBACK_PROTOCOL = "http:";
+// URL.hostname keeps the brackets around an IPv6 address.
+const LOOPBACK_HOSTNAMES: readonly string[] = ["localhost", "127.0.0.1", "[::1]"];
+
+/** Shown in place of the setup snippets when isSafeMcpBaseUrl is false. */
+export const AGENT_SETUP_INSECURE_NOTICE =
+  "Setup instructions are unavailable because this site isn't served over HTTPS.";
+
+/**
+ * True when agents may be told to send a bearer token to this base URL:
+ * HTTPS, or plain HTTP to a loopback host for local development. Anything
+ * else (plain HTTP to a real host, other schemes, unparseable values) would
+ * put the token on the wire in clear text.
+ */
+export function isSafeMcpBaseUrl(appUrl: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(appUrl);
+  } catch {
+    return false;
+  }
+  if (url.protocol === SECURE_PROTOCOL) return true;
+  return url.protocol === LOOPBACK_PROTOCOL && LOOPBACK_HOSTNAMES.includes(url.hostname);
+}
+
 export interface AgentSetupSnippetSet {
   endpoint: string;
   envHint: string;

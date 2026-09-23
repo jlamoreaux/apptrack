@@ -38,7 +38,12 @@ import {
   type ToolSuccess,
 } from "@/lib/mcp/define-tool";
 import type { McpToolContext } from "@/lib/mcp/context";
-import { asOfInput, resolveAsOf, type ResolvedAsOf } from "@/lib/mcp/tool-inputs";
+import {
+  asOfInput,
+  jsonEncodedInput,
+  resolveAsOf,
+  type ResolvedAsOf,
+} from "@/lib/mcp/tool-inputs";
 import type { DomainResult } from "@/types";
 import {
   amountInput,
@@ -59,7 +64,7 @@ import {
   type PricePoint,
 } from "./comp-shared";
 
-const packageInput = z.object({
+const packageFields = z.object({
   label: z
     .string()
     .trim()
@@ -75,21 +80,24 @@ const packageInput = z.object({
   vest_start: z.string().optional().describe(FIELD.offer_vest_start),
   vest_years: z.number().finite().optional().describe(FIELD.vest_years),
   vest_cliff_months: z.number().int().optional().describe(FIELD.vest_cliff_months),
-  share_prices: z
-    .array(sharePriceInput)
-    .max(MCP_EVALUATE_OFFER.maxScenariosPerPackage)
+  share_prices: jsonEncodedInput(
+    z.array(sharePriceInput).max(MCP_EVALUATE_OFFER.maxScenariosPerPackage)
+  )
     .optional()
     .describe(
       `Up to ${MCP_EVALUATE_OFFER.maxScenariosPerPackage} share prices to evaluate a share-based package at. Without them the cached quote for ticker, else equity / shares, is used.`
     ),
 });
-type PackageInput = z.infer<typeof packageInput>;
+const packageInput = jsonEncodedInput(packageFields);
+type PackageInput = z.output<typeof packageFields>;
 
 const offerInput = {
-  packages: z
-    .array(packageInput)
-    .min(MCP_EVALUATE_OFFER.minPackages)
-    .max(MCP_EVALUATE_OFFER.maxPackages),
+  packages: jsonEncodedInput(
+    z
+      .array(packageInput)
+      .min(MCP_EVALUATE_OFFER.minPackages)
+      .max(MCP_EVALUATE_OFFER.maxPackages)
+  ),
   years: projectionYearsInput,
   compare_to_current: z
     .boolean()

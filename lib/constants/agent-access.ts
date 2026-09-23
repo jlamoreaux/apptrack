@@ -92,6 +92,11 @@ export const AGENT_COMP_SCOPES: readonly AgentTokenScope[] = [
 // maps its violation to a 409, so the name is load-bearing (migration 044).
 export const AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT = "agent_tokens_user_active_name_key";
 
+// Name of the SQL function in migration 044 that creates a token under the
+// active-token limit, and the message it raises when the limit is reached.
+export const CREATE_AGENT_TOKEN_RPC = "create_agent_token";
+export const AGENT_TOKEN_LIMIT_ERROR = "agent_token_limit";
+
 export const MCP_SERVER_INFO = { name: "careerotter", version: "1.0.0" } as const;
 
 // mcp-handler serves `${basePath}/mcp`, so this places the endpoint at the

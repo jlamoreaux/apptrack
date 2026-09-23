@@ -39,6 +39,9 @@ const PROBE_ZONE = "Asia/Tokyo";
 // Tokyo is UTC+9 with no daylight saving time.
 const PROBE_ZONE_OFFSET_MINUTES = -9 * 60;
 const CHILD_TIMEOUT_MS = 120_000;
+// Kill the child before Jest's own test timeout so a hung run reports as a
+// failure here instead of stalling the whole CI job.
+const CHILD_KILL_MARGIN_MS = 5_000;
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const inProbeZone = process.env.TZ === PROBE_ZONE;
 
@@ -93,7 +96,13 @@ const GRANT: StoredCompEntry = {
     const child = spawnSync(
       process.execPath,
       [require.resolve("jest/bin/jest"), "--ci", "--runTestsByPath", __filename],
-      { cwd: REPO_ROOT, env: { ...process.env, TZ: PROBE_ZONE }, encoding: "utf8" }
+      {
+        cwd: REPO_ROOT,
+        env: { ...process.env, TZ: PROBE_ZONE },
+        encoding: "utf8",
+        timeout: CHILD_TIMEOUT_MS - CHILD_KILL_MARGIN_MS,
+        killSignal: "SIGKILL",
+      }
     );
     const output = `${child.stdout}\n${child.stderr}`;
     expect({ status: child.status, output }).toMatchObject({ status: 0 });

@@ -1,6 +1,8 @@
 import {
+  AGENT_SETUP_INSECURE_NOTICE,
   AGENT_TOKEN_ENV_VAR,
   buildAgentSetupSnippets,
+  isSafeMcpBaseUrl,
   type AgentSetupSnippetSet,
 } from "@/lib/constants/agent-access-ui";
 import { AgentSectionHeading } from "./agent-access-shared";
@@ -66,8 +68,20 @@ function Snippet({
   );
 }
 
-/** How to connect an agent to the MCP endpoint, one snippet per client. */
+/**
+ * How to connect an agent to the MCP endpoint, one snippet per client. The
+ * snippets tell agents to send a bearer token, so they are withheld when the
+ * base URL would carry it in clear text.
+ */
 export function AgentSetupSnippets({ appUrl }: { appUrl: string }): React.JSX.Element {
+  if (!isSafeMcpBaseUrl(appUrl)) {
+    return (
+      <section aria-labelledby={SETUP_HEADING_ID} className="space-y-1">
+        <AgentSectionHeading id={SETUP_HEADING_ID}>Connect an agent</AgentSectionHeading>
+        <p className="text-sm text-muted-foreground">{AGENT_SETUP_INSECURE_NOTICE}</p>
+      </section>
+    );
+  }
   const snippets = buildAgentSetupSnippets(appUrl);
   return (
     <section aria-labelledby={SETUP_HEADING_ID} className="space-y-4">

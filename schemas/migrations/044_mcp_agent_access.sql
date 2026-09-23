@@ -6,6 +6,8 @@
 -- - agent_tokens: named, scoped, revocable tokens. Only the SHA-256 hash of the
 --   raw token is stored; token_prefix is kept for display. Service-role only
 --   (RLS enabled, no policies), like every CareerOtter table.
+-- - create_agent_token(): inserts a token while enforcing the per-user active
+--   token limit atomically.
 -- - wins: occurred_at (when the win happened, as opposed to when it was logged),
 --   evidence_url, external_ref (the agent's idempotency key), and 'agent' as a
 --   source.
@@ -54,6 +56,81 @@ create unique index if not exists agent_tokens_user_active_name_key
 alter table public.agent_tokens enable row level security;
 -- Intentionally no policies: only the service-role key (used by API routes)
 -- bypasses RLS. Client access is denied by default.
+
+-- ── create_agent_token ─────────────────────────────────────────────────────
+-- Creates a token under the per-user active-token limit atomically. A
+-- transaction-scoped advisory lock per user serializes concurrent creates, so
+-- two requests cannot both pass the count. Expired tokens holding the name are
+-- revoked first: the active-name index only exempts revoked rows, so an
+-- expired token would otherwise hold its name forever. Over the limit it
+-- raises 'agent_token_limit' (P0001); a live token with the same name still
+-- fails on agent_tokens_user_active_name_key (23505). Returns the new row
+-- without token_hash. Service-role only, like the table.
+create or replace function public.create_agent_token (
+  p_user_id uuid,
+  p_name text,
+  p_token_hash text,
+  p_token_prefix text,
+  p_scopes text[],
+  p_expires_at timestamptz,
+  p_max_active int
+)
+returns table (
+  id uuid,
+  user_id uuid,
+  name text,
+  token_prefix text,
+  scopes text[],
+  created_at timestamptz,
+  last_used_at timestamptz,
+  expires_at timestamptz,
+  revoked_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+#variable_conflict use_column
+declare
+  active_count int;
+begin
+  perform pg_advisory_xact_lock(hashtext('agent_tokens:' || p_user_id::text));
+
+  update agent_tokens t
+    set revoked_at = now()
+    where t.user_id = p_user_id
+      and t.name = p_name
+      and t.revoked_at is null
+      and t.expires_at <= now();
+
+  select count(*) into active_count
+    from agent_tokens t
+    where t.user_id = p_user_id
+      and t.revoked_at is null
+      and (t.expires_at is null or t.expires_at > now());
+
+  if active_count >= p_max_active then
+    raise exception using errcode = 'P0001', message = 'agent_token_limit';
+  end if;
+
+  return query
+    insert into agent_tokens as t
+      (user_id, name, token_hash, token_prefix, scopes, expires_at)
+    values
+      (p_user_id, p_name, p_token_hash, p_token_prefix, p_scopes, p_expires_at)
+    returning
+      t.id, t.user_id, t.name, t.token_prefix, t.scopes,
+      t.created_at, t.last_used_at, t.expires_at, t.revoked_at;
+end;
+$$;
+
+revoke execute on function public.create_agent_token (
+  uuid, text, text, text, text[], timestamptz, int
+) from public, anon, authenticated;
+
+grant execute on function public.create_agent_token (
+  uuid, text, text, text, text[], timestamptz, int
+) to service_role;
 
 -- ── wins: occurred_at ──────────────────────────────────────────────────────
 -- Added nullable so existing rows can be backfilled from created_at (in UTC,

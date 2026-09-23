@@ -3,8 +3,9 @@
  *
  * Only POST is served; other methods get 405 before any other work. Every
  * POST is checked here before mcp-handler sees it: the Origin header, body
- * size, JSON validity and no batches, then the personal access token (format and checksum, then a
- * database lookup), then a per-token rate limit. Only then is a fresh MCP
+ * size, JSON validity and no batches, then the personal access token (format
+ * and checksum, then the per-IP auth-failure limit, then a database lookup),
+ * then a per-token rate limit. Only then is a fresh MCP
  * server built, holding the verified identity and registering only the tools
  * the token's scopes allow.
  *
@@ -35,7 +36,7 @@ import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import { withTimeout } from "@/lib/utils/with-timeout";
+import { withAbortableTimeout, withTimeout } from "@/lib/utils/with-timeout";
 
 export const runtime = "nodejs";
 // Next.js needs a literal here; keep in step with MCP_MAX_DURATION_SECONDS
@@ -236,8 +237,13 @@ async function authenticate(request: Request): Promise<Gate<McpToolContext>> {
   const raw = bearerToken(request.headers.get("authorization"));
   if (!hasValidAgentTokenFormat(raw)) return reject(await authFailure(ip));
 
-  const admin = createAdminClient();
   const now = new Date();
+  // The checksum is public, so well-formed junk is cheap to make; an IP that
+  // is already over its failure limit must not reach the database lookup.
+  const lockedOut = await authFailLockoutSeconds(ip, now);
+  if (lockedOut !== null) return reject(tooManyRequests(lockedOut));
+
+  const admin = createAdminClient();
   const verification = await verifyWithinDeadline(admin, raw, now);
   if (!verification.ok) {
     return reject(
@@ -252,14 +258,17 @@ async function authenticate(request: Request): Promise<Gate<McpToolContext>> {
   return { ok: true, value: toContext(admin, verification, now) };
 }
 
-/** A lookup that outlasts its deadline is treated like a database outage. */
+/**
+ * A lookup that outlasts its deadline is treated like a database outage, and
+ * its request is aborted so it does not keep a database connection busy.
+ */
 async function verifyWithinDeadline(
   admin: McpToolContext["admin"],
   raw: string,
   now: Date
 ): Promise<AgentTokenVerification> {
-  const outcome = await withTimeout(
-    verifyAgentToken(admin, raw, now),
+  const outcome = await withAbortableTimeout(
+    (signal) => verifyAgentToken(admin, raw, now, signal),
     MCP_DEADLINES_MS.tokenVerify
   );
   if (!outcome.timedOut) return outcome.value;
@@ -294,41 +303,74 @@ function clientIp(headers: Headers): string {
   return forwardedFirstHop || headers.get("x-real-ip")?.trim() || UNKNOWN_IP;
 }
 
-/** A 401, or a 429 once this IP has failed too often. */
+/** A 401, or a 429 once this IP has failed too often. Spends one failure unit. */
 async function authFailure(ip: string): Promise<Response> {
   const retryAfter = await limitedRetryAfter(
     authFailLimiter,
-    `${AGENT_RATE_LIMITS.authFailPerIp.keyPrefix}${ip}`,
+    (limiter) => limiter.limit(authFailKey(ip)).then(verdictFromLimit),
     new Date()
   );
   return retryAfter === null ? invalidToken() : tooManyRequests(retryAfter);
 }
 
-async function tokenRetryAfterSeconds(tokenId: string, now: Date): Promise<number | null> {
+/**
+ * Seconds this IP must wait when it has no failures left, else null. Only
+ * reads the window: a request that goes on to authenticate spends nothing.
+ */
+async function authFailLockoutSeconds(ip: string, now: Date): Promise<number | null> {
   return limitedRetryAfter(
-    perTokenLimiter,
-    `${AGENT_RATE_LIMITS.perToken.keyPrefix}${tokenId}`,
+    authFailLimiter,
+    (limiter) => limiter.getRemaining(authFailKey(ip)).then(verdictFromRemaining),
     now
   );
 }
 
-type RateLimiter = ReturnType<typeof createRateLimiter>;
+function authFailKey(ip: string): string {
+  return `${AGENT_RATE_LIMITS.authFailPerIp.keyPrefix}${ip}`;
+}
+
+async function tokenRetryAfterSeconds(tokenId: string, now: Date): Promise<number | null> {
+  return limitedRetryAfter(
+    perTokenLimiter,
+    (limiter) =>
+      limiter.limit(`${AGENT_RATE_LIMITS.perToken.keyPrefix}${tokenId}`).then(verdictFromLimit),
+    now
+  );
+}
+
+type RateLimiter = NonNullable<ReturnType<typeof createRateLimiter>>;
+
+/** Whether a key is over its limit, and when (epoch ms) its window resets. */
+interface LimiterVerdict {
+  blocked: boolean;
+  reset: number;
+}
+
+function verdictFromLimit(result: { success: boolean; reset: number }): LimiterVerdict {
+  return { blocked: !result.success, reset: result.reset };
+}
+
+function verdictFromRemaining(result: { remaining: number; reset: number }): LimiterVerdict {
+  return { blocked: result.remaining <= 0, reset: result.reset };
+}
 
 /**
  * Seconds until the key may retry, or null when it is within its limit. Fails
  * open (null) without Redis, or when Redis errors or is slow, like the rest of
- * the app.
+ * the app. The check runs inside the try so a synchronous throw also fails open.
+ * A slow call is abandoned, not cancelled: @upstash/ratelimit's limit() and
+ * getRemaining() take no AbortSignal.
  */
 async function limitedRetryAfter(
-  limiter: RateLimiter,
-  key: string,
+  limiter: RateLimiter | null,
+  check: (limiter: RateLimiter) => Promise<LimiterVerdict>,
   now: Date
 ): Promise<number | null> {
   if (limiter === null) return null;
   try {
-    const outcome = await withTimeout(limiter.limit(key), MCP_DEADLINES_MS.rateLimit);
+    const outcome = await withTimeout(check(limiter), MCP_DEADLINES_MS.rateLimit);
     if (outcome.timedOut) return failOpen("MCP rate limiter timed out", undefined);
-    if (outcome.value.success) return null;
+    if (!outcome.value.blocked) return null;
     const seconds = Math.ceil((outcome.value.reset - now.getTime()) / MS_PER_SECOND);
     return Math.max(seconds, MIN_RETRY_AFTER_SECONDS);
   } catch (error) {
@@ -391,6 +433,8 @@ function reject<T>(response: Response): Gate<T> {
  * Answers 504 when the adapter has not produced a response head in time, while
  * the function can still respond. SSE responses stream their body after the
  * head, so a slow tool call is bounded by the per-tool deadline instead.
+ * The adapter's work is abandoned, not cancelled: mcp-handler rebuilds the
+ * request for the SDK transport without its AbortSignal.
  */
 async function serveWithinDeadline(
   request: Request,

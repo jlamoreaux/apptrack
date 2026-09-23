@@ -181,9 +181,10 @@ Verified in the 1.1.0 source (unpacked from npm, not yet installed):
 - API default when `scopes` is omitted: 400. Scopes are always explicit.
 - Expiry: enum `30 | 90 | 365 | null` (null = never). Default 90. `null` is
   rejected when any `comp:*` scope is requested.
-- Limit: 10 active tokens per user. Enforced by count-then-insert, so concurrent
-  creates can exceed it by up to the number of parallel requests, bounded by the
-  per-user create rate limit when Redis is available; accepted.
+- Limit: 10 active tokens per user. Enforced atomically by the
+  `create_agent_token` SQL function (migration 044): it takes a per-user
+  advisory lock, revokes expired tokens holding the name, counts active tokens
+  and inserts in one transaction, so concurrent creates cannot exceed it.
 - Names: trimmed, internal whitespace collapsed, 1-60 code points, no control
   characters. Case-sensitive ("Claude" and "claude" are distinct).
 - `lib/auth/agent-token.ts`:

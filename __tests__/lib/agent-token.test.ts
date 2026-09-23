@@ -8,7 +8,11 @@
  *   unknown/revoked/expired, unavailable on DB error, ok for an active token
  * - touchLastUsed throttle and never rejecting
  * - agentTokenStatus
- * - createAgentToken: name normalization and validation, expired-name release
+ * - verifyAgentToken cancellation: the signal reaches the query, an aborted
+ *   lookup is unavailable without an error log, and a real supabase-js
+ *   client's fetch is aborted when withAbortableTimeout's deadline passes
+ * - createAgentToken: name normalization and validation, the
+ *   create_agent_token RPC arguments and its error mapping
  * - revokeAllAgentTokens: revokes expired tokens too, counts active ones
  */
 
@@ -27,12 +31,16 @@ import {
 } from "@/lib/auth/agent-token";
 import {
   AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
+  AGENT_TOKEN_LIMIT_ERROR,
   AGENT_TOKEN_LIMITS,
   AGENT_TOKEN_PREFIX,
+  CREATE_AGENT_TOKEN_RPC,
   LAST_USED_TOUCH_INTERVAL_MS,
 } from "@/lib/constants/agent-access";
-import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { RAISE_EXCEPTION_CODE, UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
+import { loggerService } from "@/lib/services/logger.service";
+import { withAbortableTimeout } from "@/lib/utils/with-timeout";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -47,6 +55,7 @@ interface MockBuilder {
   eq: jest.Mock;
   update: jest.Mock;
   maybeSingle: jest.Mock;
+  abortSignal: jest.Mock;
   then: (resolve: (value: unknown) => void, reject: (reason: unknown) => void) => void;
 }
 
@@ -56,7 +65,7 @@ function adminReturning(result: { data: unknown; error: unknown } | Error): {
   builder: MockBuilder;
 } {
   const builder = {} as MockBuilder;
-  for (const method of ["from", "select", "eq", "update", "maybeSingle"] as const) {
+  for (const method of ["from", "select", "eq", "update", "maybeSingle", "abortSignal"] as const) {
     builder[method] = jest.fn(() => builder);
   }
   builder.then = (resolve, reject) =>
@@ -251,6 +260,50 @@ describe("verifyAgentToken", () => {
   });
 });
 
+describe("verifyAgentToken cancellation", () => {
+  const DEADLINE_MS = 20;
+
+  it("hands the signal to the lookup query", async () => {
+    const { admin, builder } = adminReturning({ data: tokenRow(), error: null });
+    const controller = new AbortController();
+    await verifyAgentToken(admin, generateAgentToken().raw, NOW, controller.signal);
+    expect(builder.abortSignal).toHaveBeenCalledWith(controller.signal);
+  });
+
+  it("is unavailable without logging an error once the signal is aborted", async () => {
+    const { admin } = adminReturning({
+      data: null,
+      error: { message: "AbortError: This operation was aborted" },
+    });
+    const controller = new AbortController();
+    controller.abort();
+    jest.mocked(loggerService.error).mockClear();
+    expect(
+      await verifyAgentToken(admin, generateAgentToken().raw, NOW, controller.signal)
+    ).toEqual({ ok: false, reason: "unavailable" });
+    expect(loggerService.error).not.toHaveBeenCalled();
+  });
+
+  it("aborts a real supabase-js lookup request when the deadline passes", async () => {
+    const seen: { signal?: AbortSignal | null } = {};
+    const hangingFetch = (_url: RequestInfo | URL, init?: RequestInit): Promise<Response> =>
+      new Promise<Response>((_resolve, reject) => {
+        seen.signal = init?.signal;
+        seen.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+      });
+    const admin = createClient("http://localhost:54321", "service-role-key", {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: hangingFetch },
+    });
+    const outcome = await withAbortableTimeout(
+      (signal) => verifyAgentToken(admin, generateAgentToken().raw, NOW, signal),
+      DEADLINE_MS
+    );
+    expect(outcome).toEqual({ timedOut: true });
+    expect(seen.signal?.aborted).toBe(true);
+  });
+});
+
 describe("touchLastUsed", () => {
   it("writes when last_used_at is null", async () => {
     const { admin, builder } = adminReturning({ data: null, error: null });
@@ -337,14 +390,21 @@ function createInput(name: unknown): Record<string, unknown> {
   return { name, scopes: ["wins:read"], expires_in_days: 30 };
 }
 
-/** Runs createAgentToken against a successful count/release/insert queue. */
+/** Admin-client mock whose rpc(...).single() resolves to `result`. */
+function adminWithRpc(result: QueuedResult): { admin: SupabaseClient; rpc: jest.Mock } {
+  const single = jest.fn().mockResolvedValue({ data: null, error: null, ...result });
+  const rpc = jest.fn(() => ({ single }));
+  return { admin: { from: jest.fn(), rpc } as unknown as SupabaseClient, rpc };
+}
+
+/** Runs createAgentToken against a successful create_agent_token call. */
 async function createWithName(name: unknown): Promise<{
   result: Awaited<ReturnType<typeof createAgentToken>>;
-  queries: QueuedQuery[];
+  rpc: jest.Mock;
 }> {
-  const { admin, queries } = adminWithQueue({ count: 0 }, {}, { data: tokenRow() });
+  const { admin, rpc } = adminWithRpc({ data: tokenRow() });
   const result = await createAgentToken(admin, "user-1", createInput(name), NOW);
-  return { result, queries };
+  return { result, rpc };
 }
 
 describe("createAgentToken name validation", () => {
@@ -356,9 +416,9 @@ describe("createAgentToken name validation", () => {
     ["non-string", 42],
     ["blank", "   "],
   ])("rejects a %s name without a query", async (_label, name) => {
-    const { result, queries } = await createWithName(name);
+    const { result, rpc } = await createWithName(name);
     expect(result).toMatchObject({ ok: false, kind: "validation" });
-    expect(queries).toHaveLength(0);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("counts length in code points", async () => {
@@ -370,63 +430,82 @@ describe("createAgentToken name validation", () => {
   });
 
   it("trims and collapses internal whitespace runs", async () => {
-    const { result, queries } = await createWithName("  Claude    Code  ");
+    const { result, rpc } = await createWithName("  Claude    Code  ");
     expect(result.ok).toBe(true);
-    expect(queries[2].insert.mock.calls[0][0].name).toBe("Claude Code");
-    expect(queries[1].eq).toHaveBeenCalledWith("name", "Claude Code");
+    expect(rpc.mock.calls[0][1].p_name).toBe("Claude Code");
   });
 
   it("keeps names case-sensitive", async () => {
-    const { queries } = await createWithName("Claude CODE");
-    expect(queries[2].insert.mock.calls[0][0].name).toBe("Claude CODE");
+    const { rpc } = await createWithName("Claude CODE");
+    expect(rpc.mock.calls[0][1].p_name).toBe("Claude CODE");
   });
 });
 
-describe("createAgentToken expired-name release", () => {
-  it("reuses an expired token's name by revoking it before inserting", async () => {
-    const { admin, queries } = adminWithQueue({ count: 0 }, {}, { data: tokenRow() });
+describe("createAgentToken via create_agent_token", () => {
+  it("sends the hash, prefix, scopes, expiry and limit, never the raw token", async () => {
+    const { admin, rpc } = adminWithRpc({ data: tokenRow() });
     const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
-
-    expect(result.ok).toBe(true);
-    const release = queries[1];
-    expect(release.update).toHaveBeenCalledWith({ revoked_at: NOW.toISOString() });
-    expect(release.eq).toHaveBeenCalledWith("user_id", "user-1");
-    expect(release.eq).toHaveBeenCalledWith("name", "Claude Code");
-    expect(release.is).toHaveBeenCalledWith("revoked_at", null);
-    expect(release.lte).toHaveBeenCalledWith("expires_at", NOW.toISOString());
-    expect(queries[2].insert).toHaveBeenCalled();
+    if (!result.ok) throw new Error("expected a created token");
+    expect(rpc).toHaveBeenCalledWith(CREATE_AGENT_TOKEN_RPC, {
+      p_user_id: "user-1",
+      p_name: "Claude Code",
+      p_token_hash: hashAgentToken(result.value.token),
+      p_token_prefix: result.value.token.slice(0, AGENT_TOKEN_LIMITS.displayPrefixLength),
+      p_scopes: ["wins:read"],
+      p_expires_at: "2026-10-23T12:00:00.000Z",
+      p_max_active: AGENT_TOKEN_LIMITS.maxActivePerUser,
+    });
+    expect(JSON.stringify(rpc.mock.calls[0][1])).not.toContain(result.value.token);
+    expect(result.value.record).toMatchObject({ id: TOKEN_ID, status: "active" });
+    expect(result.value.record).not.toHaveProperty("token_hash");
   });
 
-  it("fails as db when the release update errors, without inserting", async () => {
-    const { admin, queries } = adminWithQueue({ count: 0 }, { error: { message: "boom" } });
-    const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
-    expect(result).toMatchObject({ ok: false, kind: "db" });
-    expect(queries).toHaveLength(2);
+  it("is quota when the function raises the limit error", async () => {
+    const { admin } = adminWithRpc({
+      error: { code: RAISE_EXCEPTION_CODE, message: AGENT_TOKEN_LIMIT_ERROR },
+    });
+    expect(
+      await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW)
+    ).toMatchObject({ ok: false, kind: "quota" });
   });
 
   it("is a conflict when an active token still holds the name", async () => {
-    const { admin } = adminWithQueue(
-      { count: 1 },
-      {},
-      {
-        error: {
-          code: UNIQUE_VIOLATION_CODE,
-          message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
-        },
-      }
-    );
+    const { admin } = adminWithRpc({
+      error: {
+        code: UNIQUE_VIOLATION_CODE,
+        message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
+      },
+    });
     const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
     expect(result).toMatchObject({ ok: false, kind: "conflict" });
   });
 
+  it.each([
+    ["another raised exception", { code: RAISE_EXCEPTION_CODE, message: "something else" }],
+    ["a different unique violation", { code: UNIQUE_VIOLATION_CODE, message: "token_hash" }],
+    ["a generic error", { message: "boom" }],
+  ])("is db for %s", async (_label, error) => {
+    const { admin } = adminWithRpc({ error });
+    expect(
+      await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW)
+    ).toMatchObject({ ok: false, kind: "db" });
+  });
+
+  it("is db when the returned row has an unexpected shape", async () => {
+    const { admin } = adminWithRpc({ data: { id: 1 } });
+    expect(
+      await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW)
+    ).toMatchObject({ ok: false, kind: "db" });
+  });
+
   it("rejects a non-object body", async () => {
     for (const body of [null, [], "x"]) {
-      const { admin, queries } = adminWithQueue();
+      const { admin, rpc } = adminWithRpc({});
       expect(await createAgentToken(admin, "user-1", body, NOW)).toMatchObject({
         ok: false,
         kind: "validation",
       });
-      expect(queries).toHaveLength(0);
+      expect(rpc).not.toHaveBeenCalled();
     }
   });
 });

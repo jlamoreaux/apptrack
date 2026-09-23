@@ -224,8 +224,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   operator must read the psql output. Changing the script affects every
   migration and is left out of this change.
 - Agent write quotas are soft: count-then-insert, so N concurrent writes can
-  exceed a quota by up to N-1, and deleting agent rows frees their slots. Same
-  for the 10-active-token limit (bounded by the create rate limit when Redis is up).
+  exceed a quota by up to N-1, and deleting agent rows frees their slots. The
+  10-active-token limit is not soft: `create_agent_token` (migration 044) counts
+  and inserts under a per-user advisory lock in one transaction.
 - Comp create checks the quota before looking up a retried `external_ref`
   (the lookup still runs when the quota rejects, so retries return the stored row).
   Wins looks the ref up first. Behavior is equivalent for callers.

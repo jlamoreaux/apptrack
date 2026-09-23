@@ -9,11 +9,12 @@
  *   JSON-RPC parse error on malformed JSON, 400 for a JSON-RPC batch
  * - bearer pre-check: missing, malformed and bad-checksum tokens get 401 with
  *   no resource_metadata and never reach verifyAgentToken; repeated failures
- *   from one IP get 429
+ *   from one IP get 429; an IP already over that limit gets 429 before a
+ *   well-formed token reaches verifyAgentToken, without spending a unit
  * - verify: invalid -> 401, unavailable -> 503 with Retry-After
  * - per-token rate limit -> 429 with Retry-After
- * - deadlines: slow verify -> 503, slow rate limiter fails open, slow adapter
- *   -> 504
+ * - deadlines: slow verify -> 503 and its lookup is aborted, slow rate
+ *   limiter fails open, slow adapter -> 504
  * - the exported maxDuration matches MCP_MAX_DURATION_SECONDS
  * - a real initialize + tools/list round trip through mcp-handler that lists
  *   only the tools the token is scoped for
@@ -39,6 +40,7 @@ global.Response = fetchPrimitives.Response;
 global.Headers = fetchPrimitives.Headers;
 
 const mockLimit = jest.fn();
+const mockGetRemaining = jest.fn();
 
 jest.mock("@/lib/auth/agent-token", () => ({
   ...jest.requireActual("@/lib/auth/agent-token"),
@@ -49,6 +51,7 @@ jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn(() 
 jest.mock("@/lib/redis/client", () => ({
   createRateLimiter: jest.fn(() => ({
     limit: (...args: unknown[]) => mockLimit(...args),
+    getRemaining: (...args: unknown[]) => mockGetRemaining(...args),
   })),
 }));
 jest.mock("@/lib/services/logger.service", () => ({
@@ -159,6 +162,10 @@ afterAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   mockLimit.mockResolvedValue({ success: true, reset: NOW + 60_000 });
+  mockGetRemaining.mockResolvedValue({
+    remaining: AGENT_RATE_LIMITS.authFailPerIp.tokens,
+    reset: NOW + 60_000,
+  });
 });
 
 describe("body limits", () => {
@@ -206,7 +213,12 @@ describe("bearer pre-check", () => {
   it("accepts a lower-case scheme and surrounding whitespace", async () => {
     mockVerify.mockResolvedValue({ ok: false, reason: "invalid" });
     await POST(post(rpc("tools/list", 1), { authorization: `  bearer   ${token}  ` }));
-    expect(mockVerify).toHaveBeenCalledWith(expect.anything(), token, expect.any(Date));
+    expect(mockVerify).toHaveBeenCalledWith(
+      expect.anything(),
+      token,
+      expect.any(Date),
+      expect.objectContaining({ aborted: false })
+    );
   });
 
   it("counts failures per IP (first x-forwarded-for hop) and returns 429 over the limit", async () => {
@@ -221,11 +233,47 @@ describe("bearer pre-check", () => {
     );
   });
 
-  it("does not consult the auth-fail limiter for a request that authenticates", async () => {
+  it("does not spend an auth-fail unit for a request that authenticates", async () => {
     verified(["wins:read"]);
     await POST(post(rpc("tools/list", 1), { authorization: `Bearer ${token}` }));
     expect(mockLimit).toHaveBeenCalledTimes(1);
     expect(mockLimit).toHaveBeenCalledWith(`${AGENT_RATE_LIMITS.perToken.keyPrefix}${TOKEN_ID}`);
+  });
+
+  it("returns 429 without verifying a well-formed token when the IP is already locked out", async () => {
+    mockGetRemaining.mockResolvedValue({ remaining: 0, reset: NOW + 30_000 });
+    const response = await POST(
+      post(rpc("tools/list", 1), {
+        authorization: `Bearer ${token}`,
+        "x-forwarded-for": "203.0.113.9",
+      })
+    );
+    expect(response.status).toBe(429);
+    const retryAfter = Number(response.headers.get("retry-after"));
+    expect(retryAfter).toBeGreaterThan(0);
+    expect(retryAfter).toBeLessThanOrEqual(30);
+    expect(mockGetRemaining).toHaveBeenCalledWith(
+      `${AGENT_RATE_LIMITS.authFailPerIp.keyPrefix}203.0.113.9`
+    );
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(mockLimit).not.toHaveBeenCalled();
+  });
+
+  it("verifies the token when the lockout check fails, failing open", async () => {
+    mockGetRemaining.mockRejectedValue(new Error("redis down"));
+    mockVerify.mockResolvedValue({ ok: false, reason: "invalid" });
+    const response = await POST(
+      post(rpc("tools/list", 1), { authorization: `Bearer ${token}` })
+    );
+    await expectInvalidToken(response);
+    expect(mockVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("spends an auth-fail unit only when verification fails", async () => {
+    mockVerify.mockResolvedValue({ ok: false, reason: "invalid" });
+    await POST(post(rpc("tools/list", 1), { authorization: `Bearer ${token}` }));
+    expect(mockLimit).toHaveBeenCalledTimes(1);
+    expect(mockLimit).toHaveBeenCalledWith(`${AGENT_RATE_LIMITS.authFailPerIp.keyPrefix}unknown`);
   });
 });
 
@@ -400,13 +448,25 @@ describe("deadlines", () => {
 
   const never = <T,>(): Promise<T> => new Promise<T>(() => undefined);
 
-  it("returns 503 with Retry-After when token verification is too slow", async () => {
+  it("returns 503 with Retry-After and aborts the lookup when verification is too slow", async () => {
     mockVerify.mockReturnValue(never());
     const pending = POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
     await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.tokenVerify);
     const response = await pending;
     expect(response.status).toBe(503);
     expect(response.headers.get("retry-after")).toBe("5");
+    const signal: AbortSignal = mockVerify.mock.calls[0][3];
+    expect(signal.aborted).toBe(true);
+  });
+
+  it("fails open when the lockout check is too slow", async () => {
+    mockGetRemaining.mockReturnValue(never());
+    mockVerify.mockResolvedValue({ ok: false, reason: "invalid" });
+    const pending = POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.rateLimit);
+    const response = await pending;
+    expect(response.status).toBe(401);
+    expect(mockVerify).toHaveBeenCalledTimes(1);
   });
 
   it("fails open when the rate limiter is too slow", async () => {

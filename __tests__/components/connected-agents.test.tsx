@@ -4,15 +4,27 @@
  * and API failure handling (session expiry, rate limits, network).
  */
 
-import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { axe } from "jest-axe";
 import { ConnectedAgents } from "@/components/careerotter/connected-agents";
-import { DEFAULT_AGENT_TOKEN_EXPIRY_DAYS } from "@/lib/constants/agent-access";
-import { NEVER_EXPIRES } from "@/lib/constants/agent-access-ui";
+import {
+  AGENT_TOKEN_CHECKSUM_LENGTH,
+  AGENT_TOKEN_PREFIX,
+  DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
+} from "@/lib/constants/agent-access";
+import { AGENT_SETUP_INSECURE_NOTICE, NEVER_EXPIRES } from "@/lib/constants/agent-access-ui";
 import type { AgentTokenRecord } from "@/types";
 
 const SITE = "https://careerotter.test";
-const RAW_TOKEN = "co_pat_secretsecretsecretsecretsecretsecretsec_0abc123";
+// base64url of 32 bytes. The fixture is assembled at runtime from obviously
+// fake parts so secret scanners do not flag a literal full-length token.
+const FAKE_SECRET_LENGTH = 43;
+const RAW_TOKEN = [
+  AGENT_TOKEN_PREFIX,
+  "x".repeat(FAKE_SECRET_LENGTH),
+  "_",
+  "0".repeat(AGENT_TOKEN_CHECKSUM_LENGTH),
+].join("");
 const TOKENS_URL = "/api/careerotter/agent-tokens";
 const SIGN_IN_HREF = "/login?redirectTo=/dashboard/data";
 const DEFAULT_EXPIRY_VALUE = String(DEFAULT_AGENT_TOKEN_EXPIRY_DAYS);
@@ -140,6 +152,19 @@ async function createToken(listAfter: AgentTokenRecord[] = [CREATED, ACTIVE, REV
   mockList(listAfter);
   submitCreate(CREATED.name);
   await screen.findByLabelText(/your new token/i);
+}
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve: (value: T) => void = () => undefined;
+  const promise = new Promise<T>((resolveFn) => {
+    resolve = resolveFn;
+  });
+  return { promise, resolve };
 }
 
 async function confirmInDialog(buttonName: string): Promise<void> {
@@ -465,6 +490,16 @@ describe("ConnectedAgents reveal", () => {
     expect(writeText).toHaveBeenCalledWith(RAW_TOKEN);
   });
 
+  it("shows a notice instead of setup snippets when the site is not served over HTTPS", async () => {
+    mockList([ACTIVE]);
+    render(<ConnectedAgents appUrl="http://careerotter.test" />);
+    await screen.findByRole("form", { name: /create an agent token/i });
+    await createToken();
+    expect(screen.getByText(AGENT_SETUP_INSECURE_NOTICE)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Claude Code" })).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("http://careerotter.test/api/mcp");
+  });
+
   it("setup snippets never contain the raw token and use the server-provided URL", async () => {
     await renderLoaded();
     await createToken();
@@ -539,6 +574,61 @@ describe("ConnectedAgents revoke", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: "Your agent tokens" })).toHaveFocus()
     );
+  });
+
+  describe("overlapping refreshes resolving out of order", () => {
+    const revokedActive: AgentTokenRecord = {
+      ...ACTIVE,
+      revoked_at: REVOKED.revoked_at,
+      status: "revoked",
+    };
+
+    /**
+     * Creates a token whose list refresh stays pending, then revokes ACTIVE,
+     * whose refresh also stays pending. Returns both pending list responses.
+     */
+    async function startTwoRefreshes(): Promise<{
+      older: Deferred<Response>;
+      newer: Deferred<Response>;
+    }> {
+      await renderLoaded([ACTIVE]);
+      const older = deferred<Response>();
+      respond({ token: RAW_TOKEN, record: CREATED }, HTTP.created);
+      fetchMock.mockReturnValueOnce(older.promise);
+      submitCreate(CREATED.name);
+      await screen.findByLabelText(/your new token/i);
+
+      const newer = deferred<Response>();
+      fireEvent.click(screen.getByRole("button", { name: "Revoke Claude Code laptop" }));
+      respond({ success: true });
+      fetchMock.mockReturnValueOnce(newer.promise);
+      await confirmInDialog("Revoke");
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(5));
+      return { older, newer };
+    }
+
+    it("keeps the newer list when the older one arrives last", async () => {
+      const { older, newer } = await startTwoRefreshes();
+      await act(async () => newer.resolve(new TestResponse({ tokens: [CREATED, revokedActive] }, HTTP.ok)));
+      await act(async () => older.resolve(new TestResponse({ tokens: [CREATED, ACTIVE] }, HTTP.ok)));
+
+      const list = screen.getByRole("list", { name: /agent tokens/i });
+      expect(
+        within(list).queryByRole("button", { name: "Revoke Claude Code laptop" })
+      ).not.toBeInTheDocument();
+      expect(within(list).getByRole("button", { name: "Revoke New" })).toBeInTheDocument();
+    });
+
+    it("ignores an older refresh failure that arrives after a newer success", async () => {
+      const { older, newer } = await startTwoRefreshes();
+      await act(async () => newer.resolve(new TestResponse({ tokens: [CREATED, revokedActive] }, HTTP.ok)));
+      await act(async () =>
+        older.resolve(new TestResponse({ error: "Something went wrong" }, HTTP.serverError))
+      );
+
+      expect(screen.queryByText("Something went wrong")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Revoke New" })).toBeInTheDocument();
+    });
   });
 
   it("shows a revoke failure inline", async () => {
