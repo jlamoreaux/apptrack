@@ -79,3 +79,26 @@ export const WIN_LIMITS = {
   textMax: 2000,
   impactNumberMax: 120,
 } as const;
+
+// The provenance values the server assigns itself: the web UI writes "manual",
+// the MCP server writes "agent". Both appear in WIN_SOURCES and COMP_SOURCES.
+export const MANUAL_SOURCE = "manual" as const satisfies WinSource & CompSource;
+export const AGENT_SOURCE = "agent" as const satisfies WinSource & CompSource;
+
+// Field caps for comp entries, mirroring the column types in 033/035/040.
+// The *Scale values are the column's decimal places, used to format the caps
+// in validation messages.
+export const COMP_LIMITS = {
+  // numeric(12,2)
+  amountMax: 9_999_999_999.99,
+  amountScale: 2,
+  // numeric(14,4)
+  sharesMax: 9_999_999_999.9999,
+  sharesScale: 4,
+  noteMax: 500,
+  tickerMax: 10,
+  // numeric(4,2): the smallest positive value the column can hold.
+  vestYearsMin: 0.01,
+  vestYearsMax: 10,
+  vestCliffMonthsMax: 60,
+} as const;

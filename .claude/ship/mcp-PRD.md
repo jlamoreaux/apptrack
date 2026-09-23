@@ -169,7 +169,7 @@ Verified in the 1.1.0 source (unpacked from npm, not yet installed):
 
 ### Tokens
 
-- Format: `co_pat_` + 32 random bytes base64url + `_` + 6-char CRC32 (base36)
+- Format: `co_pat_` + 32 random bytes base64url + `_` + 7-char CRC32 (base36, zero-padded)
   of the preceding part. Requests whose bearer fails the format or checksum are
   rejected with 401 before any DB query.
 - Only the SHA-256 hash is stored. Lookup is by hash through the unique index.
