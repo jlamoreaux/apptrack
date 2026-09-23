@@ -69,6 +69,22 @@
    - Real: set `ALLOW_REAL_SEND=1` in production, then `{ "confirm": true }`.
 5. Ramp `careerotter_evidence` in PostHog (10% → 50% → 100%), watching the funnels.
 6. Retire the banner at cutover + 30 days (`NEXT_PUBLIC_REBRAND_BANNER=off`).
+7. MCP server (`/api/mcp`) and personal access tokens — before setting
+   `CAREEROTTER_ENABLED=1`:
+   - Run migration 044: `./scripts/run-schema.sh schemas/migrations/044_mcp_agent_access.sql`.
+     It runs in one transaction, and `run-schema.sh` exits 0 even when it rolls back,
+     so read the psql output for errors rather than trusting the exit code.
+   - Update `app/llms.txt/route.ts` and `content/agent-skills/careerotter-public-api/SKILL.md`,
+     which both say there is no MCP server / no programmatic access. `llms.txt` is
+     `force-static`, so the change needs a redeploy; the skill's digest is published,
+     so re-run `npx jest __tests__/agent-discovery` after editing it.
+   - Real-client test against production: Claude Code, Cursor, MCP Inspector, Claude
+     Desktop via `mcp-remote --header`, and a client on the 2026-07-28 protocol
+     revision (SDK 1.26 supports up to 2025-11-25; if that client fails, the fix is
+     zod 4 + `mcp-handler` 2.x).
+   - Register the `co_pat_` token pattern with GitHub secret scanning.
+   - Decide whether to publish `/.well-known/mcp/server-card.json` and the DNS-AID
+     `_mcp._agents` record (see `docs/agent-discovery.md`).
 
 ## Audit method (read-only)
 
