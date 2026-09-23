@@ -17,7 +17,8 @@ import {
   validateCompInput,
 } from "@/lib/careerotter/comp-service";
 import { AGENT_WRITE_QUOTAS } from "@/lib/constants/agent-access";
-import { COMP_LIMITS, EXTERNAL_REF_MAX } from "@/lib/constants/careerotter";
+import { COMP_LIMITS, EXTERNAL_REF_MAX, VEST_YEARS_MIN_LABEL } from "@/lib/constants/careerotter";
+import { MONTHS_PER_YEAR } from "@/lib/constants/dates";
 import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
@@ -47,7 +48,7 @@ const mockAfter = jest.mocked(after);
 const USER_ID = "user-1";
 const ENTRY_ID = "11111111-2222-4333-8444-555555555555";
 const TICKER_MESSAGE = `ticker must be 1-${COMP_LIMITS.tickerMax} letters, digits, dots or hyphens`;
-const VEST_YEARS_MESSAGE = `vest_years must be at least ${COMP_LIMITS.vestYearsMin} and at most ${COMP_LIMITS.vestYearsMax}`;
+const VEST_YEARS_MESSAGE = `vest_years must be at least ${COMP_LIMITS.vestYearsMin} (${VEST_YEARS_MIN_LABEL}) and at most ${COMP_LIMITS.vestYearsMax}`;
 
 function expectScopedToUser(queries: RecordedQuery[]): void {
   expectScopedTo(queries, USER_ID);
@@ -178,7 +179,7 @@ describe("validateCompInput", () => {
     expectInvalid({ ...VALID, vest_start: "2026-13-01" }, "vest_start must be a valid YYYY-MM-DD date");
   });
 
-  it.each([0, 0.005, COMP_LIMITS.vestYearsMax + 1, "4", Number.NaN])(
+  it.each([0, 0.005, 0.01, 0.08, COMP_LIMITS.vestYearsMax + 1, "4", Number.NaN])(
     "rejects vest_years %p",
     (vest_years) => {
       expectInvalid({ ...VALID, vest_years }, VEST_YEARS_MESSAGE);
@@ -186,7 +187,11 @@ describe("validateCompInput", () => {
   );
 
   it("states the vest_years bounds in the message", () => {
-    expect(VEST_YEARS_MESSAGE).toBe("vest_years must be at least 0.01 and at most 10");
+    expect(VEST_YEARS_MESSAGE).toBe("vest_years must be at least 0.09 (one month) and at most 10");
+  });
+
+  it("keeps the shortest vest at least one whole month in projections", () => {
+    expect(Math.round(COMP_LIMITS.vestYearsMin * MONTHS_PER_YEAR)).toBeGreaterThanOrEqual(1);
   });
 
   it("accepts vest_years at both bounds", () => {

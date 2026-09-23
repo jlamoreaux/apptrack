@@ -11,6 +11,7 @@ import { after } from "next/server";
 import {
   WIN_AGENT_SELECT,
   WIN_REST_SELECT,
+  countWinsByTag,
   createWin,
   deleteWin,
   listWins,
@@ -26,11 +27,13 @@ import {
   EVIDENCE_URL_MAX,
   EXTERNAL_REF_MAX,
   WIN_LIMITS,
+  WIN_TAGS,
 } from "@/lib/constants/careerotter";
 import { AGENT_WRITE_QUOTAS, MCP_LIST_WINS } from "@/lib/constants/agent-access";
 import { NO_ROWS_CODE, UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 import {
   expectScopedToUser,
+  hasOp,
   mockSupabaseAdmin,
   throwingSupabaseAdmin,
 } from "@/__tests__/utils/test-helpers/supabase-query-mock";
@@ -532,6 +535,7 @@ describe("listWins", () => {
     [{ until: "yesterday" }, "until must be a date in YYYY-MM-DD format"],
     [{ tag: "wizardry" }, "Invalid tag"],
     [{ since: "0000-01-01" }, "since must be a date in YYYY-MM-DD format"],
+    [{ since: "2024-06-30", until: "2024-01-01" }, "since must be on or before until"],
     [{ limit: 0 }, LIMIT_MESSAGE],
     [{ limit: 1.5 }, LIMIT_MESSAGE],
     [{ limit: MCP_LIST_WINS.maxLimit + 1 }, LIMIT_MESSAGE],
@@ -557,6 +561,60 @@ describe("listWins", () => {
   it("never throws when the client throws", async () => {
     const result = await listWins(throwingSupabaseAdmin().client, USER_ID);
     expect(result).toEqual({ ok: false, kind: "db", message: "Failed to load wins" });
+  });
+});
+
+describe("countWinsByTag", () => {
+  const LOAD_FAILED = { ok: false, kind: "db", message: "Failed to load wins" };
+
+  it("counts every win and each area with head-only exact counts, scoped to the user", async () => {
+    const { client: admin, queries } = mockSupabaseAdmin([
+      { count: 12 },
+      { count: 5 },
+      { count: 0 },
+      { count: 3 },
+      { count: 1 },
+    ]);
+    const result = await countWinsByTag(admin, USER_ID);
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        total: 12,
+        byTag: new Map([["delivery", 5], ["leadership", 0], ["collaboration", 3], ["craft", 1]]),
+        untagged: 3,
+      },
+    });
+    expect(queries).toHaveLength(1 + WIN_TAGS.length);
+    for (const query of queries) {
+      expect(query.table).toBe("wins");
+      expect(query.builder.select).toHaveBeenCalledWith("id", { count: "exact", head: true });
+      expect(query.builder.limit).not.toHaveBeenCalled();
+    }
+    expect(hasOp(queries[0], "eq", "tag")).toBe(false);
+    WIN_TAGS.forEach((tag, index) => expect(hasOp(queries[index + 1], "eq", "tag", tag)).toBe(true));
+    expectScopedToUser(queries, USER_ID);
+  });
+
+  it("treats a null count as zero", async () => {
+    const { client: admin } = mockSupabaseAdmin([]);
+    const result = await countWinsByTag(admin, USER_ID);
+    expect(result).toMatchObject({ ok: true, value: { total: 0, untagged: 0 } });
+  });
+
+  it("returns the generic failure when any count fails", async () => {
+    const { client: admin } = mockSupabaseAdmin([
+      { count: 4 },
+      { count: 1 },
+      { error: { code: "08006", message: SECRET_DB_TEXT } },
+    ]);
+    const result = await countWinsByTag(admin, USER_ID);
+    expect(result).toEqual(LOAD_FAILED);
+    expect(JSON.stringify(result)).not.toContain(SECRET_DB_TEXT);
+  });
+
+  it("never throws when the client throws", async () => {
+    expect(await countWinsByTag(throwingSupabaseAdmin().client, USER_ID)).toEqual(LOAD_FAILED);
   });
 });
 

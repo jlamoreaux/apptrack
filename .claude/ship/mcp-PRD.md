@@ -313,8 +313,9 @@ Messages never include Supabase error text. Ids are validated as uuids up front
 | Comp GET when the entries query errors | 200 with `[]` | 500 |
 | Non-object or `null` JSON body on wins POST/PATCH and comp POST | 500 | 400 |
 | Comp entries beyond 500 per user, any source | accepted | 429 |
-| `vest_years` below 0.01 (not storable in `numeric(4,2)`) | accepted | 400 |
+| `vest_years` below 0.09 (shorter than one month, which projections round to a 0-month vest; 0.09 is the smallest `numeric(4,2)` value of at least 1/12) | accepted | 400 |
 | Ticker longer than 10 characters after trimming | truncated to 10 | 400 |
+| Vest event (e.g. a cliff) exactly at midnight on Jan 1 (bug fix in `grantFractionVestedBetween`, which is documented as [from, to)); also changes the comp page chart for that case | counted in the previous year's row | counted in the new year's row |
 
 Existing tests that encode the old behavior are updated in the same task.
 
@@ -371,21 +372,21 @@ return. Output schemas are covered by tests.
 
 | Tool | Scope | Annotations | Behavior |
 |---|---|---|---|
-| `log_win` | wins:write | idempotent when external_ref given | text, impact_number?, tag?, occurred_at?, evidence_url?, external_ref? → `{ win, duplicate }`; source `agent` |
-| `list_wins` | wins:read | readOnly | since?, until? (occurred_at), tag?, limit (default 50, max 200) → `{ wins, truncated }` |
+| `log_win` | wins:write | not idempotentHint (a repeat with the same external_ref returns the stored row unchanged) | text, impact_number?, tag?, occurred_at?, evidence_url?, external_ref? → `{ win, duplicate }`; source `agent` |
+| `list_wins` | wins:read | readOnly | since?, until? (occurred_at; since after until → validation error), tag?, limit (default 50, max 200) → `{ wins, truncated }` |
 | `update_win` | wins:write | — | id + patch; only rows with source `agent` (others → not_found) |
-| `delete_win` | wins:write | destructive | id; only source `agent` |
-| `get_coverage` | wins:read | readOnly | `computeCoverage` over all wins |
+| `delete_win` | wins:write | destructive, idempotent | id; only source `agent` → `{ deleted_id, deleted }`; a missing (or non-agent) row is a success with `deleted: false`, so retries are safe |
+| `get_coverage` | wins:read | readOnly | coverage from `countWinsByTag` (count-only queries, so no row limit truncates it) |
 | `get_career_context` | career:read | readOnly | mode, role, level, target, review_date + `reviewCountdown(review_date, as_of)` |
 | `list_comp_entries` | comp:read | readOnly | all entries incl. source |
-| `get_comp_summary` | comp:read | readOnly | as_of?; current entry + upcoming; `annualBreakdown`, `vestSummary` at `anchorSharePrice(entry, cachedQuote)`; `price_source: 'quote' \| 'implied' \| 'none'` |
-| `project_comp` | comp:read | readOnly | entry_id? (default current), years (count 1–10, default 4, starting with the as_of year), share_price? (0 < p ≤ 1,000,000), as_of? → `projectComp` rows |
-| `get_equity_quotes` | comp:read | readOnly | cached rows for tickers in the user's entries; tickers without a cached row listed as `missing` |
-| `get_market_benchmark` | comp:read | readOnly | role_family and level as enums from `COMP_ROLE_FAMILIES`/`COMP_LEVELS`; non-Pro → isError naming the plan; Pro with no curated data → `{ range: null, reason }`; else range + `compDelta` vs current entry |
-| `evaluate_offer` | comp:read | readOnly | packages: 1–2 hypothetical packages (comp-entry fields, vest_start defaults to as_of); share_prices: up to 5 per package; years (default 4); compare_to_current (default true) → per-scenario projections, N-year totals, delta vs current (or vs package A when current is absent or false); a `not_modeled` note (refreshers, sign-on, taxes) |
-| `add_comp_entry` | comp:write | idempotent when external_ref given | web-form fields + external_ref? → `{ entry, duplicate }`; source `agent` |
+| `get_comp_summary` | comp:read | readOnly | as_of?; current entry + upcoming; `annualBreakdown`, `vestSummary` at `anchorSharePrice(entry, cachedQuote)`; `price_source: 'quote' \| 'implied' \| 'none'`, `price_as_of` (quote time, null otherwise), `price_is_stale` (quote older than 3 days) |
+| `project_comp` | comp:read | readOnly | entry_id? (default current), years (count 1–10, default 4, starting with the as_of year), share_price? (0 < p ≤ 1,000,000), as_of? → `projectComp` rows, `price_source`, `price_as_of`, `price_is_stale` |
+| `get_equity_quotes` | comp:read | readOnly | cached rows for tickers in the user's entries; tickers without a usable cached row (none, price ≤ 0, or unparseable as_of) listed as `missing` |
+| `get_market_benchmark` | comp:read | readOnly | role_family and level as enums from `COMP_ROLE_FAMILIES`/`COMP_LEVELS`; non-Pro → isError naming the plan; Pro with no curated data → `{ range: null, reason }`; else range + `compDelta` vs current entry, with `price_as_of` / `price_is_stale` for the quote behind `current_total` |
+| `evaluate_offer` | comp:read | readOnly | packages: 1–2 hypothetical packages (comp-entry fields, vest_start defaults to as_of); share_prices: up to 5 per package; years (default 4); compare_to_current (default true) → per-scenario projections (each with `price_as_of` / `price_is_stale`), N-year totals, delta vs current (or vs package A when current is absent or false); a `not_modeled` note (refreshers, sign-on, taxes); duplicate or reserved ("Current package") labels → validation error |
+| `add_comp_entry` | comp:write | not idempotentHint (a repeat with the same external_ref returns the stored row unchanged) | web-form fields + external_ref? → `{ entry, duplicate }`; source `agent` |
 | `update_comp_entry` | comp:write | — | id + patch; only source `agent` |
-| `delete_comp_entry` | comp:write | destructive | id; only source `agent` |
+| `delete_comp_entry` | comp:write | destructive, idempotent | id; only source `agent` → `{ deleted_id, deleted }`, same retry semantics as `delete_win` |
 
 Restricting update and delete to agent-created rows bounds the damage a
 prompt-injected agent can do: it can never alter or destroy data the user typed

@@ -167,7 +167,7 @@ describe("readCachedQuotes", () => {
     expect(result).toMatchObject({ ok: true, value: { NET: { price: 90 } } });
   });
 
-  it.each([null, "", "abc", "NaN", Number.NaN, Number.POSITIVE_INFINITY, undefined])(
+  it.each([null, "", "abc", "NaN", Number.NaN, Number.POSITIVE_INFINITY, undefined, 0, "0", -5, "-1.5"])(
     "drops a row whose price is %p and logs a warning",
     async (price) => {
       const { client } = fakeAdmin([
@@ -182,6 +182,28 @@ describe("readCachedQuotes", () => {
       );
     }
   );
+
+  it.each(["yesterday-ish", "", "2026-13-45T99:00:00Z"])(
+    "drops a row whose as_of %p cannot be dated and logs a warning",
+    async (asOf) => {
+      const { client } = fakeAdmin([
+        { ticker: "BAD", price: 10, as_of: asOf },
+        { ticker: "NET", price: 90, as_of: fresh() },
+      ]);
+      const result = await readCachedQuotes(client, ["BAD", "NET"]);
+      expect(result).toEqual({ ok: true, value: { NET: expect.objectContaining({ price: 90 }) } });
+      expect(mockLogWarn).toHaveBeenCalledWith(
+        "Dropped malformed cached stock price rows",
+        expect.objectContaining({ metadata: { dropped: 1 } })
+      );
+    }
+  );
+
+  it("returns as_of as a UTC ISO timestamp, keyed by the normalized ticker", async () => {
+    const { client } = fakeAdmin([{ ticker: "net ", price: 90, as_of: "2026-09-23T06:00:00+00:00" }]);
+    const result = await readCachedQuotes(client, ["NET"]);
+    expect(result).toMatchObject({ ok: true, value: { NET: { as_of: "2026-09-23T06:00:00.000Z" } } });
+  });
 
   it("returns an empty map for no tickers without querying", async () => {
     const { client, inFn } = fakeAdmin([]);

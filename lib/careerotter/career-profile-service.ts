@@ -8,6 +8,7 @@ import { CAREER_MODES, type CareerMode } from "@/lib/constants/careerotter";
 import {
   dbFailure,
   guarded,
+  isNullableString,
   isPlainObject,
   ok,
   type FailureContext,
@@ -34,10 +35,6 @@ const MALFORMED_ROW_MESSAGE = "Malformed career_profiles row";
 
 function isCareerMode(value: unknown): value is CareerMode {
   return CAREER_MODES.some((mode) => mode === value);
-}
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
 }
 
 function isCareerProfileContext(row: unknown): row is CareerProfileContext {

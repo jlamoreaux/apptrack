@@ -5,15 +5,27 @@
  */
 
 import { z } from "zod";
-import {
-  AGENT_SOURCE,
-  WIN_SOURCES,
-  WIN_TAGS,
-} from "@/lib/constants/careerotter";
+import { AGENT_SOURCE, WIN_SOURCES, WIN_TAGS } from "@/lib/constants/careerotter";
 import { MCP_LIST_WINS, MCP_TOOL_FAILED_MESSAGE } from "@/lib/constants/agent-access";
 import {
+  MCP_CONFIRM_BEFORE_DELETE,
+  MCP_CONFIRM_BEFORE_WRITE,
+  MCP_DATE_FORMAT_NOTE,
+  MCP_DEFAULTS_TO_TODAY,
+  MCP_WIN_DESCRIPTIONS as FIELD,
+  MCP_RECORD_NOUNS,
+  MISSING_AGENT_COLUMNS,
+  agentRowsOnlyNote,
+  countNoun,
+  deleteRetryNote,
+  duplicateNote,
+  duplicateSummary,
+  nothingToDeleteSummary,
+  updateNotFoundNote,
+} from "@/lib/constants/mcp-tools";
+import {
   WIN_AGENT_SELECT,
-  WIN_REST_SELECT,
+  countWinsByTag,
   createWin,
   deleteWin,
   listWins,
@@ -21,17 +33,27 @@ import {
   validateWinInput,
   type WinRow,
 } from "@/lib/careerotter/wins-service";
-import { computeCoverage } from "@/lib/careerotter/coverage";
+import { COVERAGE_TARGET_PER_AREA, coverageFromCounts } from "@/lib/careerotter/coverage";
 import { dbFailure, ok } from "@/lib/careerotter/domain-result";
+import {
+  CREATE_ANNOTATIONS,
+  DELETE_ANNOTATIONS,
+  READ_ANNOTATIONS,
+  UPDATE_ANNOTATIONS,
+} from "@/lib/mcp/annotations";
 import {
   defineTool,
   type DefinedTool,
-  type McpToolAnnotations,
   type ToolInput,
   type ToolSuccess,
 } from "@/lib/mcp/define-tool";
 import type { McpToolContext } from "@/lib/mcp/context";
+import { externalRefInput, recordIdInput } from "@/lib/mcp/tool-inputs";
+import { deleteOutput, deletedOrMissing, type DeleteOutput } from "@/lib/mcp/delete-output";
 import type { DomainResult } from "@/types";
+
+const { singular: WIN, plural: WINS } = MCP_RECORD_NOUNS.win;
+const UPDATE_TOOL = "update_win";
 
 // ── shared schemas ─────────────────────────────────────────────────────────
 
@@ -49,38 +71,7 @@ const winSchema = z.object({
 });
 type AgentWin = z.infer<typeof winSchema>;
 
-const READ_ANNOTATIONS: McpToolAnnotations = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-};
-
-const EDIT_ANNOTATIONS: McpToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-};
-
-const DELETE_ANNOTATIONS: McpToolAnnotations = {
-  readOnlyHint: false,
-  destructiveHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-};
-
-const MISSING_AGENT_COLUMNS = "Win row is missing agent columns";
-
-const TAG_DESCRIPTION = `Impact area, one of: ${WIN_TAGS.join(", ")}.`;
-const DATE_DESCRIPTION = "Date in YYYY-MM-DD format.";
-const TEXT_DESCRIPTION =
-  "One or two plain first-person sentences about what the user did.";
-const IMPACT_DESCRIPTION =
-  "A number that shows the impact, such as \"30% faster\". Only when it appears in the source material or the user states it; never invent one.";
-const EVIDENCE_URL_DESCRIPTION = "An http or https link to the evidence.";
-const AGENT_ONLY_NOTE =
-  "Only wins created by an agent can be changed; wins the user entered themselves are reported as not found.";
+const tagInput = z.enum(WIN_TAGS);
 
 // occurred_at is NOT NULL and part of WIN_AGENT_SELECT, so a row without it
 // means the select list and this serializer disagree.
@@ -97,13 +88,7 @@ function toAgentWin(ctx: McpToolContext, row: WinRow): DomainResult<AgentWin> {
     );
   }
   return ok({
-    id: row.id,
-    text: row.text,
-    impact_number: row.impact_number,
-    tag: row.tag,
-    source: row.source,
-    created_at: row.created_at,
-    edited_at: row.edited_at,
+    ...row,
     occurred_at: row.occurred_at,
     evidence_url: row.evidence_url ?? null,
     external_ref: row.external_ref ?? null,
@@ -123,20 +108,15 @@ function toAgentWins(ctx: McpToolContext, rows: readonly WinRow[]): DomainResult
 // ── log_win ────────────────────────────────────────────────────────────────
 
 const logWinInput = {
-  text: z.string().describe(TEXT_DESCRIPTION),
-  impact_number: z.string().optional().describe(IMPACT_DESCRIPTION),
-  tag: z.enum(WIN_TAGS).optional().describe(TAG_DESCRIPTION),
+  text: z.string().describe(FIELD.text),
+  impact_number: z.string().optional().describe(FIELD.impactNumber),
+  tag: tagInput.optional().describe(FIELD.tag),
   occurred_at: z
     .string()
     .optional()
-    .describe(`When the win happened. ${DATE_DESCRIPTION} Defaults to today (UTC).`),
-  evidence_url: z.string().optional().describe(EVIDENCE_URL_DESCRIPTION),
-  external_ref: z
-    .string()
-    .optional()
-    .describe(
-      'Stable id of the source, as "<system>:<stable id>", for example "github:acme/api#1234". Always send it when the win comes from a PR, doc or ticket; a repeat call returns the stored win.'
-    ),
+    .describe(`${FIELD.occurredAt} ${MCP_DATE_FORMAT_NOTE} ${MCP_DEFAULTS_TO_TODAY}`),
+  evidence_url: z.string().optional().describe(FIELD.evidenceUrl),
+  external_ref: externalRefInput,
 };
 const logWinOutput = z.object({ win: winSchema, duplicate: z.boolean() });
 
@@ -157,8 +137,8 @@ async function runLogWin(
   return ok({
     structured: { win: win.value, duplicate },
     summary: duplicate
-      ? `Win already logged (external_ref match): ${win.value.id}`
-      : `Logged win ${win.value.id}`,
+      ? duplicateSummary(WIN, win.value.id, UPDATE_TOOL)
+      : `Logged win ${win.value.id}.`,
   });
 }
 
@@ -166,13 +146,14 @@ const logWinTool = defineTool({
   name: "log_win",
   title: "Log a win",
   description: [
-    "Add a win (evidence of the user's impact) to their CareerOtter log.",
-    "Log only when the user asked you to or confirmed what you propose.",
+    "Log a win (evidence of the user's impact) to their CareerOtter log.",
+    MCP_CONFIRM_BEFORE_WRITE,
     "Write text as one or two plain first-person sentences. Never invent an impact number.",
-    "When the win comes from a PR, doc or ticket, always send external_ref; retrying with the same external_ref returns the stored win with duplicate: true.",
+    "When the win comes from a PR, doc or ticket, always send external_ref.",
+    duplicateNote(WIN, UPDATE_TOOL),
   ].join(" "),
   scope: "wins:write",
-  annotations: EDIT_ANNOTATIONS,
+  annotations: CREATE_ANNOTATIONS,
   inputSchema: logWinInput,
   outputSchema: logWinOutput,
   run: runLogWin,
@@ -181,9 +162,12 @@ const logWinTool = defineTool({
 // ── list_wins ──────────────────────────────────────────────────────────────
 
 const listWinsInput = {
-  since: z.string().optional().describe(`Earliest occurred_at, inclusive. ${DATE_DESCRIPTION}`),
-  until: z.string().optional().describe(`Latest occurred_at, inclusive. ${DATE_DESCRIPTION}`),
-  tag: z.enum(WIN_TAGS).optional().describe(TAG_DESCRIPTION),
+  since: z.string().optional().describe(`Earliest occurred_at, inclusive. ${MCP_DATE_FORMAT_NOTE}`),
+  until: z
+    .string()
+    .optional()
+    .describe(`Latest occurred_at, inclusive; not before since. ${MCP_DATE_FORMAT_NOTE}`),
+  tag: tagInput.optional().describe(FIELD.tag),
   limit: z
     .number()
     .int()
@@ -193,6 +177,11 @@ const listWinsInput = {
     ),
 };
 const listWinsOutput = z.object({ wins: z.array(winSchema), truncated: z.boolean() });
+
+function listSummary(count: number, truncated: boolean): string {
+  const returned = `Returned ${countNoun(count, WIN, WINS)}`;
+  return truncated ? `${returned}; more exist.` : `${returned}.`;
+}
 
 async function runListWins(
   ctx: McpToolContext,
@@ -212,7 +201,7 @@ async function runListWins(
   const { truncated } = listed.value;
   return ok({
     structured: { wins: wins.value, truncated },
-    summary: `Returned ${wins.value.length} wins${truncated ? "; more exist" : ""}`,
+    summary: listSummary(wins.value.length, truncated),
   });
 }
 
@@ -231,20 +220,12 @@ const listWinsTool = defineTool({
 // ── update_win ─────────────────────────────────────────────────────────────
 
 const updateWinInput = {
-  id: z.string().uuid().describe("The win's id."),
-  text: z.string().optional().describe(TEXT_DESCRIPTION),
-  impact_number: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(`${IMPACT_DESCRIPTION} null clears it.`),
-  tag: z.enum(WIN_TAGS).nullable().optional().describe(`${TAG_DESCRIPTION} null clears it.`),
-  occurred_at: z.string().optional().describe(`When the win happened. ${DATE_DESCRIPTION}`),
-  evidence_url: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(`${EVIDENCE_URL_DESCRIPTION} null clears it.`),
+  id: recordIdInput(WIN),
+  text: z.string().optional().describe(FIELD.text),
+  impact_number: z.string().nullable().optional().describe(`${FIELD.impactNumber} ${FIELD.clears}`),
+  tag: tagInput.nullable().optional().describe(`${FIELD.tag} ${FIELD.clears}`),
+  occurred_at: z.string().optional().describe(`${FIELD.occurredAt} ${MCP_DATE_FORMAT_NOTE}`),
+  evidence_url: z.string().nullable().optional().describe(`${FIELD.evidenceUrl} ${FIELD.clears}`),
 };
 const updateWinOutput = z.object({ win: winSchema });
 
@@ -261,19 +242,20 @@ async function runUpdateWin(
   if (!updated.ok) return updated;
   const win = toAgentWin(ctx, updated.value);
   if (!win.ok) return win;
-  return ok({ structured: { win: win.value }, summary: `Updated win ${win.value.id}` });
+  return ok({ structured: { win: win.value }, summary: `Updated win ${win.value.id}.` });
 }
 
 const updateWinTool = defineTool({
-  name: "update_win",
+  name: UPDATE_TOOL,
   title: "Update a win",
   description: [
     "Change fields of a win. Omitted fields keep their value.",
-    AGENT_ONLY_NOTE,
-    "Change data only when the user asked you to or confirmed what you propose.",
+    agentRowsOnlyNote(WINS),
+    updateNotFoundNote(WINS),
+    MCP_CONFIRM_BEFORE_WRITE,
   ].join(" "),
   scope: "wins:write",
-  annotations: EDIT_ANNOTATIONS,
+  annotations: UPDATE_ANNOTATIONS,
   inputSchema: updateWinInput,
   outputSchema: updateWinOutput,
   run: runUpdateWin,
@@ -281,20 +263,18 @@ const updateWinTool = defineTool({
 
 // ── delete_win ─────────────────────────────────────────────────────────────
 
-const deleteWinInput = { id: z.string().uuid().describe("The win's id.") };
-const deleteWinOutput = z.object({ deleted_id: z.string() });
+const deleteWinInput = { id: recordIdInput(WIN) };
 
 async function runDeleteWin(
   ctx: McpToolContext,
   input: ToolInput<typeof deleteWinInput>
-): Promise<DomainResult<ToolSuccess<z.infer<typeof deleteWinOutput>>>> {
+): Promise<DomainResult<ToolSuccess<DeleteOutput>>> {
   const deleted = await deleteWin(ctx.admin, ctx.userId, input.id, {
     onlySource: AGENT_SOURCE,
   });
-  if (!deleted.ok) return deleted;
-  return ok({
-    structured: { deleted_id: deleted.value.id },
-    summary: `Deleted win ${deleted.value.id}`,
+  return deletedOrMissing(deleted, input.id, {
+    deleted: `Deleted win ${input.id}.`,
+    missing: nothingToDeleteSummary(WIN),
   });
 }
 
@@ -303,13 +283,14 @@ const deleteWinTool = defineTool({
   title: "Delete a win",
   description: [
     "Permanently delete a win.",
-    AGENT_ONLY_NOTE,
-    "Delete only when the user asked you to or confirmed it.",
+    agentRowsOnlyNote(WINS),
+    deleteRetryNote(WIN),
+    MCP_CONFIRM_BEFORE_DELETE,
   ].join(" "),
   scope: "wins:write",
   annotations: DELETE_ANNOTATIONS,
   inputSchema: deleteWinInput,
-  outputSchema: deleteWinOutput,
+  outputSchema: deleteOutput,
   run: runDeleteWin,
 });
 
@@ -332,10 +313,9 @@ const coverageOutput = z.object({
 async function runGetCoverage(
   ctx: McpToolContext
 ): Promise<DomainResult<ToolSuccess<z.infer<typeof coverageOutput>>>> {
-  // Unbounded: coverage is over every win, not a page of them.
-  const listed = await listWins(ctx.admin, ctx.userId, { select: WIN_REST_SELECT });
-  if (!listed.ok) return listed;
-  const coverage = computeCoverage(listed.value.wins);
+  const counts = await countWinsByTag(ctx.admin, ctx.userId);
+  if (!counts.ok) return counts;
+  const coverage = coverageFromCounts(counts.value);
   return ok({
     structured: {
       overall_pct: coverage.overallPct,
@@ -344,14 +324,18 @@ async function runGetCoverage(
       total_wins: coverage.totalWins,
       untagged: coverage.untagged,
     },
-    summary: `Case coverage ${coverage.overallPct}%`,
+    summary: `Case coverage ${coverage.overallPct}%.`,
   });
 }
 
 const getCoverageTool = defineTool({
   name: "get_coverage",
   title: "Get case coverage",
-  description: `How well the user's wins cover the four impact areas (${WIN_TAGS.join(", ")}). Each area counts toward its share up to a target number of wins; biggest_gap is the area with the fewest wins while under target, or null when every area is covered.`,
+  description: [
+    `Get how well the user's wins cover the ${WIN_TAGS.length} impact areas (${WIN_TAGS.join(", ")}).`,
+    `Each area counts toward its share up to ${COVERAGE_TARGET_PER_AREA} wins; overall_pct is the average across areas.`,
+    "biggest_gap is the area with the fewest wins while under target, or null when every area is covered. untagged wins count toward no area.",
+  ].join(" "),
   scope: "wins:read",
   annotations: READ_ANNOTATIONS,
   inputSchema: {},

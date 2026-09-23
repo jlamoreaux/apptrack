@@ -15,10 +15,11 @@ import {
   AGENT_SOURCE,
   COMP_LIMITS,
   COMP_SOURCES,
+  VEST_YEARS_MIN_LABEL,
   type CompSource,
 } from "@/lib/constants/careerotter";
 import { AGENT_WRITE_QUOTAS } from "@/lib/constants/agent-access";
-import { MS_PER_DAY } from "@/lib/constants/dates";
+import { MONTHS_PER_YEAR, MS_PER_DAY } from "@/lib/constants/dates";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { isValidUUID } from "@/lib/utils/api-validation";
@@ -44,7 +45,6 @@ import {
 import type { DomainResult } from "@/types";
 
 const TICKER_PATTERN = /^[A-Z0-9][A-Z0-9.\-]*$/;
-const MONTHS_PER_YEAR = 12;
 
 const COMP_TABLE = "comp_entries";
 const EXTERNAL_REF_CONSTRAINT = "comp_entries_user_external_ref_key";
@@ -74,7 +74,7 @@ const MESSAGES = {
   noteNul: "note must not contain null characters",
   noteTooLong: `note must be ${COMP_LIMITS.noteMax} characters or fewer`,
   vestStart: "vest_start must be a valid YYYY-MM-DD date",
-  vestYears: `vest_years must be at least ${COMP_LIMITS.vestYearsMin} and at most ${COMP_LIMITS.vestYearsMax}`,
+  vestYears: `vest_years must be at least ${COMP_LIMITS.vestYearsMin} (${VEST_YEARS_MIN_LABEL}) and at most ${COMP_LIMITS.vestYearsMax}`,
   vestCliff: `vest_cliff_months must be a whole number between 0 and ${COMP_LIMITS.vestCliffMonthsMax}`,
   cliffNeedsVest: "vest_cliff_months requires vest_years",
   cliffTooLong: "vest_cliff_months cannot exceed the vesting duration",

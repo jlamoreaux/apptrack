@@ -11,13 +11,7 @@
  * functions so the tools are checked for parity with the comp page's math.
  */
 
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { COMP_TOOLS } from "@/lib/mcp/tools/comp";
-import { registerDefinedTools } from "@/lib/mcp/define-tool";
-import type { McpToolContext } from "@/lib/mcp/context";
 import {
   annualBreakdown,
   parseLocalDate,
@@ -34,47 +28,68 @@ import {
   updateCompEntry,
   type StoredCompEntry,
 } from "@/lib/careerotter/comp-service";
-import { loadQuotes, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { loadQuotes, normalizeTicker, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
 import { isProUser } from "@/lib/careerotter/plan";
 import { compDelta, lookupMarketRange, MARKET_DATA_SOURCE } from "@/lib/careerotter/market-data";
-import { MCP_COMP_MESSAGES, MCP_OFFER_NOT_MODELED } from "@/lib/constants/mcp-comp";
+import { MS_PER_DAY } from "@/lib/constants/dates";
+import {
+  MCP_COMP_MESSAGES,
+  MCP_OFFER_CURRENT_LABEL,
+  MCP_OFFER_NOT_MODELED,
+  MCP_QUOTE_STALE_AFTER_DAYS,
+} from "@/lib/constants/mcp-comp";
+import {
+  INVALID_ARGUMENTS,
+  TEST_ADMIN,
+  TEST_USER_ID,
+  call as callTool,
+  errorTextOf,
+  listTools,
+  recordsField,
+  structuredOf,
+  textOf,
+  toolNames,
+  type CallResult,
+  type McpHarness,
+} from "@/__tests__/utils/test-helpers/mcp-client";
+import type { McpMocks } from "@/__tests__/utils/test-helpers/mcp-mocks";
 import type { AgentTokenScope, DomainResult } from "@/types";
 
-jest.mock("@/lib/analytics/posthog-server", () => ({
-  captureServerEvent: jest.fn().mockResolvedValue(undefined),
+jest.mock("@/lib/analytics/posthog-server", () =>
+  jest.requireActual<McpMocks>("@/__tests__/utils/test-helpers/mcp-mocks").posthogServerMock()
+);
+jest.mock("@/lib/services/logger.service", () =>
+  jest.requireActual<McpMocks>("@/__tests__/utils/test-helpers/mcp-mocks").loggerServiceMock()
+);
+jest.mock("@/lib/careerotter/comp-service", () => ({
+  ...jest.requireActual<object>("@/lib/careerotter/comp-service"),
+  listCompEntries: jest.fn(),
+  createCompEntry: jest.fn(),
+  updateCompEntry: jest.fn(),
+  deleteCompEntry: jest.fn(),
 }));
-jest.mock("@/lib/services/logger.service", () => ({
-  loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
-}));
-jest.mock("@/lib/careerotter/comp-service", () => {
-  const actual = jest.requireActual("@/lib/careerotter/comp-service");
-  return {
-    ...actual,
-    listCompEntries: jest.fn(),
-    createCompEntry: jest.fn(),
-    updateCompEntry: jest.fn(),
-    deleteCompEntry: jest.fn(),
-  };
-});
 jest.mock("@/lib/careerotter/stock-price-cache", () => ({
+  ...jest.requireActual<object>("@/lib/careerotter/stock-price-cache"),
   loadQuotes: jest.fn(),
   readCachedQuotes: jest.fn(),
 }));
 jest.mock("@/lib/careerotter/plan", () => ({ isProUser: jest.fn() }));
 
-const mockList = listCompEntries as jest.MockedFunction<typeof listCompEntries>;
-const mockCreate = createCompEntry as jest.MockedFunction<typeof createCompEntry>;
-const mockUpdate = updateCompEntry as jest.MockedFunction<typeof updateCompEntry>;
-const mockDelete = deleteCompEntry as jest.MockedFunction<typeof deleteCompEntry>;
-const mockReadQuotes = readCachedQuotes as jest.MockedFunction<typeof readCachedQuotes>;
-const mockLoadQuotes = loadQuotes as jest.MockedFunction<typeof loadQuotes>;
-const mockIsPro = isProUser as jest.MockedFunction<typeof isProUser>;
+const mockList = jest.mocked(listCompEntries);
+const mockCreate = jest.mocked(createCompEntry);
+const mockUpdate = jest.mocked(updateCompEntry);
+const mockDelete = jest.mocked(deleteCompEntry);
+const mockReadQuotes = jest.mocked(readCachedQuotes);
+const mockLoadQuotes = jest.mocked(loadQuotes);
+const mockIsPro = jest.mocked(isProUser);
 const mockFetch = jest.fn();
 
-const USER_ID = "user-1";
-const ADMIN = {} as SupabaseClient;
 const NOW = new Date("2026-09-23T12:00:00Z");
+// Vesting is measured in local time at UTC's wall clock, so today's local
+// date is the UTC date in any server zone.
+const NOW_LOCAL = new Date(2026, 8, 23, 12);
 const TODAY = "2026-09-23";
+const HARNESS: McpHarness = { tools: COMP_TOOLS, scopes: ["comp:write"], now: NOW };
 const CURRENT_ID = "11111111-1111-4111-8111-111111111111";
 const UPCOMING_ID = "22222222-2222-4222-8222-222222222222";
 const FLAT_ID = "33333333-3333-4333-8333-333333333333";
@@ -142,7 +157,7 @@ const FLAT = stored({
 
 const ACME_QUOTE: StockQuote = {
   price: 300,
-  as_of: "2026-09-23T06:00:00+00:00",
+  as_of: "2026-09-23T06:00:00.000Z",
   change: 1.5,
   change_pct: 0.5,
   previous_close: 298.5,
@@ -152,52 +167,24 @@ const ACME_QUOTE: StockQuote = {
   logo_url: null,
 };
 
-function context(scopes: AgentTokenScope[]): McpToolContext {
-  return { admin: ADMIN, userId: USER_ID, tokenId: "token-1", scopes, now: NOW };
-}
-
-async function connect(scopes: AgentTokenScope[]): Promise<Client> {
-  const server = new McpServer({ name: "test", version: "0.0.0" });
-  registerDefinedTools(server, context(scopes), COMP_TOOLS);
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-  await server.connect(serverTransport);
-  const client = new Client({ name: "test-client", version: "0.0.0" });
-  await client.connect(clientTransport);
-  return client;
-}
-
-// Listing first makes the SDK client validate structuredContent against the
-// advertised output schema; a mismatch throws.
-async function call(
+function call(
   name: string,
   args: Record<string, unknown> = {},
-  scopes: AgentTokenScope[] = ["comp:write"]
-) {
-  const client = await connect(scopes);
-  await client.listTools();
-  const result = await client.callTool({ name, arguments: args });
-  await client.close();
-  return result;
+  scopes?: AgentTokenScope[]
+): Promise<CallResult> {
+  return callTool(HARNESS, name, args, scopes);
 }
 
 async function callOk(name: string, args: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-  const result = await call(name, args);
-  expect(result.isError).toBeFalsy();
-  expect(result.structuredContent).toBeDefined();
-  return result.structuredContent as Record<string, unknown>;
+  return structuredOf(await call(name, args));
 }
 
 async function callError(name: string, args: Record<string, unknown> = {}): Promise<string> {
-  const result = await call(name, args);
-  expect(result.isError).toBe(true);
-  expect(result.structuredContent).toBeUndefined();
-  const [block] = result.content as { type: string; text: string }[];
-  return block.text;
+  return errorTextOf(await call(name, args));
 }
 
-// Arguments outside the input schema are refused by the SDK before the
-// handler runs, or by define-tool's own re-parse.
-const INVALID_ARGUMENTS = /Input validation error|Invalid tool arguments/;
+const FRESH_QUOTE = { price_as_of: ACME_QUOTE.as_of, price_is_stale: false };
+const NO_QUOTE = { price_as_of: null, price_is_stale: false };
 
 function rows(years: ProjectionYear[]) {
   return years.map((row) => ({
@@ -222,7 +209,7 @@ function listReturns(entries: StoredCompEntry[]): void {
 function quotesReturn(quotes: Record<string, StockQuote>): void {
   mockReadQuotes.mockImplementation(async (_admin, tickers) => {
     const found: Record<string, StockQuote> = {};
-    for (const ticker of tickers) if (quotes[ticker]) found[ticker] = quotes[ticker];
+    for (const ticker of tickers.map(normalizeTicker)) if (quotes[ticker]) found[ticker] = quotes[ticker];
     return { ok: true, value: found };
   });
 }
@@ -245,46 +232,40 @@ afterEach(() => {
 // ── registration ───────────────────────────────────────────────────────────
 
 describe("scope gating", () => {
-  async function names(scopes: AgentTokenScope[]): Promise<string[]> {
-    const client = await connect(scopes);
-    const { tools } = await client.listTools();
-    await client.close();
-    return tools.map((tool) => tool.name).sort();
-  }
-
   it("gives comp:read only the read tools", async () => {
-    expect(await names(["comp:read"])).toEqual(READ_TOOL_NAMES);
+    expect(await toolNames(HARNESS, ["comp:read"])).toEqual(READ_TOOL_NAMES);
   });
 
   it("gives comp:write every comp tool", async () => {
-    expect(await names(["comp:write"])).toEqual([...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort());
+    expect(await toolNames(HARNESS, ["comp:write"])).toEqual([...READ_TOOL_NAMES, ...WRITE_TOOL_NAMES].sort());
   });
 
   it("gives no comp tool to tokens without a comp scope", async () => {
     // With no tool registered the server does not offer tools/list at all.
-    await expect(names(["wins:write", "career:read"])).rejects.toThrow(/Method not found/);
+    await expect(toolNames(HARNESS, ["wins:write", "career:read"])).rejects.toThrow(/Method not found/);
   });
 
-  it("marks reads read-only and delete destructive and idempotent", async () => {
-    const client = await connect(["comp:write"]);
-    const { tools } = await client.listTools();
-    await client.close();
+  it("marks reads read-only, updates non-idempotent and delete destructive and idempotent", async () => {
+    const tools = await listTools(HARNESS, ["comp:write"]);
     const byName = new Map(tools.map((tool) => [tool.name, tool.annotations]));
     for (const name of READ_TOOL_NAMES) expect(byName.get(name)?.readOnlyHint).toBe(true);
     expect(byName.get("delete_comp_entry")).toMatchObject({ destructiveHint: true, idempotentHint: true });
-    expect(byName.get("add_comp_entry")?.readOnlyHint).toBe(false);
+    expect(byName.get("add_comp_entry")).toMatchObject({ readOnlyHint: false, idempotentHint: false });
+    expect(byName.get("update_comp_entry")).toMatchObject({ readOnlyHint: false, idempotentHint: false });
   });
 
-  it("states the currency, equity and UTC rules in the descriptions", async () => {
-    const client = await connect(["comp:write"]);
-    const { tools } = await client.listTools();
-    await client.close();
+  it("states the currency, equity, UTC and confirmation rules in the descriptions", async () => {
+    const tools = await listTools(HARNESS, ["comp:write"]);
     const describe = (name: string): string => tools.find((tool) => tool.name === name)?.description ?? "";
     expect(describe("add_comp_entry")).toMatch(/USD/);
     expect(describe("add_comp_entry")).toMatch(/total grant value/);
     expect(describe("update_comp_entry")).toMatch(/agent created/);
     expect(describe("delete_comp_entry")).toMatch(/agent created/);
+    for (const name of ["add_comp_entry", "update_comp_entry"]) expect(describe(name)).toMatch(/confirmed/);
+    expect(describe("delete_comp_entry")).toMatch(/Delete only when the user asked/);
+    expect(describe("add_comp_entry")).toMatch(/returned unchanged/);
     expect(describe("project_comp")).toMatch(/UTC/);
+    expect(describe("project_comp")).toMatch(/price_is_stale/);
     expect(describe("evaluate_offer")).toMatch(/as_of/);
   });
 });
@@ -293,9 +274,10 @@ describe("scope gating", () => {
 
 describe("list_comp_entries", () => {
   it("returns every entry with provenance and timestamps", async () => {
-    const out = await callOk("list_comp_entries");
-    expect(mockList).toHaveBeenCalledWith(ADMIN, USER_ID);
-    expect(out.entries).toEqual([FLAT, CURRENT, UPCOMING]);
+    const result = await call("list_comp_entries");
+    expect(mockList).toHaveBeenCalledWith(TEST_ADMIN, TEST_USER_ID);
+    expect(structuredOf(result).entries).toEqual([FLAT, CURRENT, UPCOMING]);
+    expect(textOf(result)).toBe("Returned 3 comp entries.");
   });
 
   it("reports a load failure as an error", async () => {
@@ -310,13 +292,14 @@ describe("get_comp_summary", () => {
   it("summarizes the current entry at the cached quote, today in UTC", async () => {
     const out = await callOk("get_comp_summary");
     const breakdown = annualBreakdown(CURRENT, 300);
-    const vest = vestSummary(CURRENT, 300, NOW);
+    const vest = vestSummary(CURRENT, 300, NOW_LOCAL);
     expect(out).toEqual({
       as_of: TODAY,
       current: {
         entry: CURRENT,
         share_price: 300,
         price_source: "quote",
+        ...FRESH_QUOTE,
         annual: {
           salary: breakdown.salary,
           incentives: breakdown.incentives,
@@ -337,19 +320,32 @@ describe("get_comp_summary", () => {
       },
       upcoming: UPCOMING,
     });
-    expect(mockReadQuotes).toHaveBeenCalledWith(ADMIN, ["ACME"]);
+    expect(mockReadQuotes).toHaveBeenCalledWith(TEST_ADMIN, ["ACME"]);
+  });
+
+  it("flags a quote older than the staleness threshold", async () => {
+    const staleAsOf = new Date(NOW.getTime() - (MCP_QUOTE_STALE_AFTER_DAYS + 1) * MS_PER_DAY).toISOString();
+    quotesReturn({ ACME: { ...ACME_QUOTE, as_of: staleAsOf } });
+    const out = await callOk("get_comp_summary");
+    expect(out.current).toMatchObject({ price_source: "quote", price_as_of: staleAsOf, price_is_stale: true });
+  });
+
+  it("finds the quote for a ticker stored in another case", async () => {
+    listReturns([{ ...CURRENT, ticker: " acme " }]);
+    const out = await callOk("get_comp_summary");
+    expect(out.current).toMatchObject({ share_price: 300, price_source: "quote", ...FRESH_QUOTE });
   });
 
   it("falls back to the implied price when no quote is cached", async () => {
     quotesReturn({});
     const out = await callOk("get_comp_summary");
-    expect(out.current).toMatchObject({ share_price: 200, price_source: "implied" });
+    expect(out.current).toMatchObject({ share_price: 200, price_source: "implied", ...NO_QUOTE });
   });
 
   it("reports no price for an entry without shares", async () => {
     listReturns([FLAT]);
     const out = await callOk("get_comp_summary");
-    expect(out.current).toMatchObject({ share_price: null, price_source: "none", vest: null });
+    expect(out.current).toMatchObject({ share_price: null, price_source: "none", ...NO_QUOTE, vest: null });
   });
 
   it("returns current: null, not an error, before any entry is in effect", async () => {
@@ -357,8 +353,8 @@ describe("get_comp_summary", () => {
     expect(out).toEqual({ as_of: "2022-06-01", current: null, upcoming: FLAT });
   });
 
-  it("rejects an impossible as_of", async () => {
-    expect(await callError("get_comp_summary", { as_of: "2026-02-30" })).toMatch(INVALID_ARGUMENTS);
+  it.each(["2026-02-30", "1969-12-31"])("rejects as_of %s", async (asOf) => {
+    expect(await callError("get_comp_summary", { as_of: asOf })).toMatch(INVALID_ARGUMENTS);
   });
 });
 
@@ -367,17 +363,18 @@ describe("get_comp_summary", () => {
 describe("project_comp", () => {
   it("matches projectComp for the current entry at the anchor price over 4 years", async () => {
     const years = [2026, 2027, 2028, 2029];
-    const expected = projectComp(CURRENT, { sharePrice: 300, years, asOf: NOW });
+    const expected = projectComp(CURRENT, { sharePrice: 300, years, asOf: NOW_LOCAL });
     const out = await callOk("project_comp");
     expect(out).toEqual({
       entry_id: CURRENT_ID,
       as_of: TODAY,
       share_price: 300,
       price_source: "quote",
+      ...FRESH_QUOTE,
       has_vest_schedule: true,
       grant_value: expected.grantValue,
       rows: rows(expected.years),
-      total: projectedTotal(CURRENT, 300, years, NOW),
+      total: projectedTotal(CURRENT, 300, years, NOW_LOCAL),
     });
   });
 
@@ -385,13 +382,13 @@ describe("project_comp", () => {
     const asOf = parseLocalDate("2025-06-30");
     const expected = projectComp(CURRENT, { sharePrice: 250, years: [2025, 2026], asOf });
     const out = await callOk("project_comp", { as_of: "2025-06-30", years: 2, share_price: 250 });
-    expect(out).toMatchObject({ as_of: "2025-06-30", share_price: 250, price_source: "given" });
+    expect(out).toMatchObject({ as_of: "2025-06-30", share_price: 250, price_source: "given", ...NO_QUOTE });
     expect(out.rows).toEqual(rows(expected.years));
   });
 
   it("projects a named entry", async () => {
     const out = await callOk("project_comp", { entry_id: FLAT_ID, years: 1 });
-    expect(out.rows).toEqual(rows(projectComp(FLAT, { sharePrice: null, years: [2026], asOf: NOW }).years));
+    expect(out.rows).toEqual(rows(projectComp(FLAT, { sharePrice: null, years: [2026], asOf: NOW_LOCAL }).years));
     expect(out).toMatchObject({ price_source: "none", has_vest_schedule: false });
   });
 
@@ -430,7 +427,7 @@ describe("project_comp", () => {
 describe("get_equity_quotes", () => {
   it("returns cached quotes with ISO timestamps and lists missing tickers", async () => {
     const out = await callOk("get_equity_quotes");
-    expect(mockReadQuotes).toHaveBeenCalledWith(ADMIN, ["ACME", "BETA"]);
+    expect(mockReadQuotes).toHaveBeenCalledWith(TEST_ADMIN, ["ACME", "BETA"]);
     expect(out).toEqual({
       quotes: [
         {
@@ -449,8 +446,8 @@ describe("get_equity_quotes", () => {
     });
   });
 
-  it("lists a quote with an unreadable timestamp as missing", async () => {
-    quotesReturn({ ACME: { ...ACME_QUOTE, as_of: "yesterday-ish" } });
+  it("lists a ticker the cache dropped (unusable price or time) as missing", async () => {
+    quotesReturn({});
     const out = await callOk("get_equity_quotes");
     expect(out).toEqual({ quotes: [], missing: ["ACME", "BETA"] });
   });
@@ -488,6 +485,7 @@ describe("get_market_benchmark", () => {
       range: null,
       reason: MCP_COMP_MESSAGES.noMarketData,
       current_total: null,
+      ...NO_QUOTE,
       delta: null,
     });
   });
@@ -501,6 +499,7 @@ describe("get_market_benchmark", () => {
       range: { label: range.label, low: range.low, mid: range.mid, high: range.high, currency: "USD" },
       reason: null,
       current_total: total,
+      ...FRESH_QUOTE,
       delta: compDelta(total, range),
     });
   });
@@ -508,7 +507,7 @@ describe("get_market_benchmark", () => {
   it("returns delta: null when no entry is in effect", async () => {
     listReturns([]);
     const out = await callOk("get_market_benchmark", { role_family: "data", level: "senior" });
-    expect(out).toMatchObject({ current_total: null, delta: null });
+    expect(out).toMatchObject({ current_total: null, delta: null, ...NO_QUOTE });
     expect(out.range).not.toBeNull();
   });
 
@@ -552,25 +551,28 @@ describe("evaluate_offer", () => {
 
   it("compares each share-price scenario with the current package", async () => {
     const out = await callOk("evaluate_offer", { packages: [{ ...OFFER, share_prices: [10, 50, 120] }] });
-    const baselineTotal = projectedTotal(CURRENT, 300, FOUR_YEARS, NOW);
+    const baselineTotal = projectedTotal(CURRENT, 300, FOUR_YEARS, NOW_LOCAL);
     expect(out.baseline).toMatchObject({
       kind: "current",
-      label: "Current package",
+      label: MCP_OFFER_CURRENT_LABEL,
       entry_id: CURRENT_ID,
       share_price: 300,
       price_source: "quote",
+      ...FRESH_QUOTE,
       total: baselineTotal,
     });
-    const [pkg] = out.packages as { label: string; scenarios: Record<string, unknown>[] }[];
+    const [pkg] = recordsField(out, "packages");
     expect(pkg.label).toBe("Package A");
-    expect(pkg.scenarios).toHaveLength(3);
+    const scenarios = recordsField(pkg, "scenarios");
+    expect(scenarios).toHaveLength(3);
     [10, 50, 120].forEach((price, index) => {
       const entry = offerEntry(TODAY);
-      const total = projectedTotal(entry, price, FOUR_YEARS, NOW);
-      expect(pkg.scenarios[index]).toEqual({
+      const total = projectedTotal(entry, price, FOUR_YEARS, NOW_LOCAL);
+      expect(scenarios[index]).toEqual({
         share_price: price,
         price_source: "given",
-        rows: rows(projectComp(entry, { sharePrice: price, years: FOUR_YEARS, asOf: NOW }).years),
+        ...NO_QUOTE,
+        rows: rows(projectComp(entry, { sharePrice: price, years: FOUR_YEARS, asOf: NOW_LOCAL }).years),
         total,
         delta: total - baselineTotal,
       });
@@ -587,7 +589,7 @@ describe("evaluate_offer", () => {
         { label: "Big co", base: 230_000, equity: 100_000, share_prices: [] },
       ],
     });
-    const aTotal = projectedTotal(offerEntry(TODAY), 40, FOUR_YEARS, NOW);
+    const aTotal = projectedTotal(offerEntry(TODAY), 40, FOUR_YEARS, NOW_LOCAL);
     const bEntry = offerEntry(TODAY, {
       base: 230_000,
       bonus: 0,
@@ -597,15 +599,17 @@ describe("evaluate_offer", () => {
       vest_years: null,
       vest_cliff_months: null,
     });
-    const bTotal = projectedTotal(bEntry, null, FOUR_YEARS, NOW);
+    const bTotal = projectedTotal(bEntry, null, FOUR_YEARS, NOW_LOCAL);
     expect(out.baseline).toMatchObject({ kind: "package", label: "Package A", entry_id: null, share_price: 40, total: aTotal });
-    const [a, b] = out.packages as { label: string; scenarios: { total: number; delta: number; price_source: string }[] }[];
-    expect(a.scenarios.map((scenario) => scenario.delta)).toEqual([
+    const [a, b] = recordsField(out, "packages");
+    expect(recordsField(a, "scenarios").map((scenario) => scenario.delta)).toEqual([
       0,
-      projectedTotal(offerEntry(TODAY), 80, FOUR_YEARS, NOW) - aTotal,
+      projectedTotal(offerEntry(TODAY), 80, FOUR_YEARS, NOW_LOCAL) - aTotal,
     ]);
     expect(b.label).toBe("Big co");
-    expect(b.scenarios).toEqual([expect.objectContaining({ share_price: null, price_source: "none", total: bTotal, delta: bTotal - aTotal })]);
+    expect(recordsField(b, "scenarios")).toEqual([
+      expect.objectContaining({ share_price: null, price_source: "none", total: bTotal, delta: bTotal - aTotal }),
+    ]);
   });
 
   it("never reads comp entries when compare_to_current is false", async () => {
@@ -617,8 +621,10 @@ describe("evaluate_offer", () => {
   it("anchors a package without share prices on its cached quote", async () => {
     quotesReturn({ ACME: ACME_QUOTE, NEWCO: { ...ACME_QUOTE, price: 25 } });
     const out = await callOk("evaluate_offer", { packages: [OFFER] });
-    const [pkg] = out.packages as { scenarios: { share_price: number; price_source: string }[] }[];
-    expect(pkg.scenarios).toEqual([expect.objectContaining({ share_price: 25, price_source: "quote" })]);
+    const [pkg] = recordsField(out, "packages");
+    expect(recordsField(pkg, "scenarios")).toEqual([
+      expect.objectContaining({ share_price: 25, price_source: "quote", ...FRESH_QUOTE }),
+    ]);
   });
 
   it("pins the years and vest start to as_of", async () => {
@@ -626,8 +632,8 @@ describe("evaluate_offer", () => {
     const out = await callOk("evaluate_offer", { packages: [{ ...OFFER, share_prices: [30] }], as_of: asOf, years: 2 });
     expect(out.years).toEqual([2025, 2026]);
     const expected = projectComp(offerEntry(asOf), { sharePrice: 30, years: [2025, 2026], asOf: parseLocalDate(asOf) });
-    const [pkg] = out.packages as { scenarios: { rows: unknown }[] }[];
-    expect(pkg.scenarios[0].rows).toEqual(rows(expected.years));
+    const [pkg] = recordsField(out, "packages");
+    expect(recordsField(pkg, "scenarios")[0].rows).toEqual(rows(expected.years));
     expect(out.baseline).toMatchObject({ total: projectedTotal(CURRENT, 300, [2025, 2026], parseLocalDate(asOf)) });
   });
 
@@ -639,6 +645,19 @@ describe("evaluate_offer", () => {
   it("refuses share prices for a package without shares", async () => {
     const text = await callError("evaluate_offer", { packages: [{ base: 100_000, share_prices: [10] }] });
     expect(text).toBe(`Package A: ${MCP_COMP_MESSAGES.scenariosNeedShares}`);
+  });
+
+  it.each([
+    [[{ label: "Offer", base: 1 }, { label: "offer ", base: 2 }]],
+    [[{ base: 1 }, { label: "Package A", base: 2 }]],
+  ])("refuses two packages with the same label %#", async (packages) => {
+    expect(await callError("evaluate_offer", { packages })).toBe(MCP_COMP_MESSAGES.duplicateLabel);
+  });
+
+  it("refuses the label reserved for the current package", async () => {
+    const packages = [{ label: MCP_OFFER_CURRENT_LABEL.toUpperCase(), base: 1 }];
+    expect(await callError("evaluate_offer", { packages })).toBe(MCP_COMP_MESSAGES.reservedLabel);
+    expect(mockList).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -660,14 +679,18 @@ describe("add_comp_entry", () => {
 
   it("creates with the agent source and returns the entry", async () => {
     mockCreate.mockResolvedValue({ ok: true, value: { entry: UPCOMING, duplicate: false } });
-    const out = await callOk("add_comp_entry", INPUT);
-    expect(mockCreate).toHaveBeenCalledWith(ADMIN, USER_ID, INPUT, { source: "agent" });
-    expect(out).toEqual({ entry: UPCOMING, duplicate: false });
+    const result = await call("add_comp_entry", INPUT);
+    expect(mockCreate).toHaveBeenCalledWith(TEST_ADMIN, TEST_USER_ID, INPUT, { source: "agent" });
+    expect(structuredOf(result)).toEqual({ entry: UPCOMING, duplicate: false });
+    expect(textOf(result)).toBe(`Added comp entry ${UPCOMING_ID} effective ${UPCOMING.effective_date}.`);
   });
 
-  it("returns duplicate: true for a repeated external_ref", async () => {
+  it("says a duplicate was returned unchanged and points at update_comp_entry", async () => {
     mockCreate.mockResolvedValue({ ok: true, value: { entry: UPCOMING, duplicate: true } });
-    expect(await callOk("add_comp_entry", INPUT)).toMatchObject({ duplicate: true });
+    const result = await call("add_comp_entry", INPUT);
+    expect(structuredOf(result)).toMatchObject({ duplicate: true });
+    expect(textOf(result)).toMatch(/returned unchanged and the new values were not applied/);
+    expect(textOf(result)).toMatch(/update_comp_entry/);
   });
 
   it("passes service validation failures through", async () => {
@@ -688,7 +711,13 @@ describe("update_comp_entry", () => {
   it("updates agent rows only, passing nulls through to clear fields", async () => {
     mockUpdate.mockResolvedValue({ ok: true, value: UPCOMING });
     const out = await callOk("update_comp_entry", { id: UPCOMING_ID, bonus: null, note: "Signed" });
-    expect(mockUpdate).toHaveBeenCalledWith(ADMIN, USER_ID, UPCOMING_ID, { bonus: null, note: "Signed" }, { onlySource: "agent" });
+    expect(mockUpdate).toHaveBeenCalledWith(
+      TEST_ADMIN,
+      TEST_USER_ID,
+      UPCOMING_ID,
+      { bonus: null, note: "Signed" },
+      { onlySource: "agent" }
+    );
     expect(out).toEqual({ entry: UPCOMING });
   });
 
@@ -704,16 +733,34 @@ describe("update_comp_entry", () => {
 });
 
 describe("delete_comp_entry", () => {
+  const NOTHING_TO_DELETE = "Nothing to delete: no agent-created comp entry with that id.";
+
   it("deletes agent rows only", async () => {
     mockDelete.mockResolvedValue({ ok: true, value: { id: UPCOMING_ID } });
-    const out = await callOk("delete_comp_entry", { id: UPCOMING_ID });
-    expect(mockDelete).toHaveBeenCalledWith(ADMIN, USER_ID, UPCOMING_ID, { onlySource: "agent" });
-    expect(out).toEqual({ id: UPCOMING_ID });
+    const result = await call("delete_comp_entry", { id: UPCOMING_ID });
+    expect(mockDelete).toHaveBeenCalledWith(TEST_ADMIN, TEST_USER_ID, UPCOMING_ID, { onlySource: "agent" });
+    expect(structuredOf(result)).toEqual({ deleted_id: UPCOMING_ID, deleted: true });
+    expect(textOf(result)).toBe(`Deleted comp entry ${UPCOMING_ID}.`);
   });
 
-  it("reports a manual or unknown row as not found", async () => {
+  it("succeeds with deleted: false for a manual or unknown row", async () => {
     mockDelete.mockResolvedValue({ ok: false, kind: "not_found", message: "Comp entry not found" });
-    expect(await callError("delete_comp_entry", { id: CURRENT_ID })).toBe("Comp entry not found");
+    const result = await call("delete_comp_entry", { id: CURRENT_ID });
+    expect(structuredOf(result)).toEqual({ deleted_id: CURRENT_ID, deleted: false });
+    expect(textOf(result)).toBe(NOTHING_TO_DELETE);
+  });
+
+  it("treats a retry after a successful delete as a no-op success", async () => {
+    mockDelete
+      .mockResolvedValueOnce({ ok: true, value: { id: UPCOMING_ID } })
+      .mockResolvedValueOnce({ ok: false, kind: "not_found", message: "Comp entry not found" });
+    expect(await callOk("delete_comp_entry", { id: UPCOMING_ID })).toEqual({ deleted_id: UPCOMING_ID, deleted: true });
+    expect(await callOk("delete_comp_entry", { id: UPCOMING_ID })).toEqual({ deleted_id: UPCOMING_ID, deleted: false });
+  });
+
+  it("still reports a database failure as an error", async () => {
+    mockDelete.mockResolvedValue({ ok: false, kind: "db", message: "Failed to delete comp entry" });
+    expect(await callError("delete_comp_entry", { id: UPCOMING_ID })).toBe("Failed to delete comp entry");
   });
 
   it("is not available to a comp:read token", async () => {

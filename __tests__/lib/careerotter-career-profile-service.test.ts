@@ -65,6 +65,15 @@ describe("getCareerProfileContext", () => {
     expect(await getCareerProfileContext(admin.client, USER_ID)).toEqual(FAILED);
   });
 
+  it.each(["role", "level", "time_in_role", "target", "review_date"])(
+    "treats a non-string, non-null %s as a failure",
+    async (field) => {
+      const admin = mockSupabaseAdmin([{ data: { ...ROW, [field]: 42 } }]);
+      expect(await getCareerProfileContext(admin.client, USER_ID)).toEqual(FAILED);
+      expect(loggerService.error).toHaveBeenCalled();
+    }
+  );
+
   it("never throws", async () => {
     const admin = throwingSupabaseAdmin(SECRET_DB_TEXT);
     const result = await getCareerProfileContext(admin.client, USER_ID);

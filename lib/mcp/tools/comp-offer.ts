@@ -19,52 +19,62 @@ import {
 } from "@/lib/careerotter/comp-service";
 import { invalid, ok } from "@/lib/careerotter/domain-result";
 import {
+  MCP_COMP_CURRENCY,
+  MCP_COMP_DESCRIPTION_NOTES as NOTES,
+  MCP_COMP_FIELD_DESCRIPTIONS as FIELD,
   MCP_COMP_MESSAGES,
   MCP_EVALUATE_OFFER,
   MCP_OFFER_CURRENT_LABEL,
+  MCP_OFFER_ENTRY_ID_PREFIX,
   MCP_OFFER_NOT_MODELED,
   MCP_OFFER_PACKAGE_LABELS,
-  type McpPriceSource,
 } from "@/lib/constants/mcp-comp";
-import { defineTool, type DefinedTool } from "@/lib/mcp/define-tool";
+import { countNoun } from "@/lib/constants/mcp-tools";
+import { READ_ANNOTATIONS } from "@/lib/mcp/annotations";
+import {
+  defineTool,
+  type DefinedTool,
+  type ToolInput,
+  type ToolSuccess,
+} from "@/lib/mcp/define-tool";
 import type { McpToolContext } from "@/lib/mcp/context";
+import { asOfInput, resolveAsOf, type ResolvedAsOf } from "@/lib/mcp/tool-inputs";
 import type { DomainResult } from "@/types";
 import {
-  COMP_DESCRIPTION_NOTES as NOTES,
-  COMP_READ_ANNOTATIONS,
+  amountInput,
   anchorFor,
-  asOfInput,
   finiteNumber,
+  givenPrice,
   loadCachedQuotes,
   loadEntries,
+  priceFreshness,
+  priceFreshnessOutput,
   priceSourceOutput,
   projectionRowOutput,
   projectionYears,
   projectionYearsInput,
-  resolveAsOf,
   sharePriceInput,
   sumTotals,
   toRowOutput,
-  type ResolvedAsOf,
+  type PricePoint,
 } from "./comp-shared";
 
-const OFFER_CURRENCY = "USD";
-const OFFER_ENTRY_ID_PREFIX = "offer-package-";
-
-const amountInput = z.number().finite().nonnegative();
-
 const packageInput = z.object({
-  label: z.string().trim().min(1).max(MCP_EVALUATE_OFFER.labelMax).optional(),
-  base: amountInput.describe("Annual base salary, USD."),
-  bonus: amountInput.optional().describe("Annual bonus, USD."),
-  equity: amountInput
+  label: z
+    .string()
+    .trim()
+    .min(1)
+    .max(MCP_EVALUATE_OFFER.labelMax)
     .optional()
-    .describe("Total grant value when vest_years is set; annual equity when it is not. USD."),
-  ticker: z.string().optional(),
-  shares: z.number().finite().nonnegative().optional().describe("Total shares in the grant."),
-  vest_start: z.string().optional().describe("YYYY-MM-DD. Defaults to as_of."),
-  vest_years: z.number().finite().optional(),
-  vest_cliff_months: z.number().int().optional(),
+    .describe(FIELD.offer_label),
+  base: amountInput.describe(FIELD.base),
+  bonus: amountInput.optional().describe(FIELD.bonus),
+  equity: amountInput.optional().describe(FIELD.equity),
+  ticker: z.string().optional().describe(FIELD.ticker),
+  shares: amountInput.optional().describe(FIELD.shares),
+  vest_start: z.string().optional().describe(FIELD.offer_vest_start),
+  vest_years: z.number().finite().optional().describe(FIELD.vest_years),
+  vest_cliff_months: z.number().int().optional().describe(FIELD.vest_cliff_months),
   share_prices: z
     .array(sharePriceInput)
     .max(MCP_EVALUATE_OFFER.maxScenariosPerPackage)
@@ -75,9 +85,23 @@ const packageInput = z.object({
 });
 type PackageInput = z.infer<typeof packageInput>;
 
+const offerInput = {
+  packages: z
+    .array(packageInput)
+    .min(MCP_EVALUATE_OFFER.minPackages)
+    .max(MCP_EVALUATE_OFFER.maxPackages),
+  years: projectionYearsInput,
+  compare_to_current: z
+    .boolean()
+    .default(true)
+    .describe("Compare with the package in effect on as_of. Default true."),
+  as_of: asOfInput,
+};
+
 const scenarioOutput = z.object({
   share_price: finiteNumber.nullable(),
   price_source: priceSourceOutput,
+  ...priceFreshnessOutput,
   rows: z.array(projectionRowOutput),
   total: finiteNumber,
 });
@@ -108,14 +132,10 @@ interface OfferPackage {
   sharePrices: readonly number[];
 }
 
-interface PricePoint {
-  price: number | null;
-  source: McpPriceSource;
-}
-
 interface Projector {
   years: number[];
   asOf: ResolvedAsOf;
+  now: Date;
   quotes: Readonly<Record<string, StockQuote>>;
 }
 
@@ -126,25 +146,38 @@ function toOfferPackage(
   index: number,
   asOf: ResolvedAsOf
 ): DomainResult<OfferPackage> {
-  const label = input.label ?? MCP_OFFER_PACKAGE_LABELS[index] ?? `Package ${index + 1}`;
+  const label = input.label ?? MCP_OFFER_PACKAGE_LABELS[index];
+  // The comp service ignores label and share_prices; the rest are entry fields.
   const valid = validateCompInput({
+    ...input,
     effective_date: asOf.date,
-    base: input.base,
-    bonus: input.bonus,
-    equity: input.equity,
-    ticker: input.ticker,
-    shares: input.shares,
     vest_start: input.vest_start ?? asOf.date,
-    vest_years: input.vest_years,
-    vest_cliff_months: input.vest_cliff_months,
   });
   if (!valid.ok) return invalid(`${label}: ${valid.message}`);
-  const entry: CompEntry = { ...valid.value, id: `${OFFER_ENTRY_ID_PREFIX}${index}`, currency: OFFER_CURRENCY };
+  const entry: CompEntry = {
+    ...valid.value,
+    id: `${MCP_OFFER_ENTRY_ID_PREFIX}${index}`,
+    currency: MCP_COMP_CURRENCY,
+  };
   const sharePrices = input.share_prices ?? [];
   if (sharePrices.length > 0 && !hasShares(entry)) {
     return invalid(`${label}: ${MCP_COMP_MESSAGES.scenariosNeedShares}`);
   }
   return ok({ label, entry, sharePrices });
+}
+
+// Labels identify packages in the result, so they must be told apart from
+// each other and from the current-package baseline.
+function checkLabels(packages: readonly OfferPackage[]): DomainResult<null> {
+  const reserved = MCP_OFFER_CURRENT_LABEL.toLowerCase();
+  const seen = new Set<string>();
+  for (const { label } of packages) {
+    const key = label.toLowerCase();
+    if (key === reserved) return invalid(MCP_COMP_MESSAGES.reservedLabel);
+    if (seen.has(key)) return invalid(MCP_COMP_MESSAGES.duplicateLabel);
+    seen.add(key);
+  }
+  return ok(null);
 }
 
 function toOfferPackages(
@@ -157,14 +190,15 @@ function toOfferPackages(
     if (!built.ok) return built;
     packages.push(built.value);
   }
-  return ok(packages);
+  const labels = checkLabels(packages);
+  return labels.ok ? ok(packages) : labels;
 }
 
 // ── projection ─────────────────────────────────────────────────────────────
 
 function pricePoints(pkg: OfferPackage, projector: Projector): PricePoint[] {
   if (pkg.sharePrices.length === 0) return [anchorFor(pkg.entry, projector.quotes)];
-  return pkg.sharePrices.map((price) => ({ price, source: "given" }));
+  return pkg.sharePrices.map(givenPrice);
 }
 
 function projectScenario(entry: CompEntry, point: PricePoint, projector: Projector): ScenarioOutput {
@@ -176,6 +210,7 @@ function projectScenario(entry: CompEntry, point: PricePoint, projector: Project
   return {
     share_price: point.price,
     price_source: point.source,
+    ...priceFreshness(projector.now, point),
     rows: projection.years.map(toRowOutput),
     total: sumTotals(projection.years),
   };
@@ -220,57 +255,83 @@ async function loadCurrent(
   return ok(currentCompEntry(entries.value, asOf.date).current);
 }
 
+async function buildProjector(
+  ctx: McpToolContext,
+  current: StoredCompEntry | null,
+  packages: readonly OfferPackage[],
+  input: { asOf: ResolvedAsOf; years: number }
+): Promise<DomainResult<Projector>> {
+  const tickers = [current?.ticker ?? null, ...packages.map((pkg) => pkg.entry.ticker)];
+  const quotes = await loadCachedQuotes(ctx, tickers);
+  if (!quotes.ok) return quotes;
+  const years = projectionYears(input.asOf.year, input.years);
+  return ok({ years, asOf: input.asOf, now: ctx.now, quotes: quotes.value });
+}
+
+function evaluate(
+  current: StoredCompEntry | null,
+  packages: readonly OfferPackage[],
+  projector: Projector
+): OfferOutput {
+  const baseline = current
+    ? currentBaseline(current, projector)
+    : packageBaseline(packages[0], projector);
+  return {
+    as_of: projector.asOf.date,
+    years: projector.years,
+    baseline,
+    packages: comparePackages(packages, baseline, projector),
+    not_modeled: [...MCP_OFFER_NOT_MODELED],
+  };
+}
+
 function offerSummary(output: OfferOutput): string {
   const scenarios = output.packages.reduce((count, pkg) => count + pkg.scenarios.length, 0);
-  return `Evaluated ${output.packages.length} package(s), ${scenarios} scenario(s), over ${output.years.length} year(s) against ${output.baseline.label}. Not modeled: ${output.not_modeled.join(", ")}.`;
+  return [
+    `Evaluated ${countNoun(output.packages.length, "package", "packages")},`,
+    `${countNoun(scenarios, "scenario", "scenarios")}, over`,
+    `${countNoun(output.years.length, "year", "years")} against ${output.baseline.label}.`,
+    `Not modeled: ${output.not_modeled.join(", ")}.`,
+  ].join(" ");
+}
+
+async function runEvaluateOffer(
+  ctx: McpToolContext,
+  input: ToolInput<typeof offerInput>
+): Promise<DomainResult<ToolSuccess<OfferOutput>>> {
+  const asOf = resolveAsOf(ctx, input.as_of);
+  const packages = toOfferPackages(input.packages, asOf);
+  if (!packages.ok) return packages;
+  const current = await loadCurrent(ctx, input.compare_to_current, asOf);
+  if (!current.ok) return current;
+  const projector = await buildProjector(ctx, current.value, packages.value, {
+    asOf,
+    years: input.years,
+  });
+  if (!projector.ok) return projector;
+  const structured = evaluate(current.value, packages.value, projector.value);
+  return ok({ structured, summary: offerSummary(structured) });
 }
 
 const evaluateOfferTool = defineTool({
   name: "evaluate_offer",
   title: "Evaluate offer",
   description: [
-    `Evaluates ${MCP_EVALUATE_OFFER.minPackages}-${MCP_EVALUATE_OFFER.maxPackages} hypothetical packages without saving anything, using the comp page's vesting math.`,
+    `Evaluate ${MCP_EVALUATE_OFFER.minPackages}-${MCP_EVALUATE_OFFER.maxPackages} hypothetical packages without saving anything, using the comp page's vesting math.`,
     `Each package can list up to ${MCP_EVALUATE_OFFER.maxScenariosPerPackage} share prices; each becomes a scenario with year-by-year rows and a total over the projected years (starting with the as_of year). vest_start defaults to as_of.`,
+    `Package labels must differ from each other and from "${MCP_OFFER_CURRENT_LABEL}".`,
     "Each scenario's delta is its total minus the baseline total. The baseline is the user's current package at its cached-quote or implied price when compare_to_current is true and one is in effect, else the first package's first scenario.",
     `Not modeled: ${MCP_OFFER_NOT_MODELED.join(", ")}.`,
     NOTES.amounts,
     NOTES.equity,
+    NOTES.priceFreshness,
     NOTES.utc,
   ].join(" "),
   scope: "comp:read",
-  annotations: COMP_READ_ANNOTATIONS,
-  inputSchema: {
-    packages: z.array(packageInput).min(MCP_EVALUATE_OFFER.minPackages).max(MCP_EVALUATE_OFFER.maxPackages),
-    years: projectionYearsInput,
-    compare_to_current: z
-      .boolean()
-      .default(true)
-      .describe("Compare with the package in effect on as_of. Default true."),
-    as_of: asOfInput,
-  },
+  annotations: READ_ANNOTATIONS,
+  inputSchema: offerInput,
   outputSchema: offerOutput,
-  run: async (ctx, input) => {
-    const asOf = resolveAsOf(ctx, input.as_of);
-    const packages = toOfferPackages(input.packages, asOf);
-    if (!packages.ok) return packages;
-    const current = await loadCurrent(ctx, input.compare_to_current, asOf);
-    if (!current.ok) return current;
-    const tickers = [current.value?.ticker ?? null, ...packages.value.map((pkg) => pkg.entry.ticker)];
-    const quotes = await loadCachedQuotes(ctx, tickers);
-    if (!quotes.ok) return quotes;
-    const projector: Projector = { years: projectionYears(asOf.year, input.years), asOf, quotes: quotes.value };
-    const baseline = current.value
-      ? currentBaseline(current.value, projector)
-      : packageBaseline(packages.value[0], projector);
-    const structured: OfferOutput = {
-      as_of: asOf.date,
-      years: projector.years,
-      baseline,
-      packages: comparePackages(packages.value, baseline, projector),
-      not_modeled: [...MCP_OFFER_NOT_MODELED],
-    };
-    return ok({ structured, summary: offerSummary(structured) });
-  },
+  run: runEvaluateOffer,
 });
 
 export const COMP_OFFER_TOOLS: readonly DefinedTool[] = [evaluateOfferTool];

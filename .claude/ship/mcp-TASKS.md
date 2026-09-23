@@ -138,17 +138,17 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     Supabase for `/api/mcp`
 
 ## Task 6: Wins and career tools
-- [ ] 6.1: Create `lib/mcp/tools/wins.ts`: `log_win`, `list_wins`, `update_win`,
+- [x] 6.1: Create `lib/mcp/tools/wins.ts`: `log_win`, `list_wins`, `update_win`,
   `delete_win` (agent rows only), `get_coverage`. Input schemas loose,
   service-validated; output schemas explicit.
-- [ ] 6.2: Create `lib/mcp/tools/career.ts`: `get_career_context` (`career:read`,
+- [x] 6.2: Create `lib/mcp/tools/career.ts`: `get_career_context` (`career:read`,
   `as_of`).
-- [ ] 6.3: Write tests for Task 6: each tool's happy path and error mapping,
+- [x] 6.3: Write tests for Task 6: each tool's happy path and error mapping,
   source `agent` on writes, duplicate flag, update/delete of a manual row →
   not_found, output parses against its outputSchema, scopes gate registration.
 
 ## Task 7: Comp tools
-- [ ] 7.1: Create `lib/mcp/tools/comp.ts`:
+- [x] 7.1: Create `lib/mcp/tools/comp.ts`:
   - reads: `list_comp_entries`, `get_comp_summary` (current + upcoming,
     `price_source` quote/implied/none), `project_comp` (count semantics, bounds,
     `as_of`), `get_equity_quotes` (cached only, `missing`)
@@ -157,7 +157,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     `compare_to_current`, delta, `not_modeled`)
   - writes: `add_comp_entry`, `update_comp_entry`, `delete_comp_entry` (agent
     rows only)
-- [ ] 7.2: Write tests for Task 7:
+- [x] 7.2: Write tests for Task 7:
   - projections match `projectComp` for the same inputs
   - `as_of` pinning
   - `evaluate_offer` deltas with and without a current entry
@@ -261,3 +261,12 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 - The Claude Desktop snippet necessarily puts the token in that app's config
   `env` block (mcp-remote's documented pattern); the UI tells users to keep
   that file private.
+- MCP deletes report `deleted: false` for a missing row (safe retries); the REST
+  delete routes still return 404, since the services are unchanged.
+- MCP comp write tools accept dates from year 0001 like REST; only `as_of`
+  inputs enforce the 1970 floor. Years below 100 in vest dates would project in
+  the wrong century; the service does not reject them.
+- A non-finite amount stored in the DB makes that row malformed, so comp read
+  tools return a db error; a non-finite `shares`/`vest_years` reads as null.
+- `lib/client/agent-tokens.client.ts` keeps its own `isNullableString`, because
+  `domain-result.ts` imports `next/server` and can't enter the client bundle.

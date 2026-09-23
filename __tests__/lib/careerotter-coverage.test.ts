@@ -7,8 +7,10 @@
 
 import {
   computeCoverage,
+  coverageFromCounts,
   COVERAGE_TARGET_PER_AREA,
 } from "@/lib/careerotter/coverage";
+import type { WinTag } from "@/lib/constants/careerotter";
 
 const w = (tag: string | null) => ({ tag });
 
@@ -58,6 +60,20 @@ describe("computeCoverage", () => {
   it("treats an unknown tag as untagged", () => {
     const c = computeCoverage([w("vibes")]);
     expect(c.untagged).toBe(1);
+    expect(c.overallPct).toBe(0);
+  });
+});
+
+describe("coverageFromCounts", () => {
+  it("matches computeCoverage for the same wins", () => {
+    const wins = [w("delivery"), w("delivery"), w("craft"), w(null), w("unknown")];
+    const counts = { total: 5, byTag: new Map<WinTag, number>([["delivery", 2], ["craft", 1]]), untagged: 2 };
+    expect(coverageFromCounts(counts)).toEqual(computeCoverage(wins));
+  });
+
+  it("treats areas missing from the counts as empty", () => {
+    const c = coverageFromCounts({ total: 0, byTag: new Map(), untagged: 0 });
+    expect(c.areas.every((area) => area.count === 0)).toBe(true);
     expect(c.overallPct).toBe(0);
   });
 });

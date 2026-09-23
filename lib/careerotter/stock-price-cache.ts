@@ -153,32 +153,55 @@ export async function loadQuotes(
   return quotes;
 }
 
-function hasFinitePrice(price: unknown): boolean {
-  if (typeof price === "number") return Number.isFinite(price);
-  return typeof price === "string" && price.trim() !== "" && Number.isFinite(Number(price));
+function hasPositivePrice(price: unknown): boolean {
+  if (typeof price === "number") return Number.isFinite(price) && price > 0;
+  if (typeof price !== "string" || price.trim() === "") return false;
+  const parsed = Number(price);
+  return Number.isFinite(parsed) && parsed > 0;
+}
+
+function isoTimestamp(value: string): string | null {
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
 // rowToQuote reads price with Number(), so a row whose price is not numeric
-// would otherwise surface as NaN.
+// would otherwise surface as NaN; a zero or negative price is not a usable
+// quote for any consumer.
 function isStockPriceRow(value: unknown): value is StockPriceRow {
   if (typeof value !== "object" || value === null) return false;
   return "ticker" in value && typeof value.ticker === "string" &&
     "as_of" in value && typeof value.as_of === "string" &&
-    "price" in value && hasFinitePrice(value.price);
+    "price" in value && hasPositivePrice(value.price);
 }
 
-/** Trimmed, uppercased and de-duplicated, matching how tickers are stored. */
+/** A ticker as stored: trimmed and uppercased. */
+export function normalizeTicker(ticker: string): string {
+  return ticker.trim().toUpperCase();
+}
+
 function normalizeTickers(tickers: readonly string[]): string[] {
-  const normalized = tickers.map((ticker) => ticker.trim().toUpperCase());
+  const normalized = tickers.map(normalizeTicker);
   return [...new Set(normalized.filter((ticker) => ticker.length > 0))];
+}
+
+// A quote no one can date cannot be judged fresh or stale, so it is dropped.
+// as_of is returned in UTC ISO form (Postgres sends "+00:00" offsets), so
+// consumers can compare and serialize it without re-parsing.
+function toCachedQuote(row: unknown): { ticker: string; quote: StockQuote } | null {
+  if (!isStockPriceRow(row)) return null;
+  const asOf = isoTimestamp(row.as_of);
+  if (asOf === null) return null;
+  return { ticker: normalizeTicker(row.ticker), quote: { ...rowToQuote(row), as_of: asOf } };
 }
 
 function quotesFromRows(rows: unknown): Record<string, StockQuote> {
   const quotes: Record<string, StockQuote> = {};
   let dropped = 0;
   for (const row of Array.isArray(rows) ? rows : []) {
-    if (isStockPriceRow(row)) quotes[row.ticker] = rowToQuote(row);
-    else dropped += 1;
+    const cached = toCachedQuote(row);
+    if (cached === null) dropped += 1;
+    else quotes[cached.ticker] = cached.quote;
   }
   if (dropped > 0) {
     loggerService.warn("Dropped malformed cached stock price rows", {
@@ -191,9 +214,10 @@ function quotesFromRows(rows: unknown): Record<string, StockQuote> {
 }
 
 /**
- * Cached quotes for the given tickers, keyed by ticker, straight from
- * stock_prices: no feed call and no write. Tickers with no cached row are
- * absent; rows without a usable price are dropped.
+ * Cached quotes for the given tickers, keyed by (normalized) ticker, straight
+ * from stock_prices: no feed call and no write. Tickers with no cached row
+ * are absent; rows without a positive price or a parseable as_of are dropped
+ * with a warning. as_of is returned as a UTC ISO timestamp.
  */
 export async function readCachedQuotes(
   admin: SupabaseClient,

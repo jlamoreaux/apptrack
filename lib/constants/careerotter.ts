@@ -1,3 +1,5 @@
+import { MONTHS_PER_YEAR } from "@/lib/constants/dates";
+
 /**
  * CareerOtter Phase 2 (M2) shared constants — single source of truth mirrored by
  * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql and
@@ -93,6 +95,14 @@ export const WIN_LIMITS = {
 export const MANUAL_SOURCE = "manual" as const satisfies WinSource & CompSource;
 export const AGENT_SOURCE = "agent" as const satisfies WinSource & CompSource;
 
+// vest_years is numeric(4,2): two decimal places.
+const VEST_YEARS_SCALE = 2;
+const VEST_YEARS_FACTOR = 10 ** VEST_YEARS_SCALE;
+// Projections round a vest to whole months, so a shorter vest would model a
+// grant that never vests.
+const VEST_MIN_MONTHS = 1;
+export const VEST_YEARS_MIN_LABEL = "one month";
+
 // Field caps for comp entries, mirroring the column types in 033/035/040.
 // The *Scale values are the column's decimal places, used to format the caps
 // in validation messages.
@@ -105,8 +115,10 @@ export const COMP_LIMITS = {
   sharesScale: 4,
   noteMax: 500,
   tickerMax: 10,
-  // numeric(4,2): the smallest positive value the column can hold.
-  vestYearsMin: 0.01,
+  // The smallest numeric(4,2) value that is at least VEST_MIN_MONTHS: 1/12
+  // rounded up to 0.09, which projections round to one month.
+  vestYearsMin:
+    Math.ceil((VEST_MIN_MONTHS / MONTHS_PER_YEAR) * VEST_YEARS_FACTOR) / VEST_YEARS_FACTOR,
   vestYearsMax: 10,
   vestCliffMonthsMax: 60,
 } as const;

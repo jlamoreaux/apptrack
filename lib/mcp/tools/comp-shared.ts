@@ -7,7 +7,6 @@
 import { z } from "zod";
 import {
   anchorSharePrice,
-  parseLocalDate,
   type AnnualBreakdown,
   type CompEntry,
   type ProjectionYear,
@@ -15,52 +14,26 @@ import {
   type VestSummary,
 } from "@/lib/careerotter/comp-projection";
 import { listCompEntries, type StoredCompEntry } from "@/lib/careerotter/comp-service";
-import { isCalendarDate, toIsoDate } from "@/lib/careerotter/domain-result";
-import { readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTicker, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
 import { COMP_SOURCES } from "@/lib/constants/careerotter";
-import { ISO_DATE_PATTERN } from "@/lib/constants/dates";
 import {
   MCP_ANCHOR_PRICE_SOURCES,
   MCP_COMP_PROJECTION_YEARS,
   MCP_PRICE_SOURCES,
+  MCP_QUOTE_STALE_AFTER_MS,
   MCP_SHARE_PRICE_MAX,
   type McpAnchorPriceSource,
+  type McpPriceSource,
 } from "@/lib/constants/mcp-comp";
 import { formatDateAsLocal } from "@/lib/utils/date";
-import type { McpToolAnnotations } from "@/lib/mcp/define-tool";
 import type { McpToolContext } from "@/lib/mcp/context";
 import type { DomainResult } from "@/types";
 
-// ── description fragments ──────────────────────────────────────────────────
-
-export const COMP_DESCRIPTION_NOTES = {
-  amounts: "All amounts are annual USD.",
-  equity:
-    "Equity: when vest_years is set, equity is the total grant value vesting over those years; when vest_years is empty, equity is the annual equity amount.",
-  utc: "Dates are evaluated in UTC (the comp page uses the browser's timezone, so results can differ by a day at date boundaries); pass as_of (YYYY-MM-DD) to pin the date.",
-  writeCurrency:
-    "Amounts must be annual USD: convert, or ask the user, before writing an amount given in another currency.",
-  agentRowsOnly:
-    'Only entries an agent created (source "agent") can be updated or deleted; entries the user typed in report not found.',
-} as const;
-
-// ── annotations ────────────────────────────────────────────────────────────
-
-export const COMP_READ_ANNOTATIONS = {
-  readOnlyHint: true,
-  destructiveHint: false,
-  idempotentHint: true,
-  openWorldHint: false,
-} as const satisfies McpToolAnnotations;
-
 // ── input schemas ──────────────────────────────────────────────────────────
 
-export const asOfInput = z
-  .string()
-  .regex(ISO_DATE_PATTERN)
-  .refine(isCalendarDate, { message: "as_of must be a real YYYY-MM-DD date" })
-  .optional()
-  .describe("Evaluate as of this date (YYYY-MM-DD). Defaults to today in UTC.");
+// Loose type-level bounds only: the comp service owns every business rule, so
+// REST and MCP validate identically.
+export const amountInput = z.number().finite().nonnegative();
 
 export const sharePriceInput = z
   .number()
@@ -138,6 +111,16 @@ export type VestSummaryOutput = z.infer<typeof vestSummaryOutput>;
 export const priceSourceOutput = z.enum(MCP_PRICE_SOURCES);
 export const anchorPriceSourceOutput = z.enum(MCP_ANCHOR_PRICE_SOURCES);
 
+/** Spread into any output that reports a price_source. */
+export const priceFreshnessOutput = {
+  price_as_of: z.string().datetime().nullable(),
+  price_is_stale: z.boolean(),
+};
+export interface PriceFreshnessOutput {
+  price_as_of: string | null;
+  price_is_stale: boolean;
+}
+
 // ── serializers ────────────────────────────────────────────────────────────
 
 export function toEntryOutput(entry: StoredCompEntry): StoredEntryOutput {
@@ -182,8 +165,8 @@ export function toBreakdownOutput(breakdown: AnnualBreakdown): AnnualBreakdownOu
   };
 }
 
-// Vest dates are built with local-time constructors (UTC on the server), so
-// they are formatted with local getters to name the same calendar day.
+// Vest dates are built with local-time constructors, so they are formatted
+// with local getters to name the same calendar day.
 export function toVestOutput(vest: VestSummary): VestSummaryOutput {
   return {
     grant_value: vest.grantValue,
@@ -202,30 +185,7 @@ export function sumTotals(rows: readonly ProjectionYear[]): number {
   return rows.reduce((sum, row) => sum + row.total, 0);
 }
 
-// ── as_of ──────────────────────────────────────────────────────────────────
-
-export interface ResolvedAsOf {
-  /** The YYYY-MM-DD date entries are picked by. */
-  date: string;
-  /** The instant vesting is measured at. */
-  instant: Date;
-  /** The first projected calendar year. */
-  year: number;
-}
-
-/**
- * A pinned as_of is measured from the start of that day; without one, "now"
- * is the request time, as on the comp page.
- */
-export function resolveAsOf(ctx: McpToolContext, asOf: string | undefined): ResolvedAsOf {
-  const date = asOf ?? toIsoDate(ctx.now);
-  const dayStart = parseLocalDate(date);
-  return {
-    date,
-    instant: asOf === undefined ? ctx.now : dayStart,
-    year: dayStart.getFullYear(),
-  };
-}
+// ── projection years ───────────────────────────────────────────────────────
 
 export function projectionYears(firstYear: number, count: number): number[] {
   return Array.from({ length: count }, (_, offset) => firstYear + offset);
@@ -246,25 +206,44 @@ export function loadCachedQuotes(
   return readCachedQuotes(ctx.admin, present);
 }
 
-export function quoteFor(
+function quoteFor(
   entry: CompEntry,
   quotes: Readonly<Record<string, StockQuote>>
 ): StockQuote | null {
-  return entry.ticker ? quotes[entry.ticker] ?? null : null;
+  return entry.ticker ? quotes[normalizeTicker(entry.ticker)] ?? null : null;
 }
 
-export interface AnchorPrice {
+/** A share price, where it came from, and when its quote was taken (quotes only). */
+export interface PricePoint<S extends McpPriceSource = McpPriceSource> {
   price: number | null;
-  source: McpAnchorPriceSource;
+  source: S;
+  quoteAsOf: string | null;
 }
 
 /** The price the comp page would anchor on, and where it came from. */
 export function anchorFor(
   entry: CompEntry,
   quotes: Readonly<Record<string, StockQuote>>
-): AnchorPrice {
+): PricePoint<McpAnchorPriceSource> {
   const quote = quoteFor(entry, quotes);
   const price = anchorSharePrice(entry, quote);
-  if (price === null) return { price, source: "none" };
-  return { price, source: quote !== null && price === quote.price ? "quote" : "implied" };
+  if (price === null) return { price, source: "none", quoteAsOf: null };
+  if (quote !== null && price === quote.price) {
+    return { price, source: "quote", quoteAsOf: quote.as_of };
+  }
+  return { price, source: "implied", quoteAsOf: null };
+}
+
+export function givenPrice(price: number): PricePoint {
+  return { price, source: "given", quoteAsOf: null };
+}
+
+/**
+ * price_as_of and price_is_stale for a price point. Staleness is judged at the
+ * request time, not as_of: it says whether the market price is current.
+ */
+export function priceFreshness(now: Date, point: PricePoint): PriceFreshnessOutput {
+  if (point.quoteAsOf === null) return { price_as_of: null, price_is_stale: false };
+  const age = now.getTime() - Date.parse(point.quoteAsOf);
+  return { price_as_of: point.quoteAsOf, price_is_stale: age > MCP_QUOTE_STALE_AFTER_MS };
 }

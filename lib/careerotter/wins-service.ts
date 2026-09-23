@@ -24,6 +24,7 @@ import {
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
 import { NO_ROWS_CODE } from "@/lib/constants/postgres";
+import type { WinTagCounts } from "@/lib/careerotter/coverage";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { isValidUUID } from "@/lib/utils/api-validation";
@@ -36,6 +37,7 @@ import {
   hasNulCharacter,
   invalid,
   isCalendarDate,
+  isNullableString,
   isPlainObject,
   isUniqueViolationOn,
   notFound,
@@ -165,6 +167,7 @@ const MESSAGES = {
   limitInvalid: `limit must be an integer between 1 and ${MCP_LIST_WINS.maxLimit}`,
   occurredAtTooEarly: `occurred_at must be on or after ${OCCURRED_AT_MIN}`,
   occurredAtFuture: "occurred_at cannot be in the future",
+  sinceAfterUntil: "since must be on or before until",
   dateFormat: (field: string): string => `${field} must be a date in YYYY-MM-DD format`,
 } as const;
 
@@ -374,6 +377,10 @@ function parseListOptions(options: ListWinsOptions): DomainResult<null> {
       return invalid(MESSAGES.dateFormat(field));
     }
   }
+  const { since, until } = options;
+  if (since !== undefined && until !== undefined && since > until) {
+    return invalid(MESSAGES.sinceAfterUntil);
+  }
   if (options.tag !== undefined && !isWinTag(options.tag)) {
     return invalid(MESSAGES.invalidTag);
   }
@@ -382,10 +389,6 @@ function parseListOptions(options: ListWinsOptions): DomainResult<null> {
 }
 
 // ── row mapping ────────────────────────────────────────────────────────────
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
-}
 
 function hasCoreWinColumns(row: Fields): boolean {
   return (
@@ -593,6 +596,55 @@ export async function listWins(
   const { limit } = options;
   const truncated = limit !== undefined && rows.value.length > limit;
   return ok({ wins: truncated ? rows.value.slice(0, limit) : rows.value, truncated });
+}
+
+// ── count ──────────────────────────────────────────────────────────────────
+
+// head: true returns only the count, so no row limit can truncate it.
+async function countWins(
+  admin: SupabaseClient,
+  tag: WinTag | null,
+  context: FailureContext
+): Promise<DomainResult<number>> {
+  let query = admin
+    .from(WIN_TABLE)
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", context.userId);
+  if (tag !== null) query = query.eq("tag", tag);
+  const { count, error } = await query;
+  if (error) return dbFailure(context, error);
+  return ok(count ?? 0);
+}
+
+async function queryTagCounts(
+  admin: SupabaseClient,
+  context: FailureContext
+): Promise<DomainResult<WinTagCounts>> {
+  const [total, ...tagged] = await Promise.all([
+    countWins(admin, null, context),
+    ...WIN_TAGS.map((tag) => countWins(admin, tag, context)),
+  ]);
+  if (!total.ok) return total;
+  const byTag = new Map<WinTag, number>();
+  for (const [index, tag] of WIN_TAGS.entries()) {
+    const count = tagged[index];
+    if (!count.ok) return count;
+    byTag.set(tag, count.value);
+  }
+  const taggedTotal = [...byTag.values()].reduce((sum, count) => sum + count, 0);
+  return ok({ total: total.value, byTag, untagged: Math.max(0, total.value - taggedTotal) });
+}
+
+/**
+ * Per-area win counts for the user, from count-only queries, so the result
+ * covers every win however many there are.
+ */
+export async function countWinsByTag(
+  admin: SupabaseClient,
+  userId: string
+): Promise<DomainResult<WinTagCounts>> {
+  const context = failureContext(userId, "wins_count_failed", MESSAGES.loadFailed);
+  return guarded(context, () => queryTagCounts(admin, context));
 }
 
 // ── update / delete ────────────────────────────────────────────────────────

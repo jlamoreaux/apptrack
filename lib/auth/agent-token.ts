@@ -35,6 +35,7 @@ import {
   guarded,
   hasControlCharacter,
   invalid,
+  isNullableString,
   isPlainObject,
   isUniqueViolationOn,
   notFound,
@@ -257,10 +258,6 @@ export function hasScope(
 }
 
 // ── rows ───────────────────────────────────────────────────────────────────
-
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === "string";
-}
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
