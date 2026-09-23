@@ -50,12 +50,13 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
 
       {/* Top padding leaves room for the cap labels and the top axis tick. */}
       <div className="relative flex h-56 select-none pt-5">
-        {/* Y axis */}
+        {/* Y axis. Labels are anchored by `bottom`, so translating down half their
+            height centers each one on its gridline. */}
         <div className="relative w-14 shrink-0 text-[11px] tabular-nums text-muted-foreground">
           {ticks.map((t) => (
             <span
               key={t}
-              className="absolute right-2 -translate-y-1/2"
+              className="absolute right-2 translate-y-1/2"
               style={{ bottom: `${pct(t)}%` }}
             >
               {formatCompactUsd(t)}
@@ -96,7 +97,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
                       readout carry the values there instead. */}
                   <span
                     className={
-                      "pointer-events-none absolute left-1/2 -translate-x-1/2 -translate-y-full whitespace-nowrap pb-1 text-xs font-medium tabular-nums text-foreground" +
+                      "pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap pb-1 text-xs font-medium tabular-nums text-foreground" +
                       (years.length > 3 ? " hidden sm:block" : "")
                     }
                     style={{ bottom: `${pct(y.total)}%` }}
