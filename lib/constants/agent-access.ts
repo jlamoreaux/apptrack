@@ -87,3 +87,22 @@ export const AGENT_COMP_SCOPES: readonly AgentTokenScope[] = [
   "comp:read",
   "comp:write",
 ];
+
+// Unique index on (user_id, name) where revoked_at is null. Token creation
+// maps its violation to a 409, so the name is load-bearing (migration 044).
+export const AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT = "agent_tokens_user_active_name_key";
+
+export const MCP_SERVER_INFO = { name: "careerotter", version: "1.0.0" } as const;
+
+// mcp-handler serves `${basePath}/mcp`, so this places the endpoint at the
+// app/api/mcp route.
+export const MCP_BASE_PATH = "/api";
+
+// Mirrors `maxDuration` in app/api/mcp/route.ts, which Next.js requires to be
+// a literal there.
+export const MCP_MAX_DURATION_SECONDS = 30;
+
+export const MCP_UNAVAILABLE_RETRY_AFTER_SECONDS = 5;
+
+// Shown for unexpected tool failures; the real error is only logged.
+export const MCP_TOOL_FAILED_MESSAGE = "Tool failed; try again";

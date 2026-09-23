@@ -14,6 +14,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
+import { WIN_LIMITS } from "@/lib/constants/careerotter";
+import { NO_ROWS_CODE } from "@/lib/constants/postgres";
 
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
@@ -30,6 +32,19 @@ const mockCreateAdminClient = createAdminClient as jest.Mock;
 const mockCapture = captureServerEvent as jest.Mock;
 
 const USER = { id: "user-1", email: "u@example.com" };
+
+function winRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "w1",
+    text: "shipped it",
+    impact_number: null,
+    tag: null,
+    source: "manual",
+    created_at: "2026-01-01T00:00:00.000Z",
+    edited_at: null,
+    ...overrides,
+  };
+}
 
 function setUser(user: unknown) {
   mockCreateClient.mockResolvedValue({
@@ -89,12 +104,12 @@ describe("POST /api/wins", () => {
 
   it("400 when text exceeds the cap", async () => {
     adminReturning({ data: null, error: null });
-    const res = await POST(req({ text: "x".repeat(2001) }));
+    const res = await POST(req({ text: "x".repeat(WIN_LIMITS.textMax + 1) }));
     expect(res.status).toBe(400);
   });
 
   it("201 on success and fires win_logged", async () => {
-    const win = { id: "w1", text: "shipped it", tag: "delivery", source: "manual" };
+    const win = winRow({ tag: "delivery" });
     adminReturning({ data: win, error: null });
     const res = await POST(req({ text: "shipped it", tag: "delivery" }));
     expect(res.status).toBe(201);
@@ -107,8 +122,15 @@ describe("POST /api/wins", () => {
     );
   });
 
+  it.each([null, [], "text", 5])("400 (not 500) for a %p JSON body", async (body) => {
+    const builder = adminReturning({ data: null, error: null });
+    const res = await POST(req(body));
+    expect(res.status).toBe(400);
+    expect(builder.insert).not.toHaveBeenCalled();
+  });
+
   it("ignores a forged source and records manual", async () => {
-    const builder = adminReturning({ data: { id: "w1", text: "x", source: "manual" }, error: null });
+    const builder = adminReturning({ data: winRow({ text: "x" }), error: null });
     const res = await POST(req({ text: "x", source: "zero_to_case" }));
     expect(res.status).toBe(201);
     // Server-authoritative provenance: the persisted row uses "manual", not the
@@ -127,7 +149,7 @@ describe("POST /api/wins", () => {
 
 describe("GET /api/wins", () => {
   it("returns the user's wins", async () => {
-    const wins = [{ id: "w1", text: "a" }, { id: "w2", text: "b" }];
+    const wins = [winRow({ id: "w1", text: "a" }), winRow({ id: "w2", text: "b" })];
     adminReturning({ data: wins, error: null });
     const res = await GET();
     expect(res.status).toBe(200);
@@ -147,13 +169,13 @@ describe("PATCH/DELETE /api/wins/:id", () => {
   const nonUuidCtx = { params: Promise.resolve({ id: "w1" }) };
 
   it("404 when the win isn't the caller's (no row returned)", async () => {
-    adminReturning({ data: null, error: { code: "PGRST116" } });
+    adminReturning({ data: null, error: { code: NO_ROWS_CODE } });
     const res = await PATCH(req({ text: "edited" }, "PATCH"), ctx);
     expect(res.status).toBe(404);
   });
 
   it("updates an owned win", async () => {
-    const win = { id: WIN_ID, text: "edited", tag: null, source: "manual" };
+    const win = winRow({ id: WIN_ID, text: "edited" });
     adminReturning({ data: win, error: null });
     const res = await PATCH(req({ text: "edited" }, "PATCH"), ctx);
     expect(res.status).toBe(200);
@@ -164,6 +186,13 @@ describe("PATCH/DELETE /api/wins/:id", () => {
     adminReturning({ data: null, error: null });
     const res = await PATCH(req({}, "PATCH"), ctx);
     expect(res.status).toBe(400);
+  });
+
+  it.each([null, [], "text"])("400 (not 500) on a PATCH with a %p JSON body", async (body) => {
+    const builder = adminReturning({ data: null, error: null });
+    const res = await PATCH(req(body, "PATCH"), ctx);
+    expect(res.status).toBe(400);
+    expect(builder.update).not.toHaveBeenCalled();
   });
 
   it("500 (not 404) when the PATCH hits a real DB error", async () => {

@@ -8,24 +8,30 @@
  *   unknown/revoked/expired, unavailable on DB error, ok for an active token
  * - touchLastUsed throttle and never rejecting
  * - agentTokenStatus
+ * - createAgentToken: name normalization and validation, expired-name release
+ * - revokeAllAgentTokens: revokes expired tokens too, counts active ones
  */
 
 import { createHash } from "crypto";
 import {
   agentTokenStatus,
+  createAgentToken,
   generateAgentToken,
   hasScope,
   hasValidAgentTokenFormat,
   hashAgentToken,
   normalizeScopes,
+  revokeAllAgentTokens,
   touchLastUsed,
   verifyAgentToken,
 } from "@/lib/auth/agent-token";
 import {
+  AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
   AGENT_TOKEN_LIMITS,
   AGENT_TOKEN_PREFIX,
   LAST_USED_TOUCH_INTERVAL_MS,
 } from "@/lib/constants/agent-access";
+import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 jest.mock("@/lib/services/logger.service", () => ({
@@ -290,5 +296,163 @@ describe("agentTokenStatus", () => {
       "active"
     );
     expect(agentTokenStatus({ revoked_at: null, expires_at: null }, NOW)).toBe("active");
+  });
+});
+
+interface QueuedResult {
+  data?: unknown;
+  error?: unknown;
+  count?: number | null;
+}
+
+type QueuedQuery = Record<string, jest.Mock> & {
+  then: (resolve: (value: unknown) => void) => void;
+};
+
+const CHAIN_METHODS = [
+  "select", "eq", "is", "or", "lte", "order", "insert", "update", "single", "maybeSingle",
+];
+
+/** Admin-client mock: each from() resolves to the next queued result. */
+function adminWithQueue(...results: QueuedResult[]): {
+  admin: SupabaseClient;
+  queries: QueuedQuery[];
+} {
+  const queries: QueuedQuery[] = [];
+  const from = jest.fn(() => {
+    const result = results[queries.length] ?? {};
+    const query = {} as QueuedQuery;
+    for (const method of CHAIN_METHODS) query[method] = jest.fn(() => query);
+    query.then = (resolve) => resolve({ data: null, error: null, count: null, ...result });
+    queries.push(query);
+    return query;
+  });
+  return { admin: { from } as unknown as SupabaseClient, queries };
+}
+
+const PAST = "2026-09-01T00:00:00.000Z";
+const FUTURE = "2027-01-01T00:00:00.000Z";
+
+function createInput(name: unknown): Record<string, unknown> {
+  return { name, scopes: ["wins:read"], expires_in_days: 30 };
+}
+
+/** Runs createAgentToken against a successful count/release/insert queue. */
+async function createWithName(name: unknown): Promise<{
+  result: Awaited<ReturnType<typeof createAgentToken>>;
+  queries: QueuedQuery[];
+}> {
+  const { admin, queries } = adminWithQueue({ count: 0 }, {}, { data: tokenRow() });
+  const result = await createAgentToken(admin, "user-1", createInput(name), NOW);
+  return { result, queries };
+}
+
+describe("createAgentToken name validation", () => {
+  it.each([
+    ["NUL", "Claude\u0000Code"],
+    ["newline", "Claude\nCode"],
+    ["tab", "Claude\tCode"],
+    ["C1 control", "Claude\u0085Code"],
+    ["non-string", 42],
+    ["blank", "   "],
+  ])("rejects a %s name without a query", async (_label, name) => {
+    const { result, queries } = await createWithName(name);
+    expect(result).toMatchObject({ ok: false, kind: "validation" });
+    expect(queries).toHaveLength(0);
+  });
+
+  it("counts length in code points", async () => {
+    const emoji = "\u{1F600}";
+    const accepted = await createWithName(emoji.repeat(AGENT_TOKEN_LIMITS.nameMax));
+    expect(accepted.result.ok).toBe(true);
+    const rejected = await createWithName(emoji.repeat(AGENT_TOKEN_LIMITS.nameMax + 1));
+    expect(rejected.result).toMatchObject({ ok: false, kind: "validation" });
+  });
+
+  it("trims and collapses internal whitespace runs", async () => {
+    const { result, queries } = await createWithName("  Claude    Code  ");
+    expect(result.ok).toBe(true);
+    expect(queries[2].insert.mock.calls[0][0].name).toBe("Claude Code");
+    expect(queries[1].eq).toHaveBeenCalledWith("name", "Claude Code");
+  });
+
+  it("keeps names case-sensitive", async () => {
+    const { queries } = await createWithName("Claude CODE");
+    expect(queries[2].insert.mock.calls[0][0].name).toBe("Claude CODE");
+  });
+});
+
+describe("createAgentToken expired-name release", () => {
+  it("reuses an expired token's name by revoking it before inserting", async () => {
+    const { admin, queries } = adminWithQueue({ count: 0 }, {}, { data: tokenRow() });
+    const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
+
+    expect(result.ok).toBe(true);
+    const release = queries[1];
+    expect(release.update).toHaveBeenCalledWith({ revoked_at: NOW.toISOString() });
+    expect(release.eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(release.eq).toHaveBeenCalledWith("name", "Claude Code");
+    expect(release.is).toHaveBeenCalledWith("revoked_at", null);
+    expect(release.lte).toHaveBeenCalledWith("expires_at", NOW.toISOString());
+    expect(queries[2].insert).toHaveBeenCalled();
+  });
+
+  it("fails as db when the release update errors, without inserting", async () => {
+    const { admin, queries } = adminWithQueue({ count: 0 }, { error: { message: "boom" } });
+    const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
+    expect(result).toMatchObject({ ok: false, kind: "db" });
+    expect(queries).toHaveLength(2);
+  });
+
+  it("is a conflict when an active token still holds the name", async () => {
+    const { admin } = adminWithQueue(
+      { count: 1 },
+      {},
+      {
+        error: {
+          code: UNIQUE_VIOLATION_CODE,
+          message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
+        },
+      }
+    );
+    const result = await createAgentToken(admin, "user-1", createInput("Claude Code"), NOW);
+    expect(result).toMatchObject({ ok: false, kind: "conflict" });
+  });
+
+  it("rejects a non-object body", async () => {
+    for (const body of [null, [], "x"]) {
+      const { admin, queries } = adminWithQueue();
+      expect(await createAgentToken(admin, "user-1", body, NOW)).toMatchObject({
+        ok: false,
+        kind: "validation",
+      });
+      expect(queries).toHaveLength(0);
+    }
+  });
+});
+
+describe("revokeAllAgentTokens", () => {
+  it("revokes every unrevoked token, expired included, and counts the active ones", async () => {
+    const { admin, queries } = adminWithQueue({
+      data: [
+        { id: "a", expires_at: FUTURE },
+        { id: "b", expires_at: null },
+        { id: "c", expires_at: PAST },
+      ],
+    });
+    expect(await revokeAllAgentTokens(admin, "user-1", NOW)).toEqual({
+      ok: true,
+      value: { revoked: 3, activeRevoked: 2 },
+    });
+    expect(queries[0].is).toHaveBeenCalledWith("revoked_at", null);
+    expect(queries[0].or).not.toHaveBeenCalled();
+  });
+
+  it("fails as db on an unexpected row shape", async () => {
+    const { admin } = adminWithQueue({ data: [{ id: 1 }] });
+    expect(await revokeAllAgentTokens(admin, "user-1", NOW)).toMatchObject({
+      ok: false,
+      kind: "db",
+    });
   });
 });

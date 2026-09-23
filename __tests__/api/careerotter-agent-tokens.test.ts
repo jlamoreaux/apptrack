@@ -6,9 +6,11 @@
  * - POST: raw token returned once with Cache-Control no-store, record never
  *   carries token_hash, 422 at the active-token limit, 409 on a duplicate
  *   active name, 400 for "never" with a comp scope, 400 on invalid JSON,
- *   429 when rate limited
- * - GET: list never includes token_hash
- * - DELETE one: idempotent, non-uuid id -> 404; DELETE all: revoked count
+ *   429 when rate limited, request proceeds when the limiter throws, 400 for
+ *   non-object bodies and malformed fields, 422 count excludes expired tokens
+ * - GET: list never includes token_hash, no-store
+ * - DELETE one: idempotent, non-uuid id -> 404, 500 on update or re-read error
+ * - DELETE all: revokes expired tokens too, returns the count of active ones
  */
 
 import { NextRequest } from "next/server";
@@ -18,7 +20,13 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { getAuthenticatedUser, verifyExtensionToken } from "@/lib/auth/extension-auth";
 import { hasValidAgentTokenFormat, generateAgentToken } from "@/lib/auth/agent-token";
-import { AGENT_TOKEN_LIMITS } from "@/lib/constants/agent-access";
+import {
+  AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
+  AGENT_TOKEN_LIMITS,
+  DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
+} from "@/lib/constants/agent-access";
+import { MS_PER_DAY } from "@/lib/constants/dates";
+import { UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 
 const mockLimit = jest.fn();
 
@@ -70,7 +78,7 @@ function adminWithResults(...results: QueryResult[]): MockQuery[] {
     const result = results[queries.length] ?? { data: null, error: null };
     const query: MockQuery = {};
     for (const method of [
-      "select", "eq", "is", "or", "order", "insert", "update", "single", "maybeSingle",
+      "select", "eq", "is", "or", "lte", "order", "insert", "update", "single", "maybeSingle",
     ]) {
       query[method] = jest.fn(() => query);
     }
@@ -147,7 +155,7 @@ describe("authentication", () => {
 
 describe("POST", () => {
   it("201 returns the raw token once, no-store, and a record without the hash", async () => {
-    const queries = adminWithResults({ count: 0 }, { data: storedRow() });
+    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
     const res = await POST(postReq(VALID_BODY));
     const body = await res.json();
 
@@ -158,7 +166,7 @@ describe("POST", () => {
     expect(body.record).not.toHaveProperty("user_id");
     expect(body.record).toMatchObject({ id: TOKEN_ID, status: "active" });
 
-    const inserted = (queries[1].insert as jest.Mock).mock.calls[0][0];
+    const inserted = (queries[2].insert as jest.Mock).mock.calls[0][0];
     expect(inserted.token_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(inserted.token_hash).not.toBe(body.token);
     expect(inserted.scopes).toEqual(["wins:read", "wins:write"]);
@@ -179,6 +187,25 @@ describe("POST", () => {
     expect((await POST(postReq("{not json"))).status).toBe(400);
   });
 
+  it.each([["null", "null"], ["an array", "[]"]])("400 for %s as the body", async (_label, raw) => {
+    const queries = adminWithResults();
+    expect((await POST(postReq(raw))).status).toBe(400);
+    expect(queries).toHaveLength(0);
+  });
+
+  it.each(["90", 0, -1, 1.5])("400 for expires_in_days %p", async (days) => {
+    const queries = adminWithResults();
+    const res = await POST(postReq({ ...VALID_BODY, expires_in_days: days }));
+    expect(res.status).toBe(400);
+    expect(queries).toHaveLength(0);
+  });
+
+  it.each([[[1]], [[""]], [["wins:read", null]], [[{}]]])("400 for scopes %p", async (scopes) => {
+    const queries = adminWithResults();
+    expect((await POST(postReq({ ...VALID_BODY, scopes }))).status).toBe(400);
+    expect(queries).toHaveLength(0);
+  });
+
   it("400 for a token that never expires with a comp scope", async () => {
     const queries = adminWithResults();
     const res = await POST(postReq({ name: "x", scopes: ["comp:read"], expires_in_days: null }));
@@ -187,10 +214,10 @@ describe("POST", () => {
   });
 
   it("allows a never-expiring token without comp scopes", async () => {
-    const queries = adminWithResults({ count: 0 }, { data: storedRow({ expires_at: null }) });
+    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow({ expires_at: null }) });
     const res = await POST(postReq({ name: "x", scopes: ["wins:read"], expires_in_days: null }));
     expect(res.status).toBe(201);
-    expect((queries[1].insert as jest.Mock).mock.calls[0][0].expires_at).toBeNull();
+    expect((queries[2].insert as jest.Mock).mock.calls[0][0].expires_at).toBeNull();
   });
 
   it("400 for missing scopes, unknown scopes, bad expiry or a blank name", async () => {
@@ -206,13 +233,13 @@ describe("POST", () => {
     }
   });
 
-  it("defaults the expiry to 90 days", async () => {
-    const queries = adminWithResults({ count: 0 }, { data: storedRow() });
+  it("defaults the expiry", async () => {
+    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
     const before = Date.now();
     await POST(postReq({ name: "x", scopes: ["wins:read"] }));
-    const expiresAt = Date.parse((queries[1].insert as jest.Mock).mock.calls[0][0].expires_at);
-    const days = (expiresAt - before) / (24 * 60 * 60 * 1000);
-    expect(Math.round(days)).toBe(90);
+    const expiresAt = Date.parse((queries[2].insert as jest.Mock).mock.calls[0][0].expires_at);
+    const days = (expiresAt - before) / MS_PER_DAY;
+    expect(Math.round(days)).toBe(DEFAULT_AGENT_TOKEN_EXPIRY_DAYS);
   });
 
   it("422 at the active-token limit", async () => {
@@ -223,14 +250,38 @@ describe("POST", () => {
     expect(queries[0].is).toHaveBeenCalledWith("revoked_at", null);
   });
 
+  it("counts only unexpired tokens toward the limit", async () => {
+    const queries = adminWithResults({ count: AGENT_TOKEN_LIMITS.maxActivePerUser });
+    const before = new Date().toISOString();
+    await POST(postReq(VALID_BODY));
+    const filter: string = (queries[0].or as jest.Mock).mock.calls[0][0];
+    expect(filter).toMatch(/^expires_at\.is\.null,expires_at\.gt\."(.+)"$/);
+    const cutoff = filter.match(/gt\."(.+)"$/)?.[1] ?? "";
+    expect(cutoff >= before).toBe(true);
+  });
+
+  it("reuses an expired token's name by revoking it first", async () => {
+    const queries = adminWithResults({ count: 0 }, {}, { data: storedRow() });
+    expect((await POST(postReq(VALID_BODY))).status).toBe(201);
+    expect(queries[1].update).toHaveBeenCalledWith({ revoked_at: expect.any(String) });
+    expect(queries[1].eq).toHaveBeenCalledWith("name", VALID_BODY.name);
+    expect(queries[1].lte).toHaveBeenCalledWith("expires_at", expect.any(String));
+  });
+
+  it("proceeds when the rate limiter throws", async () => {
+    mockLimit.mockRejectedValue(new Error("redis down"));
+    adminWithResults({ count: 0 }, {}, { data: storedRow() });
+    expect((await POST(postReq(VALID_BODY))).status).toBe(201);
+  });
+
   it("409 on a duplicate active name", async () => {
     adminWithResults(
       { count: 1 },
+      {},
       {
         error: {
-          code: "23505",
-          message:
-            'duplicate key value violates unique constraint "agent_tokens_user_active_name_key"',
+          code: UNIQUE_VIOLATION_CODE,
+          message: `duplicate key value violates unique constraint "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`,
         },
       }
     );
@@ -258,6 +309,7 @@ describe("GET", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
     expect(JSON.stringify(body)).not.toContain("token_hash");
     expect(body.tokens.map((token: { status: string }) => token.status)).toEqual([
       "active",
@@ -301,6 +353,19 @@ describe("DELETE one", () => {
     expect(res.status).toBe(404);
   });
 
+  it("500 when the revoke update fails", async () => {
+    const queries = adminWithResults({ error: { message: "boom" } });
+    const res = await DELETE_ONE(new NextRequest(`${BASE_URL}/${TOKEN_ID}`), idParams(TOKEN_ID));
+    expect(res.status).toBe(500);
+    expect(queries).toHaveLength(1);
+  });
+
+  it("500 when the re-read fails", async () => {
+    adminWithResults({ data: null }, { error: { message: "boom" } });
+    const res = await DELETE_ONE(new NextRequest(`${BASE_URL}/${TOKEN_ID}`), idParams(TOKEN_ID));
+    expect(res.status).toBe(500);
+  });
+
   it("404 for a non-uuid id without a query", async () => {
     const queries = adminWithResults();
     const res = await DELETE_ONE(new NextRequest(`${BASE_URL}/nope`), idParams("nope"));
@@ -310,13 +375,20 @@ describe("DELETE one", () => {
 });
 
 describe("DELETE all", () => {
-  it("returns the number of active tokens revoked", async () => {
-    const queries = adminWithResults({ data: [{ id: "a" }, { id: "b" }, { id: "c" }] });
+  it("revokes expired tokens too but returns only the number of active ones", async () => {
+    const queries = adminWithResults({
+      data: [
+        { id: "a", expires_at: "2099-01-01T00:00:00.000Z" },
+        { id: "b", expires_at: null },
+        { id: "c", expires_at: "2026-01-01T00:00:00.000Z" },
+      ],
+    });
     const res = await DELETE_ALL();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ revoked: 3 });
+    expect(await res.json()).toEqual({ revoked: 2 });
     expect(queries[0].eq).toHaveBeenCalledWith("user_id", USER.id);
     expect(queries[0].is).toHaveBeenCalledWith("revoked_at", null);
+    expect(queries[0].or).not.toHaveBeenCalled();
   });
 
   it("500 on a DB error", async () => {

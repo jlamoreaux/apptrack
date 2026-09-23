@@ -17,7 +17,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
-import { lookupMarketRange } from "@/lib/careerotter/market-data";
+import { lookupMarketRange, type MarketRange } from "@/lib/careerotter/market-data";
 import { isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
 import { loadQuotes } from "@/lib/careerotter/stock-price-cache";
 import {
@@ -26,11 +26,15 @@ import {
   toCompEntry,
   type StoredCompEntry,
 } from "@/lib/careerotter/comp-service";
+import { isPlainObject } from "@/lib/careerotter/domain-result";
 import { domainErrorResponse } from "@/lib/careerotter/domain-response";
+import { MANUAL_SOURCE } from "@/lib/constants/careerotter";
 
-function isJsonObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const MESSAGES = {
+  unauthorized: "Unauthorized",
+  invalidJson: "Invalid JSON body",
+  bodyNotObject: "Request body must be a JSON object",
+} as const;
 
 function trackedTickers(entries: StoredCompEntry[]): string[] {
   const tickers = entries
@@ -39,34 +43,40 @@ function trackedTickers(entries: StoredCompEntry[]): string[] {
   return [...new Set(tickers)];
 }
 
+// Benchmark is Pro-only; entry/history is free.
+async function benchmarkFor(
+  userId: string,
+  request: NextRequest
+): Promise<{ isPro: boolean; marketRange: MarketRange | null }> {
+  const plan = await PermissionMiddleware.getUserPlanInfo(userId);
+  const params = new URL(request.url).searchParams;
+  const marketRange = plan.isPro
+    ? lookupMarketRange(params.get("roleFamily"), params.get("level"))
+    : null;
+  return { isPro: plan.isPro, marketRange };
+}
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: MESSAGES.unauthorized }, { status: 401 });
 
   const admin = createAdminClient();
   const listed = await listCompEntries(admin, user.id);
   if (!listed.ok) return domainErrorResponse(listed);
-  const entries = listed.value;
 
-  const plan = await PermissionMiddleware.getUserPlanInfo(user.id);
-  const params = new URL(request.url).searchParams;
-  const roleFamily = params.get("roleFamily");
-  const level = params.get("level");
-  // Benchmark is Pro-only; entry/history is free.
-  const marketRange = plan.isPro ? lookupMarketRange(roleFamily, level) : null;
-
+  const { isPro, marketRange } = await benchmarkFor(user.id, request);
   // Prices for the tickers this user tracks: cached by the daily cron and
   // refreshed live here when a ticker is new or its quote has gone stale, so a
   // just-added ticker gets a price on the first page load rather than tomorrow.
-  const prices = await loadQuotes(admin, trackedTickers(entries));
+  const prices = await loadQuotes(admin, trackedTickers(listed.value));
 
   return NextResponse.json({
-    entries: entries.map(toCompEntry),
+    entries: listed.value.map(toCompEntry),
     marketRange,
-    isPro: plan.isPro,
+    isPro,
     prices,
     // Lets the page say why a ticker has no price: the feed is off, or the
     // symbol returned nothing from the feed.
@@ -79,22 +89,24 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!user) return NextResponse.json({ error: MESSAGES.unauthorized }, { status: 401 });
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ error: MESSAGES.invalidJson }, { status: 400 });
   }
-  const fields = isJsonObject(body) ? body : {};
+  if (!isPlainObject(body)) {
+    return NextResponse.json({ error: MESSAGES.bodyNotObject }, { status: 400 });
+  }
 
   // external_ref is the agent idempotency key; the web form never sends one.
   const created = await createCompEntry(
     createAdminClient(),
     user.id,
-    { ...fields, external_ref: undefined },
-    { source: "manual" }
+    { ...body, external_ref: undefined },
+    { source: MANUAL_SOURCE }
   );
   if (!created.ok) return domainErrorResponse(created);
 

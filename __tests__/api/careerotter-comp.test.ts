@@ -1,6 +1,7 @@
 /**
  * Tests for the comp tracker API (M5):
- * - POST: auth, validation (date, base, ticker charset, amount caps), success +
+ * - POST: auth, validation (non-object body, date, base, ticker charset and
+ *   length, amount caps, vest_years precision), total cap (429), success +
  *   comp_entered, generic 500 on a DB error
  * - GET: benchmark is Pro-gated (marketRange null for Free), entries always
  *   returned with the REST field list, 500 when the entries query errors
@@ -15,6 +16,8 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
+import { COMP_LIMITS } from "@/lib/constants/careerotter";
+import { AGENT_WRITE_QUOTAS } from "@/lib/constants/agent-access";
 
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
@@ -146,6 +149,30 @@ describe("POST", () => {
     );
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("equity must be no larger than 9,999,999,999.99");
+  });
+  it.each([null, [], "base", 5])("400 (not 500) for a %p JSON body", async (body) => {
+    const admin = adminReturning({ data: null, error: null });
+    const res = await POST(postReq(body));
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Request body must be a JSON object" });
+    expect(admin.insert).not.toHaveBeenCalled();
+  });
+  it("400 on a ticker over the length cap (was truncated)", async () => {
+    adminReturning({ data: null, error: null });
+    const ticker = "A".repeat(COMP_LIMITS.tickerMax + 1);
+    const res = await POST(postReq({ effective_date: "2026-01-01", base: 1, ticker }));
+    expect(res.status).toBe(400);
+  });
+  it("400 on vest_years below numeric(4,2) precision", async () => {
+    adminReturning({ data: null, error: null });
+    const res = await POST(postReq({ effective_date: "2026-01-01", base: 1, vest_years: 0.005 }));
+    expect(res.status).toBe(400);
+  });
+  it("429 when the user is at the total comp entry cap", async () => {
+    const admin = adminReturning({ data: null, error: null, count: AGENT_WRITE_QUOTAS.compEntriesTotal });
+    const res = await POST(postReq({ effective_date: "2026-01-01", base: 1 }));
+    expect(res.status).toBe(429);
+    expect(admin.insert).not.toHaveBeenCalled();
   });
   it("500 with a generic message when the insert fails", async () => {
     adminReturning({ data: null, error: { message: "relation does not exist" }, count: 0 });

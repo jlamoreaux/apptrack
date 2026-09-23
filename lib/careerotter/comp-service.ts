@@ -10,67 +10,86 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { after } from "next/server";
 import type { CompEntry } from "@/lib/careerotter/comp-projection";
 import {
+  AGENT_SOURCE,
+  COMP_LIMITS,
   COMP_SOURCES,
-  EXTERNAL_REF_MAX,
   type CompSource,
 } from "@/lib/constants/careerotter";
 import { AGENT_WRITE_QUOTAS } from "@/lib/constants/agent-access";
+import { MS_PER_DAY } from "@/lib/constants/dates";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { isValidUUID } from "@/lib/utils/api-validation";
-import { loggerService } from "@/lib/services/logger.service";
-import { LogCategory } from "@/lib/services/logger.types";
+import {
+  codePointLength,
+  conflict,
+  dbFailure,
+  findRowByExternalRef,
+  guarded,
+  hasNulCharacter,
+  invalid,
+  isCalendarDate,
+  isPlainObject,
+  isUniqueViolationOn,
+  notFound,
+  ok,
+  overQuota,
+  parseExternalRef,
+  trackAfterResponse,
+  truncateCodePoints,
+  type FailureContext,
+} from "@/lib/careerotter/domain-result";
 import type { DomainResult } from "@/types";
 
-/** Field caps for comp entries, mirroring the column types in 033/035/040. */
-export const COMP_LIMITS = {
-  // numeric(12,2)
-  amountMax: 9_999_999_999.99,
-  // numeric(14,4)
-  sharesMax: 9_999_999_999.9999,
-  noteMax: 500,
-  tickerMax: 10,
-  vestYearsMax: 10,
-  vestCliffMonthsMax: 60,
-} as const;
-
-const TICKER_PATTERN = /^[A-Z0-9][A-Z0-9.\-]{0,9}$/;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const ISO_DATE_LENGTH = "YYYY-MM-DD".length;
+const TICKER_PATTERN = /^[A-Z0-9][A-Z0-9.\-]*$/;
 const MONTHS_PER_YEAR = 12;
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const COMP_TABLE = "comp_entries";
 const EXTERNAL_REF_CONSTRAINT = "comp_entries_user_external_ref_key";
-const UNIQUE_VIOLATION_CODE = "23505";
 const COMP_SERVICE_SELECT =
   "id, effective_date, base, bonus, equity, currency, note, ticker, shares, vest_start, vest_years, vest_cliff_months, source, external_ref, updated_at, created_at";
 
-const AMOUNT_MAX_LABEL = "9,999,999,999.99";
+function formatLimit(value: number, scale: number): string {
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: scale,
+    maximumFractionDigits: scale,
+  }).format(value);
+}
+
+const AMOUNT_MAX_LABEL = formatLimit(COMP_LIMITS.amountMax, COMP_LIMITS.amountScale);
+const SHARES_MAX_LABEL = formatLimit(COMP_LIMITS.sharesMax, COMP_LIMITS.sharesScale);
 
 const MESSAGES = {
+  patchNotObject: "Comp entry changes must be a JSON object",
   effectiveDate: "effective_date must be a valid YYYY-MM-DD date",
   base: "base must be a non-negative number",
-  ticker: "ticker must be 1-10 letters, digits, dots or hyphens",
-  shares: "shares must be a non-negative number no larger than 9,999,999,999.9999",
+  amountType: (field: string): string => `${field} must be a non-negative number`,
+  amountTooLarge: (field: string): string =>
+    `${field} must be no larger than ${AMOUNT_MAX_LABEL}`,
+  ticker: `ticker must be 1-${COMP_LIMITS.tickerMax} letters, digits, dots or hyphens`,
+  shares: `shares must be a non-negative number no larger than ${SHARES_MAX_LABEL}`,
+  note: "note must be a string",
+  noteNul: "note must not contain null characters",
+  noteTooLong: `note must be ${COMP_LIMITS.noteMax} characters or fewer`,
   vestStart: "vest_start must be a valid YYYY-MM-DD date",
-  vestYears: "vest_years must be a number between 0 and 10",
-  vestCliff: "vest_cliff_months must be a whole number between 0 and 60",
+  vestYears: `vest_years must be at least ${COMP_LIMITS.vestYearsMin} and at most ${COMP_LIMITS.vestYearsMax}`,
+  vestCliff: `vest_cliff_months must be a whole number between 0 and ${COMP_LIMITS.vestCliffMonthsMax}`,
   cliffNeedsVest: "vest_cliff_months requires vest_years",
   cliffTooLong: "vest_cliff_months cannot exceed the vesting duration",
-  externalRef: `external_ref must be a string of 1 to ${EXTERNAL_REF_MAX} characters`,
   immutable: "external_ref and source cannot be changed",
   notFound: "Comp entry not found",
   refConflict: "A comp entry with this external_ref was removed while saving; try again",
+  staleWrite: "This comp entry changed while saving; try again",
   agentQuota: `Agents can add at most ${AGENT_WRITE_QUOTAS.compEntriesPer24h} comp entries per 24 hours`,
   totalCap: `You can keep at most ${AGENT_WRITE_QUOTAS.compEntriesTotal} comp entries`,
   loadFailed: "Failed to load comp entries",
   saveFailed: "Failed to save comp entry",
+  saveFailedLog: "Failed to add comp entry",
   updateFailed: "Failed to update comp entry",
   deleteFailed: "Failed to delete comp entry",
+  malformedRow: "Malformed comp_entries row",
 } as const;
 
 export const COMP_FIELD_NAMES = [
@@ -134,64 +153,21 @@ export interface CurrentCompEntries<T> {
   upcoming: T | null;
 }
 
-interface FailureContext {
-  userId: string;
-  action: string;
-  logMessage: string;
-  publicMessage: string;
-}
+type FieldParser<K extends CompFieldName> = (raw: unknown) => DomainResult<CompFields[K]>;
+type AmountFields = Pick<CompFields, "base" | "bonus" | "equity">;
+type GrantFields = Pick<CompFields, "ticker" | "shares">;
+type VestFields = Pick<CompFields, "vest_start" | "vest_years" | "vest_cliff_months">;
 
-type Row = Record<string, unknown>;
-
-// ── result helpers ─────────────────────────────────────────────────────────
-
-function ok<T>(value: T): DomainResult<T> {
-  return { ok: true, value };
-}
-
-function invalid<T>(message: string): DomainResult<T> {
-  return { ok: false, kind: "validation", message };
-}
-
-function notFound<T>(): DomainResult<T> {
-  return { ok: false, kind: "not_found", message: MESSAGES.notFound };
-}
-
-function dbFailure<T>(context: FailureContext, error: unknown): DomainResult<T> {
-  loggerService.error(context.logMessage, error, {
-    category: LogCategory.DATABASE,
-    userId: context.userId,
-    action: context.action,
-  });
-  return { ok: false, kind: "db", message: context.publicMessage };
-}
-
-async function guarded<T>(
-  context: FailureContext,
-  run: () => Promise<DomainResult<T>>
-): Promise<DomainResult<T>> {
-  try {
-    return await run();
-  } catch (error) {
-    return dbFailure(context, error);
-  }
+function failureContext(
+  userId: string,
+  action: string,
+  publicMessage: string,
+  logMessage: string = publicMessage
+): FailureContext {
+  return { userId, action, logMessage, publicMessage };
 }
 
 // ── field validation ───────────────────────────────────────────────────────
-
-/**
- * True only for a real calendar date in YYYY-MM-DD form — the regex alone
- * accepts impossible dates like 2026-02-29, which would then fail at insert
- * time as a 500 instead of a validation 400.
- */
-function isIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !ISO_DATE_PATTERN.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return (
-    Number.isFinite(date.getTime()) &&
-    date.toISOString().slice(0, ISO_DATE_LENGTH) === value
-  );
-}
 
 function isPresent(value: unknown): boolean {
   return value !== undefined && value !== null;
@@ -202,37 +178,61 @@ function nonNegativeNumber(value: unknown): number | null {
   return null;
 }
 
-function amountTooLarge(field: string): string {
-  return `${field} must be no larger than ${AMOUNT_MAX_LABEL}`;
+function parseEffectiveDate(raw: unknown): DomainResult<string> {
+  return isCalendarDate(raw) ? ok(raw) : invalid(MESSAGES.effectiveDate);
 }
 
 function parseBase(raw: unknown): DomainResult<number> {
   const base = nonNegativeNumber(raw);
   if (base === null) return invalid(MESSAGES.base);
-  if (base > COMP_LIMITS.amountMax) return invalid(amountTooLarge("base"));
+  if (base > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge("base"));
   return ok(base);
 }
 
-// Bonus and equity are optional: anything that isn't a non-negative number is
-// stored as 0, but a real number too large for the column is an error rather
-// than silently zeroed.
+// On create, bonus and equity are optional: anything that isn't a
+// non-negative number is stored as 0, but a real number too large for the
+// column is an error rather than silently zeroed.
 function parseOptionalAmount(field: string, raw: unknown): DomainResult<number> {
   const amount = nonNegativeNumber(raw);
   if (amount === null) return ok(0);
-  if (amount > COMP_LIMITS.amountMax) return invalid(amountTooLarge(field));
+  if (amount > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge(field));
   return ok(amount);
 }
 
-function parseNote(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  return raw.trim().slice(0, COMP_LIMITS.noteMax) || null;
+function parseStrictAmount(field: string, raw: unknown): DomainResult<number> {
+  const amount = nonNegativeNumber(raw);
+  if (amount === null) return invalid(MESSAGES.amountType(field));
+  if (amount > COMP_LIMITS.amountMax) return invalid(MESSAGES.amountTooLarge(field));
+  return ok(amount);
+}
+
+// On create, over-long notes are truncated; on update they are rejected.
+function parseNoteText(value: string, truncate: boolean): DomainResult<string | null> {
+  if (hasNulCharacter(value)) return invalid(MESSAGES.noteNul);
+  const note = value.trim();
+  if (!truncate && codePointLength(note) > COMP_LIMITS.noteMax) {
+    return invalid(MESSAGES.noteTooLong);
+  }
+  return ok(truncateCodePoints(note, COMP_LIMITS.noteMax) || null);
+}
+
+function parseNote(raw: unknown): DomainResult<string | null> {
+  return typeof raw === "string" ? parseNoteText(raw, true) : ok(null);
+}
+
+// Over-long tickers are rejected rather than truncated: a truncated symbol
+// names a different security.
+function parseTickerText(value: string): DomainResult<string | null> {
+  const ticker = value.trim().toUpperCase();
+  if (ticker === "") return ok(null);
+  if (ticker.length > COMP_LIMITS.tickerMax || !TICKER_PATTERN.test(ticker)) {
+    return invalid(MESSAGES.ticker);
+  }
+  return ok(ticker);
 }
 
 function parseTicker(raw: unknown): DomainResult<string | null> {
-  if (typeof raw !== "string") return ok(null);
-  const ticker = raw.trim().toUpperCase().slice(0, COMP_LIMITS.tickerMax) || null;
-  if (ticker !== null && !TICKER_PATTERN.test(ticker)) return invalid(MESSAGES.ticker);
-  return ok(ticker);
+  return typeof raw === "string" ? parseTickerText(raw) : ok(null);
 }
 
 // Optional, but a supplied value must be storable: rejected rather than
@@ -246,13 +246,15 @@ function parseShares(raw: unknown): DomainResult<number | null> {
 
 function parseVestStart(raw: unknown): DomainResult<string | null> {
   if (!isPresent(raw) || raw === "") return ok(null);
-  return isIsoDate(raw) ? ok(raw) : invalid(MESSAGES.vestStart);
+  return isCalendarDate(raw) ? ok(raw) : invalid(MESSAGES.vestStart);
 }
 
 function parseVestYears(raw: unknown): DomainResult<number | null> {
   if (!isPresent(raw)) return ok(null);
   if (typeof raw !== "number" || !Number.isFinite(raw)) return invalid(MESSAGES.vestYears);
-  if (raw <= 0 || raw > COMP_LIMITS.vestYearsMax) return invalid(MESSAGES.vestYears);
+  if (raw < COMP_LIMITS.vestYearsMin || raw > COMP_LIMITS.vestYearsMax) {
+    return invalid(MESSAGES.vestYears);
+  }
   return ok(raw);
 }
 
@@ -277,10 +279,6 @@ function checkCliffFitsVest(
   }
   return ok(null);
 }
-
-type AmountFields = Pick<CompFields, "base" | "bonus" | "equity">;
-type GrantFields = Pick<CompFields, "ticker" | "shares">;
-type VestFields = Pick<CompFields, "vest_start" | "vest_years" | "vest_cliff_months">;
 
 function parseAmounts(input: CompFieldsInput): DomainResult<AmountFields> {
   const base = parseBase(input.base);
@@ -317,48 +315,113 @@ function parseVesting(input: CompFieldsInput): DomainResult<VestFields> {
 }
 
 function validateCompFields(input: CompFieldsInput): DomainResult<CompFields> {
-  if (!isIsoDate(input.effective_date)) return invalid(MESSAGES.effectiveDate);
+  const effectiveDate = parseEffectiveDate(input.effective_date);
+  if (!effectiveDate.ok) return effectiveDate;
   const amounts = parseAmounts(input);
   if (!amounts.ok) return amounts;
+  const note = parseNote(input.note);
+  if (!note.ok) return note;
   const grant = parseGrant(input);
   if (!grant.ok) return grant;
   const vesting = parseVesting(input);
   if (!vesting.ok) return vesting;
   return ok({
-    effective_date: input.effective_date,
+    effective_date: effectiveDate.value,
     ...amounts.value,
-    note: parseNote(input.note),
+    note: note.value,
     ...grant.value,
     ...vesting.value,
   });
 }
 
-function parseExternalRef(raw: unknown): DomainResult<string | null> {
-  if (!isPresent(raw)) return ok(null);
-  if (typeof raw !== "string") return invalid(MESSAGES.externalRef);
-  const ref = raw.trim();
-  if (ref.length === 0 || ref.length > EXTERNAL_REF_MAX) return invalid(MESSAGES.externalRef);
-  return ok(ref);
+function parseOptionalExternalRef(raw: unknown): DomainResult<string | null> {
+  return isPresent(raw) ? parseExternalRef(raw) : ok(null);
 }
 
 /**
  * Validates and normalizes a new comp entry. Invalid optional bonus/equity are
- * stored as 0; note is trimmed and capped; ticker is trimmed, uppercased and
- * capped before its charset is checked.
+ * stored as 0; note is trimmed and capped; ticker is trimmed and uppercased
+ * before its length and charset are checked.
  */
 export function validateCompInput(input: CompInput): DomainResult<ValidCompInput> {
   const fields = validateCompFields(input);
   if (!fields.ok) return fields;
-  const externalRef = parseExternalRef(input.external_ref);
+  const externalRef = parseOptionalExternalRef(input.external_ref);
   if (!externalRef.ok) return externalRef;
   return ok({ ...fields.value, external_ref: externalRef.value });
 }
 
-// ── row mapping ────────────────────────────────────────────────────────────
+// ── patch validation ───────────────────────────────────────────────────────
 
-function isRow(value: unknown): value is Row {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+// Update parsers take a present value: null clears (where a field can be
+// cleared) and anything else must already be valid, with none of the
+// create-time coercions.
+function clearable<T>(
+  parse: (raw: unknown) => DomainResult<T>,
+  cleared: T
+): (raw: unknown) => DomainResult<T> {
+  return (raw: unknown): DomainResult<T> => (raw === null ? ok(cleared) : parse(raw));
 }
+
+function strictText(
+  parse: (value: string) => DomainResult<string | null>,
+  message: string
+): (raw: unknown) => DomainResult<string | null> {
+  return (raw) => (typeof raw === "string" ? parse(raw) : invalid(message));
+}
+
+const PATCH_PARSERS: { [K in CompFieldName]: FieldParser<K> } = {
+  effective_date: parseEffectiveDate,
+  base: parseBase,
+  bonus: clearable((raw) => parseStrictAmount("bonus", raw), 0),
+  equity: clearable((raw) => parseStrictAmount("equity", raw), 0),
+  note: clearable(strictText((value) => parseNoteText(value, false), MESSAGES.note), null),
+  ticker: clearable(strictText(parseTickerText, MESSAGES.ticker), null),
+  shares: parseShares,
+  vest_start: parseVestStart,
+  vest_years: parseVestYears,
+  vest_cliff_months: parseVestCliff,
+};
+
+function applyPatchField<K extends CompFieldName>(
+  target: Partial<CompFields>,
+  name: K,
+  raw: unknown
+): DomainResult<null> {
+  const parsed = PATCH_PARSERS[name](raw);
+  if (!parsed.ok) return parsed;
+  target[name] = parsed.value;
+  return ok(null);
+}
+
+function parsePatch(patch: Record<string, unknown>): DomainResult<Partial<CompFields>> {
+  const parsed: Partial<CompFields> = {};
+  for (const name of COMP_FIELD_NAMES) {
+    if (patch[name] === undefined) continue;
+    const applied = applyPatchField(parsed, name, patch[name]);
+    if (!applied.ok) return applied;
+  }
+  return ok(parsed);
+}
+
+function validatePatchShape(patch: unknown): DomainResult<Partial<CompFields>> {
+  if (!isPlainObject(patch)) return invalid(MESSAGES.patchNotObject);
+  if (patch.external_ref !== undefined || patch.source !== undefined) {
+    return invalid(MESSAGES.immutable);
+  }
+  return parsePatch(patch);
+}
+
+function mergePatch(
+  existing: StoredCompEntry,
+  patch: Partial<CompFields>
+): DomainResult<CompFields> {
+  const merged: CompFields = { ...toCompFields(existing), ...patch };
+  const fits = checkCliffFitsVest(merged.vest_cliff_months, merged.vest_years);
+  return fits.ok ? ok(merged) : fits;
+}
+
+// ── row mapping ────────────────────────────────────────────────────────────
 
 function isCompSource(value: unknown): value is CompSource {
   return COMP_SOURCES.some((source) => source === value);
@@ -376,46 +439,63 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
-function toStoredCompEntry(row: unknown): StoredCompEntry | null {
-  if (!isRow(row)) return null;
-  const { id, effective_date, currency, created_at, source } = row;
+function readAmounts(row: Record<string, unknown>): AmountFields | null {
   const base = numberOrNull(row.base);
   const bonus = numberOrNull(row.bonus);
   const equity = numberOrNull(row.equity);
-  if (typeof id !== "string" || typeof effective_date !== "string") return null;
-  if (typeof currency !== "string" || typeof created_at !== "string") return null;
-  if (!isCompSource(source) || base === null || bonus === null || equity === null) {
-    return null;
-  }
+  if (base === null || bonus === null || equity === null) return null;
+  return { base, bonus, equity };
+}
+
+type NullableColumns = Pick<
+  StoredCompEntry,
+  | "note"
+  | "ticker"
+  | "shares"
+  | "vest_start"
+  | "vest_years"
+  | "vest_cliff_months"
+  | "external_ref"
+  | "updated_at"
+>;
+
+function readNullableColumns(row: Record<string, unknown>): NullableColumns {
   return {
-    id,
-    effective_date,
-    base,
-    bonus,
-    equity,
-    currency,
     note: stringOrNull(row.note),
     ticker: stringOrNull(row.ticker),
     shares: numberOrNull(row.shares),
     vest_start: stringOrNull(row.vest_start),
     vest_years: numberOrNull(row.vest_years),
     vest_cliff_months: numberOrNull(row.vest_cliff_months),
-    source,
     external_ref: stringOrNull(row.external_ref),
     updated_at: stringOrNull(row.updated_at),
+  };
+}
+
+function toStoredCompEntry(row: unknown): StoredCompEntry | null {
+  if (!isPlainObject(row)) return null;
+  const { id, effective_date, currency, created_at, source } = row;
+  const amounts = readAmounts(row);
+  if (typeof id !== "string" || typeof effective_date !== "string") return null;
+  if (typeof currency !== "string" || typeof created_at !== "string") return null;
+  if (!isCompSource(source) || amounts === null) return null;
+  return {
+    id,
+    effective_date,
+    ...amounts,
+    currency,
+    ...readNullableColumns(row),
+    source,
     created_at,
   };
 }
 
-/** The fields the REST API has always returned for a comp entry. */
-export function toCompEntry(entry: StoredCompEntry): CompEntry {
+function toCompFields(entry: CompEntry): CompFields {
   return {
-    id: entry.id,
     effective_date: entry.effective_date,
     base: entry.base,
     bonus: entry.bonus,
     equity: entry.equity,
-    currency: entry.currency,
     note: entry.note,
     ticker: entry.ticker,
     shares: entry.shares,
@@ -425,80 +505,100 @@ export function toCompEntry(entry: StoredCompEntry): CompEntry {
   };
 }
 
+/** The fields the REST API has always returned for a comp entry. */
+export function toCompEntry(entry: StoredCompEntry): CompEntry {
+  return { id: entry.id, ...toCompFields(entry), currency: entry.currency };
+}
+
 /** Maps a single returned row, treating a malformed row as a database fault. */
 function storedOrFailure(
   row: unknown,
   context: FailureContext
 ): DomainResult<StoredCompEntry> {
   const entry = toStoredCompEntry(row);
-  if (entry === null) return dbFailure(context, new Error("Malformed comp_entries row"));
+  if (entry === null) return dbFailure(context, new Error(MESSAGES.malformedRow));
   return ok(entry);
 }
 
+function storedListOrFailure(
+  rows: unknown,
+  context: FailureContext
+): DomainResult<StoredCompEntry[]> {
+  const entries: StoredCompEntry[] = [];
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const entry = storedOrFailure(row, context);
+    if (!entry.ok) return entry;
+    entries.push(entry.value);
+  }
+  return ok(entries);
+}
+
 // ── reads ──────────────────────────────────────────────────────────────────
+
+async function queryEntries(
+  admin: SupabaseClient,
+  context: FailureContext
+): Promise<DomainResult<StoredCompEntry[]>> {
+  const { data, error } = await admin
+    .from(COMP_TABLE)
+    .select(COMP_SERVICE_SELECT)
+    .eq("user_id", context.userId)
+    .order("effective_date", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) return dbFailure(context, error);
+  return storedListOrFailure(data, context);
+}
 
 /** All of the user's comp entries, oldest effective date first. */
 export async function listCompEntries(
   admin: SupabaseClient,
   userId: string
 ): Promise<DomainResult<StoredCompEntry[]>> {
-  const context: FailureContext = {
-    userId,
-    action: "comp_entries_list_failed",
-    logMessage: "Failed to load comp entries",
-    publicMessage: MESSAGES.loadFailed,
-  };
-  return guarded(context, async () => {
-    const { data, error } = await admin
-      .from(COMP_TABLE)
-      .select(COMP_SERVICE_SELECT)
-      .eq("user_id", userId)
-      .order("effective_date", { ascending: true })
-      .order("created_at", { ascending: true });
-    if (error) return dbFailure(context, error);
-    const rows: unknown[] = Array.isArray(data) ? data : [];
-    const entries: StoredCompEntry[] = [];
-    for (const row of rows) {
-      const entry = storedOrFailure(row, context);
-      if (!entry.ok) return entry;
-      entries.push(entry.value);
-    }
-    return ok(entries);
-  });
+  const context = failureContext(userId, "comp_entries_list_failed", MESSAGES.loadFailed);
+  return guarded(context, () => queryEntries(admin, context));
 }
 
-function compareCreatedAt(a: { created_at: string }, b: { created_at: string }): number {
-  return Date.parse(a.created_at) - Date.parse(b.created_at);
+interface DatedEntry {
+  effective_date: string;
+  created_at: string;
+}
+
+// created_at values are ISO timestamps from one column, so string order is
+// time order, down to the microseconds Date.parse would drop.
+function createdLater(candidate: DatedEntry, other: DatedEntry): boolean {
+  return candidate.created_at > other.created_at;
+}
+
+function replacesCurrent(candidate: DatedEntry, current: DatedEntry | null): boolean {
+  if (current === null || candidate.effective_date > current.effective_date) return true;
+  return candidate.effective_date === current.effective_date && createdLater(candidate, current);
+}
+
+function replacesUpcoming(candidate: DatedEntry, upcoming: DatedEntry | null): boolean {
+  if (upcoming === null || candidate.effective_date < upcoming.effective_date) return true;
+  return candidate.effective_date === upcoming.effective_date && createdLater(candidate, upcoming);
 }
 
 /**
- * The package in effect on `asOf` (latest effective_date on or before that UTC
- * date; ties go to the most recently created entry) and the earliest
- * future-dated one, e.g. an accepted offer that has not started yet.
+ * The package in effect on `asOf` (a YYYY-MM-DD date; the latest
+ * effective_date on or before it) and the earliest future-dated one, e.g. an
+ * accepted offer that has not started yet. Effective-date ties go to the most
+ * recently created entry for both. An invalid `asOf` matches nothing.
  */
-export function currentCompEntry<T extends { effective_date: string; created_at: string }>(
+export function currentCompEntry<T extends DatedEntry>(
   entries: readonly T[],
-  asOf: Date
+  asOf: string
 ): CurrentCompEntries<T> {
-  const asOfDate = asOf.toISOString().slice(0, ISO_DATE_LENGTH);
-  let current: T | null = null;
-  let upcoming: T | null = null;
+  const picked: CurrentCompEntries<T> = { current: null, upcoming: null };
+  if (!isCalendarDate(asOf)) return picked;
   for (const entry of entries) {
-    if (entry.effective_date <= asOfDate) {
-      const later =
-        current === null ||
-        entry.effective_date > current.effective_date ||
-        (entry.effective_date === current.effective_date && compareCreatedAt(entry, current) > 0);
-      if (later) current = entry;
-    } else {
-      const sooner =
-        upcoming === null ||
-        entry.effective_date < upcoming.effective_date ||
-        (entry.effective_date === upcoming.effective_date && compareCreatedAt(entry, upcoming) > 0);
-      if (sooner) upcoming = entry;
+    if (entry.effective_date <= asOf) {
+      if (replacesCurrent(entry, picked.current)) picked.current = entry;
+    } else if (replacesUpcoming(entry, picked.upcoming)) {
+      picked.upcoming = entry;
     }
   }
-  return { current, upcoming };
+  return picked;
 }
 
 // ── create ─────────────────────────────────────────────────────────────────
@@ -513,103 +613,108 @@ async function countEntries(
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId);
   if (agentSince !== null) {
-    query = query.eq("source", "agent").gte("created_at", agentSince);
+    query = query.eq("source", AGENT_SOURCE).gte("created_at", agentSince);
   }
   const { count, error } = await query;
   return { count: count ?? 0, error };
 }
 
-async function checkQuota(
+async function checkAgentQuota(
   admin: SupabaseClient,
-  userId: string,
-  source: CompSource,
   context: FailureContext
 ): Promise<DomainResult<null>> {
-  if (source === "agent") {
-    const since = new Date(Date.now() - MS_PER_DAY).toISOString();
-    const recent = await countEntries(admin, userId, since);
-    if (recent.error) return dbFailure(context, recent.error);
-    if (recent.count >= AGENT_WRITE_QUOTAS.compEntriesPer24h) {
-      return { ok: false, kind: "quota", message: MESSAGES.agentQuota };
-    }
-  }
-  const total = await countEntries(admin, userId, null);
-  if (total.error) return dbFailure(context, total.error);
-  if (total.count >= AGENT_WRITE_QUOTAS.compEntriesTotal) {
-    return { ok: false, kind: "quota", message: MESSAGES.totalCap };
+  const since = new Date(Date.now() - MS_PER_DAY).toISOString();
+  const recent = await countEntries(admin, context.userId, since);
+  if (recent.error) return dbFailure(context, recent.error);
+  if (recent.count >= AGENT_WRITE_QUOTAS.compEntriesPer24h) {
+    return overQuota(MESSAGES.agentQuota);
   }
   return ok(null);
 }
 
-async function findByExternalRef(
+async function checkQuota(
   admin: SupabaseClient,
-  userId: string,
-  externalRef: string,
+  source: CompSource,
   context: FailureContext
-): Promise<DomainResult<StoredCompEntry | null>> {
-  const { data, error } = await admin
-    .from(COMP_TABLE)
-    .select(COMP_SERVICE_SELECT)
-    .eq("user_id", userId)
-    .eq("external_ref", externalRef)
-    .maybeSingle();
-  if (error) return dbFailure(context, error);
-  if (data === null) return ok(null);
-  return storedOrFailure(data, context);
-}
-
-function isExternalRefViolation(error: unknown): boolean {
-  if (!isRow(error) || error.code !== UNIQUE_VIOLATION_CODE) return false;
-  const text = `${stringOrNull(error.message) ?? ""} ${stringOrNull(error.details) ?? ""}`;
-  return text.includes(EXTERNAL_REF_CONSTRAINT);
+): Promise<DomainResult<null>> {
+  if (source === AGENT_SOURCE) {
+    const agent = await checkAgentQuota(admin, context);
+    if (!agent.ok) return agent;
+  }
+  const total = await countEntries(admin, context.userId, null);
+  if (total.error) return dbFailure(context, total.error);
+  if (total.count >= AGENT_WRITE_QUOTAS.compEntriesTotal) {
+    return overQuota(MESSAGES.totalCap);
+  }
+  return ok(null);
 }
 
 async function existingDuplicate(
   admin: SupabaseClient,
-  userId: string,
   externalRef: string,
   context: FailureContext
 ): Promise<DomainResult<CreatedCompEntry>> {
-  const existing = await findByExternalRef(admin, userId, externalRef, context);
-  if (!existing.ok) return existing;
-  if (existing.value === null) {
-    return { ok: false, kind: "conflict", message: MESSAGES.refConflict };
-  }
-  return ok({ entry: existing.value, duplicate: true });
-}
-
-function captureCompEntered(userId: string, entry: StoredCompEntry, source: CompSource): void {
-  // The agent path deliberately sends no amount: a salary figure should not
-  // leave the app because an agent wrote it.
-  const properties =
-    source === "agent"
-      ? { source }
-      : { total: entry.base + entry.bonus + entry.equity };
-  after(captureServerEvent(userId, CAREEROTTER_EVENT_NAMES.COMP_ENTERED, properties));
+  const found = await findRowByExternalRef(
+    admin,
+    { table: COMP_TABLE, select: COMP_SERVICE_SELECT, userId: context.userId, externalRef },
+    context
+  );
+  if (!found.ok) return found;
+  if (found.value === null) return conflict(MESSAGES.refConflict);
+  const entry = storedOrFailure(found.value, context);
+  return entry.ok ? ok({ entry: entry.value, duplicate: true }) : entry;
 }
 
 async function insertCompEntry(
   admin: SupabaseClient,
-  userId: string,
   input: ValidCompInput,
   source: CompSource,
   context: FailureContext
 ): Promise<DomainResult<CreatedCompEntry>> {
   const { data, error } = await admin
     .from(COMP_TABLE)
-    .insert({ user_id: userId, ...input, source })
+    .insert({ user_id: context.userId, ...input, source })
     .select(COMP_SERVICE_SELECT)
     .single();
   if (error) {
-    if (input.external_ref !== null && isExternalRefViolation(error)) {
-      return existingDuplicate(admin, userId, input.external_ref, context);
+    if (input.external_ref !== null && isUniqueViolationOn(error, EXTERNAL_REF_CONSTRAINT)) {
+      return existingDuplicate(admin, input.external_ref, context);
     }
     return dbFailure(context, error);
   }
   const entry = storedOrFailure(data, context);
-  if (!entry.ok) return entry;
-  captureCompEntered(userId, entry.value, source);
-  return ok({ entry: entry.value, duplicate: false });
+  return entry.ok ? ok({ entry: entry.value, duplicate: false }) : entry;
+}
+
+async function writeCompEntry(
+  admin: SupabaseClient,
+  input: ValidCompInput,
+  source: CompSource,
+  context: FailureContext
+): Promise<DomainResult<CreatedCompEntry>> {
+  const quota = await checkQuota(admin, source, context);
+  if (quota.ok) return insertCompEntry(admin, input, source, context);
+  // A retry of a write that already landed must stay idempotent even when
+  // that write was the one that filled the quota.
+  if (quota.kind !== "quota" || input.external_ref === null) return quota;
+  const existing = await existingDuplicate(admin, input.external_ref, context);
+  return existing.ok ? existing : quota;
+}
+
+function trackCompEntered(
+  context: FailureContext,
+  entry: StoredCompEntry,
+  source: CompSource
+): void {
+  // The agent path deliberately sends no amount: a salary figure should not
+  // leave the app because an agent wrote it.
+  const properties =
+    source === AGENT_SOURCE
+      ? { source }
+      : { total: entry.base + entry.bonus + entry.equity };
+  trackAfterResponse(context, () =>
+    captureServerEvent(context.userId, CAREEROTTER_EVENT_NAMES.COMP_ENTERED, properties)
+  );
 }
 
 /**
@@ -623,33 +728,27 @@ export async function createCompEntry(
   input: CompInput,
   options: CreateCompOptions
 ): Promise<DomainResult<CreatedCompEntry>> {
-  const context: FailureContext = {
+  const valid = validateCompInput(input);
+  if (!valid.ok) return valid;
+  const context = failureContext(
     userId,
-    action: "comp_entry_failed",
-    logMessage: "Failed to add comp entry",
-    publicMessage: MESSAGES.saveFailed,
-  };
-  return guarded(context, async () => {
-    const valid = validateCompInput(input);
-    if (!valid.ok) return valid;
-    const quota = await checkQuota(admin, userId, options.source, context);
-    if (!quota.ok) {
-      // A retry of a write that already landed must stay idempotent even when
-      // that write was the one that filled the quota.
-      const ref = valid.value.external_ref;
-      if (quota.kind !== "quota" || ref === null) return quota;
-      const existing = await existingDuplicate(admin, userId, ref, context);
-      return existing.ok ? existing : quota;
-    }
-    return insertCompEntry(admin, userId, valid.value, options.source, context);
-  });
+    "comp_entry_failed",
+    MESSAGES.saveFailed,
+    MESSAGES.saveFailedLog
+  );
+  const created = await guarded(context, () =>
+    writeCompEntry(admin, valid.value, options.source, context)
+  );
+  if (created.ok && !created.value.duplicate) {
+    trackCompEntered(context, created.value.entry, options.source);
+  }
+  return created;
 }
 
 // ── update ─────────────────────────────────────────────────────────────────
 
 async function loadScopedEntry(
   admin: SupabaseClient,
-  userId: string,
   id: string,
   scope: CompWriteScope,
   context: FailureContext
@@ -658,26 +757,19 @@ async function loadScopedEntry(
     .from(COMP_TABLE)
     .select(COMP_SERVICE_SELECT)
     .eq("id", id)
-    .eq("user_id", userId);
+    .eq("user_id", context.userId);
   if (scope.onlySource) query = query.eq("source", scope.onlySource);
   const { data, error } = await query.maybeSingle();
   if (error) return dbFailure(context, error);
-  if (data === null) return notFound();
+  if (data === null) return notFound(MESSAGES.notFound);
   return storedOrFailure(data, context);
 }
 
-function mergePatch(existing: CompFields, patch: CompPatch): CompFieldsInput {
-  const merged: CompFieldsInput = {};
-  for (const name of COMP_FIELD_NAMES) {
-    merged[name] = patch[name] === undefined ? existing[name] : patch[name];
-  }
-  return merged;
-}
-
+// Conditioned on the updated_at that was read, so a concurrent edit between
+// the read and this write is reported instead of silently overwritten.
 async function writeUpdate(
   admin: SupabaseClient,
-  userId: string,
-  id: string,
+  existing: StoredCompEntry,
   fields: CompFields,
   scope: CompWriteScope,
   context: FailureContext
@@ -685,48 +777,70 @@ async function writeUpdate(
   let query = admin
     .from(COMP_TABLE)
     .update({ ...fields, updated_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("user_id", userId);
+    .eq("id", existing.id)
+    .eq("user_id", context.userId);
   if (scope.onlySource) query = query.eq("source", scope.onlySource);
+  query =
+    existing.updated_at === null
+      ? query.is("updated_at", null)
+      : query.eq("updated_at", existing.updated_at);
   const { data, error } = await query.select(COMP_SERVICE_SELECT).maybeSingle();
   if (error) return dbFailure(context, error);
-  // Deleted between the read and the write.
-  if (data === null) return notFound();
+  if (data === null) return conflict(MESSAGES.staleWrite);
   return storedOrFailure(data, context);
 }
 
+async function applyUpdate(
+  admin: SupabaseClient,
+  id: string,
+  patch: Partial<CompFields>,
+  scope: CompWriteScope,
+  context: FailureContext
+): Promise<DomainResult<StoredCompEntry>> {
+  const existing = await loadScopedEntry(admin, id, scope, context);
+  if (!existing.ok) return existing;
+  const fields = mergePatch(existing.value, patch);
+  if (!fields.ok) return fields;
+  return writeUpdate(admin, existing.value, fields.value, scope, context);
+}
+
 /**
- * Edits a comp entry. The merged row is validated as a whole, so e.g. clearing
- * vest_years while a cliff is set fails. With `onlySource`, rows from any other
- * source are reported as not found.
+ * Edits a comp entry. undefined keeps a field and null clears it (bonus and
+ * equity to 0; base and effective_date cannot be cleared); any other value
+ * must be valid as given. The merged row's vest schedule is re-checked, so
+ * e.g. clearing vest_years while a cliff is set fails. With `onlySource`, rows
+ * from any other source are reported as not found. A concurrent edit is a
+ * `conflict`.
  */
 export async function updateCompEntry(
   admin: SupabaseClient,
   userId: string,
   id: string,
-  patch: CompPatch,
+  patch: unknown,
   scope: CompWriteScope = {}
 ): Promise<DomainResult<StoredCompEntry>> {
-  const context: FailureContext = {
-    userId,
-    action: "comp_entry_update_failed",
-    logMessage: "Failed to update comp entry",
-    publicMessage: MESSAGES.updateFailed,
-  };
-  return guarded(context, async () => {
-    if (!isValidUUID(id)) return notFound();
-    if (patch.external_ref !== undefined || patch.source !== undefined) {
-      return invalid(MESSAGES.immutable);
-    }
-    const existing = await loadScopedEntry(admin, userId, id, scope, context);
-    if (!existing.ok) return existing;
-    const fields = validateCompFields(mergePatch(existing.value, patch));
-    if (!fields.ok) return fields;
-    return writeUpdate(admin, userId, id, fields.value, scope, context);
-  });
+  if (!isValidUUID(id)) return notFound(MESSAGES.notFound);
+  const parsed = validatePatchShape(patch);
+  if (!parsed.ok) return parsed;
+  const context = failureContext(userId, "comp_entry_update_failed", MESSAGES.updateFailed);
+  return guarded(context, () => applyUpdate(admin, id, parsed.value, scope, context));
 }
 
 // ── delete ─────────────────────────────────────────────────────────────────
+
+async function removeCompEntry(
+  admin: SupabaseClient,
+  id: string,
+  scope: CompWriteScope,
+  context: FailureContext
+): Promise<DomainResult<{ id: string }>> {
+  let query = admin.from(COMP_TABLE).delete().eq("id", id).eq("user_id", context.userId);
+  if (scope.onlySource) query = query.eq("source", scope.onlySource);
+  const { data, error } = await query.select("id").maybeSingle();
+  if (error) return dbFailure(context, error);
+  if (data === null) return notFound(MESSAGES.notFound);
+  return ok({ id });
+}
 
 /** Deletes a comp entry; a missing row (or one outside `onlySource`) is not_found. */
 export async function deleteCompEntry(
@@ -735,19 +849,7 @@ export async function deleteCompEntry(
   id: string,
   scope: CompWriteScope = {}
 ): Promise<DomainResult<{ id: string }>> {
-  const context: FailureContext = {
-    userId,
-    action: "comp_entry_delete_failed",
-    logMessage: "Failed to delete comp entry",
-    publicMessage: MESSAGES.deleteFailed,
-  };
-  return guarded(context, async () => {
-    if (!isValidUUID(id)) return notFound();
-    let query = admin.from(COMP_TABLE).delete().eq("id", id).eq("user_id", userId);
-    if (scope.onlySource) query = query.eq("source", scope.onlySource);
-    const { data, error } = await query.select("id").maybeSingle();
-    if (error) return dbFailure(context, error);
-    if (data === null) return notFound();
-    return ok({ id });
-  });
+  if (!isValidUUID(id)) return notFound(MESSAGES.notFound);
+  const context = failureContext(userId, "comp_entry_delete_failed", MESSAGES.deleteFailed);
+  return guarded(context, () => removeCompEntry(admin, id, scope, context));
 }

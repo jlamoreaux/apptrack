@@ -2,11 +2,13 @@
 /**
  * On-demand quote cache: serves cached rows, refreshes missing or stale
  * tickers live and writes them back, and only reads the cache when the feed
- * is dark. readCachedQuotes is select-only: never the feed, never a write.
+ * is dark. readCachedQuotes is select-only: never the feed, never a write; it
+ * normalizes tickers and drops rows without a usable price.
  */
 
 import { loadQuotes, QUOTE_TTL_MS, readCachedQuotes } from "@/lib/careerotter/stock-price-cache";
 import { fetchProfile, fetchQuote } from "@/lib/careerotter/stock-price";
+import { loggerService } from "@/lib/services/logger.service";
 
 jest.mock("@/lib/careerotter/stock-price", () => ({
   fetchQuote: jest.fn(),
@@ -19,6 +21,7 @@ jest.mock("@/lib/services/logger.service", () => ({
 
 const mockQuote = fetchQuote as jest.Mock;
 const mockProfile = fetchProfile as jest.Mock;
+const mockLogWarn = jest.mocked(loggerService.warn);
 const ORIGINAL_KEY = process.env.FINNHUB_API_KEY;
 
 /** A fake admin client: `.from("stock_prices").select().in()` resolves rows; upsert is recorded. */
@@ -157,9 +160,33 @@ describe("readCachedQuotes", () => {
     expect(upsert).not.toHaveBeenCalled();
   });
 
+  it("trims and uppercases tickers before de-duplicating and querying", async () => {
+    const { client, inFn } = fakeAdmin([{ ticker: "NET", price: 90, as_of: fresh() }]);
+    const result = await readCachedQuotes(client, [" net ", "NET", "brk.b", "  "]);
+    expect(inFn).toHaveBeenCalledWith("ticker", ["NET", "BRK.B"]);
+    expect(result).toMatchObject({ ok: true, value: { NET: { price: 90 } } });
+  });
+
+  it.each([null, "", "abc", "NaN", Number.NaN, Number.POSITIVE_INFINITY, undefined])(
+    "drops a row whose price is %p and logs a warning",
+    async (price) => {
+      const { client } = fakeAdmin([
+        { ticker: "BAD", price, as_of: fresh() },
+        { ticker: "NET", price: "90.5", as_of: fresh() },
+      ]);
+      const result = await readCachedQuotes(client, ["BAD", "NET"]);
+      expect(result).toEqual({ ok: true, value: { NET: expect.objectContaining({ price: 90.5 }) } });
+      expect(mockLogWarn).toHaveBeenCalledWith(
+        "Dropped malformed cached stock price rows",
+        expect.objectContaining({ metadata: { dropped: 1 } })
+      );
+    }
+  );
+
   it("returns an empty map for no tickers without querying", async () => {
     const { client, inFn } = fakeAdmin([]);
     expect(await readCachedQuotes(client, [])).toEqual({ ok: true, value: {} });
+    expect(await readCachedQuotes(client, ["  "])).toEqual({ ok: true, value: {} });
     expect(inFn).not.toHaveBeenCalled();
   });
 

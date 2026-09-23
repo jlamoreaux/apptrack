@@ -9,9 +9,9 @@
  */
 
 import { type NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { revokeAgentToken } from "@/lib/auth/agent-token";
+import { getSessionUserId, unauthorizedResponse } from "@/lib/auth/session-user";
 import { domainErrorResponse } from "@/lib/careerotter/domain-response";
 
 export async function DELETE(
@@ -19,15 +19,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const userId = await getSessionUserId();
+  if (!userId) return unauthorizedResponse();
 
-  const revoked = await revokeAgentToken(createAdminClient(), user.id, id, new Date());
+  const revoked = await revokeAgentToken(createAdminClient(), userId, id, new Date());
   if (!revoked.ok) return domainErrorResponse(revoked);
 
   return NextResponse.json({ success: true });

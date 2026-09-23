@@ -181,8 +181,11 @@ Verified in the 1.1.0 source (unpacked from npm, not yet installed):
 - API default when `scopes` is omitted: 400. Scopes are always explicit.
 - Expiry: enum `30 | 90 | 365 | null` (null = never). Default 90. `null` is
   rejected when any `comp:*` scope is requested.
-- Limit: 10 active tokens per user. Enforced by count-then-insert. A race can
-  exceed it by one; accepted.
+- Limit: 10 active tokens per user. Enforced by count-then-insert, so concurrent
+  creates can exceed it by up to the number of parallel requests, bounded by the
+  per-user create rate limit when Redis is available; accepted.
+- Names: trimmed, internal whitespace collapsed, 1-60 code points, no control
+  characters. Case-sensitive ("Claude" and "claude" are distinct).
 - `lib/auth/agent-token.ts`:
   - `generateAgentToken()` → `{ raw, hash, prefix }`
   - `hasValidAgentTokenFormat(raw)`
@@ -212,7 +215,7 @@ gets 401.
 - `DELETE /api/careerotter/agent-tokens/:id` → revoke one. Non-uuid id → 404.
   Not the caller's → 404. Already revoked → 200 without changing `revoked_at`
   (`.is('revoked_at', null)` on the update, then a re-read).
-- `DELETE /api/careerotter/agent-tokens` → revoke all active tokens; returns the
+- `DELETE /api/careerotter/agent-tokens` → revoke every unrevoked token (expired ones included, so their names free up); returns the number of active tokens revoked as the
   count.
 
 ### UI

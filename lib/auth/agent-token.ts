@@ -15,6 +15,7 @@ import { createHash, randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AGENT_COMP_SCOPES,
+  AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT,
   AGENT_TOKEN_CHECKSUM_LENGTH,
   AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
   AGENT_TOKEN_LIMITS,
@@ -26,6 +27,21 @@ import {
   SCOPE_IMPLIES,
   type AgentTokenExpiryDays,
 } from "@/lib/constants/agent-access";
+import { MS_PER_DAY } from "@/lib/constants/dates";
+import {
+  codePointLength,
+  conflict,
+  dbFailure,
+  guarded,
+  hasControlCharacter,
+  invalid,
+  isPlainObject,
+  isUniqueViolationOn,
+  notFound,
+  ok,
+  overQuota,
+  type FailureContext,
+} from "@/lib/careerotter/domain-result";
 import { isValidUUID } from "@/lib/utils/api-validation";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
@@ -59,6 +75,16 @@ export interface CreatedAgentToken {
   record: AgentTokenRecord;
 }
 
+/**
+ * Outcome of revoking all of a user's tokens. `revoked` counts every token
+ * revoked (expired ones included, so they stop holding their names);
+ * `activeRevoked` counts only those that were still usable.
+ */
+export interface RevokeAllResult {
+  revoked: number;
+  activeRevoked: number;
+}
+
 /** An agent_tokens row as selected by this module (never includes token_hash). */
 interface AgentTokenRow {
   id: string;
@@ -72,22 +98,17 @@ interface AgentTokenRow {
   revoked_at: string | null;
 }
 
-interface FailureContext {
-  userId: string;
-  action: string;
-  logMessage: string;
-  publicMessage: string;
-}
+type RevokedRow = Pick<AgentTokenRow, "id" | "expires_at">;
 
 const TOKEN_TABLE = "agent_tokens";
 const TOKEN_SELECT =
   "id, user_id, name, token_prefix, scopes, created_at, last_used_at, expires_at, revoked_at";
-const ACTIVE_NAME_CONSTRAINT = "agent_tokens_user_active_name_key";
-const UNIQUE_VIOLATION_CODE = "23505";
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const REVOKED_SELECT = "id, expires_at";
 const UNEXPECTED_ROW_SHAPE = "Unexpected agent_tokens row shape";
+const MISSING_COUNT = "Active token count missing";
 const BASE36_RADIX = 36;
 const CHECKSUM_SEPARATOR = "_";
+const WHITESPACE_RUN = /\s+/g;
 
 // base64url without padding: 4 characters per 3 bytes, rounded up.
 const SECRET_LENGTH = Math.ceil((AGENT_TOKEN_SECRET_BYTES * 4) / 3);
@@ -99,11 +120,15 @@ const TOKEN_PATTERN = new RegExp(
 // installed Node typings predate zlib.crc32.
 const CRC32_POLYNOMIAL = 0xedb88320;
 const CRC32_INITIAL = 0xffffffff;
+const BYTE_VALUE_COUNT = 256;
+const BITS_PER_BYTE = 8;
+const BYTE_MASK = 0xff;
 const CRC32_TABLE = buildCrc32Table();
 
 const MESSAGES = {
+  bodyInvalid: "Request body must be a JSON object",
   scopesRequired: `scopes must be a non-empty array of: ${AGENT_TOKEN_SCOPES.join(", ")}`,
-  nameInvalid: `name must be 1 to ${AGENT_TOKEN_LIMITS.nameMax} characters`,
+  nameInvalid: `name must be 1 to ${AGENT_TOKEN_LIMITS.nameMax} characters with no control characters`,
   expiryInvalid: `expires_in_days must be one of ${AGENT_TOKEN_EXPIRY_DAYS_OPTIONS.join(", ")} or null`,
   compNeverExpires: "Tokens with a comp scope must have an expiry",
   nameTaken: "An active token with this name already exists",
@@ -114,47 +139,40 @@ const MESSAGES = {
   revokeFailed: "Failed to revoke token",
 } as const;
 
-// ── result helpers ─────────────────────────────────────────────────────────
+const FAILURES = {
+  list: {
+    action: "agent_tokens_list_failed",
+    logMessage: "Failed to list agent tokens",
+    publicMessage: MESSAGES.loadFailed,
+  },
+  create: {
+    action: "agent_token_create_failed",
+    logMessage: "Failed to create agent token",
+    publicMessage: MESSAGES.createFailed,
+  },
+  revoke: {
+    action: "agent_token_revoke_failed",
+    logMessage: "Failed to revoke agent token",
+    publicMessage: MESSAGES.revokeFailed,
+  },
+  revokeAll: {
+    action: "agent_tokens_revoke_all_failed",
+    logMessage: "Failed to revoke all agent tokens",
+    publicMessage: MESSAGES.revokeFailed,
+  },
+} as const satisfies Record<string, Omit<FailureContext, "userId">>;
 
-function ok<T>(value: T): DomainResult<T> {
-  return { ok: true, value };
-}
-
-function invalid<T>(message: string): DomainResult<T> {
-  return { ok: false, kind: "validation", message };
-}
-
-function notFound<T>(): DomainResult<T> {
-  return { ok: false, kind: "not_found", message: MESSAGES.notFound };
-}
-
-function dbFailure<T>(context: FailureContext, error: unknown): DomainResult<T> {
-  loggerService.error(context.logMessage, error, {
-    category: LogCategory.DATABASE,
-    userId: context.userId,
-    action: context.action,
-  });
-  return { ok: false, kind: "db", message: context.publicMessage };
-}
-
-async function guarded<T>(
-  context: FailureContext,
-  run: () => Promise<DomainResult<T>>
-): Promise<DomainResult<T>> {
-  try {
-    return await run();
-  } catch (error) {
-    return dbFailure(context, error);
-  }
+function failureContext(userId: string, operation: keyof typeof FAILURES): FailureContext {
+  return { userId, ...FAILURES[operation] };
 }
 
 // ── format ─────────────────────────────────────────────────────────────────
 
 function buildCrc32Table(): Uint32Array {
-  const table = new Uint32Array(256);
+  const table = new Uint32Array(BYTE_VALUE_COUNT);
   for (let n = 0; n < table.length; n++) {
     let crc = n;
-    for (let bit = 0; bit < 8; bit++) {
+    for (let bit = 0; bit < BITS_PER_BYTE; bit++) {
       crc = crc & 1 ? CRC32_POLYNOMIAL ^ (crc >>> 1) : crc >>> 1;
     }
     table[n] = crc >>> 0;
@@ -165,7 +183,7 @@ function buildCrc32Table(): Uint32Array {
 function crc32(text: string): number {
   let crc = CRC32_INITIAL;
   for (const byte of Buffer.from(text, "utf8")) {
-    crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+    crc = CRC32_TABLE[(crc ^ byte) & BYTE_MASK] ^ (crc >>> BITS_PER_BYTE);
   }
   return (crc ^ CRC32_INITIAL) >>> 0;
 }
@@ -249,21 +267,36 @@ function isStringArray(value: unknown): value is string[] {
 }
 
 function isAgentTokenRow(value: unknown): value is AgentTokenRow {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = Object.fromEntries(Object.entries(value));
+  if (!isPlainObject(value)) return false;
   return (
     ["id", "user_id", "name", "token_prefix", "created_at"].every(
-      (key) => typeof row[key] === "string"
+      (key) => typeof value[key] === "string"
     ) &&
-    isStringArray(row.scopes) &&
+    isStringArray(value.scopes) &&
     ["last_used_at", "expires_at", "revoked_at"].every((key) =>
-      isNullableString(row[key])
+      isNullableString(value[key])
     )
   );
 }
 
+function isRevokedRow(value: unknown): value is RevokedRow {
+  return (
+    isPlainObject(value) && typeof value.id === "string" && isNullableString(value.expires_at)
+  );
+}
+
+function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
+  if (!Array.isArray(value)) return false;
+  const items: unknown[] = value;
+  return items.every(guard);
+}
+
 function toDateOrNull(value: string | null): Date | null {
   return value === null ? null : new Date(value);
+}
+
+function isExpired(expiresAt: string | null, now: Date): boolean {
+  return expiresAt !== null && Date.parse(expiresAt) <= now.getTime();
 }
 
 /** Status of a token at `now`: revocation wins over expiry. */
@@ -272,10 +305,7 @@ export function agentTokenStatus(
   now: Date
 ): AgentTokenStatus {
   if (row.revoked_at !== null) return "revoked";
-  if (row.expires_at !== null && Date.parse(row.expires_at) <= now.getTime()) {
-    return "expired";
-  }
-  return "active";
+  return isExpired(row.expires_at, now) ? "expired" : "active";
 }
 
 function toAgentTokenRecord(row: AgentTokenRow, now: Date): AgentTokenRecord {
@@ -335,6 +365,24 @@ function verificationFromRow(row: AgentTokenRow, now: Date): AgentTokenVerificat
   };
 }
 
+async function lookupVerification(
+  admin: SupabaseClient,
+  raw: string,
+  now: Date
+): Promise<AgentTokenVerification> {
+  const { row, error } = await findTokenByHash(admin, hashAgentToken(raw));
+  if (error) {
+    logVerifyFailure("Agent token lookup failed", error);
+    return UNAVAILABLE;
+  }
+  if (row === null) return INVALID;
+  if (!isAgentTokenRow(row)) {
+    logVerifyFailure("Agent token row has an unexpected shape", null);
+    return UNAVAILABLE;
+  }
+  return verificationFromRow(row, now);
+}
+
 /**
  * Resolve a raw bearer token to its owner and scopes. `invalid` means reject
  * with 401 (bad format, unknown, revoked, expired); `unavailable` means the
@@ -347,17 +395,7 @@ export async function verifyAgentToken(
 ): Promise<AgentTokenVerification> {
   if (!hasValidAgentTokenFormat(raw)) return INVALID;
   try {
-    const { row, error } = await findTokenByHash(admin, hashAgentToken(raw));
-    if (error) {
-      logVerifyFailure("Agent token lookup failed", error);
-      return UNAVAILABLE;
-    }
-    if (row === null) return INVALID;
-    if (!isAgentTokenRow(row)) {
-      logVerifyFailure("Agent token row has an unexpected shape", null);
-      return UNAVAILABLE;
-    }
-    return verificationFromRow(row, now);
+    return await lookupVerification(admin, raw, now);
   } catch (error) {
     logVerifyFailure("Agent token lookup threw", error);
     return UNAVAILABLE;
@@ -402,7 +440,7 @@ export async function touchLastUsed(
 // ── token API services ─────────────────────────────────────────────────────
 
 function rowsToRecords(rows: unknown, now: Date): AgentTokenRecord[] | null {
-  if (!Array.isArray(rows) || !rows.every(isAgentTokenRow)) return null;
+  if (!isArrayOf(rows, isAgentTokenRow)) return null;
   return rows.map((row) => toAgentTokenRecord(row, now));
 }
 
@@ -412,12 +450,7 @@ export async function listAgentTokens(
   userId: string,
   now: Date
 ): Promise<DomainResult<AgentTokenRecord[]>> {
-  const context: FailureContext = {
-    userId,
-    action: "agent_tokens_list_failed",
-    logMessage: "Failed to list agent tokens",
-    publicMessage: MESSAGES.loadFailed,
-  };
+  const context = failureContext(userId, "list");
   return guarded(context, async () => {
     const { data, error } = await admin
       .from(TOKEN_TABLE)
@@ -436,14 +469,19 @@ interface ValidatedTokenInput {
   expiresInDays: AgentTokenExpiryDays | null;
 }
 
-function toFields(raw: unknown): Record<string, unknown> {
-  if (typeof raw !== "object" || raw === null) return {};
-  return Object.fromEntries(Object.entries(raw));
-}
-
+/**
+ * Trimmed, with internal whitespace runs collapsed to one space. Control
+ * characters (including NUL, tab and newline) are rejected rather than
+ * collapsed so a name never hides line breaks. Length is in code points to
+ * match the char_length CHECK. Names are case-sensitive.
+ */
 function parseName(raw: unknown): DomainResult<string> {
-  const name = typeof raw === "string" ? raw.trim() : "";
-  if (!name || name.length > AGENT_TOKEN_LIMITS.nameMax) {
+  if (typeof raw !== "string" || hasControlCharacter(raw)) {
+    return invalid(MESSAGES.nameInvalid);
+  }
+  const name = raw.trim().replace(WHITESPACE_RUN, " ");
+  const length = codePointLength(name);
+  if (length === 0 || length > AGENT_TOKEN_LIMITS.nameMax) {
     return invalid(MESSAGES.nameInvalid);
   }
   return ok(name);
@@ -456,60 +494,80 @@ function parseExpiryDays(raw: unknown): DomainResult<AgentTokenExpiryDays | null
   return option === undefined ? invalid(MESSAGES.expiryInvalid) : ok(option);
 }
 
+function hasCompScope(scopes: readonly AgentTokenScope[]): boolean {
+  return scopes.some((scope) => AGENT_COMP_SCOPES.includes(scope));
+}
+
 function validateTokenInput(raw: unknown): DomainResult<ValidatedTokenInput> {
-  const fields = toFields(raw);
-  const name = parseName(fields.name);
+  if (!isPlainObject(raw)) return invalid(MESSAGES.bodyInvalid);
+  const name = parseName(raw.name);
   if (!name.ok) return name;
-  const scopes = normalizeScopes(fields.scopes);
+  const scopes = normalizeScopes(raw.scopes);
   if (!scopes.ok) return scopes;
-  const expiresInDays = parseExpiryDays(fields.expires_in_days);
+  const expiresInDays = parseExpiryDays(raw.expires_in_days);
   if (!expiresInDays.ok) return expiresInDays;
-  const hasCompScope = scopes.value.some((scope) => AGENT_COMP_SCOPES.includes(scope));
-  if (expiresInDays.value === null && hasCompScope) {
+  if (expiresInDays.value === null && hasCompScope(scopes.value)) {
     return invalid(MESSAGES.compNeverExpires);
   }
   return ok({ name: name.value, scopes: scopes.value, expiresInDays: expiresInDays.value });
 }
 
-async function countActiveTokens(
+/**
+ * Count-then-insert: concurrent creates can each pass this check, so the limit
+ * can be exceeded by up to the number of parallel requests. The per-user
+ * create rate limit bounds that when Redis is available.
+ */
+async function ensureBelowActiveLimit(
   admin: SupabaseClient,
   userId: string,
-  now: Date
-): Promise<{ count: number | null; error: unknown }> {
+  now: Date,
+  context: FailureContext
+): Promise<DomainResult<null>> {
   const { count, error } = await admin
     .from(TOKEN_TABLE)
     .select("id", { count: "exact", head: true })
     .eq("user_id", userId)
     .is("revoked_at", null)
     .or(notExpiredFilter(now));
-  return { count, error };
+  if (error) return dbFailure(context, error);
+  if (count === null) return dbFailure(context, MISSING_COUNT);
+  if (count >= AGENT_TOKEN_LIMITS.maxActivePerUser) return overQuota(MESSAGES.limitReached);
+  return ok(null);
 }
 
-interface PostgrestErrorLike {
-  code?: unknown;
-  message?: unknown;
-  details?: unknown;
-}
-
-function isActiveNameConflict(error: PostgrestErrorLike): boolean {
-  if (error.code !== UNIQUE_VIOLATION_CODE) return false;
-  return [error.message, error.details].some(
-    (text) => typeof text === "string" && text.includes(ACTIVE_NAME_CONSTRAINT)
-  );
+/**
+ * The active-name index only exempts revoked rows, so an expired token would
+ * otherwise hold its name forever. Revoking it frees the name for reuse.
+ */
+async function releaseExpiredName(
+  admin: SupabaseClient,
+  userId: string,
+  name: string,
+  now: Date,
+  context: FailureContext
+): Promise<DomainResult<null>> {
+  const nowIso = now.toISOString();
+  const { error } = await admin
+    .from(TOKEN_TABLE)
+    .update({ revoked_at: nowIso })
+    .eq("user_id", userId)
+    .eq("name", name)
+    .is("revoked_at", null)
+    .lte("expires_at", nowIso);
+  return error ? dbFailure(context, error) : ok(null);
 }
 
 function expiresAtFor(days: AgentTokenExpiryDays | null, now: Date): string | null {
   return days === null ? null : new Date(now.getTime() + days * MS_PER_DAY).toISOString();
 }
 
-async function insertToken(
+async function insertTokenRow(
   admin: SupabaseClient,
   userId: string,
   input: ValidatedTokenInput,
-  now: Date,
-  context: FailureContext
-): Promise<DomainResult<CreatedAgentToken>> {
-  const generated = generateAgentToken();
+  generated: GeneratedAgentToken,
+  now: Date
+): Promise<{ data: unknown; error: unknown }> {
   const { data, error } = await admin
     .from(TOKEN_TABLE)
     .insert({
@@ -522,20 +580,30 @@ async function insertToken(
     })
     .select(TOKEN_SELECT)
     .single();
-  if (error) {
-    if (isActiveNameConflict(error)) {
-      return { ok: false, kind: "conflict", message: MESSAGES.nameTaken };
-    }
-    return dbFailure(context, error);
+  return { data, error };
+}
+
+async function insertToken(
+  admin: SupabaseClient,
+  userId: string,
+  input: ValidatedTokenInput,
+  now: Date,
+  context: FailureContext
+): Promise<DomainResult<CreatedAgentToken>> {
+  const generated = generateAgentToken();
+  const { data, error } = await insertTokenRow(admin, userId, input, generated, now);
+  if (isUniqueViolationOn(error, AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT)) {
+    return conflict(MESSAGES.nameTaken);
   }
+  if (error) return dbFailure(context, error);
   if (!isAgentTokenRow(data)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
   return ok({ token: generated.raw, record: toAgentTokenRecord(data, now) });
 }
 
 /**
  * Validate and create a token. Fails with `quota` at the active-token limit
- * (count-then-insert, so a race can exceed it by one) and `conflict` when an
- * active token already has the name. The raw token is returned only here.
+ * and `conflict` when an active token already has the name (an expired one is
+ * revoked first so its name can be reused). The raw token is returned only here.
  */
 export async function createAgentToken(
   admin: SupabaseClient,
@@ -545,19 +613,12 @@ export async function createAgentToken(
 ): Promise<DomainResult<CreatedAgentToken>> {
   const validated = validateTokenInput(input);
   if (!validated.ok) return validated;
-  const context: FailureContext = {
-    userId,
-    action: "agent_token_create_failed",
-    logMessage: "Failed to create agent token",
-    publicMessage: MESSAGES.createFailed,
-  };
+  const context = failureContext(userId, "create");
   return guarded(context, async () => {
-    const active = await countActiveTokens(admin, userId, now);
-    if (active.error) return dbFailure(context, active.error);
-    if (active.count === null) return dbFailure(context, "Active token count missing");
-    if (active.count >= AGENT_TOKEN_LIMITS.maxActivePerUser) {
-      return { ok: false, kind: "quota", message: MESSAGES.limitReached };
-    }
+    const room = await ensureBelowActiveLimit(admin, userId, now, context);
+    if (!room.ok) return room;
+    const released = await releaseExpiredName(admin, userId, validated.value.name, now, context);
+    if (!released.ok) return released;
     return insertToken(admin, userId, validated.value, now, context);
   });
 }
@@ -576,9 +637,25 @@ async function loadOwnRecord(
     .eq("user_id", userId)
     .maybeSingle();
   if (error) return dbFailure(context, error);
-  if (data === null) return notFound();
+  if (data === null) return notFound(MESSAGES.notFound);
   if (!isAgentTokenRow(data)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
   return ok(toAgentTokenRecord(data, now));
+}
+
+async function markRevoked(
+  admin: SupabaseClient,
+  userId: string,
+  id: string,
+  now: Date,
+  context: FailureContext
+): Promise<DomainResult<null>> {
+  const { error } = await admin
+    .from(TOKEN_TABLE)
+    .update({ revoked_at: now.toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+  return error ? dbFailure(context, error) : ok(null);
 }
 
 /**
@@ -591,46 +668,43 @@ export async function revokeAgentToken(
   id: string,
   now: Date
 ): Promise<DomainResult<AgentTokenRecord>> {
-  if (!isValidUUID(id)) return notFound();
-  const context: FailureContext = {
-    userId,
-    action: "agent_token_revoke_failed",
-    logMessage: "Failed to revoke agent token",
-    publicMessage: MESSAGES.revokeFailed,
-  };
+  if (!isValidUUID(id)) return notFound(MESSAGES.notFound);
+  const context = failureContext(userId, "revoke");
   return guarded(context, async () => {
-    const { error } = await admin
-      .from(TOKEN_TABLE)
-      .update({ revoked_at: now.toISOString() })
-      .eq("id", id)
-      .eq("user_id", userId)
-      .is("revoked_at", null);
-    if (error) return dbFailure(context, error);
+    const revoked = await markRevoked(admin, userId, id, now, context);
+    if (!revoked.ok) return revoked;
     return loadOwnRecord(admin, userId, id, now, context);
   });
 }
 
-/** Revoke every active token the user has; returns how many were revoked. */
+function summarizeRevoked(
+  rows: unknown,
+  now: Date,
+  context: FailureContext
+): DomainResult<RevokeAllResult> {
+  if (!isArrayOf(rows, isRevokedRow)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
+  const activeRevoked = rows.filter((row) => !isExpired(row.expires_at, now)).length;
+  return ok({ revoked: rows.length, activeRevoked });
+}
+
+/**
+ * Revoke every unrevoked token the user has, expired ones included so they
+ * release their names. See RevokeAllResult for the two counts.
+ */
 export async function revokeAllAgentTokens(
   admin: SupabaseClient,
   userId: string,
   now: Date
-): Promise<DomainResult<number>> {
-  const context: FailureContext = {
-    userId,
-    action: "agent_tokens_revoke_all_failed",
-    logMessage: "Failed to revoke all agent tokens",
-    publicMessage: MESSAGES.revokeFailed,
-  };
+): Promise<DomainResult<RevokeAllResult>> {
+  const context = failureContext(userId, "revokeAll");
   return guarded(context, async () => {
     const { data, error } = await admin
       .from(TOKEN_TABLE)
       .update({ revoked_at: now.toISOString() })
       .eq("user_id", userId)
       .is("revoked_at", null)
-      .or(notExpiredFilter(now))
-      .select("id");
+      .select(REVOKED_SELECT);
     if (error) return dbFailure(context, error);
-    return ok(Array.isArray(data) ? data.length : 0);
+    return summarizeRevoked(data, now, context);
   });
 }

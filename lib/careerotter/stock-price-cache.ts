@@ -27,6 +27,7 @@ export const QUOTE_TTL_MS = 15 * 60 * 1000;
 /** Most tickers one request will refresh live; the rest wait for the cron. */
 export const MAX_REFRESH_PER_CALL = 5;
 
+const STOCK_PRICES_TABLE = "stock_prices";
 const SELECT_COLUMNS =
   "ticker, price, as_of, change, change_pct, previous_close, company_name, exchange, market_cap_musd, logo_url, profile_as_of";
 
@@ -70,6 +71,10 @@ function isStale(row: StockPriceRow | undefined, now: number): boolean {
   return !Number.isFinite(at) || now - at > QUOTE_TTL_MS;
 }
 
+function selectCachedRows(admin: SupabaseClient, tickers: readonly string[]) {
+  return admin.from(STOCK_PRICES_TABLE).select(SELECT_COLUMNS).in("ticker", [...tickers]);
+}
+
 /**
  * Quotes for the given tickers, keyed by ticker. Tickers with no quote at all
  * (unknown symbol, feed dark and nothing cached) are simply absent.
@@ -81,10 +86,7 @@ export async function loadQuotes(
   const quotes: Record<string, StockQuote> = {};
   if (tickers.length === 0) return quotes;
 
-  const { data: rows, error } = await admin
-    .from("stock_prices")
-    .select(SELECT_COLUMNS)
-    .in("ticker", tickers);
+  const { data: rows, error } = await selectCachedRows(admin, tickers);
   if (error) {
     loggerService.error("Failed to read cached stock prices", error, {
       category: LogCategory.DATABASE,
@@ -136,7 +138,7 @@ export async function loadQuotes(
       quotes[ticker] = rowToQuote(merged);
 
       const { error: upsertError } = await admin
-        .from("stock_prices")
+        .from(STOCK_PRICES_TABLE)
         .upsert(record, { onConflict: "ticker" });
       if (upsertError) {
         loggerService.error("Failed to cache refreshed stock price", upsertError, {
@@ -151,34 +153,58 @@ export async function loadQuotes(
   return quotes;
 }
 
+function hasFinitePrice(price: unknown): boolean {
+  if (typeof price === "number") return Number.isFinite(price);
+  return typeof price === "string" && price.trim() !== "" && Number.isFinite(Number(price));
+}
+
+// rowToQuote reads price with Number(), so a row whose price is not numeric
+// would otherwise surface as NaN.
 function isStockPriceRow(value: unknown): value is StockPriceRow {
   if (typeof value !== "object" || value === null) return false;
   return "ticker" in value && typeof value.ticker === "string" &&
-    "as_of" in value && typeof value.as_of === "string";
+    "as_of" in value && typeof value.as_of === "string" &&
+    "price" in value && hasFinitePrice(value.price);
+}
+
+/** Trimmed, uppercased and de-duplicated, matching how tickers are stored. */
+function normalizeTickers(tickers: readonly string[]): string[] {
+  const normalized = tickers.map((ticker) => ticker.trim().toUpperCase());
+  return [...new Set(normalized.filter((ticker) => ticker.length > 0))];
+}
+
+function quotesFromRows(rows: unknown): Record<string, StockQuote> {
+  const quotes: Record<string, StockQuote> = {};
+  let dropped = 0;
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (isStockPriceRow(row)) quotes[row.ticker] = rowToQuote(row);
+    else dropped += 1;
+  }
+  if (dropped > 0) {
+    loggerService.warn("Dropped malformed cached stock price rows", {
+      category: LogCategory.DATABASE,
+      action: "stock_prices_row_malformed",
+      metadata: { dropped },
+    });
+  }
+  return quotes;
 }
 
 /**
  * Cached quotes for the given tickers, keyed by ticker, straight from
  * stock_prices: no feed call and no write. Tickers with no cached row are
- * absent.
+ * absent; rows without a usable price are dropped.
  */
 export async function readCachedQuotes(
   admin: SupabaseClient,
   tickers: readonly string[]
 ): Promise<DomainResult<Record<string, StockQuote>>> {
-  const quotes: Record<string, StockQuote> = {};
-  const unique = [...new Set(tickers)];
-  if (unique.length === 0) return { ok: true, value: quotes };
+  const unique = normalizeTickers(tickers);
+  if (unique.length === 0) return { ok: true, value: {} };
   try {
-    const { data: rows, error } = await admin
-      .from("stock_prices")
-      .select(SELECT_COLUMNS)
-      .in("ticker", unique);
+    const { data: rows, error } = await selectCachedRows(admin, unique);
     if (error) return cachedQuotesFailure(error);
-    for (const row of Array.isArray(rows) ? rows : []) {
-      if (isStockPriceRow(row)) quotes[row.ticker] = rowToQuote(row);
-    }
-    return { ok: true, value: quotes };
+    return { ok: true, value: quotesFromRows(rows) };
   } catch (error) {
     return cachedQuotesFailure(error);
   }
