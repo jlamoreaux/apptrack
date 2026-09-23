@@ -162,6 +162,8 @@ cached for 60 seconds.
 - **Issuer.** Always `SITE_URL` (from `NEXT_PUBLIC_APP_URL`, default
   `https://careerotter.io`). The authorization server metadata is the same on
   every host, and every endpoint URL in it is absolute on `SITE_URL`.
+  `NEXT_PUBLIC_APP_URL` is inlined at build time, so changing it needs a
+  redeploy.
 - **Resource.** The protected resource document's `resource` is
   `<origin>/api/mcp`, where `<origin>` is the request's origin when it is
   accepted and `SITE_URL` otherwise. The accepted origins are `SITE_URL` plus
@@ -217,13 +219,19 @@ Handlers live under `app/oauth/` and `app/api/oauth/`, with the logic in
 - **Registration.** Dynamic registration is the only way to get a
   `client_id`; Client ID Metadata Documents are a follow-up. Redirect URIs
   (1 to 5, each at most 512 characters) are stored exactly as sent and must be
-  https on a host that isn't ours, `http://` on `127.0.0.1`, `[::1]` or
-  `localhost` (any port), or a private-use scheme outside a denylist.
+  one of: https on a host that isn't ours (neither an accepted MCP origin nor
+  a legacy host); `http://` on exactly `127.0.0.1`, `[::1]` or `localhost` in
+  lowercase (any port, and matched ignoring the port); or a private-use scheme
+  of three or more characters outside a denylist.
   `token_endpoint_auth_method` is `none` (the default), `client_secret_basic`
   or `client_secret_post`; the secret methods get a `co_cs_` client secret,
-  returned once. Limits: 30 per IP per 10 minutes, 100 per IP per day and
-  2,000 per day overall, failing closed with 503 when Redis is unavailable.
-  Clients that never complete an authorization are deleted after 24 hours.
+  returned once. `grant_types` must include `authorization_code`; omitting it
+  registers both `authorization_code` and `refresh_token`. Registration's own
+  limits are 30 per IP per 10 minutes, 100 per IP per day and 2,000 per day
+  overall. Like the token and revocation endpoints, it fails closed with 503
+  when Redis is unavailable. A client that never completes an authorization
+  is deleted by the daily cleanup once it is 24 hours old and holds no
+  unexpired code.
 - **Authorization.** PKCE with `S256` is required (a 43-character
   `code_challenge`). A `resource` parameter, when present, must normalize to
   an accepted `<origin>/api/mcp`, or the client gets `invalid_target`; when
@@ -237,14 +245,20 @@ Handlers live under `app/oauth/` and `app/api/oauth/`, with the logic in
   scope). A user can have at most 10 connected apps; approving an app that is
   already connected replaces its grant. Signing up mid-flow (email or Google)
   and free onboarding carry the request through to consent.
-- **Token.** `grant_type` is `authorization_code` or `refresh_token`. Rate
-  limits: 60 requests per minute per client (a public client's bucket is split
-  per caller IP), and 600 failed client authentications per minute per IP.
-  Refresh tokens are issued only to clients that registered the
-  `refresh_token` grant.
+- **Token.** `grant_type` is `authorization_code` or `refresh_token`. The
+  token and revocation endpoints share both rate limits: 60 requests per
+  minute per client, charged after client authentication succeeds (a public
+  client's bucket is split per caller IP), and 600 failed client
+  authentications per minute per IP. Both fail closed with 503
+  `temporarily_unavailable` when Redis is unavailable. Refresh tokens are
+  issued only to clients whose registration includes the `refresh_token`
+  grant, which it does when `grant_types` was omitted.
 - **Revocation.** Revoking either the access or the refresh token revokes the
-  whole grant. It answers 200 with an empty body, including for unknown
-  tokens and other clients' tokens, which it leaves alone.
+  whole grant. Once the client authenticates, it answers 200 with an empty
+  body, including for unknown tokens and other clients' tokens, which it
+  leaves alone. Failed client authentication gets 401 `invalid_client`, and a
+  missing `token` parameter 400 `invalid_request`. `token_type_hint` is
+  ignored.
 
 The registration, token and revocation endpoints send CORS headers (`*`), so a
 browser-based OAuth flow such as MCP Inspector's can complete.
@@ -268,12 +282,15 @@ by `AGENT_OAUTH_LIFETIME_SECONDS` and guarded by a test. Every expiry is
 computed in Postgres with `now()`.
 
 - A refresh token used again within 60 seconds of its rotation gets a fresh
-  pair, up to 5 times, to cover parallel refreshes by one client. Any other
-  reuse of a rotated refresh token, and any reuse of an authorization code,
-  revokes the grant.
+  pair, up to 5 times, as long as no refresh token issued from it has been
+  used yet. Each reissue invalidates the pairs issued from it before. This
+  covers parallel refreshes by one client. Any other reuse of a rotated
+  refresh token, and any reuse of an authorization code by the client holding
+  its PKCE verifier, revokes the grant.
 - Rotated refresh tokens are kept until their own expiry, so reuse is detected
   for the refresh token's whole lifetime.
-- A grant that never expires is revoked after 30 days without use.
+- A grant that never expires is revoked by the daily cleanup once it has gone
+  30 days without use.
 - Access tokens last 24 hours rather than the usual hour because every MCP
   request looks the token up, so revoking a grant takes effect on the next
   request whatever the access token's expiry.
@@ -294,8 +311,10 @@ On any other host, including the legacy `apptrack.ing` hosts and Vercel
 deployment aliases, `/api/mcp` still answers, but OAuth can't complete: the
 401 and the protected resource metadata name `SITE_URL`'s resource, which
 doesn't match the URL the client connected to, and the authorization server
-refuses a `resource` on that host with `invalid_target`. Personal access
-tokens still work there, since they aren't bound to a resource.
+refuses a `resource` on that host with `invalid_target`. Bearer tokens still
+work there, personal access tokens and already-issued OAuth access tokens
+alike: `/api/mcp` doesn't check a token's resource, so only the OAuth flow
+itself is tied to the canonical host.
 
 ## Not published
 
@@ -306,9 +325,9 @@ These commonly-audited documents are intentionally absent:
   no ID tokens, and MCP needs OAuth only. Web sign-in remains a Supabase
   session cookie obtained by the first-party app.
 - **`/auth.md`.** Its purpose is agent registration instructions. Agents
-  register through the dynamic registration endpoint that the authorization
-  server metadata advertises, or a person creates a token and hands it to
-  their agent; neither needs a prose document.
+  register through the dynamic registration endpoint advertised in the
+  authorization server metadata (while OAuth is enabled), or a person creates
+  a token and hands it to their agent; neither needs a prose document.
 - **`/.well-known/mcp/server-card.json`.** Not published yet. It should describe
   a server clients can actually reach, so it is a launch follow-up to decide
   alongside the DNS-AID `_mcp._agents` record, once `CAREEROTTER_ENABLED` is on
