@@ -168,7 +168,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - every output parses against its schema
 
 ## Task 8: Connected agents UI
-- [ ] 8.1: Create `components/careerotter/connected-agents.tsx` (client):
+- [x] 8.1: Create `components/careerotter/connected-agents.tsx` (client):
   - list with status
   - create form: scope checkboxes with implied-read behavior, expiry select that
     disables "never" when a comp scope is checked
@@ -176,9 +176,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     setup snippets using `$CAREEROTTER_TOKEN`
   - revoke and revoke-all with confirm
   - 44px targets, no badges, no emojis
-- [ ] 8.2: Add the section and one privacy-copy line to
+- [x] 8.2: Add the section and one privacy-copy line to
   `app/(app)/dashboard/data/page.tsx` (stays a server component).
-- [ ] 8.3: Write tests for Task 8 (Testing Library):
+- [x] 8.3: Write tests for Task 8 (Testing Library):
   - renders the list
   - checking a write checks its read
   - comp scope disables "never"
@@ -254,3 +254,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   responses are SSE and stream their body after the head, so a slow tool call
   is bounded by the per-tool deadline (20 s) and Vercel's `maxDuration`.
   A tool that times out keeps running in the background; its result is dropped.
+- The session-expired link carries `redirectTo=/dashboard/data`, but the login
+  page doesn't read that parameter yet, so users land on the default page.
+- The leave-page prompt for a revealed token fires on reload, tab close and
+  external navigation, not on in-app Next.js link clicks.
+- The Claude Desktop snippet necessarily puts the token in that app's config
+  `env` block (mcp-remote's documented pattern); the UI tells users to keep
+  that file private.
