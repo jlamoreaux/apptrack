@@ -1,7 +1,7 @@
 /**
- * Client-side scope selection for the token create form. Mirrors the API's
- * "write implies read" normalization so the form never offers a combination the
- * server would silently change.
+ * Client-side input shaping for the token create form. Scope selection mirrors
+ * the API's "write implies read" normalization so the form never offers a
+ * combination the server would silently change.
  */
 
 import {
@@ -44,4 +44,13 @@ export function toggleAgentScope(
 
 export function includesCompScope(scopes: readonly AgentTokenScope[]): boolean {
   return scopes.some((scope) => AGENT_COMP_SCOPES.includes(scope));
+}
+
+// The API rejects control characters, so tabs and newlines pasted into the name
+// become spaces here instead of surfacing as a validation error.
+const WHITESPACE_RUN = /\s+/g;
+
+/** Trimmed, with every whitespace run (tabs and newlines included) collapsed to one space. */
+export function normalizeAgentTokenName(raw: string): string {
+  return raw.replace(WHITESPACE_RUN, " ").trim();
 }

@@ -1,16 +1,63 @@
 import {
   AGENT_TOKEN_ENV_VAR,
   buildAgentSetupSnippets,
+  type AgentSetupSnippetSet,
 } from "@/lib/constants/agent-access-ui";
+import { AgentSectionHeading } from "./agent-access-shared";
 
-function Snippet({ title, code }: { title: string; code: string }): React.JSX.Element {
+const SETUP_HEADING_ID = "agent-setup-heading";
+
+type SnippetKey = Exclude<keyof AgentSetupSnippetSet, "endpoint">;
+
+interface SnippetSection {
+  key: SnippetKey;
+  title: string;
+  note?: string;
+}
+
+const SNIPPET_SECTIONS: readonly SnippetSection[] = [
+  { key: "envHint", title: "Set the token in your shell" },
+  { key: "claudeCode", title: "Claude Code" },
+  {
+    key: "claudeCodeProjectConfig",
+    title: "Claude Code project config (.mcp.json)",
+    note: `Claude Code fills in the token from ${AGENT_TOKEN_ENV_VAR}, so the token never lands in this file.`,
+  },
+  {
+    key: "claudeDesktopConfig",
+    title: "Claude Desktop (claude_desktop_config.json)",
+    note: "Claude Desktop does not read your shell environment, so paste the token into the env value and keep this file private.",
+  },
+  {
+    key: "otherClients",
+    title: "Other clients",
+    note: "Send this header with every request, using your client's own secret or environment variable syntax for the token.",
+  },
+];
+
+function Snippet({
+  id,
+  title,
+  note,
+  code,
+}: {
+  id: string;
+  title: string;
+  note?: string;
+  code: string;
+}): React.JSX.Element {
+  const titleId = `${id}-title`;
   return (
     <div className="space-y-1">
-      <h4 className="text-sm font-medium">{title}</h4>
+      <h4 id={titleId} className="text-sm font-medium">
+        {title}
+      </h4>
+      {note && <p className="text-sm text-muted-foreground">{note}</p>}
       {/* Focusable so keyboard users can scroll long lines. */}
       <pre
+        role="region"
+        aria-labelledby={titleId}
         tabIndex={0}
-        aria-label={title}
         className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-sm text-foreground"
       >
         <code>{code}</code>
@@ -19,25 +66,27 @@ function Snippet({ title, code }: { title: string; code: string }): React.JSX.El
   );
 }
 
-/**
- * How to connect an agent. Every snippet reads the token from an environment
- * variable, so the secret never lands in shell history or a committed config.
- */
-export function AgentSetupSnippets({ siteUrl }: { siteUrl: string }): React.JSX.Element {
-  const snippets = buildAgentSetupSnippets(siteUrl);
+/** How to connect an agent to the MCP endpoint, one snippet per client. */
+export function AgentSetupSnippets({ appUrl }: { appUrl: string }): React.JSX.Element {
+  const snippets = buildAgentSetupSnippets(appUrl);
   return (
-    <div className="space-y-4">
+    <section aria-labelledby={SETUP_HEADING_ID} className="space-y-4">
       <div className="space-y-1">
-        <h3 className="text-base font-semibold">Connect an agent</h3>
+        <AgentSectionHeading id={SETUP_HEADING_ID}>Connect an agent</AgentSectionHeading>
         <p className="text-sm text-muted-foreground">
           Store the token in the {AGENT_TOKEN_ENV_VAR} environment variable, then point your
-          agent at {snippets.endpoint}.
+          agent at <code className="break-all font-mono">{snippets.endpoint}</code>.
         </p>
       </div>
-      <Snippet title="Set the token in your shell" code={snippets.envHint} />
-      <Snippet title="Claude Code" code={snippets.claudeCode} />
-      <Snippet title="Other clients that send headers (JSON config)" code={snippets.jsonConfig} />
-      <Snippet title="Claude Desktop (via mcp-remote)" code={snippets.claudeDesktop} />
-    </div>
+      {SNIPPET_SECTIONS.map((section) => (
+        <Snippet
+          key={section.key}
+          id={`agent-snippet-${section.key}`}
+          title={section.title}
+          note={section.note}
+          code={snippets[section.key]}
+        />
+      ))}
+    </section>
   );
 }

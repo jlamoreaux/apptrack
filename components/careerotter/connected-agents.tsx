@@ -1,143 +1,162 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { AGENT_TOKEN_LIMITS } from "@/lib/constants/agent-access";
-import { SITE_URL } from "@/lib/constants/site-config";
-import type { AgentTokenRecord } from "@/types";
-import { AgentTokenCreateForm } from "./agent-token-create-form";
-import { AgentTokenList } from "./agent-token-list";
-import { AgentTokenReveal } from "./agent-token-reveal";
 import {
   fetchAgentTokens,
   revokeAgentToken,
   revokeAllAgentTokens,
+  type ApiFailure,
+  type ApiResult,
   type CreatedAgentToken,
-} from "./agent-tokens-api";
+} from "@/lib/client/agent-tokens.client";
+import type { AgentTokenRecord } from "@/types";
+import { AgentAccessError, AgentSectionHeading } from "./agent-access-shared";
+import { AgentTokenCreateForm } from "./agent-token-create-form";
+import { AgentTokenList } from "./agent-token-list";
+import { AgentTokenReveal } from "./agent-token-reveal";
+
+const HEADING_IDS = {
+  create: "agent-token-create-heading",
+  list: "agent-token-list-heading",
+} as const;
 
 type LoadState =
   | { kind: "loading" }
-  | { kind: "error"; message: string }
+  | { kind: "error"; failure: ApiFailure }
   | { kind: "ready"; tokens: AgentTokenRecord[] };
 
-function markRevoked(token: AgentTokenRecord, revokedAt: string): AgentTokenRecord {
-  if (token.revoked_at !== null) return token;
-  return { ...token, revoked_at: revokedAt, status: "revoked" };
-}
+type FocusTarget = keyof typeof HEADING_IDS;
 
-function ErrorText({ message }: { message: string }): React.JSX.Element {
+function LoadFailure({
+  failure,
+  onRetry,
+}: {
+  failure: ApiFailure;
+  onRetry: () => void;
+}): React.JSX.Element {
   return (
-    <p role="alert" className="text-sm text-destructive">
-      {message}
-    </p>
+    <div className="space-y-3">
+      <AgentAccessError failure={failure} />
+      {failure.reason !== "unauthorized" && (
+        <Button type="button" variant="outline" onClick={onRetry}>
+          Try again
+        </Button>
+      )}
+    </div>
   );
 }
 
 /**
  * Personal access tokens for MCP agents: list, create (shown once), revoke.
- * Talks only to the token API; the raw token is held in memory until "Done".
+ * Talks only to the token API; the raw token is held in memory until the user
+ * confirms they saved it.
  */
-export function ConnectedAgents({
-  siteUrl = SITE_URL,
-}: {
-  siteUrl?: string;
-}): React.JSX.Element {
+export function ConnectedAgents({ appUrl }: { appUrl: string }): React.JSX.Element {
   const [load, setLoad] = useState<LoadState>({ kind: "loading" });
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [actionError, setActionError] = useState("");
+  const [actionError, setActionError] = useState<ApiFailure | null>(null);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget | null>(null);
+  const createHeadingRef = useRef<HTMLHeadingElement>(null);
+  const listHeadingRef = useRef<HTMLHeadingElement>(null);
+  const mountedRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadTokens(): Promise<void> {
-      const result = await fetchAgentTokens();
-      if (cancelled) return;
-      setLoad(
-        result.ok
-          ? { kind: "ready", tokens: result.value }
-          : { kind: "error", message: result.message }
-      );
-    }
-    void loadTokens();
-    return () => {
-      cancelled = true;
-    };
+  const loadTokens = useCallback(async (): Promise<void> => {
+    setLoad({ kind: "loading" });
+    const result = await fetchAgentTokens();
+    if (!mountedRef.current) return;
+    setLoad(result.ok ? { kind: "ready", tokens: result.value } : { kind: "error", failure: result });
   }, []);
 
-  function updateTokens(update: (tokens: AgentTokenRecord[]) => AgentTokenRecord[]): void {
-    setLoad((current) =>
-      current.kind === "ready" ? { kind: "ready", tokens: update(current.tokens) } : current
-    );
+  useEffect(() => {
+    mountedRef.current = true;
+    void loadTokens();
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [loadTokens]);
+
+  // Runs after the render that mounts the target heading, so the ref is set.
+  useEffect(() => {
+    if (focusTarget === null) return;
+    const ref = focusTarget === "create" ? createHeadingRef : listHeadingRef;
+    ref.current?.focus();
+    setFocusTarget(null);
+  }, [focusTarget]);
+
+  // The server may change more than the row acted on (create revokes an
+  // expired token holding the same name), so re-read rather than patch.
+  async function refreshTokens(): Promise<void> {
+    const result = await fetchAgentTokens();
+    if (!mountedRef.current) return;
+    if (result.ok) setLoad({ kind: "ready", tokens: result.value });
+    else setActionError(result);
   }
 
   function handleCreated(created: CreatedAgentToken): void {
-    updateTokens((tokens) => [created.record, ...tokens]);
+    setActionError(null);
     setRevealedToken(created.token);
+    void refreshTokens();
   }
 
-  async function runRevoke(
-    call: () => ReturnType<typeof revokeAllAgentTokens>,
-    affects: (token: AgentTokenRecord) => boolean
-  ): Promise<void> {
+  function handleRevealDone(): void {
+    setRevealedToken(null);
+    setFocusTarget("create");
+  }
+
+  async function runRevoke(call: () => Promise<ApiResult<true>>): Promise<void> {
     setBusy(true);
-    setActionError("");
+    setActionError(null);
     const result = await call();
+    if (!mountedRef.current) return;
+    if (result.ok) await refreshTokens();
+    else setActionError(result);
     setBusy(false);
-    if (!result.ok) {
-      setActionError(result.message);
-      return;
-    }
-    const revokedAt = new Date().toISOString();
-    updateTokens((tokens) =>
-      tokens.map((token) => (affects(token) ? markRevoked(token, revokedAt) : token))
-    );
-  }
-
-  function handleRevoke(id: string): void {
-    void runRevoke(() => revokeAgentToken(id), (token) => token.id === id);
-  }
-
-  function handleRevokeAll(): void {
-    void runRevoke(revokeAllAgentTokens, () => true);
+    if (result.ok) setFocusTarget("list");
   }
 
   if (load.kind === "loading") {
     return (
-      <p role="status" className="text-sm text-muted-foreground">
+      <p aria-live="polite" className="text-sm text-muted-foreground">
         Loading connected agents...
       </p>
     );
   }
-  if (load.kind === "error") return <ErrorText message={load.message} />;
+  if (load.kind === "error") {
+    return <LoadFailure failure={load.failure} onRetry={() => void loadTokens()} />;
+  }
 
   return (
     <div className="space-y-6">
       {revealedToken === null ? (
-        <div className="space-y-2">
-          <h3 className="text-base font-semibold">Create a token</h3>
+        <section aria-labelledby={HEADING_IDS.create} className="space-y-2">
+          <AgentSectionHeading id={HEADING_IDS.create} ref={createHeadingRef}>
+            Create a token
+          </AgentSectionHeading>
           <p className="text-sm text-muted-foreground">
             Up to {AGENT_TOKEN_LIMITS.maxActivePerUser} active tokens. Scopes cannot be changed
             later; create a new token instead.
           </p>
           <AgentTokenCreateForm onCreated={handleCreated} />
-        </div>
+        </section>
       ) : (
-        <AgentTokenReveal
-          token={revealedToken}
-          siteUrl={siteUrl}
-          onDone={() => setRevealedToken(null)}
-        />
+        <AgentTokenReveal token={revealedToken} appUrl={appUrl} onDone={handleRevealDone} />
       )}
 
-      <div className="space-y-3">
-        <h3 className="text-base font-semibold">Your agent tokens</h3>
-        {actionError && <ErrorText message={actionError} />}
+      <section aria-labelledby={HEADING_IDS.list} className="space-y-3">
+        <AgentSectionHeading id={HEADING_IDS.list} ref={listHeadingRef}>
+          Your agent tokens
+        </AgentSectionHeading>
+        {actionError && <AgentAccessError failure={actionError} />}
         <AgentTokenList
           tokens={load.tokens}
           busy={busy}
-          onRevoke={handleRevoke}
-          onRevokeAll={handleRevokeAll}
+          onRevoke={(id) => void runRevoke(() => revokeAgentToken(id))}
+          onRevokeAll={() => void runRevoke(revokeAllAgentTokens)}
         />
-      </div>
+      </section>
     </div>
   );
 }

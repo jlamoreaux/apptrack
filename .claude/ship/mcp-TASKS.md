@@ -101,20 +101,20 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     non-uuid id → 404
 
 ## Task 5: MCP server core (route, auth, tool registry)
-- [ ] 5.1: Add `mcp-handler@1.1.0` and `@modelcontextprotocol/sdk@1.26.0`
+- [x] 5.1: Add `mcp-handler@1.1.0` and `@modelcontextprotocol/sdk@1.26.0`
   (exact pins) with pnpm. Confirm the installed `createMcpHandler`,
   `registerTool`, `outputSchema`/`structuredContent` and annotations APIs
   against the installed source before writing code.
-- [ ] 5.2: Create `lib/mcp/define-tool.ts`, the `defineTool` helper:
+- [x] 5.2: Create `lib/mcp/define-tool.ts`, the `defineTool` helper:
   - required scope; skips registration when the scope is missing
   - wraps `run` so it never throws
   - maps `DomainResult` errors to `isError`
   - serializes output
   - fires `mcp_tool_called` via `after()`
-- [ ] 5.3: Create `lib/mcp/instructions.ts` (versioned server instructions per
+- [x] 5.3: Create `lib/mcp/instructions.ts` (versioned server instructions per
   PRD) and `lib/mcp/server.ts` `registerTools(server, ctx)` (initially empty
   tool modules wired in Tasks 6–7).
-- [ ] 5.4: Create `app/api/mcp/route.ts`:
+- [x] 5.4: Create `app/api/mcp/route.ts`:
   - 64 KB body cap (413)
   - JSON pre-parse (400 parse error)
   - bearer format/checksum pre-check (401 without `resource_metadata`)
@@ -125,10 +125,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - per-request `createMcpHandler(..., { basePath: "/api", disableSse: true })`
   - exports POST/GET/DELETE; `runtime = "nodejs"`, `maxDuration = 30`
   - never logs the token or header
-- [ ] 5.5: Update `middleware.ts`: `/api/mcp` and `/api/mcp/*` in
+- [x] 5.5: Update `middleware.ts`: `/api/mcp` and `/api/mcp/*` in
   `isCareerotterSurface` and the matcher; early `NextResponse.next()` for these
   paths after the gate.
-- [ ] 5.6: Write tests for Task 5:
+- [x] 5.6: Write tests for Task 5:
   - `defineTool` (scope filtering, thrown error → isError, event fired with
     `ok`/`error_kind`)
   - route tests: 413, 400, 401 variants without `resource_metadata`, 503 on DB
@@ -194,7 +194,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   across users; a query error on a later page returns 500 as today.
 
 ## Task 10: Update docs made inaccurate
-- [ ] 10.1: `docs/agent-discovery.md`:
+- [x] 10.1: `docs/agent-discovery.md`:
   - the "Not published: OAuth, auth.md, and MCP" section and the
     `/.well-known/mcp/server-card.json` bullet say "there is no MCP server";
     rewrite them to describe the token-authenticated `/api/mcp` server (dark
@@ -202,7 +202,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     (PATs, not OAuth)
   - the DNS-AID note that `_mcp._agents` would advertise a non-existent server:
     reword to "not until launch"
-- [ ] 10.2: Add launch items to `.claude/ship/phase2-LAUNCH-CHECKLIST.md`
+- [x] 10.2: Add launch items to `.claude/ship/phase2-LAUNCH-CHECKLIST.md`
   ("Owner-only launch steps"):
   - update `app/llms.txt/route.ts` (force-static) and
     `content/agent-skills/careerotter-public-api/SKILL.md`, which state no MCP
@@ -211,7 +211,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     2026-07-28-era client)
   - register the `co_pat_` pattern with GitHub secret scanning
   - run migration 044
-- [ ] 10.3: Write tests for Task 10: none needed for prose. Confirm
+- [x] 10.3: Write tests for Task 10: none needed for prose. Confirm
   `__tests__/agent-discovery/discovery-documents.test.ts` still passes, since
   the skill file is deliberately unchanged.
 
@@ -238,3 +238,19 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 - Recap cron pages by offset (advancing by rows returned). A win deleted
   mid-run on a multi-page week shifts later rows, so one row can be skipped.
   Accepted: weekly, best-effort output; keyset paging is the fix if it matters.
+- MCP tool calls with invalid arguments are rejected by the SDK (its own
+  isError result) before the `defineTool` wrapper runs, so they are not counted
+  in `mcp_tool_called`.
+- The per-token MCP rate limit counts HTTP requests. JSON-RPC batches are
+  rejected with 400, so this is about one unit per JSON-RPC request.
+- `notifications/initialized` spends a per-token rate-limit unit like any
+  other request.
+- Once an IP exceeds the MCP auth-fail limit, a revoked (or otherwise invalid)
+  token from that IP gets 429 instead of 401 until the window resets.
+- `mcp_tool_called` for a call can be lost if the client disconnects mid-call.
+- Browser clients cannot call `/api/mcp`: there is no CORS, and a foreign
+  `Origin` gets 403 (DNS-rebinding protection per the MCP transport spec).
+- The MCP request deadline (25 s) covers the adapter's response head. POST
+  responses are SSE and stream their body after the head, so a slow tool call
+  is bounded by the per-tool deadline (20 s) and Vercel's `maxDuration`.
+  A tool that times out keeps running in the background; its result is dropped.

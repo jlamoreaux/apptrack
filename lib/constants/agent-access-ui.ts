@@ -6,9 +6,11 @@
 import {
   AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
   MCP_BASE_PATH,
+  MCP_SERVER_INFO,
   type AgentTokenExpiryDays,
   type AgentTokenScope,
 } from "@/lib/constants/agent-access";
+import { APP_ROUTES } from "@/lib/constants/routes";
 import type { AgentTokenStatus } from "@/types";
 
 export interface AgentScopeDetail {
@@ -44,6 +46,12 @@ export const DEFAULT_AGENT_TOKEN_SCOPES: readonly AgentTokenScope[] = [
   "wins:write",
 ];
 
+export const AGENT_TOKEN_STATUSES = [
+  "active",
+  "expired",
+  "revoked",
+] as const satisfies readonly AgentTokenStatus[];
+
 export const AGENT_TOKEN_STATUS_LABELS = {
   active: "Active",
   expired: "Expired",
@@ -68,45 +76,83 @@ export const AGENT_TOKEN_EXPIRY_CHOICES: readonly {
 /** Shown for a null last-used or expiry date. */
 export const AGENT_TOKEN_NEVER_LABEL = "Never";
 
+export const AGENT_TOKEN_FORM_MESSAGES = {
+  nameRequired: "Enter a name for this token.",
+  scopesRequired: "Choose at least one thing this agent can do.",
+} as const;
+
+const DATA_PAGE_PATH = "/dashboard/data";
+
+/** Where a 401 from the token API sends the user, returning them here after sign-in. */
+export const AGENT_ACCESS_SIGN_IN_HREF = `${APP_ROUTES.LOGIN}?redirectTo=${DATA_PAGE_PATH}`;
+
 export const AGENT_TOKEN_ENV_VAR = "CAREEROTTER_TOKEN";
-export const MCP_SERVER_NAME = "careerotter";
+// mcp-remote reads the whole header value from here; see the Claude Desktop snippet.
+const AGENT_AUTH_HEADER_ENV_VAR = "CAREEROTTER_AUTH_HEADER";
+const MCP_SERVER_NAME = MCP_SERVER_INFO.name;
+// mcp-handler serves the endpoint at `${MCP_BASE_PATH}/mcp`.
+const MCP_ENDPOINT_PATH = "/mcp";
+const TOKEN_PASTE_PLACEHOLDER = "<paste token>";
+const TOKEN_PLACEHOLDER = "<token>";
 const JSON_INDENT = 2;
 
-export interface AgentSetupSnippets {
+export interface AgentSetupSnippetSet {
   endpoint: string;
   envHint: string;
   claudeCode: string;
-  jsonConfig: string;
-  claudeDesktop: string;
+  claudeCodeProjectConfig: string;
+  claudeDesktopConfig: string;
+  otherClients: string;
+}
+
+function toJson(value: unknown): string {
+  return JSON.stringify(value, null, JSON_INDENT);
 }
 
 /**
- * Snippets reference the token through an environment variable, never the raw
- * value, so the secret stays out of shell history and committed config files.
+ * Where possible, snippets reference the token through an environment variable
+ * rather than the raw value, so the secret stays out of shell history and
+ * committed config files. Claude Desktop does not inherit the shell's
+ * environment, so its config carries the token in its own `env` block.
  */
-export function buildAgentSetupSnippets(siteUrl: string): AgentSetupSnippets {
-  const endpoint = `${siteUrl}${MCP_BASE_PATH}/mcp`;
+export function buildAgentSetupSnippets(appUrl: string): AgentSetupSnippetSet {
+  const endpoint = `${appUrl}${MCP_BASE_PATH}${MCP_ENDPOINT_PATH}`;
   const shellHeader = `"Authorization: Bearer $${AGENT_TOKEN_ENV_VAR}"`;
-  const templatedHeader = `Bearer \${${AGENT_TOKEN_ENV_VAR}}`;
-  const jsonConfig = JSON.stringify(
-    {
-      mcpServers: {
-        [MCP_SERVER_NAME]: {
-          type: "http",
-          url: endpoint,
-          headers: { Authorization: templatedHeader },
-        },
+
+  const claudeCodeProjectConfig = toJson({
+    mcpServers: {
+      [MCP_SERVER_NAME]: {
+        type: "http",
+        url: endpoint,
+        headers: { Authorization: `Bearer \${${AGENT_TOKEN_ENV_VAR}}` },
       },
     },
-    null,
-    JSON_INDENT
-  );
+  });
+
+  // No space after "Authorization:" because some clients (Claude Desktop on
+  // Windows) split unescaped spaces inside args; mcp-remote expands ${VAR}
+  // in header values from `env`, where spaces are safe.
+  const claudeDesktopConfig = toJson({
+    mcpServers: {
+      [MCP_SERVER_NAME]: {
+        command: "npx",
+        args: [
+          "mcp-remote",
+          endpoint,
+          "--header",
+          `Authorization:\${${AGENT_AUTH_HEADER_ENV_VAR}}`,
+        ],
+        env: { [AGENT_AUTH_HEADER_ENV_VAR]: `Bearer ${TOKEN_PASTE_PLACEHOLDER}` },
+      },
+    },
+  });
 
   return {
     endpoint,
-    envHint: `export ${AGENT_TOKEN_ENV_VAR}=<paste token>`,
+    envHint: `export ${AGENT_TOKEN_ENV_VAR}=${TOKEN_PASTE_PLACEHOLDER}`,
     claudeCode: `claude mcp add --transport http ${MCP_SERVER_NAME} ${endpoint} --header ${shellHeader}`,
-    jsonConfig,
-    claudeDesktop: `npx mcp-remote ${endpoint} --header "Authorization: ${templatedHeader}"`,
+    claudeCodeProjectConfig,
+    claudeDesktopConfig,
+    otherClients: `URL: ${endpoint}\nHeader: Authorization: Bearer ${TOKEN_PLACEHOLDER}`,
   };
 }

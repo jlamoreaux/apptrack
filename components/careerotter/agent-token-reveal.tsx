@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AgentSectionHeading } from "./agent-access-shared";
 import { AgentSetupSnippets } from "./agent-setup-snippets";
 
 const TOKEN_INPUT_ID = "agent-token-value";
+const REVEAL_HEADING_ID = "agent-token-reveal-heading";
+const DONE_LABEL = "I've saved it";
 
 type CopyState = "idle" | "copied" | "failed";
 
@@ -26,32 +29,59 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
+/** Asks before a reload or tab close while mounted, since the token cannot be shown again. */
+function useConfirmBeforeUnload(): void {
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent): void {
+      event.preventDefault();
+      // Older Chromium versions only prompt when returnValue is set.
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+}
+
 /**
  * The raw token, shown once right after creation. It lives only in the parent's
- * state; "Done" clears it and nothing can bring it back.
+ * state; "I've saved it" clears it and nothing can bring it back.
  */
 export function AgentTokenReveal({
   token,
-  siteUrl,
+  appUrl,
   onDone,
 }: {
   token: string;
-  siteUrl: string;
+  appUrl: string;
   onDone: () => void;
 }): React.JSX.Element {
   const [copyState, setCopyState] = useState<CopyState>("idle");
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useConfirmBeforeUnload();
+
+  // The create form this replaces held focus; land on the heading so screen
+  // readers announce the new panel instead of losing focus to the body.
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   async function copy(): Promise<void> {
     setCopyState((await copyToClipboard(token)) ? "copied" : "failed");
   }
 
   return (
-    <div className="space-y-6 rounded-lg border p-4">
+    <section
+      aria-labelledby={REVEAL_HEADING_ID}
+      className="space-y-6 rounded-lg border p-4"
+    >
       <div className="space-y-2">
-        <Label htmlFor={TOKEN_INPUT_ID}>Your new token</Label>
+        <AgentSectionHeading id={REVEAL_HEADING_ID} ref={headingRef}>
+          Token created
+        </AgentSectionHeading>
         <p className="text-sm text-muted-foreground">
           Copy it now. It will not be shown again.
         </p>
+        <Label htmlFor={TOKEN_INPUT_ID}>Your new token</Label>
         <div className="flex flex-col gap-2 sm:flex-row">
           <Input
             id={TOKEN_INPUT_ID}
@@ -72,11 +102,11 @@ export function AgentTokenReveal({
         </p>
       </div>
 
-      <AgentSetupSnippets siteUrl={siteUrl} />
+      <AgentSetupSnippets appUrl={appUrl} />
 
       <Button type="button" onClick={onDone}>
-        Done
+        {DONE_LABEL}
       </Button>
-    </div>
+    </section>
   );
 }

@@ -3,13 +3,18 @@
  */
 /**
  * Tests for the MCP route (app/api/mcp/route.ts):
+ * - methods: only POST is served; GET, HEAD and DELETE get 405 before auth
+ * - Origin: a foreign Origin gets 403 before auth; no Origin passes
  * - body limits: 413 over MCP_MAX_BODY_BYTES (declared or actual), 400
- *   JSON-RPC parse error on malformed JSON
+ *   JSON-RPC parse error on malformed JSON, 400 for a JSON-RPC batch
  * - bearer pre-check: missing, malformed and bad-checksum tokens get 401 with
  *   no resource_metadata and never reach verifyAgentToken; repeated failures
  *   from one IP get 429
  * - verify: invalid -> 401, unavailable -> 503 with Retry-After
  * - per-token rate limit -> 429 with Retry-After
+ * - deadlines: slow verify -> 503, slow rate limiter fails open, slow adapter
+ *   -> 504
+ * - the exported maxDuration matches MCP_MAX_DURATION_SECONDS
  * - a real initialize + tools/list round trip through mcp-handler that lists
  *   only the tools the token is scoped for
  *
@@ -19,7 +24,13 @@
  */
 
 import { generateAgentToken, touchLastUsed, verifyAgentToken } from "@/lib/auth/agent-token";
-import { AGENT_RATE_LIMITS, MCP_MAX_BODY_BYTES } from "@/lib/constants/agent-access";
+import {
+  AGENT_RATE_LIMITS,
+  MCP_DEADLINES_MS,
+  MCP_MAX_BODY_BYTES,
+  MCP_MAX_DURATION_SECONDS,
+} from "@/lib/constants/agent-access";
+import { SITE_URL } from "@/lib/constants/site-config";
 import type { AgentTokenScope } from "@/types";
 
 const fetchPrimitives = jest.requireActual("next/dist/compiled/@edge-runtime/primitives");
@@ -70,7 +81,9 @@ jest.mock("@/lib/mcp/tools", () => {
 });
 
 // Imported after the globals above are installed.
-const { POST, GET } = require("@/app/api/mcp/route");
+const route = require("@/app/api/mcp/route");
+const { POST, GET, DELETE } = route;
+const mcpHandlerModule = require("mcp-handler");
 
 const mockVerify = verifyAgentToken as jest.Mock;
 const mockTouch = touchLastUsed as jest.Mock;
@@ -286,11 +299,144 @@ describe("MCP round trip", () => {
     expect(mockTouch).toHaveBeenCalledWith(expect.anything(), TOKEN_ID, null, expect.any(Date));
   });
 
-  it("passes GET through to the adapter after authenticating (405, no SSE)", async () => {
-    verified(["wins:read"]);
-    const response = await GET(
-      new Request(URL, { method: "GET", headers: { authorization: `Bearer ${validToken()}` } })
+});
+
+describe("methods", () => {
+  const METHOD_NOT_ALLOWED = {
+    jsonrpc: "2.0",
+    error: { code: -32000, message: "Method not allowed." },
+    id: null,
+  };
+
+  // Next.js answers HEAD with the GET handler.
+  it.each([
+    ["GET", GET],
+    ["HEAD", GET],
+    ["DELETE", DELETE],
+  ])("returns 405 for %s without authenticating", async (method, handler) => {
+    const response = await handler(
+      new Request(URL, { method, headers: { authorization: `Bearer ${validToken()}` } })
     );
     expect(response.status).toBe(405);
+    expect(response.headers.get("allow")).toBe("POST");
+    expect(await response.json()).toEqual(METHOD_NOT_ALLOWED);
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(mockLimit).not.toHaveBeenCalled();
+    expect(mockTouch).not.toHaveBeenCalled();
+  });
+});
+
+describe("batches", () => {
+  it("rejects a JSON-RPC batch before authenticating", async () => {
+    const batch = `[${rpc("tools/list", 1)},${rpc("tools/list", 2)}]`;
+    const response = await POST(post(batch, { authorization: `Bearer ${validToken()}` }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      jsonrpc: "2.0",
+      error: { code: -32600, message: "Batch requests are not supported" },
+      id: null,
+    });
+    expect(mockVerify).not.toHaveBeenCalled();
+    expect(mockLimit).not.toHaveBeenCalled();
+  });
+});
+
+describe("origin", () => {
+  it.each(["https://evil.example", "null", "http://localhost:4000"])(
+    "returns 403 for Origin %s before authenticating",
+    async (origin) => {
+      const response = await POST(
+        post(rpc("tools/list", 1), { origin, authorization: `Bearer ${validToken()}` })
+      );
+      expect(response.status).toBe(403);
+      expect(await response.json()).toEqual({ error: "forbidden_origin" });
+      expect(mockVerify).not.toHaveBeenCalled();
+      expect(mockLimit).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ["the canonical site", SITE_URL],
+    ["the request's own origin", "http://localhost:3000"],
+  ])("serves a request whose Origin is %s", async (_label, origin) => {
+    verified(["wins:read"]);
+    const response = await POST(
+      post(rpc("tools/list", 1), { origin, authorization: `Bearer ${validToken()}` })
+    );
+    expect(response.status).toBe(200);
+  });
+
+  it("serves a request without an Origin header", async () => {
+    verified(["wins:read"]);
+    const response = await POST(
+      post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` })
+    );
+    expect(response.status).toBe(200);
+  });
+});
+
+describe("route config", () => {
+  it("exports a maxDuration equal to MCP_MAX_DURATION_SECONDS", () => {
+    expect(route.maxDuration).toBe(MCP_MAX_DURATION_SECONDS);
+  });
+
+  it("does not pass the SSE-only maxDuration option to mcp-handler", async () => {
+    verified(["wins:read"]);
+    const spy = jest.spyOn(mcpHandlerModule, "createMcpHandler");
+    await POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
+    expect(spy.mock.calls[0][2]).not.toHaveProperty("maxDuration");
+    spy.mockRestore();
+  });
+});
+
+// Last, so mcp-handler's module-level interval is created under real timers.
+describe("deadlines", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask", "setImmediate"] });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  const never = <T,>(): Promise<T> => new Promise<T>(() => undefined);
+
+  it("returns 503 with Retry-After when token verification is too slow", async () => {
+    mockVerify.mockReturnValue(never());
+    const pending = POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.tokenVerify);
+    const response = await pending;
+    expect(response.status).toBe(503);
+    expect(response.headers.get("retry-after")).toBe("5");
+  });
+
+  it("fails open when the rate limiter is too slow", async () => {
+    verified(["wins:read"]);
+    mockLimit.mockReturnValue(never());
+    const pending = POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.rateLimit);
+    const response = await pending;
+    expect(response.status).toBe(200);
+  });
+
+  it("returns 504 when the adapter does not respond in time", async () => {
+    verified(["wins:read"]);
+    let rejectLate: (reason: Error) => void = () => undefined;
+    const late = new Promise<Response>((_resolve, rejectFn) => {
+      rejectLate = rejectFn;
+    });
+    const spy = jest
+      .spyOn(mcpHandlerModule, "createMcpHandler")
+      .mockReturnValue(() => late);
+    const pending = POST(post(rpc("tools/list", 1), { authorization: `Bearer ${validToken()}` }));
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.request);
+    const response = await pending;
+    expect(response.status).toBe(504);
+    expect(await response.json()).toEqual({ error: "timeout" });
+    rejectLate(new Error("adapter failed after the deadline"));
+    spy.mockRestore();
+  });
+
+  it("keeps the request deadline under maxDuration", () => {
+    expect(MCP_DEADLINES_MS.request).toBeLessThan(MCP_MAX_DURATION_SECONDS * 1000);
   });
 });

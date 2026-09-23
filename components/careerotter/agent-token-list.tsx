@@ -13,6 +13,11 @@ import type { AgentTokenRecord } from "@/types";
 
 type PendingRevoke = { kind: "one"; token: AgentTokenRecord } | { kind: "all" } | null;
 
+// Token names are user-supplied and may be one unbroken string. overflow-wrap
+// "anywhere" also lowers the min-content width, which grid and flex parents
+// size from, so a long name wraps instead of forcing horizontal scroll.
+const LONG_TEXT_WRAP = "min-w-0 break-words [overflow-wrap:anywhere]";
+
 function formatOptionalDate(value: string | null): string {
   return value === null ? AGENT_TOKEN_NEVER_LABEL : formatLocalDate(value);
 }
@@ -63,7 +68,7 @@ function TokenItem({
   return (
     <li className="space-y-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
+        <div className={`flex-1 ${LONG_TEXT_WRAP}`}>
           <p className="font-medium">{token.name}</p>
           <p className="font-mono text-sm text-muted-foreground">{token.token_prefix}</p>
         </div>
@@ -111,7 +116,7 @@ export function AgentTokenList({
     return <p className="text-sm text-muted-foreground">No agents connected yet.</p>;
   }
 
-  const anyUnrevoked = tokens.some((token) => token.revoked_at === null);
+  const anyActive = tokens.some((token) => token.status === "active");
 
   function confirm(): void {
     if (pending?.kind === "all") onRevokeAll();
@@ -131,7 +136,7 @@ export function AgentTokenList({
           />
         ))}
       </ul>
-      {anyUnrevoked && (
+      {anyActive && (
         <Button
           type="button"
           variant="outline"
@@ -148,6 +153,7 @@ export function AgentTokenList({
             if (!open) setPending(null);
           }}
           {...confirmCopy(pending)}
+          titleClassName={LONG_TEXT_WRAP}
           onConfirm={confirm}
           destructive
         />

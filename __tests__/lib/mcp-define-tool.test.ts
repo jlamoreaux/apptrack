@@ -6,10 +6,12 @@
  * SDK client over an in-memory transport:
  * - registration is filtered by scope (write implies read)
  * - a thrown run becomes a generic isError result
+ * - a run past MCP_DEADLINES_MS.tool becomes a timeout isError result
+ * - invalid arguments are rejected by the SDK before the wrapper runs
  * - a DomainResult failure becomes isError with the service message
  * - structured output is returned and validated against the output schema
- * - mcp_tool_called fires with ok / error_kind, and analytics failures never
- *   change the result
+ * - mcp_tool_called fires with ok / error_kind, and a failure to schedule it
+ *   never changes the result
  */
 
 import { z } from "zod";
@@ -22,7 +24,11 @@ import { defineTool, registerDefinedTools, type DefinedTool } from "@/lib/mcp/de
 import type { McpToolContext } from "@/lib/mcp/context";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
-import { MCP_TOOL_FAILED_MESSAGE } from "@/lib/constants/agent-access";
+import {
+  MCP_DEADLINES_MS,
+  MCP_TOOL_FAILED_MESSAGE,
+  MCP_TOOL_TIMEOUT_MESSAGE,
+} from "@/lib/constants/agent-access";
 import type { AgentTokenScope, DomainResult } from "@/types";
 
 jest.mock("@/lib/analytics/posthog-server", () => ({
@@ -217,6 +223,53 @@ describe("tool results", () => {
   });
 });
 
+describe("invalid arguments", () => {
+  it("are rejected by the SDK before the run and not tracked", async () => {
+    const result = await callOnly(readTool, "read_thing", { text: 42 });
+    expect(result.isError).toBe(true);
+    expect(echoRun).not.toHaveBeenCalled();
+    expect(mockCapture).not.toHaveBeenCalled();
+  });
+});
+
+describe("tool deadline", () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask", "setImmediate"] });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("turns a run past the deadline into a timeout isError result", async () => {
+    const tool = failingTool(() => new Promise(() => undefined));
+    const pending = callOnly(tool, "flaky");
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.tool);
+    const result = await pending;
+    expect(result).toEqual({
+      isError: true,
+      content: [{ type: "text", text: MCP_TOOL_TIMEOUT_MESSAGE }],
+    });
+    expect(mockCapture).toHaveBeenCalledWith(USER_ID, "mcp_tool_called", {
+      tool: "flaky",
+      ok: false,
+      error_kind: "timeout",
+    });
+  });
+
+  it("returns the run's result when it settles before the deadline", async () => {
+    const tool = failingTool(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ ok: true, value: { structured: { id: "late" } } }), 10);
+        })
+    );
+    const pending = callOnly(tool, "flaky");
+    await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.tool);
+    const result = await pending;
+    expect(result.structuredContent).toEqual({ id: "late" });
+  });
+});
+
 describe("mcp_tool_called", () => {
   it("fires ok: true with no error_kind on success", async () => {
     await callOnly(readTool, "read_thing", { text: "hi" });
@@ -248,13 +301,6 @@ describe("mcp_tool_called", () => {
       ok: false,
       error_kind: "exception",
     });
-  });
-
-  it("returns the same result when sending the event fails", async () => {
-    mockCapture.mockRejectedValue(new Error("posthog down"));
-    const result = await callOnly(readTool, "read_thing", { text: "hi" });
-    expect(result.structuredContent).toEqual({ echoed: "hi" });
-    expect(loggerService.warn).toHaveBeenCalled();
   });
 
   it("returns the same result when scheduling the event throws", async () => {

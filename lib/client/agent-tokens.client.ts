@@ -9,21 +9,50 @@ import {
   type AgentTokenExpiryDays,
   type AgentTokenScope,
 } from "@/lib/constants/agent-access";
+import { AGENT_TOKEN_STATUSES } from "@/lib/constants/agent-access-ui";
 import type { AgentTokenRecord, AgentTokenStatus } from "@/types";
 
 const AGENT_TOKENS_ENDPOINT = "/api/careerotter/agent-tokens";
 
+const HTTP_STATUS = {
+  badRequest: 400,
+  unauthorized: 401,
+  conflict: 409,
+  tooManyRequests: 429,
+} as const;
+
 const FALLBACK_MESSAGES = {
-  load: "Could not load your connected agents. Refresh to try again.",
+  load: "Could not load your connected agents.",
   create: "Could not create that token. Try again.",
   revoke: "Could not revoke that token. Try again.",
   revokeAll: "Could not revoke your tokens. Try again.",
   network: "Could not reach CareerOtter. Check your connection and try again.",
+  sessionExpired: "Your session expired.",
+  rateLimited: "Too many requests.",
 } as const;
 
-const AGENT_TOKEN_STATUSES: readonly AgentTokenStatus[] = ["active", "expired", "revoked"];
+const RETRY_LATER_HINT = "Try again in a minute.";
+const SENTENCE_END = /[.!?]$/;
 
-export type ApiResult<T> = { ok: true; value: T } | { ok: false; message: string };
+/**
+ * Why a call failed, so the UI can offer the right next step: sign in again
+ * (unauthorized), point at the name field (invalid, conflict), or retry.
+ */
+export type ApiFailureReason =
+  | "unauthorized"
+  | "rate_limited"
+  | "conflict"
+  | "invalid"
+  | "network"
+  | "failed";
+
+export interface ApiFailure {
+  ok: false;
+  reason: ApiFailureReason;
+  message: string;
+}
+
+export type ApiResult<T> = { ok: true; value: T } | ApiFailure;
 
 export interface CreateAgentTokenInput {
   name: string;
@@ -36,6 +65,13 @@ export interface CreatedAgentToken {
   token: string;
   record: AgentTokenRecord;
 }
+
+const STATUS_REASONS: ReadonlyMap<number, ApiFailureReason> = new Map([
+  [HTTP_STATUS.badRequest, "invalid"],
+  [HTTP_STATUS.unauthorized, "unauthorized"],
+  [HTTP_STATUS.conflict, "conflict"],
+  [HTTP_STATUS.tooManyRequests, "rate_limited"],
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -53,7 +89,7 @@ function isAgentTokenStatus(value: unknown): value is AgentTokenStatus {
   return AGENT_TOKEN_STATUSES.some((status) => status === value);
 }
 
-export function isAgentTokenRecord(value: unknown): value is AgentTokenRecord {
+function isAgentTokenRecord(value: unknown): value is AgentTokenRecord {
   if (!isRecord(value)) return false;
   return (
     typeof value.id === "string" &&
@@ -92,11 +128,27 @@ async function readJson(response: Response): Promise<unknown> {
 }
 
 /** The API's `{ error }` message when present, so limits and conflicts read as the server phrased them. */
-function errorMessage(body: unknown, fallback: string): string {
+function serverMessage(body: unknown): string | null {
   if (isRecord(body) && typeof body.error === "string" && body.error.trim()) {
-    return body.error;
+    return body.error.trim();
   }
-  return fallback;
+  return null;
+}
+
+function asSentence(text: string): string {
+  return SENTENCE_END.test(text) ? text : `${text}.`;
+}
+
+function failureFor(status: number, body: unknown, fallback: string): ApiFailure {
+  const reason = STATUS_REASONS.get(status) ?? "failed";
+  if (reason === "unauthorized") {
+    return { ok: false, reason, message: FALLBACK_MESSAGES.sessionExpired };
+  }
+  if (reason === "rate_limited") {
+    const message = asSentence(serverMessage(body) ?? FALLBACK_MESSAGES.rateLimited);
+    return { ok: false, reason, message: `${message} ${RETRY_LATER_HINT}` };
+  }
+  return { ok: false, reason, message: serverMessage(body) ?? fallback };
 }
 
 async function request<T>(
@@ -109,12 +161,14 @@ async function request<T>(
   try {
     response = await fetch(input, init);
   } catch {
-    return { ok: false, message: FALLBACK_MESSAGES.network };
+    return { ok: false, reason: "network", message: FALLBACK_MESSAGES.network };
   }
   const body = await readJson(response);
-  if (!response.ok) return { ok: false, message: errorMessage(body, fallback) };
+  if (!response.ok) return failureFor(response.status, body, fallback);
   const value = parse(body);
-  return value === null ? { ok: false, message: fallback } : { ok: true, value };
+  return value === null
+    ? { ok: false, reason: "failed", message: fallback }
+    : { ok: true, value };
 }
 
 // Revoke responses carry nothing the UI needs; any 2xx is success.

@@ -12,7 +12,7 @@ import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
 const AGENT_TAG_HINTS = {
   delivery: "Something the user shipped and what it moved",
   leadership: "A call the user made, or someone they unblocked",
-  collaboration: "Work of theirs that crossed a team boundary",
+  collaboration: "Work by the user that crossed a team boundary",
   craft: "Something the user made better that nobody asked them to",
 } as const satisfies Record<WinTag, string>;
 
