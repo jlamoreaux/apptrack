@@ -1,8 +1,9 @@
 /**
  * CareerOtter MCP server (streamable HTTP, stateless, JSON-RPC over POST).
  *
- * Every request is checked here before mcp-handler sees it: body size and
- * JSON validity, then the personal access token (format and checksum, then a
+ * Only POST is served; other methods get 405 before any other work. Every
+ * POST is checked here before mcp-handler sees it: the Origin header, body
+ * size, JSON validity and no batches, then the personal access token (format and checksum, then a
  * database lookup), then a per-token rate limit. Only then is a fresh MCP
  * server built, holding the verified identity and registering only the tools
  * the token's scopes allow.
@@ -21,21 +22,24 @@ import {
 import {
   AGENT_RATE_LIMITS,
   MCP_BASE_PATH,
+  MCP_DEADLINES_MS,
   MCP_MAX_BODY_BYTES,
-  MCP_MAX_DURATION_SECONDS,
   MCP_SERVER_INFO,
   MCP_UNAVAILABLE_RETRY_AFTER_SECONDS,
 } from "@/lib/constants/agent-access";
 import type { McpToolContext } from "@/lib/mcp/context";
 import { MCP_SERVER_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { registerTools } from "@/lib/mcp/server";
+import { SITE_URL } from "@/lib/constants/site-config";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { withTimeout } from "@/lib/utils/with-timeout";
 
 export const runtime = "nodejs";
-// Next.js needs a literal here; keep in step with MCP_MAX_DURATION_SECONDS.
+// Next.js needs a literal here; keep in step with MCP_MAX_DURATION_SECONDS
+// (a test asserts they match).
 export const maxDuration = 30;
 
 type VerifiedToken = Extract<AgentTokenVerification, { ok: true }>;
@@ -45,10 +49,13 @@ type Gate<T> = { ok: true; value: T } | { ok: false; response: Response };
 const HTTP = {
   badRequest: 400,
   unauthorized: 401,
+  forbidden: 403,
+  methodNotAllowed: 405,
   payloadTooLarge: 413,
   tooManyRequests: 429,
   internalError: 500,
   unavailable: 503,
+  gatewayTimeout: 504,
 } as const;
 
 const JSON_RPC_PARSE_ERROR = {
@@ -56,6 +63,22 @@ const JSON_RPC_PARSE_ERROR = {
   error: { code: -32700, message: "Parse error" },
   id: null,
 } as const;
+
+// Same body mcp-handler sends for GET and DELETE, returned before any auth.
+const JSON_RPC_METHOD_NOT_ALLOWED = {
+  jsonrpc: "2.0",
+  error: { code: -32000, message: "Method not allowed." },
+  id: null,
+} as const;
+
+// Batches would let one HTTP request spend one rate-limit unit on many calls.
+const JSON_RPC_BATCH_NOT_SUPPORTED = {
+  jsonrpc: "2.0",
+  error: { code: -32600, message: "Batch requests are not supported" },
+  id: null,
+} as const;
+
+const ALLOWED_METHOD = "POST";
 
 const BEARER_PATTERN = /^bearer\s+(.+)$/i;
 const MS_PER_SECOND = 1000;
@@ -79,21 +102,36 @@ export async function POST(request: Request): Promise<Response> {
   return handleMcpRequest(request);
 }
 
-export async function GET(request: Request): Promise<Response> {
-  return handleMcpRequest(request);
+// Stateless and SSE-free, so no other method has a meaning here. Next.js maps
+// HEAD to GET, so HEAD gets the same 405.
+export async function GET(): Promise<Response> {
+  return methodNotAllowed();
 }
 
-export async function DELETE(request: Request): Promise<Response> {
-  return handleMcpRequest(request);
+export async function DELETE(): Promise<Response> {
+  return methodNotAllowed();
+}
+
+export async function PUT(): Promise<Response> {
+  return methodNotAllowed();
+}
+
+export async function PATCH(): Promise<Response> {
+  return methodNotAllowed();
+}
+
+export async function OPTIONS(): Promise<Response> {
+  return methodNotAllowed();
 }
 
 async function handleMcpRequest(request: Request): Promise<Response> {
   try {
+    if (!hasAllowedOrigin(request)) return forbiddenOrigin();
     const body = await readJsonRpcBody(request);
     if (!body.ok) return body.response;
     const ctx = await authenticate(request);
     if (!ctx.ok) return ctx.response;
-    return await serveMcp(request, body.value, ctx.value);
+    return await serveWithinDeadline(request, body.value, ctx.value);
   } catch (error) {
     loggerService.error("MCP request failed", error, {
       category: LogCategory.API,
@@ -103,16 +141,50 @@ async function handleMcpRequest(request: Request): Promise<Response> {
   }
 }
 
+function methodNotAllowed(): Response {
+  return jsonResponse(JSON_RPC_METHOD_NOT_ALLOWED, HTTP.methodNotAllowed, {
+    Allow: ALLOWED_METHOD,
+  });
+}
+
+// ── origin ─────────────────────────────────────────────────────────────────
+
+/**
+ * Browsers always send Origin on POST, so a foreign one means a web page is
+ * calling (DNS rebinding, per the MCP transport spec). CLI and server clients
+ * send none and pass.
+ */
+function hasAllowedOrigin(request: Request): boolean {
+  const header = request.headers.get("origin");
+  if (header === null) return true;
+  const origin = parseOrigin(header);
+  return origin !== null && (origin === SITE_URL || origin === new URL(request.url).origin);
+}
+
+/** The serialized origin, or null for "null" and other unparseable values. */
+function parseOrigin(value: string): string | null {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return null;
+  }
+}
+
+function forbiddenOrigin(): Response {
+  return jsonResponse({ error: "forbidden_origin" }, HTTP.forbidden);
+}
+
 // ── body ───────────────────────────────────────────────────────────────────
 
-/** The raw body text for POST (null for GET/DELETE), capped and known to parse as JSON. */
-async function readJsonRpcBody(request: Request): Promise<Gate<string | null>> {
-  if (request.method !== "POST") return { ok: true, value: null };
+/** The raw body text, capped, parsing as JSON, and a single message (not a batch). */
+async function readJsonRpcBody(request: Request): Promise<Gate<string>> {
   if (declaredLength(request) > MCP_MAX_BODY_BYTES) return reject(payloadTooLarge());
   const text = await readCappedText(request.body, MCP_MAX_BODY_BYTES);
   if (text === null) return reject(payloadTooLarge());
-  if (!parsesAsJson(text)) {
-    return reject(jsonResponse(JSON_RPC_PARSE_ERROR, HTTP.badRequest));
+  const parsed = parseJson(text);
+  if (!parsed.ok) return reject(jsonResponse(JSON_RPC_PARSE_ERROR, HTTP.badRequest));
+  if (Array.isArray(parsed.value)) {
+    return reject(jsonResponse(JSON_RPC_BATCH_NOT_SUPPORTED, HTTP.badRequest));
   }
   return { ok: true, value: text };
 }
@@ -144,12 +216,12 @@ async function readCappedText(
   return text + decoder.decode();
 }
 
-function parsesAsJson(text: string): boolean {
+function parseJson(text: string): { ok: true; value: unknown } | { ok: false } {
   try {
-    JSON.parse(text);
-    return true;
+    const value: unknown = JSON.parse(text);
+    return { ok: true, value };
   } catch {
-    return false;
+    return { ok: false };
   }
 }
 
@@ -166,7 +238,7 @@ async function authenticate(request: Request): Promise<Gate<McpToolContext>> {
 
   const admin = createAdminClient();
   const now = new Date();
-  const verification = await verifyAgentToken(admin, raw, now);
+  const verification = await verifyWithinDeadline(admin, raw, now);
   if (!verification.ok) {
     return reject(
       verification.reason === "unavailable" ? unavailable() : await authFailure(ip)
@@ -177,15 +249,38 @@ async function authenticate(request: Request): Promise<Gate<McpToolContext>> {
   if (retryAfter !== null) return reject(tooManyRequests(retryAfter));
 
   scheduleTouch(admin, verification, now);
+  return { ok: true, value: toContext(admin, verification, now) };
+}
+
+/** A lookup that outlasts its deadline is treated like a database outage. */
+async function verifyWithinDeadline(
+  admin: McpToolContext["admin"],
+  raw: string,
+  now: Date
+): Promise<AgentTokenVerification> {
+  const outcome = await withTimeout(
+    verifyAgentToken(admin, raw, now),
+    MCP_DEADLINES_MS.tokenVerify
+  );
+  if (!outcome.timedOut) return outcome.value;
+  loggerService.warn("MCP token verification timed out", {
+    category: LogCategory.SECURITY,
+    action: "mcp_token_verify_timeout",
+  });
+  return { ok: false, reason: "unavailable" };
+}
+
+function toContext(
+  admin: McpToolContext["admin"],
+  verification: VerifiedToken,
+  now: Date
+): McpToolContext {
   return {
-    ok: true,
-    value: {
-      admin,
-      userId: verification.userId,
-      tokenId: verification.tokenId,
-      scopes: verification.scopes,
-      now,
-    },
+    admin,
+    userId: verification.userId,
+    tokenId: verification.tokenId,
+    scopes: verification.scopes,
+    now,
   };
 }
 
@@ -221,7 +316,8 @@ type RateLimiter = ReturnType<typeof createRateLimiter>;
 
 /**
  * Seconds until the key may retry, or null when it is within its limit. Fails
- * open (null) without Redis or when Redis errors, like the rest of the app.
+ * open (null) without Redis, or when Redis errors or is slow, like the rest of
+ * the app.
  */
 async function limitedRetryAfter(
   limiter: RateLimiter,
@@ -230,17 +326,22 @@ async function limitedRetryAfter(
 ): Promise<number | null> {
   if (limiter === null) return null;
   try {
-    const result = await limiter.limit(key);
-    if (result.success) return null;
-    const seconds = Math.ceil((result.reset - now.getTime()) / MS_PER_SECOND);
+    const outcome = await withTimeout(limiter.limit(key), MCP_DEADLINES_MS.rateLimit);
+    if (outcome.timedOut) return failOpen("MCP rate limiter timed out", undefined);
+    if (outcome.value.success) return null;
+    const seconds = Math.ceil((outcome.value.reset - now.getTime()) / MS_PER_SECOND);
     return Math.max(seconds, MIN_RETRY_AFTER_SECONDS);
   } catch (error) {
-    loggerService.error("MCP rate limiter failed", error, {
-      category: LogCategory.SECURITY,
-      action: "mcp_rate_limit_error",
-    });
-    return null;
+    return failOpen("MCP rate limiter failed", error);
   }
+}
+
+function failOpen(message: string, error: unknown): null {
+  loggerService.error(message, error, {
+    category: LogCategory.SECURITY,
+    action: "mcp_rate_limit_error",
+  });
+  return null;
 }
 
 function scheduleTouch(
@@ -286,29 +387,48 @@ function reject<T>(response: Response): Gate<T> {
 
 // ── serve ──────────────────────────────────────────────────────────────────
 
-// A handler per request: mcp-handler's server setup callback receives no
-// request or auth, so the verified context is captured in this closure.
-function serveMcp(
+/**
+ * Answers 504 when the adapter has not produced a response head in time, while
+ * the function can still respond. SSE responses stream their body after the
+ * head, so a slow tool call is bounded by the per-tool deadline instead.
+ */
+async function serveWithinDeadline(
   request: Request,
-  body: string | null,
+  body: string,
   ctx: McpToolContext
 ): Promise<Response> {
+  const outcome = await withTimeout(serveMcp(request, body, ctx), MCP_DEADLINES_MS.request);
+  if (!outcome.timedOut) return outcome.value;
+  loggerService.error("MCP request timed out", undefined, {
+    category: LogCategory.API,
+    userId: ctx.userId,
+    action: "mcp_request_timeout",
+    metadata: { tokenId: ctx.tokenId },
+  });
+  return jsonResponse({ error: "timeout" }, HTTP.gatewayTimeout);
+}
+
+// A handler per request: mcp-handler's server setup callback receives no
+// request or auth, so the verified context is captured in this closure.
+// maxDuration is left out of the config: mcp-handler only reads it on the SSE
+// path, which is disabled.
+function serveMcp(request: Request, body: string, ctx: McpToolContext): Promise<Response> {
   const handler = createMcpHandler(
     (server) => registerTools(server, ctx),
     { serverInfo: MCP_SERVER_INFO, instructions: MCP_SERVER_INSTRUCTIONS },
-    { basePath: MCP_BASE_PATH, disableSse: true, maxDuration: MCP_MAX_DURATION_SECONDS }
+    { basePath: MCP_BASE_PATH, disableSse: true }
   );
   return handler(rebuildRequest(request, body));
 }
 
 // The original body stream has been consumed, and the adapter reads it again.
-function rebuildRequest(request: Request, body: string | null): Request {
+function rebuildRequest(request: Request, body: string): Request {
   const headers = new Headers(request.headers);
   for (const name of HEADERS_NOT_FORWARDED) headers.delete(name);
   return new Request(request.url, {
     method: request.method,
     headers,
-    body: body ?? undefined,
+    body,
     signal: request.signal,
   });
 }
