@@ -29,8 +29,13 @@ function isCareerotterSurface(pathname: string): boolean {
     pathname.startsWith("/api/careerotter/") ||
     pathname.startsWith("/api/wins/") ||
     pathname === "/api/wins" ||
-    pathname === "/api/cron/careerotter-recap"
+    pathname === "/api/cron/careerotter-recap" ||
+    isMcpPath(pathname)
   )
+}
+
+function isMcpPath(pathname: string): boolean {
+  return pathname === "/api/mcp" || pathname.startsWith("/api/mcp/")
 }
 
 export async function middleware(request: NextRequest) {
@@ -42,6 +47,12 @@ export async function middleware(request: NextRequest) {
     isCareerotterSurface(request.nextUrl.pathname)
   ) {
     return new NextResponse("Not Found", { status: 404 })
+  }
+
+  // The MCP route authenticates its own bearer tokens, so it skips the Supabase
+  // session refresh and legacy-host redirects below.
+  if (isMcpPath(request.nextUrl.pathname)) {
+    return NextResponse.next()
   }
 
   const hostname = request.headers.get("host") || ""
@@ -141,5 +152,7 @@ export const config = {
     "/api/careerotter/:path*",
     "/api/wins/:path*",
     "/api/cron/careerotter-recap",
+    "/api/mcp",
+    "/api/mcp/:path*",
   ],
 }

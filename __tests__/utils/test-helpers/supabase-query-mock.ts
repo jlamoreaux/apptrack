@@ -40,10 +40,11 @@ export interface MockAdmin {
 function buildQuery(table: string, result: QueryResult): RecordedQuery {
   const resolved = { data: null, error: null, count: null, ...result };
   const ops: QueryOp[] = [];
+  // Methods are attached below; they return the builder itself, so it must exist first.
   const builder = {
     then: (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
       Promise.resolve(resolved).then(resolve, reject),
-  } as QueryBuilder;
+  } as unknown as QueryBuilder;
   for (const method of QUERY_BUILDER_METHODS) {
     builder[method] = jest.fn((...args: unknown[]) => {
       ops.push([method, args]);
