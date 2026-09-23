@@ -73,3 +73,17 @@ export const MCP_LIST_WINS = {
 } as const;
 
 export const MCP_INSTRUCTIONS_VERSION = "1.0.0";
+
+// Random bytes behind each token; 256 bits makes guessing infeasible.
+export const AGENT_TOKEN_SECRET_BYTES = 32;
+
+// CRC32 of the token body in base36. The largest CRC32 (0xffffffff) is
+// "1z141z3" in base36, so 7 characters always fit once left-padded.
+export const AGENT_TOKEN_CHECKSUM_LENGTH = 7;
+
+// Comp data is the most sensitive the agent API exposes, so tokens carrying
+// these scopes must have an expiry.
+export const AGENT_COMP_SCOPES: readonly AgentTokenScope[] = [
+  "comp:read",
+  "comp:write",
+];
