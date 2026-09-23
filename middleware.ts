@@ -12,6 +12,7 @@ import {
   prefersMarkdown,
 } from "@/lib/agent-discovery/markdown-negotiation"
 import {
+  AGENT_OAUTH_PATH_PREFIXES,
   AGENT_OAUTH_PATHS,
   isCareerotterEnabled,
   isMcpOAuthEnabled,
@@ -57,7 +58,7 @@ function isOAuthSurface(pathname: string): boolean {
 }
 
 function isOAuthPage(pathname: string): boolean {
-  return pathname === "/oauth" || pathname.startsWith("/oauth/")
+  return hasPathPrefix(pathname, AGENT_OAUTH_PATH_PREFIXES.pages)
 }
 
 // Answered to OAuth clients, apart from the consent decision, whose route
@@ -65,10 +66,14 @@ function isOAuthPage(pathname: string): boolean {
 // refresh, the legacy-host redirect and markdown negotiation.
 function isOAuthMachinePath(pathname: string): boolean {
   return (
-    pathname.startsWith("/.well-known/oauth-") ||
-    pathname === "/api/oauth" ||
-    pathname.startsWith("/api/oauth/")
+    pathname.startsWith(AGENT_OAUTH_PATH_PREFIXES.wellKnown) ||
+    hasPathPrefix(pathname, AGENT_OAUTH_PATH_PREFIXES.api)
   )
+}
+
+// `prefix` itself or anything below it, matched on a segment boundary.
+function hasPathPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(`${prefix}/`)
 }
 
 export async function middleware(request: NextRequest) {

@@ -358,7 +358,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - register `co_oat_`, `co_ort_` and `co_cs_` with GitHub secret scanning,
     alongside `co_pat_`
   - confirm the cleanup cron runs
-- [ ] 7.3: Write tests for Task 7: none for prose. Confirm every path, flag and
+- [ ] 7.3: Setup docs: the MCP URL must be the canonical SITE_URL host; legacy
+  host and Vercel aliases can't complete OAuth (resource mismatch), PATs
+  still work there.
+- [ ] 7.4: Write tests for Task 7: none for prose. Confirm every path, flag and
   prefix the docs name exists in code.
 
 ## Known trade-offs

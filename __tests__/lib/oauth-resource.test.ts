@@ -3,7 +3,9 @@
  * Tests for lib/auth/oauth/resource.ts: normalization (trailing slash, host
  * case, default port), the accepted set (SITE_URL, plus www when configured),
  * foreign resources rejected, and the advertised resource falling back to
- * SITE_URL for an unaccepted (spoofed) origin.
+ * SITE_URL for an unaccepted (spoofed) origin or, logged once, a malformed
+ * CAREEROTTER_MCP_EXTRA_ORIGINS, while accepting a resource still fails
+ * closed on the same misconfiguration.
  */
 
 import {
@@ -14,6 +16,11 @@ import {
 import { CANONICAL_MCP_RESOURCE } from "@/lib/constants/agent-oauth";
 import { MCP_RESOURCE_PATH } from "@/lib/constants/agent-access";
 import { SITE_URL } from "@/lib/constants/site-config";
+import { loggerService } from "@/lib/services/logger.service";
+
+jest.mock("@/lib/services/logger.service", () => ({
+  loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
+}));
 
 const EXTRA_ORIGIN = "https://www.careerotter.io";
 const siteHost = new URL(SITE_URL).host;
@@ -100,5 +107,14 @@ describe("advertisedMcpResource", () => {
     expect(advertisedMcpResource("https://evil.example/.well-known/oauth-protected-resource")).toBe(
       CANONICAL_MCP_RESOURCE
     );
+  });
+
+  it("falls back to SITE_URL, logging once, when the extra origins are malformed", () => {
+    process.env.CAREEROTTER_MCP_EXTRA_ORIGINS = "not a url";
+    const requestUrl = `${EXTRA_ORIGIN}/.well-known/oauth-protected-resource`;
+    expect(advertisedMcpResource(requestUrl)).toBe(CANONICAL_MCP_RESOURCE);
+    expect(advertisedMcpResource(requestUrl)).toBe(CANONICAL_MCP_RESOURCE);
+    expect(loggerService.error).toHaveBeenCalledTimes(1);
+    expect(() => toAcceptedMcpResource(CANONICAL_MCP_RESOURCE)).toThrow();
   });
 });

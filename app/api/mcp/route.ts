@@ -13,8 +13,8 @@
  * limit, then looked up. While OAuth is enabled (isMcpOAuthEnabled), an OAuth
  * access token (`co_oat_`) is checked for format and checksum, then against
  * its own per-IP failure limit, then looked up; and 401s carry the RFC 9728
- * discovery challenge. While OAuth is disabled the route behaves exactly as
- * it did before OAuth existed.
+ * discovery challenge. While OAuth is disabled every bearer takes the PAT
+ * path and 401s carry a plain `invalid_token` challenge.
  *
  * The raw token and the Authorization header are never logged.
  */
@@ -26,7 +26,6 @@ import {
   hasValidAgentTokenFormat,
   touchLastUsed,
   verifyAgentToken,
-  type AgentTokenVerification,
 } from "@/lib/auth/agent-token";
 import { mcpBearerChallenge } from "@/lib/auth/oauth/bearer-challenge";
 import { lookupAccessToken, touchGrantLastUsed } from "@/lib/auth/oauth/tokens";
@@ -42,13 +41,20 @@ import {
 import {
   AGENT_OAUTH_PREFIXES,
   AGENT_OAUTH_RATE_LIMITS,
+  AGENT_OAUTH_TOKEN_TYPE,
+  MCP_INVALID_TOKEN_ERROR,
   isMcpOAuthEnabled,
 } from "@/lib/constants/agent-oauth";
 import type { McpToolContext } from "@/lib/mcp/context";
 import { MCP_SERVER_INSTRUCTIONS } from "@/lib/mcp/instructions";
 import { registerTools } from "@/lib/mcp/server";
 import { SITE_URL } from "@/lib/constants/site-config";
-import { clientIp, readBodyWithinLimit, retryAfterSeconds } from "@/lib/http/request";
+import {
+  clientIp,
+  rateLimitIpKey,
+  readBodyWithinLimit,
+  retryAfterSeconds,
+} from "@/lib/http/request";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
@@ -83,8 +89,8 @@ interface VerifiedRequest {
 }
 
 /**
- * How this request's 401s are worded: today's bare `invalid_token` challenge,
- * or (OAuth enabled) the discovery challenge for the request's URL.
+ * How this request's 401s are worded: a plain `invalid_token` challenge with
+ * OAuth disabled, or the discovery challenge for the request's URL.
  */
 type AuthChallenge = { oauth: false } | { oauth: true; requestUrl: string };
 
@@ -122,10 +128,9 @@ const JSON_RPC_BATCH_NOT_SUPPORTED = {
 
 const ALLOWED_METHOD = "POST";
 
-const INVALID_TOKEN_ERROR = "invalid_token";
 // The body of a discovery-probe 401, which presented no token to be invalid.
 const UNAUTHORIZED_ERROR = "unauthorized";
-const LEGACY_BEARER_CHALLENGE = `Bearer error="${INVALID_TOKEN_ERROR}"`;
+const PLAIN_BEARER_CHALLENGE = `${AGENT_OAUTH_TOKEN_TYPE} error="${MCP_INVALID_TOKEN_ERROR}"`;
 
 const BEARER_PATTERN = /^bearer\s+(.+)$/i;
 
@@ -280,14 +285,16 @@ async function authenticate(request: Request): Promise<Gate<McpToolContext>> {
  * Dispatches on the bearer's prefix. With OAuth enabled, a request with no
  * Authorization header is a discovery probe (a 401 challenge, not counted as
  * a failure) and a `co_oat_` token takes the OAuth path. Everything else, and
- * everything while OAuth is disabled, takes the PAT path exactly as before.
+ * everything while OAuth is disabled, takes the PAT path.
  */
 async function verifyCredential(request: Request, now: Date): Promise<Gate<VerifiedRequest>> {
   const ip = clientIp(request.headers);
   const header = request.headers.get("authorization");
   const raw = bearerToken(header);
   const challenge = challengeFor(request);
-  if (challenge.oauth && header === null) return reject(unauthorized(challenge, null));
+  if (challenge.oauth && header === null) {
+    return reject(unauthorized(challenge, null, { discoveryProbe: true }));
+  }
   if (challenge.oauth && raw?.startsWith(AGENT_OAUTH_PREFIXES.accessToken)) {
     return verifyOAuthToken(raw, ip, now, challenge);
   }
@@ -333,7 +340,8 @@ async function verifyPersonalAccessToken(
   // A bearer that was presented but refused is invalid_token; a request with
   // no bearer at all (another scheme, an empty header) carries no error code.
   const failure: McpBearerTokenFailure | null = raw === null ? null : "invalid";
-  if (!hasValidAgentTokenFormat(raw)) return reject(await patAuthFailure(ip, challenge, failure));
+  const patFailure = () => authFailure(authFailLimiter, authFailKey(ip), challenge, failure);
+  if (!hasValidAgentTokenFormat(raw)) return reject(await patFailure());
 
   // The checksum is public, so well-formed junk is cheap to make; an IP that
   // is already over its failure limit must not reach the database lookup.
@@ -341,13 +349,13 @@ async function verifyPersonalAccessToken(
   if (lockedOut !== null) return reject(tooManyRequests(lockedOut));
 
   const admin = createAdminClient();
-  const verification = await verifyWithinDeadline(admin, raw, now);
+  const verification = await withinTokenDeadline(
+    (signal) => verifyAgentToken(admin, raw, now, signal),
+    { ok: false, reason: "unavailable" },
+    { message: "MCP token verification timed out", action: "mcp_token_verify_timeout" }
+  );
   if (!verification.ok) {
-    return reject(
-      verification.reason === "unavailable"
-        ? unavailable()
-        : await patAuthFailure(ip, challenge, failure)
-    );
+    return reject(verification.reason === "unavailable" ? unavailable() : await patFailure());
   }
   return accepted(admin, {
     kind: "pat",
@@ -356,37 +364,6 @@ async function verifyPersonalAccessToken(
     scopes: verification.scopes,
     lastUsedAt: verification.lastUsedAt,
   });
-}
-
-/**
- * A lookup that outlasts its deadline is treated like a database outage, and
- * its request is aborted so it does not keep a database connection busy.
- */
-async function verifyWithinDeadline(
-  admin: SupabaseClient,
-  raw: string,
-  now: Date
-): Promise<AgentTokenVerification> {
-  const outcome = await withAbortableTimeout(
-    (signal) => verifyAgentToken(admin, raw, now, signal),
-    MCP_DEADLINES_MS.tokenVerify
-  );
-  if (!outcome.timedOut) return outcome.value;
-  loggerService.warn("MCP token verification timed out", {
-    category: LogCategory.SECURITY,
-    action: "mcp_token_verify_timeout",
-  });
-  return { ok: false, reason: "unavailable" };
-}
-
-/** A 401, or a 429 once this IP has failed too often. Spends one PAT failure unit. */
-async function patAuthFailure(
-  ip: string,
-  challenge: AuthChallenge,
-  failure: McpBearerTokenFailure | null
-): Promise<Response> {
-  const retryAfter = await chargeFailure(authFailLimiter, authFailKey(ip));
-  return retryAfter === null ? unauthorized(challenge, failure) : tooManyRequests(retryAfter);
 }
 
 function authFailKey(ip: string): string {
@@ -416,18 +393,24 @@ async function verifyOAuthToken(
   now: Date,
   challenge: AuthChallenge
 ): Promise<Gate<VerifiedRequest>> {
+  const oauthFailure = (failure: McpBearerTokenFailure) =>
+    authFailure(oauthFailLimiter, oauthFailKey(ip), challenge, failure);
   if (!hasValidPrefixedSecretFormat(raw, AGENT_OAUTH_PREFIXES.accessToken)) {
-    return reject(await oauthAuthFailure(ip, challenge, "invalid"));
+    return reject(await oauthFailure("invalid"));
   }
 
   const lockedOut = await lockoutSeconds(oauthFailLimiter, oauthFailKey(ip), now);
   if (lockedOut !== null) return reject(tooManyRequests(lockedOut));
 
   const admin = createAdminClient();
-  const lookup = await lookupWithinDeadline(admin, hashSecret(raw), now);
+  const lookup = await withinTokenDeadline<AgentOAuthAccessTokenLookup>(
+    (signal) => lookupAccessToken(admin, hashSecret(raw), now, signal),
+    { kind: "unavailable" },
+    { message: "MCP OAuth token lookup timed out", action: "mcp_oauth_token_lookup_timeout" }
+  );
   if (lookup.kind === "unavailable") return reject(unavailable());
   if (lookup.kind !== "active") {
-    return reject(await oauthAuthFailure(ip, challenge, OAUTH_LOOKUP_FAILURES[lookup.kind]));
+    return reject(await oauthFailure(OAUTH_LOOKUP_FAILURES[lookup.kind]));
   }
   return accepted(admin, {
     kind: "oauth",
@@ -438,39 +421,39 @@ async function verifyOAuthToken(
   });
 }
 
-/** Like verifyWithinDeadline, for an OAuth access token's hash. */
-async function lookupWithinDeadline(
-  admin: SupabaseClient,
-  tokenHash: string,
-  now: Date
-): Promise<AgentOAuthAccessTokenLookup> {
-  const outcome = await withAbortableTimeout(
-    (signal) => lookupAccessToken(admin, tokenHash, now, signal),
-    MCP_DEADLINES_MS.tokenVerify
-  );
-  if (!outcome.timedOut) return outcome.value;
-  loggerService.warn("MCP OAuth token lookup timed out", {
-    category: LogCategory.SECURITY,
-    action: "mcp_oauth_token_lookup_timeout",
-  });
-  return { kind: "unavailable" };
+// Keyed like the other OAuth per-IP limits: an IPv6 client counts per /64.
+function oauthFailKey(ip: string): string {
+  return `${AGENT_OAUTH_RATE_LIMITS.oauthFailPerIp.keyPrefix}${rateLimitIpKey(ip)}`;
 }
 
-/** A 401, or a 429 once this IP has made too many failed OAuth lookups. */
-async function oauthAuthFailure(
-  ip: string,
+// ── auth: deadlines, rate limits and last use ──────────────────────────────
+
+/**
+ * A token lookup that outlasts its deadline is treated like a database outage
+ * (`timedOut` is returned), and its request is aborted so it does not keep a
+ * database connection busy.
+ */
+async function withinTokenDeadline<T>(
+  lookup: (signal: AbortSignal) => Promise<T>,
+  timedOut: T,
+  log: { message: string; action: string }
+): Promise<T> {
+  const outcome = await withAbortableTimeout(lookup, MCP_DEADLINES_MS.tokenVerify);
+  if (!outcome.timedOut) return outcome.value;
+  loggerService.warn(log.message, { category: LogCategory.SECURITY, action: log.action });
+  return timedOut;
+}
+
+/** A 401, or a 429 once `key` has failed too often. Spends one unit of `key`. */
+async function authFailure(
+  limiter: RateLimiter | null,
+  key: string,
   challenge: AuthChallenge,
-  failure: McpBearerTokenFailure
+  failure: McpBearerTokenFailure | null
 ): Promise<Response> {
-  const retryAfter = await chargeFailure(oauthFailLimiter, oauthFailKey(ip));
+  const retryAfter = await chargeFailure(limiter, key);
   return retryAfter === null ? unauthorized(challenge, failure) : tooManyRequests(retryAfter);
 }
-
-function oauthFailKey(ip: string): string {
-  return `${AGENT_OAUTH_RATE_LIMITS.oauthFailPerIp.keyPrefix}${ip}`;
-}
-
-// ── auth: rate limits and last use ─────────────────────────────────────────
 
 /** Spends one unit of `key`; seconds to wait when it had none left, else null. */
 async function chargeFailure(limiter: RateLimiter | null, key: string): Promise<number | null> {
@@ -569,17 +552,23 @@ function scheduleTouch(admin: SupabaseClient, credential: VerifiedCredential, no
 }
 
 /**
- * With OAuth disabled, today's bare invalid_token 401 whatever the failure.
- * With it enabled, the discovery challenge; `failure` is null when no bearer
- * token was presented, and then the 401 carries no error code.
+ * With OAuth disabled, a plain invalid_token 401 whatever the failure. With
+ * it enabled, the discovery challenge; `failure` is null when no bearer token
+ * was presented, and then the challenge carries no error code. The body is
+ * `invalid_token` unless the request is a discovery probe (OAuth enabled and
+ * no Authorization header at all), which gets `unauthorized`.
  */
-function unauthorized(challenge: AuthChallenge, failure: McpBearerTokenFailure | null): Response {
+function unauthorized(
+  challenge: AuthChallenge,
+  failure: McpBearerTokenFailure | null,
+  { discoveryProbe = false }: { discoveryProbe?: boolean } = {}
+): Response {
   if (!challenge.oauth) {
-    return jsonResponse({ error: INVALID_TOKEN_ERROR }, HTTP.unauthorized, {
-      "WWW-Authenticate": LEGACY_BEARER_CHALLENGE,
+    return jsonResponse({ error: MCP_INVALID_TOKEN_ERROR }, HTTP.unauthorized, {
+      "WWW-Authenticate": PLAIN_BEARER_CHALLENGE,
     });
   }
-  const error = failure === null ? UNAUTHORIZED_ERROR : INVALID_TOKEN_ERROR;
+  const error = discoveryProbe ? UNAUTHORIZED_ERROR : MCP_INVALID_TOKEN_ERROR;
   return jsonResponse({ error }, HTTP.unauthorized, {
     "WWW-Authenticate": mcpBearerChallenge(challenge.requestUrl, failure),
   });

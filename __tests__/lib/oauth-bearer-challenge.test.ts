@@ -14,9 +14,9 @@ import { mcpBearerChallenge, quotedString } from "@/lib/auth/oauth/bearer-challe
 import {
   AGENT_OAUTH_DEFAULT_SCOPE_HINT,
   MCP_BEARER_FAILURE_DESCRIPTIONS,
+  MCP_BEARER_TOKEN_FAILURES,
 } from "@/lib/constants/agent-oauth";
 import { SITE_URL } from "@/lib/constants/site-config";
-import type { McpBearerTokenFailure } from "@/types";
 
 const REQUEST_URL = `${SITE_URL}/api/mcp`;
 const METADATA_URL = `${SITE_URL}/.well-known/oauth-protected-resource/api/mcp`;
@@ -28,7 +28,7 @@ const CHALLENGE = new RegExp(`^Bearer ${AUTH_PARAM}(?:, ${AUTH_PARAM})*$`);
 // RFC 6750 §3: error_description = 1*( %x20-21 / %x23-5B / %x5D-7E )
 const ERROR_DESCRIPTION_CHARSET = /^[\x20-\x21\x23-\x5B\x5D-\x7E]+$/;
 
-const FAILURES = Object.keys(MCP_BEARER_FAILURE_DESCRIPTIONS) as McpBearerTokenFailure[];
+const FAILURES = [...MCP_BEARER_TOKEN_FAILURES];
 
 describe("mcpBearerChallenge", () => {
   it("carries only discovery parameters when no token was presented", () => {

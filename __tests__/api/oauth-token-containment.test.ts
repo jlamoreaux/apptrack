@@ -2,13 +2,15 @@
  * @jest-environment node
  */
 /**
- * Negative containment (PRD goal 2): an OAuth access token (`co_oat_`) works
- * only at /api/mcp and isn't a Supabase credential.
+ * Negative containment (PRD goal 2): an OAuth access token (`co_oat_`) is
+ * not accepted as an app credential outside /api/mcp.
+ * - it isn't JWT-shaped: jose's decodeProtectedHeader throws on it
  * - getAuthenticatedUser (session, then extension bearer JWT) rejects it; a
  *   genuine extension JWT still passes, so the rejection is the token's, not
  *   a broken verifier. jose runs for real here.
- * - the agent-token API (session cookie only) answers 401 to it on every
- *   method and never consults a bearer path or the database
+ * - the agent-token handlers that take a request (POST, DELETE one) answer
+ *   401 when it is the only credential, before reaching the database. GET and
+ *   DELETE all take no request, so no bearer can reach them.
  * - Supabase's getUser with it as the JWT yields no user (GoTrue answers
  *   403 bad_jwt, mocked at fetch)
  */
@@ -17,14 +19,12 @@ import { NextRequest } from "next/server";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { generatePrefixedSecret } from "@/lib/auth/prefixed-secret";
 import { AGENT_OAUTH_PREFIXES } from "@/lib/constants/agent-oauth";
-import { SignJWT } from "jose";
+import { decodeProtectedHeader, SignJWT } from "jose";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
+import { MS_PER_SECOND } from "@/lib/constants/dates";
 import { getAuthenticatedUser } from "@/lib/auth/extension-auth";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import {
-  DELETE as DELETE_ALL_TOKENS,
-  GET as LIST_TOKENS,
-  POST as CREATE_TOKEN,
-} from "@/app/api/careerotter/agent-tokens/route";
+import { POST as CREATE_TOKEN } from "@/app/api/careerotter/agent-tokens/route";
 import { DELETE as DELETE_ONE_TOKEN } from "@/app/api/careerotter/agent-tokens/[id]/route";
 
 const fetchPrimitives = jest.requireActual("next/dist/compiled/@edge-runtime/primitives");
@@ -73,16 +73,13 @@ const AGENT_TOKENS_URL = "http://localhost:3000/api/careerotter/agent-tokens";
 const TOKEN_ID = "11111111-2222-4333-8444-555555555555";
 const EXTENSION_USER = { id: "user-1", email: "u@example.com" };
 const JWT_SECRET = "test-extension-secret-with-enough-length";
-const UNAUTHORIZED = 401;
-const MS_PER_SECOND = 1000;
 const EXTENSION_JWT_LIFETIME_SECONDS = 3600;
 // getTokenVersion's default when the profile has none.
 const EXTENSION_TOKEN_VERSION = 1;
-const FORBIDDEN = 403;
 
 // What GoTrue answers for a bearer that isn't a JWT.
 const GOTRUE_BAD_JWT = {
-  code: FORBIDDEN,
+  code: HTTP_STATUS.FORBIDDEN,
   error_code: "bad_jwt",
   msg: "invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments",
 };
@@ -123,6 +120,12 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
+describe("token shape", () => {
+  it("is not a JWT", () => {
+    expect(() => decodeProtectedHeader(oauthAccessToken())).toThrow();
+  });
+});
+
 describe("getAuthenticatedUser (extension bearer path)", () => {
   it("rejects a co_oat_ bearer when there is no session", async () => {
     const request = new Request("http://localhost:3000/api/applications", {
@@ -151,9 +154,6 @@ describe("agent-token API (session cookie only)", () => {
           new NextRequest(AGENT_TOKENS_URL, { method: "POST", headers: bearerHeaders(raw), body: "{}" })
         ),
     ],
-    // These two handlers take no request, so they can't read a bearer at all.
-    ["GET", () => LIST_TOKENS()],
-    ["DELETE all", () => DELETE_ALL_TOKENS()],
     [
       "DELETE one",
       () =>
@@ -164,7 +164,7 @@ describe("agent-token API (session cookie only)", () => {
     ],
   ])("answers %s with 401 when a co_oat_ bearer is all it has", async (_label, call) => {
     const response = await call();
-    expect(response.status).toBe(UNAUTHORIZED);
+    expect(response.status).toBe(HTTP_STATUS.UNAUTHORIZED);
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 });
@@ -175,7 +175,7 @@ describe("Supabase getUser", () => {
     const fetchMock = jest.fn(
       async () =>
         new fetchPrimitives.Response(JSON.stringify(GOTRUE_BAD_JWT), {
-          status: FORBIDDEN,
+          status: HTTP_STATUS.FORBIDDEN,
           headers: { "content-type": "application/json" },
         })
     );

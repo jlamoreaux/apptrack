@@ -16,6 +16,8 @@ import {
 } from "@/lib/constants/agent-oauth";
 import { hasCredentials, hasFragment, parseUrl } from "@/lib/auth/oauth/url";
 import { SITE_URL } from "@/lib/constants/site-config";
+import { loggerService } from "@/lib/services/logger.service";
+import { LogCategory } from "@/lib/services/logger.types";
 
 const TRAILING_SLASH = /\/$/;
 
@@ -43,11 +45,33 @@ export function toAcceptedMcpResource(raw: string): string | null {
 /**
  * The origin to advertise the MCP resource on for a request: its own origin
  * when that origin is accepted, otherwise SITE_URL.
+ *
+ * A malformed CAREEROTTER_MCP_EXTRA_ORIGINS also yields SITE_URL, so
+ * 401 challenges and metadata still go out. Only advertising falls back:
+ * toAcceptedMcpResource still throws, so authorization fails closed.
  */
 export function advertisedMcpOrigin(requestUrl: string): string {
   const origin = parseUrl(requestUrl)?.origin;
-  if (origin !== undefined && getAcceptedMcpOrigins().includes(origin)) return origin;
+  if (origin !== undefined && acceptedOriginsOrNull()?.includes(origin)) return origin;
   return SITE_URL;
+}
+
+let loggedBadExtraOrigins = false;
+
+/** The accepted origins, or null (logged once per instance) when misconfigured. */
+function acceptedOriginsOrNull(): string[] | null {
+  try {
+    return getAcceptedMcpOrigins();
+  } catch (error) {
+    if (!loggedBadExtraOrigins) {
+      loggedBadExtraOrigins = true;
+      loggerService.error("CAREEROTTER_MCP_EXTRA_ORIGINS is invalid; advertising SITE_URL", error, {
+        category: LogCategory.SECURITY,
+        action: "mcp_extra_origins_invalid",
+      });
+    }
+    return null;
+  }
 }
 
 /**

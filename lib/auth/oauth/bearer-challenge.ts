@@ -15,13 +15,13 @@
 import {
   AGENT_OAUTH_DEFAULT_SCOPE_HINT,
   AGENT_OAUTH_PATHS,
+  AGENT_OAUTH_TOKEN_TYPE,
   MCP_BEARER_FAILURE_DESCRIPTIONS,
+  MCP_INVALID_TOKEN_ERROR,
 } from "@/lib/constants/agent-oauth";
 import { advertisedMcpOrigin } from "@/lib/auth/oauth/resource";
 import type { McpBearerTokenFailure } from "@/types";
 
-const BEARER_SCHEME = "Bearer";
-const INVALID_TOKEN_ERROR = "invalid_token";
 const AUTH_PARAM_SEPARATOR = ", ";
 // quoted-string (RFC 9110 §5.6.4): a backslash escapes `"` and `\` itself.
 const QUOTED_PAIR_CHARACTERS = /["\\]/g;
@@ -50,10 +50,10 @@ export function mcpBearerChallenge(
   ];
   if (failure !== null) {
     params.push(
-      ["error", INVALID_TOKEN_ERROR],
+      ["error", MCP_INVALID_TOKEN_ERROR],
       ["error_description", MCP_BEARER_FAILURE_DESCRIPTIONS[failure]]
     );
   }
   const rendered = params.map(([name, value]) => `${name}=${quotedString(value)}`);
-  return `${BEARER_SCHEME} ${rendered.join(AUTH_PARAM_SEPARATOR)}`;
+  return `${AGENT_OAUTH_TOKEN_TYPE} ${rendered.join(AUTH_PARAM_SEPARATOR)}`;
 }

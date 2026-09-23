@@ -9,8 +9,12 @@
  *   401 with the discovery challenge and error="invalid_token"; the bad
  *   checksum never reaches the database
  * - failure accounting: co_oat_ failures go only to oauthFailPerIp (429 once
- *   spent) and never lock out a PAT or a valid OAuth token from that IP; a
+ *   spent, keyed per IPv6 /64) and never lock out a PAT or a valid OAuth token
+ *   from that IP, nor does a full PAT lockout block a valid OAuth token; a
  *   missing header isn't counted; PAT and malformed failures still are
+ * - 401 bodies: only a request with no Authorization header gets
+ *   "unauthorized"; an empty header, an empty bearer or another scheme gets
+ *   "invalid_token", with a challenge that carries no error code
  * - resource_metadata follows the accepted origins and falls back to SITE_URL
  * - unavailable or slow lookups -> 503
  * - OAuth off, or a preview deployment: co_oat_ gets today's 401 byte for byte
@@ -24,12 +28,17 @@ import { generateAgentToken, touchLastUsed, verifyAgentToken } from "@/lib/auth/
 import { lookupAccessToken, touchGrantLastUsed } from "@/lib/auth/oauth/tokens";
 import { generatePrefixedSecret, hashSecret } from "@/lib/auth/prefixed-secret";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import { AGENT_RATE_LIMITS, MCP_DEADLINES_MS } from "@/lib/constants/agent-access";
+import {
+  AGENT_RATE_LIMITS,
+  MCP_DEADLINES_MS,
+  MCP_UNAVAILABLE_RETRY_AFTER_SECONDS,
+} from "@/lib/constants/agent-access";
 import {
   AGENT_OAUTH_PREFIXES,
   AGENT_OAUTH_RATE_LIMITS,
 } from "@/lib/constants/agent-oauth";
 import { SITE_URL } from "@/lib/constants/site-config";
+import { rateLimitIpKey } from "@/lib/http/request";
 import type { AgentOAuthAccessTokenLookup, AgentTokenScope } from "@/types";
 import { withBadChecksum } from "@/__tests__/utils/test-helpers/oauth-fake-db";
 
@@ -311,7 +320,7 @@ describe("a refused OAuth access token", () => {
     mockLookup.mockResolvedValue({ kind: "unavailable" });
     const response = await POST(post(bearer(oauthToken())));
     expect(response.status).toBe(503);
-    expect(response.headers.get("retry-after")).toBe("5");
+    expect(response.headers.get("retry-after")).toBe(String(MCP_UNAVAILABLE_RETRY_AFTER_SECONDS));
     expect(mockSpent.size).toBe(0);
   });
 });
@@ -344,6 +353,26 @@ describe("failure accounting with OAuth on", () => {
     activeGrant(["wins:read"]);
     const response = await POST(post(bearer(oauthToken())));
     expect(response.status).toBe(200);
+  });
+
+  it("lets a valid OAuth token through from an IP the PAT lockout has locked out", async () => {
+    mockSpent.set(authFailKey, AGENT_RATE_LIMITS.authFailPerIp.tokens);
+    activeGrant(["wins:read"]);
+    const response = await POST(post(bearer(oauthToken())));
+    expect(response.status).toBe(200);
+  });
+
+  it("charges two IPv6 addresses in the same /64 to one oauthFailPerIp bucket", async () => {
+    mockLookup.mockResolvedValue({ kind: "revoked" });
+    const first = "2001:db8:1:2::1";
+    const second = "2001:db8:1:2:ffff:ffff:ffff:ffff";
+    for (const ip of [first, second]) {
+      const response = await POST(post({ ...bearer(oauthToken()), "x-forwarded-for": ip }));
+      expect(response.status).toBe(401);
+    }
+    const key = `${AGENT_OAUTH_RATE_LIMITS.oauthFailPerIp.keyPrefix}${rateLimitIpKey(first)}`;
+    expect(rateLimitIpKey(second)).toBe(rateLimitIpKey(first));
+    expect(mockSpent.get(key)).toBe(2);
   });
 
   it("returns 429 once oauthFailPerIp is spent, before looking the token up", async () => {
@@ -389,6 +418,25 @@ describe("failure accounting with OAuth on", () => {
     expect(response.status).toBe(401);
     expect(response.headers.get("www-authenticate")).toBe(challenge);
     expect(mockSpent.get(authFailKey)).toBe(1);
+  });
+});
+
+describe("401 bodies with OAuth on", () => {
+  it.each([
+    ["an empty Authorization header", ""],
+    ["a Bearer scheme with no token", "Bearer "],
+    ["another scheme", "Basic dXNlcjpwYXNz"],
+  ])("answers %s with invalid_token and a challenge with no error code", async (_label, value) => {
+    const response = await POST(post({ authorization: value }));
+    expect(response.status).toBe(401);
+    expect(response.headers.get("www-authenticate")).toBe(DISCOVERY_CHALLENGE);
+    expect(await response.json()).toEqual({ error: "invalid_token" });
+  });
+
+  it("answers only a request with no Authorization header with unauthorized", async () => {
+    const response = await POST(post());
+    expect(response.headers.get("www-authenticate")).toBe(DISCOVERY_CHALLENGE);
+    expect(await response.json()).toEqual({ error: "unauthorized" });
   });
 });
 
@@ -457,7 +505,7 @@ describe("deadlines", () => {
     await jest.advanceTimersByTimeAsync(MCP_DEADLINES_MS.tokenVerify);
     const response = await pending;
     expect(response.status).toBe(503);
-    expect(response.headers.get("retry-after")).toBe("5");
+    expect(response.headers.get("retry-after")).toBe(String(MCP_UNAVAILABLE_RETRY_AFTER_SECONDS));
     const signal: AbortSignal = mockLookup.mock.calls[0][3];
     expect(signal.aborted).toBe(true);
     expect(mockSpent.size).toBe(0);

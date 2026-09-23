@@ -926,7 +926,7 @@ It renders:
   - Instead, they count toward a separate `oauthFailPerIp` limiter set at
     600/min. It exists to bound database lookups, not to stop guessing: a
     token has 256 bits of entropy.
-  - Malformed bearers and `co_pat_` failures behave exactly as today.
+  - Malformed bearers and `co_pat_` failures are counted exactly as today.
   - With OAuth disabled, everything behaves exactly as today, including
     counting a missing header.
 - **401s with OAuth enabled** carry
@@ -941,8 +941,8 @@ It renders:
   - Analytics metadata gains `credentialKind`.
 - **No step-up.** Tools are registered per scope, so an out-of-scope tool
   doesn't exist for the client, and there's no 403 `insufficient_scope` path.
-  The server instructions tell the agent to have the user reconnect with more
-  scopes when it needs them. Step-up is a follow-up.
+  The server instructions tell the agent to have the user reconnect, or create
+  a new access token, with more scopes when it needs them. Step-up is a follow-up.
 
 ### Connected apps UI and API
 
@@ -985,7 +985,11 @@ page, and also in middleware where the matcher reaches:
 - the three `.well-known` documents
 - `/oauth/authorize`, `/oauth/consent`, `/oauth/error`
 - `/api/oauth/*`
-- the `co_oat_` branch of `/api/mcp`
+
+These are checked in their handlers only, not in middleware (middleware
+applies only the `CAREEROTTER_ENABLED` gate to them):
+- the `co_oat_` branch of `/api/mcp`, which the route handler gates; with the
+  flag off a `co_oat_` token takes the PAT path and gets the plain 401
 - `/api/careerotter/agent-grants*` (GET is flag-gated; revoke-all isn't)
 
 The cleanup cron (`/api/cron/agent-oauth-cleanup`) is gated on
@@ -1370,8 +1374,14 @@ Critic review of this design, and how each point was resolved:
   added only when a bearer token was presented. A request with another scheme
   (for example `Basic`) or an empty header is still a malformed bearer, counted
   toward the PAT lockout as before, but its challenge carries no error code
-  (RFC 6750 §3.1). The discovery-probe 401 body is `{"error":"unauthorized"}`;
-  every other 401 body stays `{"error":"invalid_token"}`.
+  (RFC 6750 §3.1).
+- 401 body rule: only the discovery probe (OAuth enabled and no
+  `Authorization` header at all) gets `{"error":"unauthorized"}`; the route
+  marks it with an explicit probe flag. Every other 401 body is
+  `{"error":"invalid_token"}`, including an empty header, `Bearer ` with no
+  token and another scheme such as `Basic`, even though their challenge
+  carries no error code. With OAuth disabled every 401 is the plain
+  `Bearer error="invalid_token"` one.
 - `error_description` is "The access token is invalid" (bad checksum, not
   found, a refused PAT, a malformed bearer), "The access token has expired"
   or "The access token has been revoked"
@@ -1380,8 +1390,9 @@ Critic review of this design, and how each point was resolved:
 - The challenge's origin comes from `advertisedMcpOrigin` in
   `lib/auth/oauth/resource.ts`, which `advertisedMcpResource` now uses too.
 - The server instructions gained an "Access" section (version 1.2.0): the
-  agent has only the tools the connection was granted and asks the user to
-  reconnect and grant more access when it needs others.
+  agent has only the tools the connection was granted and, when it needs
+  others, asks the user to reconnect CareerOtter or create a new access token
+  with the access needed (a PAT's scopes can't be changed).
 - `mcp_tool_called` carries `credential_kind`; tool error logs and the
   request-timeout log carry `credentialKind`.
 - Middleware: the OAuth gate covers `/oauth` and `/oauth/*`,

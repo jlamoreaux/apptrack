@@ -15,7 +15,6 @@ import {
 import { DEFAULT_AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access-ui";
 import { SITE_URL } from "@/lib/constants/site-config";
 import { LEGACY_HOSTS } from "@/lib/rebrand-redirect";
-import type { McpBearerTokenFailure } from "@/types";
 
 // ── Gating ──────────────────────────────────────────────────────────────────
 
@@ -304,6 +303,14 @@ export type AgentOAuthTokenErrorCode =
 // rather than every supported scope.
 export const AGENT_OAUTH_DEFAULT_SCOPE_HINT = DEFAULT_AGENT_TOKEN_SCOPES.join(AGENT_OAUTH_SCOPE_SEPARATOR);
 
+// The error code in the MCP route's 401 for a refused bearer token (RFC 6750 §3.1).
+export const MCP_INVALID_TOKEN_ERROR = "invalid_token";
+
+// Why the MCP route refused a presented bearer token. PAT failures, malformed
+// bearers and unknown OAuth tokens are all `invalid`.
+export const MCP_BEARER_TOKEN_FAILURES = ["invalid", "expired", "revoked"] as const;
+export type McpBearerTokenFailure = (typeof MCP_BEARER_TOKEN_FAILURES)[number];
+
 // error_description in the MCP route's invalid_token challenge (RFC 6750 §3).
 // Values must stay within RFC 6750's error_description charset: no " or \.
 export const MCP_BEARER_FAILURE_DESCRIPTIONS = {
@@ -469,6 +476,13 @@ export const AGENT_OAUTH_RATE_LIMITED_ERROR = {
 // ── Endpoints ───────────────────────────────────────────────────────────────
 
 const PROTECTED_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource";
+
+// Path prefixes of the OAuth surfaces, for matching whole families of routes.
+export const AGENT_OAUTH_PATH_PREFIXES = {
+  pages: "/oauth",
+  api: "/api/oauth",
+  wellKnown: "/.well-known/oauth-",
+} as const;
 
 export const AGENT_OAUTH_PATHS = {
   protectedResourceMetadata: `${PROTECTED_RESOURCE_METADATA_PATH}${MCP_RESOURCE_PATH}`,

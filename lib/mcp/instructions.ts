@@ -42,7 +42,7 @@ const SECTIONS: readonly (readonly string[])[] = [
   ],
   [
     "Access",
-    "You have only the tools this connection was granted. When the user asks for data or changes outside them, ask the user to reconnect CareerOtter and grant more access.",
+    "You have only the tools this connection was granted. When the user asks for data or changes outside them, ask the user to reconnect CareerOtter, or create a new access token, with the access needed.",
   ],
   [
     "Compensation",

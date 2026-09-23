@@ -159,8 +159,16 @@ afterAll(() => {
   global.setInterval = realSetInterval;
 });
 
+// This suite covers the PAT-only route; OAuth is covered by mcp-route-oauth.
+const savedOAuthFlag = process.env.CAREEROTTER_MCP_OAUTH_ENABLED;
+afterAll(() => {
+  if (savedOAuthFlag === undefined) delete process.env.CAREEROTTER_MCP_OAUTH_ENABLED;
+  else process.env.CAREEROTTER_MCP_OAUTH_ENABLED = savedOAuthFlag;
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.CAREEROTTER_MCP_OAUTH_ENABLED;
   mockLimit.mockResolvedValue({ success: true, reset: NOW + 60_000 });
   mockGetRemaining.mockResolvedValue({
     remaining: AGENT_RATE_LIMITS.authFailPerIp.tokens,
