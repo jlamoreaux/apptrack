@@ -37,11 +37,23 @@ const REVOKED: AgentTokenRecord = {
 const mockFetch = jest.fn();
 global.fetch = mockFetch as unknown as typeof fetch;
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
+// jest.setup.js replaces Response with a stub that has no `ok`, so fetch
+// resolves to the minimal shape the component reads.
+interface FakeResponse {
+  ok: boolean;
+  status: number;
+  json: () => Promise<unknown>;
+}
+
+const HTTP_OK = 200;
+const HTTP_MULTIPLE_CHOICES = 300;
+
+function jsonResponse(body: unknown, status = HTTP_OK): FakeResponse {
+  return {
+    ok: status >= HTTP_OK && status < HTTP_MULTIPLE_CHOICES,
     status,
-    headers: { "Content-Type": "application/json" },
-  });
+    json: async () => body,
+  };
 }
 
 function mockList(tokens: AgentTokenRecord[]): void {
@@ -103,7 +115,7 @@ describe("ConnectedAgents list", () => {
     // last_used_at null on both, expires_at null on the revoked one
     expect(within(list).getAllByText("Never")).toHaveLength(3);
     // Only the active token can be revoked.
-    expect(screen.getAllByRole("button", { name: /^revoke /i })).toHaveLength(1);
+    expect(within(list).getAllByRole("button", { name: /^revoke /i })).toHaveLength(1);
   });
 
   it("shows a load error inline", async () => {

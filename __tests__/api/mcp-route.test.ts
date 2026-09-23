@@ -70,7 +70,6 @@ jest.mock("@/lib/mcp/tools", () => {
 });
 
 // Imported after the globals above are installed.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { POST, GET } = require("@/app/api/mcp/route");
 
 const mockVerify = verifyAgentToken as jest.Mock;
@@ -274,6 +273,7 @@ describe("MCP round trip", () => {
       )
     );
     expect(initResponse.status).toBe(200);
+    expect(initResponse.headers.get("content-type")).toContain("text/event-stream");
     const init = await rpcResult(initResponse);
     expect(init.result?.serverInfo).toEqual({ name: "careerotter", version: "1.0.0" });
     expect(String(init.result?.instructions)).toContain("CareerOtter");
