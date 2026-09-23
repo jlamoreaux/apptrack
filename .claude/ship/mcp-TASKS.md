@@ -188,9 +188,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - snippets contain `$CAREEROTTER_TOKEN`, not the raw token
 
 ## Task 9: Recap cron pagination
-- [ ] 9.1: Page the recap cron's wins select with `.order("created_at")` and
+- [x] 9.1: Page the recap cron's wins select with `.order("created_at")` and
   `.range()` in chunks of 1000 until a short page; behavior otherwise unchanged.
-- [ ] 9.2: Write tests for Task 9: more than one page of wins is fully grouped
+- [x] 9.2: Write tests for Task 9: more than one page of wins is fully grouped
   across users; a query error on a later page returns 500 as today.
 
 ## Task 10: Update docs made inaccurate
@@ -235,3 +235,6 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   though the update committed; revoke is idempotent, so a retry is harmless.
 - Revoking expired tokens (on name reuse and revoke-all) changes their listed
   status from "expired" to "revoked".
+- Recap cron pages by offset (advancing by rows returned). A win deleted
+  mid-run on a multi-page week shifts later rows, so one row can be skipped.
+  Accepted: weekly, best-effort output; keyset paging is the fix if it matters.
