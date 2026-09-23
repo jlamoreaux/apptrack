@@ -2,7 +2,8 @@
  * Tests for the wins API (CareerOtter Phase 2, M2):
  * - auth (401), validation (missing text, bad tag, over-length), success (201)
  * - GET lists the user's wins
- * - PATCH/DELETE are scoped to the owner (404 when the row isn't theirs)
+ * - PATCH/DELETE are scoped to the owner (404 when the row isn't theirs or the
+ *   id is not a uuid)
  * - a server-authoritative win_logged event fires on create
  */
 
@@ -141,7 +142,9 @@ describe("GET /api/wins", () => {
 });
 
 describe("PATCH/DELETE /api/wins/:id", () => {
-  const ctx = { params: Promise.resolve({ id: "w1" }) };
+  const WIN_ID = "3f1c2a4e-8b7d-4c6a-9e2f-1a2b3c4d5e6f";
+  const ctx = { params: Promise.resolve({ id: WIN_ID }) };
+  const nonUuidCtx = { params: Promise.resolve({ id: "w1" }) };
 
   it("404 when the win isn't the caller's (no row returned)", async () => {
     adminReturning({ data: null, error: { code: "PGRST116" } });
@@ -150,7 +153,7 @@ describe("PATCH/DELETE /api/wins/:id", () => {
   });
 
   it("updates an owned win", async () => {
-    const win = { id: "w1", text: "edited", tag: null, source: "manual" };
+    const win = { id: WIN_ID, text: "edited", tag: null, source: "manual" };
     adminReturning({ data: win, error: null });
     const res = await PATCH(req({ text: "edited" }, "PATCH"), ctx);
     expect(res.status).toBe(200);
@@ -176,9 +179,25 @@ describe("PATCH/DELETE /api/wins/:id", () => {
   });
 
   it("deletes an owned win", async () => {
-    adminReturning({ data: { id: "w1" }, error: null });
+    adminReturning({ data: { id: WIN_ID }, error: null });
     const res = await DELETE(req({}, "DELETE"), ctx);
     expect(res.status).toBe(200);
     expect((await res.json()).success).toBe(true);
+  });
+
+  it("404 (not 500) on a PATCH with a non-uuid id, without querying", async () => {
+    const builder = adminReturning({ data: null, error: null });
+    const res = await PATCH(req({ text: "edited" }, "PATCH"), nonUuidCtx);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("Win not found");
+    expect(builder.update).not.toHaveBeenCalled();
+  });
+
+  it("404 (not 500) on a DELETE with a non-uuid id, without querying", async () => {
+    const builder = adminReturning({ data: null, error: null });
+    const res = await DELETE(req({}, "DELETE"), nonUuidCtx);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("Win not found");
+    expect(builder.delete).not.toHaveBeenCalled();
   });
 });
