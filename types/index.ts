@@ -11,6 +11,31 @@ import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 export type { AgentTokenScope } from "@/lib/constants/agent-access";
 import type { AgentTokenScope } from "@/lib/constants/agent-access";
 
+// The OAuth unions are derived from the lists in agent-oauth.ts, which mirror
+// the CHECKs and function outcomes in migration 045.
+export type {
+  AgentOAuthAuthorizeErrorCode,
+  AgentOAuthCreateCodeOutcome,
+  AgentOAuthExchangeOutcome,
+  AgentOAuthGrantType,
+  AgentOAuthRevokeOutcome,
+  AgentOAuthRevokeReason,
+  AgentOAuthRotateOutcome,
+  AgentOAuthTokenEndpointAuthMethod,
+  AgentOAuthTokenErrorCode,
+} from "@/lib/constants/agent-oauth";
+import type {
+  AgentOAuthAuthorizeErrorCode,
+  AgentOAuthCreateCodeOutcome,
+  AgentOAuthExchangeOutcome,
+  AgentOAuthGrantType,
+  AgentOAuthRevokeOutcome,
+  AgentOAuthRevokeReason,
+  AgentOAuthRotateOutcome,
+  AgentOAuthTokenEndpointAuthMethod,
+  AgentOAuthTokenErrorCode,
+} from "@/lib/constants/agent-oauth";
+
 // Core application types
 export interface User {
   id: string;
@@ -424,6 +449,155 @@ export interface AgentTokenRecord {
 export interface CreatedAgentToken {
   token: string;
   record: AgentTokenRecord;
+}
+
+/** How an MCP request authenticated: a personal access token or an OAuth grant. */
+export type AgentCredentialKind = "pat" | "oauth";
+
+// ─── CareerOtter MCP OAuth (migration 045) ───
+
+/** An agent_oauth_clients row. Never carries client_secret_hash. */
+export interface AgentOAuthClientRecord {
+  client_id: string;
+  token_endpoint_auth_method: AgentOAuthTokenEndpointAuthMethod;
+  grant_types: AgentOAuthGrantType[];
+  client_name: string;
+  client_uri: string | null;
+  redirect_uris: string[];
+  created_at: string;
+  /** Set by the first successful code exchange; null clients are purged after 24 hours. */
+  first_authorized_at: string | null;
+}
+
+/** An agent_oauth_grants row: one approved connection between a user and a client. */
+export interface AgentOAuthGrantRecord {
+  id: string;
+  user_id: string;
+  client_id: string;
+  /** Snapshot of the client's name at approval. */
+  client_name: string;
+  /** The canonical MCP resource URL the grant is for. */
+  resource: string;
+  scopes: AgentTokenScope[];
+  /** Null means the grant never expires. */
+  expires_at: string | null;
+  created_at: string;
+  last_used_at: string;
+  revoked_at: string | null;
+  revoke_reason: AgentOAuthRevokeReason | null;
+}
+
+export type AgentOAuthGrantStatus = AgentTokenStatus;
+
+/** A connected app as GET /api/careerotter/agent-grants returns it. */
+export interface AgentOAuthGrantSummary {
+  id: string;
+  clientName: string;
+  /** Where the app sends the user back, as shown on the consent screen. */
+  redirectDisplay: string;
+  scopes: AgentTokenScope[];
+  createdAt: string;
+  lastUsedAt: string;
+  expiresAt: string | null;
+  status: AgentOAuthGrantStatus;
+}
+
+/** A validated authorization request, as carried in the canonical consent query. */
+export interface AgentOAuthAuthorizeParams {
+  clientId: string;
+  /** The redirect_uri as sent; differs from the registered one only in a loopback port. */
+  redirectUri: string;
+  /** The registered URI it matched, exactly as registered; stored on the code. */
+  registeredRedirectUri: string;
+  state: string | null;
+  codeChallenge: string;
+  /** Normalized; the canonical SITE_URL resource when the request had none. */
+  resource: string;
+  /** The raw scope parameter, passed through so the consent screen can label requested scopes. */
+  scope: string | null;
+}
+
+/** Why an authorization request can't be redirected back to the client. */
+export type AgentOAuthAuthorizeFatalReason =
+  | "unknown_client"
+  | "invalid_redirect_uri";
+
+/**
+ * Outcome of validating an authorization request (OAuth 2.1 §4.1.2.1):
+ * `fatal` goes to /oauth/error and never to the client, `redirect_error` goes
+ * to the client's redirect_uri, and `ok` continues to login or consent.
+ */
+export type AgentOAuthAuthorizeValidation =
+  | { kind: "fatal"; reason: AgentOAuthAuthorizeFatalReason }
+  | {
+      kind: "redirect_error";
+      redirectUri: string;
+      state: string | null;
+      error: AgentOAuthAuthorizeErrorCode;
+      description: string;
+    }
+  | {
+      kind: "ok";
+      params: AgentOAuthAuthorizeParams;
+      client: AgentOAuthClientRecord;
+      /** Known scopes the client asked for; unknown values are dropped. */
+      requestedScopes: AgentTokenScope[];
+    };
+
+/** RFC 6749 §5.2 error body from the token and revocation endpoints. */
+export interface AgentOAuthTokenError {
+  error: AgentOAuthTokenErrorCode;
+  error_description?: string;
+}
+
+/** create_agent_oauth_code's result; expires_at is set only when outcome is "ok". */
+export interface AgentOAuthCreateCodeResult {
+  outcome: AgentOAuthCreateCodeOutcome;
+  expires_at: string | null;
+}
+
+/**
+ * exchange_agent_oauth_code's result. Every field but outcome is null unless
+ * outcome is "ok", except grant_id, which is also set for "code_reuse".
+ * refresh_expires_at is null when no refresh token was issued.
+ */
+export interface AgentOAuthExchangeResult {
+  outcome: AgentOAuthExchangeOutcome;
+  grant_id: string | null;
+  user_id: string | null;
+  client_name: string | null;
+  scopes: AgentTokenScope[] | null;
+  /** Whole seconds the access token has left, for expires_in. */
+  access_expires_in: number | null;
+  refresh_expires_at: string | null;
+}
+
+/**
+ * rotate_agent_oauth_refresh's result. Every field but outcome is null unless
+ * outcome is "ok", except grant_id, which is also set for "refresh_reuse".
+ */
+export interface AgentOAuthRotateResult {
+  outcome: AgentOAuthRotateOutcome;
+  grant_id: string | null;
+  user_id: string | null;
+  scopes: AgentTokenScope[] | null;
+  access_expires_in: number | null;
+  refresh_expires_at: string | null;
+}
+
+/** revoke_agent_oauth_token's result; grant_id is null when outcome is "not_found". */
+export interface AgentOAuthRevokeTokenResult {
+  outcome: AgentOAuthRevokeOutcome;
+  grant_id: string | null;
+}
+
+/** delete_expired_agent_oauth_rows's counts. */
+export interface AgentOAuthCleanupResult {
+  idle_grants_revoked: number;
+  codes_deleted: number;
+  access_tokens_deleted: number;
+  refresh_tokens_deleted: number;
+  clients_deleted: number;
 }
 
 /** Failure categories shared by the REST routes and MCP tools that call a service. */

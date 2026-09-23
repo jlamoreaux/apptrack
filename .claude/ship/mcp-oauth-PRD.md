@@ -203,19 +203,33 @@ The generator is generalized from `generateAgentToken` into
 and `hashSecret(raw)`. The PAT functions become thin wrappers; their behavior
 and tests don't change.
 
-Durations are passed to the database functions as intervals, and every
-timestamp is computed there with `now()`, so one clock decides all expiries.
+The grant lifetime the user chooses is passed to the database as an interval.
+The fixed lifetimes (access, refresh, code, grace window, retention, idle) are
+`constant interval` declarations inside the functions, mirrored by
+`AGENT_OAUTH_LIFETIME_SECONDS` in `lib/constants/agent-oauth.ts` and guarded by
+a test. Every timestamp is computed in the database with `now()`, so one clock
+decides all expiries.
 
 ### Data model: `schemas/migrations/045_mcp_oauth.sql` (one transaction)
 
 All tables have RLS enabled with no policies, so only the service role can use
 them, as with `agent_tokens`. All functions are `security definer`, set
-`search_path = public`, revoke EXECUTE from public and grant it to
-`service_role` only.
+`search_path = public`, revoke EXECUTE from public, `anon` and `authenticated`,
+and grant it to `service_role` only. Three internal helpers
+(`agent_oauth_grant_cap_reached`, `agent_oauth_issue_tokens`,
+`agent_oauth_revoke_grant_row`) hold the cap, the token-pair insert and the
+revoke-and-delete-tokens step once; they are executable by no API role, not
+even `service_role`. `agent_oauth_max_char_length(text[])` is an immutable
+helper for the `redirect_uris` CHECK.
+
+Every public function reports expected results in an `outcome` column (or a
+count) and never raises for them; it raises only on programming errors (a
+CHECK or FK failure).
 
 `agent_oauth_clients`:
 - `client_id text primary key`, CHECK `^co_client_[A-Za-z0-9_-]{22}$`
-- `client_secret_hash text null` (64 hex)
+- `client_secret_hash text null` (64 hex); CHECK that it's set exactly when
+  `token_endpoint_auth_method` isn't `none`
 - `token_endpoint_auth_method text not null`, CHECK in
   `('none','client_secret_basic','client_secret_post')`
 - `grant_types text[] not null`: non-empty and a subset of
@@ -223,8 +237,8 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 - `client_name text not null`: 1–100 code points, checked with
   `char_length`, which counts code points
 - `client_uri text null`: at most 512 characters, https only
-- `redirect_uris text[] not null`: 1–5 entries, each at most 512 characters.
-  Their content is validated in code.
+- `redirect_uris text[] not null`: 1–5 non-null entries, each at most 512
+  characters. Their content is validated in code.
 - `created_at timestamptz not null default now()`
 - `first_authorized_at timestamptz null`: set by `exchange_agent_oauth_code`
   on first success
@@ -246,9 +260,12 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 - `created_at`, `last_used_at timestamptz not null default now()`,
   `revoked_at timestamptz null`
 - `revoke_reason text null`: CHECK in
-  `('user','user_all','replaced','refresh_reuse','code_reuse','idle')`
+  `('user','user_all','client','replaced','refresh_reuse','code_reuse','idle')`.
+  `client` is a revocation by the client at the RFC 7009 endpoint. CHECK that
+  `revoke_reason` is set exactly when `revoked_at` is.
 - Partial unique index on `(user_id, client_id) where revoked_at is null`
-- Index on `(user_id, created_at desc)`
+- Index on `(user_id, created_at desc)`, and on `client_id` (backs the
+  restrict check when cleanup deletes clients)
 
 `agent_oauth_tokens`:
 - `token_hash text primary key` (64 hex)
@@ -256,6 +273,9 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 - `kind text not null`: CHECK in `('access','refresh')`
 - `expires_at timestamptz not null`, `created_at timestamptz not null default now()`
 - `consumed_at timestamptz null`: set on refresh tokens that have been rotated
+- `grace_reissues int not null default 0`, CHECK between 0 and 5: extra pairs
+  issued for this consumed token inside the grace window. CHECK that only
+  refresh tokens have `consumed_at` or a non-zero `grace_reissues`.
 - Index on `(grant_id)` and on `expires_at`
 
 `agent_oauth_codes`:
@@ -266,33 +286,41 @@ them, as with `agent_tokens`. All functions are `security definer`, set
   exactly as registered
 - `code_challenge text not null`, CHECK `^[A-Za-z0-9_-]{43}$`
 - `scopes text[] not null`: the same CHECK as grants
-- `grant_expires_in interval null`: the chosen grant lifetime; null means the
-  grant never expires
+- `grant_expires_in interval null`, CHECK `> 0`: the chosen grant lifetime;
+  null means the grant never expires. Required when a comp scope is present.
 - `resource text not null`: the canonical resource. When the request had no
   `resource` parameter, this is the `SITE_URL` resource.
 - `created_at`, `expires_at timestamptz not null`, `used_at timestamptz null`
-- `grant_id uuid null`: set by the exchange, so reusing the code can revoke the
-  grant
+- `grant_id uuid null references agent_oauth_grants(id) on delete set null`:
+  set by the exchange, so reusing the code can revoke the grant
+- Index on `expires_at` (cleanup) and on `client_id` (the cascade when cleanup
+  deletes clients)
 
-**`create_agent_oauth_code(...)`**
+**`create_agent_oauth_code(p_user_id, p_client_id, p_code_hash, p_redirect_uri, p_code_challenge, p_scopes, p_grant_expires_in, p_resource)`**
+→ `(outcome, expires_at)`, outcome `ok | invalid_client | grant_cap`
 - Takes the per-user advisory lock, the same one `create_agent_token` uses.
+- Returns `invalid_client` if the client was deleted since validation.
 - Refuses with `grant_cap` when the user already has 10 active grants and none
   of them is for this client.
 - Inserts the code and sets its expiry to `now() + interval '5 minutes'`.
 
 **`exchange_agent_oauth_code(p_code_hash, p_client_id, p_access_hash, p_refresh_hash, p_issue_refresh boolean)`**
+→ `(outcome, grant_id, user_id, client_name, scopes, access_expires_in, refresh_expires_at)`,
+outcome `ok | invalid_grant | code_reuse | grant_cap`. TypeScript maps
+`code_reuse` to `invalid_grant` and logs it.
 1. Reads the code's `user_id` without locking, then takes the per-user
    advisory lock and re-reads the code `for update`.
 2. If the code is missing, belongs to another client or has expired, returns
    `invalid_grant`.
 3. If the code has already been used, revokes `grant_id` with reason
-   `code_reuse` and returns `invalid_grant`. TypeScript only calls the function
+   `code_reuse`, deletes its tokens and returns `code_reuse` with the grant id. TypeScript only calls the function
    after the client has authenticated and PKCE has verified, so someone who
    only intercepted a code can't trigger this.
 4. Re-checks the 10-grant cap, allowing a replacement for the same client, and
    returns `grant_cap` if the user is over it.
-5. Revokes the existing active grant for this user and client with reason
-   `replaced`.
+5. Revokes any unrevoked grant for this user and client (active or expired,
+   since either holds the partial unique index) with reason `replaced`, and
+   deletes its tokens.
 6. Inserts the new grant with `expires_at = now() + grant_expires_in` and
    `client_name` copied from the client row.
 7. Marks the code used and sets its `grant_id`.
@@ -300,9 +328,14 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 9. If `p_issue_refresh` is set, inserts the refresh token, with an expiry of
    `least(now() + 30 days, grant expiry)`.
 10. Sets the client's `first_authorized_at` if it's null.
-11. Returns the grant and both expiries.
+11. Returns the grant, the access token's remaining lifetime in whole seconds
+    (for `expires_in`) and the refresh token's expiry (null when none was
+    issued).
 
 **`rotate_agent_oauth_refresh(p_refresh_hash, p_client_id, p_new_access_hash, p_new_refresh_hash)`**
+→ `(outcome, grant_id, user_id, scopes, access_expires_in, refresh_expires_at)`,
+outcome `ok | invalid_grant | refresh_reuse`. TypeScript maps `refresh_reuse`
+to `invalid_grant` and logs it.
 1. Reads the grant id without locking, then locks the grant row `for update`,
    which serializes refreshes for that grant.
 2. If there is no token row, the token isn't a refresh token, or it belongs to
@@ -311,10 +344,10 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 4. If the token has already been consumed:
    - Consumed within the last 60 seconds: this is a concurrent refresh by the
      same client (RFC 9700 §4.14.2). Issue a new access and refresh pair
-     without revoking anything. At most 5 extra pairs per consumed token, then
-     treat it as reuse.
+     without revoking anything. At most 5 extra pairs per consumed token
+     (counted in `grace_reissues`), then treat it as reuse.
    - Consumed earlier than that: this is reuse. Revoke the grant with reason
-     `refresh_reuse`, delete its tokens and return `invalid_grant`.
+     `refresh_reuse`, delete its tokens and return `refresh_reuse`.
 5. If the token has expired, returns `invalid_grant`.
 6. Otherwise:
    - sets `consumed_at` on the presented token
@@ -326,10 +359,16 @@ them, as with `agent_tokens`. All functions are `security definer`, set
 **`revoke_agent_oauth_grant(p_grant_id, p_user_id, p_reason)`** and
 **`revoke_all_agent_oauth_grants(p_user_id)`** set `revoked_at` and
 `revoke_reason`, and delete the grant's tokens. Both are idempotent.
+- `revoke_agent_oauth_grant` returns `revoked | already_revoked | not_found`
+  (missing or another user's).
+- `revoke_all_agent_oauth_grants` takes the per-user lock, so an exchange in
+  flight can't add a grant after it, uses reason `user_all`, and returns the
+  number of grants it revoked.
 
 **`revoke_agent_oauth_token(p_token_hash, p_client_id)`** implements
-RFC 7009: it revokes the whole grant when the token belongs to that client, and
-otherwise does nothing.
+RFC 7009: it revokes the whole grant (reason `client`) when the token belongs
+to that client, and otherwise does nothing. It returns `(outcome, grant_id)`
+with the same outcomes as `revoke_agent_oauth_grant`.
 
 **`delete_expired_agent_oauth_rows()`** deletes:
 - codes more than a day past their expiry
@@ -340,8 +379,8 @@ otherwise does nothing.
 - clients whose `first_authorized_at` is null and that are older than 24 hours
 
 It also revokes, with reason `idle`, grants that never expire and haven't been
-used for 30 days. This keeps re-registered clients from piling up against the
-cap.
+used for 30 days, and deletes their tokens. This keeps re-registered clients
+from piling up against the cap. It returns the count for each rule.
 
 **Lookup at the MCP route.** One indexed select: the token joined to its grant,
 filtered by `kind = 'access'`. It returns the grant id, user id, scopes and

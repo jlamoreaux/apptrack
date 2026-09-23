@@ -14,7 +14,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   project.
 
 ## Task 1: Migration 045, constants and types
-- [ ] 1.1: Write `schemas/migrations/045_mcp_oauth.sql` (begin/commit):
+- [x] 1.1: Write `schemas/migrations/045_mcp_oauth.sql` (begin/commit):
   - the `agent_oauth_clients` table, including `grant_types` and
     `first_authorized_at`
   - the `agent_oauth_grants` table, including `client_name`, `resource` and
@@ -36,7 +36,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     - `delete_expired_agent_oauth_rows`: covers the retention rules, deletes
       unused clients after 24 hours, and revokes grants idle for 30 days
   - all expiries are computed in the database from intervals
-- [ ] 1.2: Add `lib/constants/agent-oauth.ts`:
+- [x] 1.2: Add `lib/constants/agent-oauth.ts`:
   - `isMcpOAuthEnabled()`, which requires both flags and a non-preview
     deployment
   - prefixes
@@ -50,14 +50,17 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
       only failed client authentication
     - `oauthFailPerIp`: 600 per minute
   - the scheme denylist
-  - the accepted-origins helper and resource normalization
+  - the accepted-origins helper and the accepted resource URLs
+    (`getAcceptedMcpOrigins`, `getAcceptedMcpResources`,
+    `CANONICAL_MCP_RESOURCE`); normalizing a presented `resource` is left to
+    2.3, which checks it against `getAcceptedMcpResources()`
   - endpoint paths, CORS headers, the default-scope hint and the 10-grant cap
-- [ ] 1.3: Add types to `/types/index.ts`:
+- [x] 1.3: Add types to `/types/index.ts`:
   - client, grant and grant-summary records
   - `AgentCredentialKind`
   - the authorize-params validation result union
   - the token-endpoint error type
-- [ ] 1.4: Write tests for Task 1:
+- [x] 1.4: Write tests for Task 1:
   - the constants mirror the migration's CHECK lists and the cap
   - on local Postgres, with stubs for `auth.users`, `profiles` and
     `service_role`:

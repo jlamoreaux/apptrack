@@ -91,7 +91,7 @@ export const AGENT_TOKEN_ENV_VAR = "CAREEROTTER_TOKEN";
 const AGENT_AUTH_HEADER_ENV_VAR = "CAREEROTTER_AUTH_HEADER";
 const MCP_SERVER_NAME = MCP_SERVER_INFO.name;
 // mcp-handler serves the endpoint at `${MCP_BASE_PATH}/mcp`.
-const MCP_ENDPOINT_PATH = "/mcp";
+export const MCP_ENDPOINT_PATH = "/mcp";
 const TOKEN_PASTE_PLACEHOLDER = "<paste token>";
 const TOKEN_PLACEHOLDER = "<token>";
 const JSON_INDENT = 2;
