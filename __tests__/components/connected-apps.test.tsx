@@ -381,7 +381,10 @@ describe("Revoke all agent access", () => {
     fireEvent.click(screen.getByRole("button", { name: "Revoke all agent access" }));
     await confirmInDialog("Revoke all");
     await screen.findByRole("status");
-    expect(screen.queryByText("Failed to revoke connected app")).not.toBeInTheDocument();
+    // The reload that clears the error runs in an effect after the status renders.
+    await waitFor(() =>
+      expect(screen.queryByText("Failed to revoke connected app")).not.toBeInTheDocument()
+    );
   });
 });
 
