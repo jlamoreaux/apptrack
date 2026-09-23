@@ -102,6 +102,9 @@ export const MCP_SERVER_INFO = { name: "careerotter", version: "1.0.0" } as cons
 // mcp-handler serves `${basePath}/mcp`, so this places the endpoint at the
 // app/api/mcp route.
 export const MCP_BASE_PATH = "/api";
+export const MCP_ENDPOINT_PATH = "/mcp";
+/** The MCP endpoint's path, and the path of the OAuth protected resource. */
+export const MCP_RESOURCE_PATH = `${MCP_BASE_PATH}${MCP_ENDPOINT_PATH}`;
 
 // Mirrors `maxDuration` in app/api/mcp/route.ts, which Next.js requires to be
 // a literal there.

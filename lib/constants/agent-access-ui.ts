@@ -5,7 +5,7 @@
 
 import {
   AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
-  MCP_BASE_PATH,
+  MCP_RESOURCE_PATH,
   MCP_SERVER_INFO,
   type AgentTokenExpiryDays,
   type AgentTokenScope,
@@ -90,8 +90,6 @@ export const AGENT_TOKEN_ENV_VAR = "CAREEROTTER_TOKEN";
 // mcp-remote reads the whole header value from here; see the Claude Desktop snippet.
 const AGENT_AUTH_HEADER_ENV_VAR = "CAREEROTTER_AUTH_HEADER";
 const MCP_SERVER_NAME = MCP_SERVER_INFO.name;
-// mcp-handler serves the endpoint at `${MCP_BASE_PATH}/mcp`.
-export const MCP_ENDPOINT_PATH = "/mcp";
 const TOKEN_PASTE_PLACEHOLDER = "<paste token>";
 const TOKEN_PLACEHOLDER = "<token>";
 const JSON_INDENT = 2;
@@ -142,7 +140,7 @@ function toJson(value: unknown): string {
  * environment, so its config carries the token in its own `env` block.
  */
 export function buildAgentSetupSnippets(appUrl: string): AgentSetupSnippetSet {
-  const endpoint = `${appUrl}${MCP_BASE_PATH}${MCP_ENDPOINT_PATH}`;
+  const endpoint = `${appUrl}${MCP_RESOURCE_PATH}`;
   const shellHeader = `"Authorization: Bearer $${AGENT_TOKEN_ENV_VAR}"`;
 
   const claudeCodeProjectConfig = toJson({

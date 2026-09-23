@@ -29,7 +29,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
       the cap, handles code reuse and grant replacement, and issues refresh
       tokens only when asked
     - `rotate_agent_oauth_refresh`: locks the grant row and applies the
-      60-second, 5-pair grace window and reuse revocation
+      60-second, 5-pair grace window (each reissue supersedes the earlier
+      successors, linked by `rotated_from_hash` and `pair_id`) and reuse
+      revocation
     - `revoke_agent_oauth_grant`
     - `revoke_all_agent_oauth_grants`
     - `revoke_agent_oauth_token`
@@ -46,8 +48,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     `scope` (256), body sizes
   - rate limits:
     - registration: 30 per IP per 10 minutes, 2,000 per day globally
-    - token endpoint: 60 per minute per client; 600 per minute per IP, counting
-      only failed client authentication
+    - token endpoint: 60 per minute per client, charged only after client
+      authentication succeeds; 600 per minute per IP, counting only failed
+      client authentication
     - `oauthFailPerIp`: 600 per minute
   - the scheme denylist
   - the accepted-origins helper and the accepted resource URLs
@@ -61,23 +64,42 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the authorize-params validation result union
   - the token-endpoint error type
 - [x] 1.4: Write tests for Task 1:
-  - the constants mirror the migration's CHECK lists and the cap
+  - the constants mirror the migration's CHECK lists, bounds and the cap
   - on local Postgres, with stubs for `auth.users`, `profiles` and
-    `service_role`:
+    `service_role` (committed as `schemas/tests/045_mcp_oauth_verify.sql`
+    and `.sh`, run by hand):
     - code creation respects the cap, and allows replacing an app at the cap
     - the cap is re-checked at exchange: two codes created at 9 grants → the
       second exchange returns `grant_cap`
-    - a code exchanges once; reusing it revokes the grant; another client's
-      code or an expired code gets `invalid_grant` with no revocation
+    - a code exchanges once; reusing it revokes the grant, even after the
+      code expired; another client's code or an expired unused code gets
+      `invalid_grant` with no revocation
     - the refresh token is omitted when not requested
-    - rotation succeeds; a reuse within 60 seconds issues a new pair (up to 5
-      times); a reuse after the window revokes the grant and deletes its
-      tokens; a refresh from another client gets `invalid_grant`
+    - rotation succeeds and links the new pair to the presented token; a
+      refresh from another client gets `invalid_grant`
+    - a reuse within 60 seconds issues a new pair (up to 5 times) and
+      supersedes the successors issued before it, deleting their access
+      tokens: racing two refreshes of one token leaves only the last
+      successor working
+    - presenting a superseded token revokes the grant; so does presenting a
+      consumed token whose successor has been used, even inside the window;
+      a reuse after the window or past 5 reissues revokes the grant and
+      deletes its tokens
+    - a grant with under a minute left gets `invalid_grant` at exchange and
+      rotation; rotation with a null new hash raises
+    - CHECKs reject `grant_expires_in` of 0, over 365 days or infinite, and
+      empty redirect URIs
     - revoke and revoke-all are idempotent
-    - cleanup deletes only rows past retention, removes unused clients after
-      24 hours, never deletes a client that has grants, and revokes grants
-      idle for 30 days
-    - 20 parallel exchanges of one code → exactly one success
+    - cleanup deletes only rows past retention (keeping consumed and
+      superseded refresh tokens until their own expiry), removes unused
+      clients after 24 hours, never deletes a client that has grants, and
+      revokes grants idle for 30 days, skipping a grant locked by a request
+      in flight
+    - 20 parallel exchanges of one code → exactly one success; 6 parallel
+      refreshes of one token → one live successor
+    - an exchange in flight and cleanup don't deadlock; code creation and
+      exchange racing a client delete return `invalid_client` and
+      `invalid_grant`, not an FK error
 
 ## Task 2: Secrets, redirect URIs, registration and metadata
 - [ ] 2.1: Generalize `lib/auth/agent-token.ts` into a shared prefixed-secret
@@ -230,8 +252,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - client authentication
   - both grant types, with the real `expires_in`
   - `grant_cap` → `invalid_grant` with a description
-  - the per-client limit, and the per-IP limit counting only failed
-    authentication; 429 with `Retry-After`
+  - the per-client limit, charged only after client authentication succeeds,
+    and the per-IP limit, the only one a failed authentication is charged
+    to; 429 with `Retry-After`
   - RFC error bodies and security logs
   - `mcp_oauth_connected` on the first exchange
 - [ ] 4.4: `app/api/oauth/revoke/route.ts` (RFC 7009).
@@ -248,12 +271,17 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     - `invalid_grant` with no revocation for: a wrong verifier, a wrong
       `redirect_uri`, an expired code, another client's code
     - reusing a code after a successful exchange revokes the grant
-    - refresh rotates; a grace-window reuse succeeds; a later reuse revokes
+    - refresh rotates; a grace-window reuse succeeds and the earlier
+      successor stops working; presenting the superseded token revokes; a
+      later reuse revokes
     - refresh with a wider `scope` → `invalid_scope`; a foreign resource →
       `invalid_target`
     - an unsupported grant type
     - a confidential client with no secret → 401
     - 429 with `Retry-After`
+    - failed authentication using another client's `client_id` doesn't
+      consume that client's per-client quota (only the per-IP bucket is
+      charged)
     - OAuth disabled → 404
   - revocation: revokes the grant; unknown token → 200; another client's token
     → 200 and nothing revoked

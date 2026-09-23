@@ -204,7 +204,8 @@ and `hashSecret(raw)`. The PAT functions become thin wrappers; their behavior
 and tests don't change.
 
 The grant lifetime the user chooses is passed to the database as an interval.
-The fixed lifetimes (access, refresh, code, grace window, retention, idle) are
+The fixed lifetimes (access, refresh, code, grace window, the minimum a grant
+must have left, retention, idle) are
 `constant interval` declarations inside the functions, mirrored by
 `AGENT_OAUTH_LIFETIME_SECONDS` in `lib/constants/agent-oauth.ts` and guarded by
 a test. Every timestamp is computed in the database with `now()`, so one clock
@@ -237,8 +238,8 @@ CHECK or FK failure).
 - `client_name text not null`: 1–100 code points, checked with
   `char_length`, which counts code points
 - `client_uri text null`: at most 512 characters, https only
-- `redirect_uris text[] not null`: 1–5 non-null entries, each at most 512
-  characters. Their content is validated in code.
+- `redirect_uris text[] not null`: 1–5 non-null, non-empty entries, each at
+  most 512 characters. Their content is validated in code.
 - `created_at timestamptz not null default now()`
 - `first_authorized_at timestamptz null`: set by `exchange_agent_oauth_code`
   on first success
@@ -271,12 +272,23 @@ CHECK or FK failure).
 - `token_hash text primary key` (64 hex)
 - `grant_id uuid not null references agent_oauth_grants(id) on delete cascade`
 - `kind text not null`: CHECK in `('access','refresh')`
+- `pair_id uuid not null`: shared by the access and refresh tokens issued
+  together, so superseding a refresh token can delete its access token
+- `rotated_from_hash text null` (64 hex): on refresh tokens issued by
+  rotation, the hash of the refresh token that was presented; null for tokens
+  issued at code exchange. Not a foreign key, since cleanup may delete the
+  parent first.
 - `expires_at timestamptz not null`, `created_at timestamptz not null default now()`
 - `consumed_at timestamptz null`: set on refresh tokens that have been rotated
+- `superseded_at timestamptz null`: set on an unconsumed refresh token when a
+  grace reissue for its parent replaces it. Presenting it afterwards is reuse.
 - `grace_reissues int not null default 0`, CHECK between 0 and 5: extra pairs
-  issued for this consumed token inside the grace window. CHECK that only
-  refresh tokens have `consumed_at` or a non-zero `grace_reissues`.
-- Index on `(grant_id)` and on `expires_at`
+  issued for this consumed token inside the grace window.
+- CHECK that only refresh tokens have `consumed_at`, `superseded_at`,
+  `rotated_from_hash` or a non-zero `grace_reissues`, and that no token is both
+  consumed and superseded.
+- Index on `(grant_id)`, on `expires_at`, and a partial index on
+  `rotated_from_hash` (finds a token's successors)
 
 `agent_oauth_codes`:
 - `code_hash text primary key`
@@ -286,8 +298,10 @@ CHECK or FK failure).
   exactly as registered
 - `code_challenge text not null`, CHECK `^[A-Za-z0-9_-]{43}$`
 - `scopes text[] not null`: the same CHECK as grants
-- `grant_expires_in interval null`, CHECK `> 0`: the chosen grant lifetime;
-  null means the grant never expires. Required when a comp scope is present.
+- `grant_expires_in interval null`, CHECK `> 0` and `<= 365 days` (the longest
+  PAT expiry option, `AGENT_OAUTH_LIMITS.grantExpiresInMaxDays`; the bound also
+  rejects an infinite interval): the chosen grant lifetime; null means the
+  grant never expires. Required when a comp scope is present.
 - `resource text not null`: the canonical resource. When the request had no
   `resource` parameter, this is the `SITE_URL` resource.
 - `created_at`, `expires_at timestamptz not null`, `used_at timestamptz null`
@@ -299,7 +313,9 @@ CHECK or FK failure).
 **`create_agent_oauth_code(p_user_id, p_client_id, p_code_hash, p_redirect_uri, p_code_challenge, p_scopes, p_grant_expires_in, p_resource)`**
 → `(outcome, expires_at)`, outcome `ok | invalid_client | grant_cap`
 - Takes the per-user advisory lock, the same one `create_agent_token` uses.
-- Returns `invalid_client` if the client was deleted since validation.
+- Locks the client row `for key share`, so cleanup can't delete it until the
+  code is stored, and returns `invalid_client` if the client was deleted since
+  validation (rather than failing on the foreign key).
 - Refuses with `grant_cap` when the user already has 10 active grants and none
   of them is for this client.
 - Inserts the code and sets its expiry to `now() + interval '5 minutes'`.
@@ -309,26 +325,34 @@ CHECK or FK failure).
 outcome `ok | invalid_grant | code_reuse | grant_cap`. TypeScript maps
 `code_reuse` to `invalid_grant` and logs it.
 1. Reads the code's `user_id` without locking, then takes the per-user
-   advisory lock and re-reads the code `for update`.
-2. If the code is missing, belongs to another client or has expired, returns
+   advisory lock, locks the client row `for no key update` (returning
+   `invalid_grant` if the client is gone), and re-reads the code `for update`.
+   Cleanup deletes clients (cascading to their codes) before it deletes expired
+   codes, so both take the client row before the code row and can't deadlock.
+2. If the code is missing or belongs to another client, returns
    `invalid_grant`.
 3. If the code has already been used, revokes `grant_id` with reason
-   `code_reuse`, deletes its tokens and returns `code_reuse` with the grant id. TypeScript only calls the function
-   after the client has authenticated and PKCE has verified, so someone who
-   only intercepted a code can't trigger this.
-4. Re-checks the 10-grant cap, allowing a replacement for the same client, and
+   `code_reuse`, deletes its tokens and returns `code_reuse` with the grant id.
+   This is checked before expiry, so a code replayed after it expired still
+   revokes its grant. TypeScript only calls the function after the client has
+   authenticated and PKCE has verified, so someone who only intercepted a code
+   can't trigger this.
+4. If the code has expired, or its grant lifetime is 60 seconds or less (the
+   tokens would be dead on arrival), returns `invalid_grant`.
+5. Re-checks the 10-grant cap, allowing a replacement for the same client, and
    returns `grant_cap` if the user is over it.
-5. Revokes any unrevoked grant for this user and client (active or expired,
+6. Revokes any unrevoked grant for this user and client (active or expired,
    since either holds the partial unique index) with reason `replaced`, and
    deletes its tokens.
-6. Inserts the new grant with `expires_at = now() + grant_expires_in` and
+7. Inserts the new grant with `expires_at = now() + grant_expires_in` and
    `client_name` copied from the client row.
-7. Marks the code used and sets its `grant_id`.
-8. Inserts the access token, with an expiry of `least(now() + 24h, grant expiry)`.
-9. If `p_issue_refresh` is set, inserts the refresh token, with an expiry of
-   `least(now() + 30 days, grant expiry)`.
-10. Sets the client's `first_authorized_at` if it's null.
-11. Returns the grant, the access token's remaining lifetime in whole seconds
+8. Marks the code used and sets its `grant_id`.
+9. Inserts the access token, with an expiry of `least(now() + 24h, grant expiry)`.
+10. If `p_issue_refresh` is set, inserts the refresh token, with an expiry of
+    `least(now() + 30 days, grant expiry)`, sharing the access token's
+    `pair_id` and with a null `rotated_from_hash`.
+11. Sets the client's `first_authorized_at` if it's null.
+12. Returns the grant, the access token's remaining lifetime in whole seconds
     (for `expires_in`) and the refresh token's expiry (null when none was
     issued).
 
@@ -336,31 +360,46 @@ outcome `ok | invalid_grant | code_reuse | grant_cap`. TypeScript maps
 → `(outcome, grant_id, user_id, scopes, access_expires_in, refresh_expires_at)`,
 outcome `ok | invalid_grant | refresh_reuse`. TypeScript maps `refresh_reuse`
 to `invalid_grant` and logs it.
+Raises (a programming error) if `p_new_access_hash` or `p_new_refresh_hash` is
+null.
 1. Reads the grant id without locking, then locks the grant row `for update`,
    which serializes refreshes for that grant.
 2. If there is no token row, the token isn't a refresh token, or it belongs to
    another client's grant, returns `invalid_grant`. It revokes nothing.
-3. If the grant has been revoked or has expired, returns `invalid_grant`.
-4. If the token has already been consumed:
-   - Consumed within the last 60 seconds: this is a concurrent refresh by the
-     same client (RFC 9700 §4.14.2). Issue a new access and refresh pair
-     without revoking anything. At most 5 extra pairs per consumed token
-     (counted in `grace_reissues`), then treat it as reuse.
-   - Consumed earlier than that: this is reuse. Revoke the grant with reason
-     `refresh_reuse`, delete its tokens and return `refresh_reuse`.
-5. If the token has expired, returns `invalid_grant`.
-6. Otherwise:
-   - sets `consumed_at` on the presented token
+3. If the grant has been revoked or expires within 60 seconds, returns
+   `invalid_grant`, so `expires_in` is never 0 and no dead refresh token is
+   issued.
+4. Reuse: revoke the grant with reason `refresh_reuse`, delete its tokens and
+   return `refresh_reuse`, when the presented token is any of:
+   - superseded
+   - consumed more than 60 seconds ago
+   - consumed, with a successor (a row whose `rotated_from_hash` is the
+     presented hash) that has itself been consumed
+   - consumed, with `grace_reissues` already at 5
+5. Grace reissue: a token consumed within the last 60 seconds that isn't reuse
+   is a concurrent refresh by the same client (RFC 9700 §4.14.2). Set
+   `superseded_at` on every unconsumed successor of the presented token, delete
+   the access tokens that share those successors' `pair_id`, increment
+   `grace_reissues`, and issue a new pair as in step 7. Each consumed token
+   therefore has at most one live successor chain: the latest reissue. A
+   client that loses the race and presents the superseded token revokes the
+   grant, which is the price of not letting an attacker who races the client
+   keep a chain of its own.
+6. If the token hasn't been consumed and has expired, returns `invalid_grant`.
+7. Otherwise, and after a grace reissue:
+   - sets `consumed_at` on the presented token (normal rotation only)
    - inserts the new access token (expires at `least(now() + 24h, grant expiry)`)
-     and the new refresh token (expires at `least(now() + 30 days, grant expiry)`)
+     and the new refresh token (expires at `least(now() + 30 days, grant expiry)`),
+     sharing a new `pair_id`, with `rotated_from_hash` set to the presented hash
    - sets the grant's `last_used_at`
    - deletes this grant's access tokens that have expired
 
 **`revoke_agent_oauth_grant(p_grant_id, p_user_id, p_reason)`** and
 **`revoke_all_agent_oauth_grants(p_user_id)`** set `revoked_at` and
 `revoke_reason`, and delete the grant's tokens. Both are idempotent.
-- `revoke_agent_oauth_grant` returns `revoked | already_revoked | not_found`
-  (missing or another user's).
+- `revoke_agent_oauth_grant` returns `(outcome, grant_id)`, outcome
+  `revoked | already_revoked | not_found` (missing or another user's);
+  `grant_id` is null for `not_found`.
 - `revoke_all_agent_oauth_grants` takes the per-user lock, so an exchange in
   flight can't add a grant after it, uses reason `user_all`, and returns the
   number of grants it revoked.
@@ -371,16 +410,25 @@ to that client, and otherwise does nothing. It returns `(outcome, grant_id)`
 with the same outcomes as `revoke_agent_oauth_grant`.
 
 **`delete_expired_agent_oauth_rows()`** deletes:
+- clients whose `first_authorized_at` is null, that are older than 24 hours
+  and that have no grants. This runs before the code delete, so cleanup locks
+  client rows before code rows, in the exchange's order. A first exchange in
+  flight holds the client row lock and sets `first_authorized_at`, so the
+  delete waits and then skips that client.
 - codes more than a day past their expiry
 - access tokens more than a day past their expiry
-- refresh tokens more than a day past their expiry, whether consumed or not.
-  Consumed refresh tokens therefore stay until their own expiry (at most 30
-  days), so reuse is detected for as long as the token could have been used.
-- clients whose `first_authorized_at` is null and that are older than 24 hours
+- refresh tokens more than a day past their expiry, whether consumed,
+  superseded or neither. Consumed and superseded refresh tokens therefore stay
+  until their own expiry (at most 30 days), so reuse is detected for as long
+  as the token could have been used.
 
 It also revokes, with reason `idle`, grants that never expire and haven't been
 used for 30 days, and deletes their tokens. This keeps re-registered clients
-from piling up against the cap. It returns the count for each rule.
+from piling up against the cap. It is one set-based statement: it picks the
+grants `order by id for update skip locked` (so a grant a request is using is
+left for the next run), re-checks the idle test under the row lock, and
+deletes the revoked grants' tokens in the same statement. It returns the count
+for each rule.
 
 **Lookup at the MCP route.** One indexed select: the token joined to its grant,
 filtered by `kind = 'access'`. It returns the grant id, user id, scopes and
@@ -397,7 +445,8 @@ multiply refreshes.
 **Row counts.** An active client refreshes about once a day. It leaves at most
 about 30 consumed refresh tokens per grant (one a day, each kept until its
 30-day expiry, so reuse is detected across the whole refresh lifetime) plus one
-or two live tokens. That's roughly 5 KB per grant. The daily cleanup removes
+or two live tokens. Concurrent refreshes add at most 5 superseded rows per
+consumed token, and are rare. That's roughly 5 KB per grant. The daily cleanup removes
 rows once they expire.
 
 045 has to run before the OAuth flag is turned on, but not before PR #226
@@ -637,11 +686,14 @@ It renders:
   `expires_in` is the real remaining lifetime from the RPC (at most 86400), and
   `scope` is space-separated.
 - **Rate limits:**
-  - 60 requests per minute per `client_id`
+  - 60 requests per minute per `client_id`, charged only after client
+    authentication succeeds
   - 600 failed client authentications per minute per IP
 
-  Successful requests don't count toward the per-IP limit, because hosted
-  clients share IPs. Over the limit → 429 with `Retry-After` and
+  A failed authentication is charged only to the per-IP bucket, never to the
+  `client_id` it named, so a caller can't drain another client's quota by
+  sending its id with a bad secret. Successful requests don't count toward the
+  per-IP limit, because hosted clients share IPs. Over the limit → 429 with `Retry-After` and
   `{ error: "invalid_request", error_description: "rate limited" }`.
 
 ### Revocation: `POST /api/oauth/revoke`
@@ -826,8 +878,13 @@ Security logs go through `loggerService` with `LogCategory.SECURITY`:
 - **Stolen refresh tokens.** Tokens rotate, and reuse is detected for the whole
   token lifetime. A 60-second grace window, capped at 5 extra pairs, covers
   parallel refreshes by one client, so multi-worker hosted clients and shared
-  keychains don't force the user to re-approve. After the window, presenting a
-  consumed token revokes the grant.
+  keychains don't force the user to re-approve. Each grace reissue supersedes
+  the successors issued before it (and deletes their access tokens), so a
+  consumed token has at most one live successor chain: an attacker racing the
+  client can't keep a chain alive alongside it, and whichever side presents a
+  superseded token revokes the grant. Presenting a consumed token after the
+  window, after one of its successors has been used, or past the 5-pair limit
+  also revokes the grant.
 - **Mix-up attacks.** The `iss` parameter is included on every authorization
   response (RFC 9207) and advertised in the metadata.
 - **Consent CSRF.** Requires the session cookie, a same-origin `Origin` and a
@@ -978,6 +1035,35 @@ Critic review of this design, and how each point was resolved:
 - DCR support is an explicit launch test.
 - Step-up is a follow-up.
 - The callback allow-list is a check, not a change.
+
+**Review of Task 1 (CodeRabbit and a bugs review)**
+- CodeRabbit: a consumed refresh token replayed inside the grace window minted
+  an independent pair, so an attacker racing the client kept a live chain →
+  tokens record `pair_id` and `rotated_from_hash`; a grace reissue supersedes
+  the earlier successors and deletes their access tokens; a superseded token,
+  or a consumed one whose successor was used, is reuse.
+- CodeRabbit: the token endpoint's per-client bucket could be drained with
+  another client's id → it's charged only after client authentication
+  succeeds; failures go to the per-IP bucket only.
+- The exchange and cleanup could deadlock (code row, then client row, against
+  the reverse) → the exchange locks the client row first, and cleanup deletes
+  clients before codes.
+- Idle revocation could revoke a grant used after the scan → set-based, `for
+  update skip locked`, with the idle test re-checked under the lock.
+- Code creation raced a client delete into an FK error → it locks the client
+  row `for key share`.
+- A grant with seconds left produced `expires_in` 0 and a dead refresh token →
+  exchange and rotation refuse a grant with under a minute left.
+- `grant_expires_in` was unbounded → at most 365 days, which also rejects
+  infinity.
+- Rotation accepted null new hashes → it raises, like the exchange.
+- A used code replayed after expiry didn't revoke → reuse is checked before
+  expiry.
+- Empty redirect URIs passed the CHECK → rejected.
+- `revoke_agent_oauth_grant` returned a bare value → a record with `grant_id`,
+  like the other functions.
+- A `*` in `CAREEROTTER_MCP_EXTRA_ORIGINS` was accepted and never matched →
+  rejected at parse time.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

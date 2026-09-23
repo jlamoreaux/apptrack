@@ -8,13 +8,11 @@
 
 import {
   AGENT_RATE_LIMITS,
-  MCP_BASE_PATH,
+  AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
+  MCP_RESOURCE_PATH,
   type AgentRateLimit,
 } from "@/lib/constants/agent-access";
-import {
-  DEFAULT_AGENT_TOKEN_SCOPES,
-  MCP_ENDPOINT_PATH,
-} from "@/lib/constants/agent-access-ui";
+import { DEFAULT_AGENT_TOKEN_SCOPES } from "@/lib/constants/agent-access-ui";
 import { SITE_URL } from "@/lib/constants/site-config";
 
 // ── Gating ──────────────────────────────────────────────────────────────────
@@ -69,8 +67,12 @@ export const AGENT_OAUTH_LIFETIME_SECONDS = {
   refreshTokenIdle: 30 * SECONDS_PER_DAY,
   authorizationCode: 5 * SECONDS_PER_MINUTE,
   // Concurrent refreshes by one client within this window of the first get a
-  // new pair instead of revoking the grant (RFC 9700 §4.14.2).
-  refreshGraceWindow: 60,
+  // new pair instead of revoking the grant (RFC 9700 §4.14.2). Each reissue
+  // supersedes the pairs issued before it, so only the latest stays live.
+  refreshGraceWindow: SECONDS_PER_MINUTE,
+  // A grant with less than this left is refused at exchange and refresh, so
+  // expires_in is never 0 and no dead refresh token is issued.
+  minGrantRemaining: SECONDS_PER_MINUTE,
   // Clients that never complete an authorization are deleted after this.
   unusedClient: 24 * SECONDS_PER_HOUR,
   // Grants that never expire are revoked after this long unused.
@@ -86,6 +88,9 @@ export const AGENT_OAUTH_LIMITS = {
   maxActiveGrantsPerUser: 10,
   // Extra token pairs per consumed refresh token inside the grace window.
   maxGraceReissues: 5,
+  // Longest grant lifetime a code may carry (the grant_expires_in CHECK): the
+  // longest PAT expiry option.
+  grantExpiresInMaxDays: Math.max(...AGENT_TOKEN_EXPIRY_DAYS_OPTIONS),
   redirectUrisMax: 5,
   redirectUriMaxLength: 512,
   // Code points, matching char_length in the CHECK.
@@ -244,8 +249,9 @@ export type AgentOAuthExchangeOutcome =
 export const AGENT_OAUTH_ROTATE_OUTCOMES = [
   "ok",
   "invalid_grant",
-  // A consumed refresh token came back after the grace window; the grant is
-  // now revoked.
+  // A superseded refresh token, or a consumed one presented after the grace
+  // window, after a successor was used, or past the reissue limit; the grant
+  // is now revoked.
   "refresh_reuse",
 ] as const;
 export type AgentOAuthRotateOutcome =
@@ -266,8 +272,11 @@ export const AGENT_OAUTH_RATE_LIMITS = {
   // Generous: hosted clients register server-side from shared IPs.
   registerPerIp: { tokens: 30, window: "10 m", keyPrefix: "oauth-register:ip:" },
   registerGlobal: { tokens: 2000, window: "1 d", keyPrefix: "oauth-register:global" },
+  // Charged only after client authentication succeeds, so a caller presenting
+  // another client's id can't drain that client's quota.
   tokenPerClient: { tokens: 60, window: "1 m", keyPrefix: "oauth-token:client:" },
   // Counts only failed client authentication, since hosted clients share IPs.
+  // A failed authentication is charged here and nowhere else.
   tokenAuthFailPerIp: { tokens: 600, window: "1 m", keyPrefix: "oauth-token-auth-fail:" },
   // co_oat_ failures at /api/mcp. Bounds database lookups rather than
   // guessing (tokens carry 256 bits); kept apart from the PAT lockout.
@@ -277,8 +286,6 @@ export const AGENT_OAUTH_RATE_LIMITS = {
 } as const satisfies Record<string, AgentRateLimit>;
 
 // ── Endpoints ───────────────────────────────────────────────────────────────
-
-export const MCP_RESOURCE_PATH = `${MCP_BASE_PATH}${MCP_ENDPOINT_PATH}`;
 
 const PROTECTED_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource";
 
@@ -326,6 +333,7 @@ export const AGENT_OAUTH_NO_STORE_HEADERS = {
 
 const ORIGIN_PROTOCOLS: readonly string[] = ["http:", "https:"];
 const EXTRA_ORIGINS_SEPARATOR = ",";
+const HOSTNAME_WILDCARD = "*";
 
 function toOrigin(value: string): string {
   let url: URL;
@@ -347,6 +355,13 @@ function toOrigin(value: string): string {
   if (!isBareOrigin) {
     throw new Error(
       `CAREEROTTER_MCP_EXTRA_ORIGINS: "${value}" must be an http(s) origin with no path, query or credentials`
+    );
+  }
+  // URL accepts "*" in a hostname, but origins are matched exactly, so a
+  // wildcard would never match and almost certainly means a misconfiguration.
+  if (url.hostname.includes(HOSTNAME_WILDCARD)) {
+    throw new Error(
+      `CAREEROTTER_MCP_EXTRA_ORIGINS: "${value}" contains a wildcard; list each origin separately`
     );
   }
   return url.origin;

@@ -23,6 +23,7 @@ export type {
   AgentOAuthRotateOutcome,
   AgentOAuthTokenEndpointAuthMethod,
   AgentOAuthTokenErrorCode,
+  AgentOAuthTokenKind,
 } from "@/lib/constants/agent-oauth";
 import type {
   AgentOAuthAuthorizeErrorCode,
@@ -583,6 +584,12 @@ export interface AgentOAuthRotateResult {
   scopes: AgentTokenScope[] | null;
   access_expires_in: number | null;
   refresh_expires_at: string | null;
+}
+
+/** revoke_agent_oauth_grant's result; grant_id is null when outcome is "not_found". */
+export interface AgentOAuthRevokeGrantResult {
+  outcome: AgentOAuthRevokeOutcome;
+  grant_id: string | null;
 }
 
 /** revoke_agent_oauth_token's result; grant_id is null when outcome is "not_found". */

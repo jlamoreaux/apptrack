@@ -16,7 +16,8 @@
 --
 -- The functions report expected outcomes (bad code, reuse, the grant cap) in an
 -- `outcome` column instead of raising, so the TypeScript layer can map them to
--- OAuth errors. They raise only on programming errors (CHECK or FK failures).
+-- OAuth errors. They raise only on programming errors (a missing required
+-- argument, or a CHECK or FK failure).
 --
 -- Constants that mirror these CHECK lists, lifetimes, outcomes and the grant
 -- cap live in lib/constants/agent-oauth.ts (guarded by
@@ -65,6 +66,7 @@ create table if not exists public.agent_oauth_clients (
     check (
       cardinality(redirect_uris) between 1 and 5
       and array_position(redirect_uris, null) is null
+      and '' <> all (redirect_uris)
       and agent_oauth_max_char_length(redirect_uris) <= 512
     ),
   created_at timestamptz not null default now(),
@@ -132,20 +134,47 @@ create table if not exists public.agent_oauth_tokens (
   token_hash text primary key check (token_hash ~ '^[0-9a-f]{64}$'),
   grant_id uuid not null references public.agent_oauth_grants (id) on delete cascade,
   kind text not null check (kind in ('access', 'refresh')),
+  -- Shared by the access and refresh tokens issued together, so superseding a
+  -- refresh token can delete the access token that came with it.
+  pair_id uuid not null,
+  -- On refresh tokens issued by rotation: the hash of the refresh token that
+  -- was presented. Null for tokens issued at code exchange. Not a foreign key:
+  -- cleanup may delete the parent first.
+  rotated_from_hash text check (rotated_from_hash ~ '^[0-9a-f]{64}$'),
   expires_at timestamptz not null,
   created_at timestamptz not null default now(),
   -- Set on refresh tokens once rotated. Kept until the token's own expiry, so
   -- reuse is detected for as long as the token could have been used.
   consumed_at timestamptz,
+  -- Set on an unconsumed refresh token when a grace reissue for its parent
+  -- replaces it. Presenting it afterwards is reuse. Kept until its own expiry,
+  -- like a consumed token.
+  superseded_at timestamptz,
   -- Extra pairs issued for this consumed token inside the grace window.
   grace_reissues int not null default 0 check (grace_reissues between 0 and 5),
-  constraint agent_oauth_tokens_consumed_is_refresh check (
-    kind = 'refresh' or (consumed_at is null and grace_reissues = 0)
+  constraint agent_oauth_tokens_rotation_is_refresh check (
+    kind = 'refresh'
+    or (
+      consumed_at is null
+      and superseded_at is null
+      and grace_reissues = 0
+      and rotated_from_hash is null
+    )
+  ),
+  -- Only an unconsumed token is superseded, and a superseded one is never
+  -- consumed.
+  constraint agent_oauth_tokens_consumed_or_superseded check (
+    consumed_at is null or superseded_at is null
   )
 );
 
 create index if not exists agent_oauth_tokens_grant_idx
   on public.agent_oauth_tokens (grant_id);
+
+-- Finds the successors of a presented refresh token.
+create index if not exists agent_oauth_tokens_rotated_from_idx
+  on public.agent_oauth_tokens (rotated_from_hash)
+  where rotated_from_hash is not null;
 
 create index if not exists agent_oauth_tokens_expires_idx
   on public.agent_oauth_tokens (expires_at);
@@ -168,8 +197,10 @@ create table if not exists public.agent_oauth_codes (
       and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[])
       and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])
     ),
-  -- The chosen grant lifetime; null means the grant never expires.
-  grant_expires_in interval check (grant_expires_in > interval '0'),
+  -- The chosen grant lifetime; null means the grant never expires. The upper
+  -- bound is the longest PAT expiry option, and also rejects infinity.
+  grant_expires_in interval
+    check (grant_expires_in > interval '0' and grant_expires_in <= interval '365 days'),
   resource text not null check (char_length(resource) between 1 and 512),
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
@@ -227,14 +258,17 @@ revoke execute on function public.agent_oauth_grant_cap_reached (uuid, text)
 
 -- ── internal: issue a token pair ───────────────────────────────────────────
 -- Inserts an access token and, when p_refresh_hash is given, a refresh token
--- for the grant, each capped at the grant's expiry. Returns the access token's
--- remaining lifetime in whole seconds (for expires_in) and the refresh token's
--- expiry (null when none was issued). Not executable by any API role.
+-- for the grant, each capped at the grant's expiry and sharing one pair_id.
+-- p_rotated_from_hash is the refresh token the pair replaces (null at code
+-- exchange). Returns the access token's remaining lifetime in whole seconds
+-- (for expires_in) and the refresh token's expiry (null when none was issued).
+-- Not executable by any API role.
 create or replace function public.agent_oauth_issue_tokens (
   p_grant_id uuid,
   p_grant_expires_at timestamptz,
   p_access_hash text,
   p_refresh_hash text,
+  p_rotated_from_hash text,
   out access_expires_in int,
   out refresh_expires_at timestamptz
 )
@@ -246,26 +280,31 @@ declare
   c_access_ttl constant interval := interval '24 hours';
   c_refresh_idle_ttl constant interval := interval '30 days';
   access_expires_at timestamptz;
+  new_pair_id uuid := gen_random_uuid ();
 begin
   -- least() ignores nulls, so a grant that never expires leaves the TTL as is.
   access_expires_at := least(now() + c_access_ttl, p_grant_expires_at);
 
-  insert into agent_oauth_tokens (token_hash, grant_id, kind, expires_at)
-    values (p_access_hash, p_grant_id, 'access', access_expires_at);
+  insert into agent_oauth_tokens (token_hash, grant_id, kind, pair_id, expires_at)
+    values (p_access_hash, p_grant_id, 'access', new_pair_id, access_expires_at);
 
   access_expires_in := floor(extract(epoch from access_expires_at - now()))::int;
   refresh_expires_at := null;
 
   if p_refresh_hash is not null then
     refresh_expires_at := least(now() + c_refresh_idle_ttl, p_grant_expires_at);
-    insert into agent_oauth_tokens (token_hash, grant_id, kind, expires_at)
-      values (p_refresh_hash, p_grant_id, 'refresh', refresh_expires_at);
+    insert into agent_oauth_tokens (
+      token_hash, grant_id, kind, pair_id, rotated_from_hash, expires_at
+    ) values (
+      p_refresh_hash, p_grant_id, 'refresh', new_pair_id, p_rotated_from_hash,
+      refresh_expires_at
+    );
   end if;
 end;
 $$;
 
 revoke execute on function public.agent_oauth_issue_tokens (
-  uuid, timestamptz, text, text
+  uuid, timestamptz, text, text, text
 ) from public, anon, authenticated, service_role;
 
 -- ── internal: revoke a grant ───────────────────────────────────────────────
@@ -302,7 +341,9 @@ revoke execute on function public.agent_oauth_revoke_grant_row (uuid, text)
 -- ── create_agent_oauth_code ────────────────────────────────────────────────
 -- Stores a single-use authorization code after the user approves. Takes the
 -- same per-user advisory lock as create_agent_token, so the cap check can't
--- race another approval or an exchange.
+-- race another approval or an exchange. The key-share lock on the client row
+-- keeps cleanup from deleting the client until this commits; a client deleted
+-- first is reported as invalid_client rather than as an FK error.
 -- outcome: 'ok' | 'invalid_client' (the client was deleted since validation)
 --        | 'grant_cap'.
 create or replace function public.create_agent_oauth_code (
@@ -326,9 +367,11 @@ declare
 begin
   perform pg_advisory_xact_lock(hashtext('agent_tokens:' || p_user_id::text));
 
-  if not exists (
-    select 1 from agent_oauth_clients c where c.client_id = p_client_id
-  ) then
+  perform 1 from agent_oauth_clients c
+    where c.client_id = p_client_id
+    for key share;
+
+  if not found then
     outcome := 'invalid_client';
     return;
   end if;
@@ -364,8 +407,15 @@ grant execute on function public.create_agent_oauth_code (
 -- Exchanges a code for a new grant and its tokens. The caller has already
 -- authenticated the client and verified PKCE and the redirect URI, so a reused
 -- code here comes from the client itself (or a thief holding its credentials
--- and verifier), and revoking the grant it produced is safe.
--- outcome: 'ok' | 'invalid_grant' (missing, another client's, or expired)
+-- and verifier), and revoking the grant it produced is safe. Reuse is checked
+-- before expiry, so a code replayed after it expired still revokes its grant.
+--
+-- Lock order: the per-user advisory lock, the client row, then the code row.
+-- Cleanup deletes clients (cascading to their codes) before it deletes
+-- expired codes, so it also takes client rows before code rows, and the two
+-- can't deadlock.
+-- outcome: 'ok' | 'invalid_grant' (missing, another client's, expired, its
+--          client deleted, or a grant lifetime too short to issue tokens for)
 --        | 'code_reuse' (already used; its grant is now revoked)
 --        | 'grant_cap'.
 create or replace function public.exchange_agent_oauth_code (
@@ -388,6 +438,7 @@ set search_path = public
 as $$
 #variable_conflict use_column
 declare
+  c_min_grant_remaining constant interval := interval '60 seconds';
   code_user_id uuid;
   code_row agent_oauth_codes%rowtype;
   new_grant agent_oauth_grants%rowtype;
@@ -410,15 +461,23 @@ begin
 
   perform pg_advisory_xact_lock(hashtext('agent_tokens:' || code_user_id::text));
 
+  -- No-key-update conflicts with cleanup's delete of the client but not with
+  -- the key-share locks that FK checks and create_agent_oauth_code take.
+  perform 1 from agent_oauth_clients c
+    where c.client_id = p_client_id
+    for no key update;
+
+  if not found then
+    outcome := 'invalid_grant';
+    return;
+  end if;
+
   select * into code_row
     from agent_oauth_codes c
     where c.code_hash = p_code_hash
     for update;
 
-  if not found
-    or code_row.client_id is distinct from p_client_id
-    or code_row.expires_at <= now()
-  then
+  if not found or code_row.client_id is distinct from p_client_id then
     outcome := 'invalid_grant';
     return;
   end if;
@@ -429,6 +488,15 @@ begin
     end if;
     outcome := 'code_reuse';
     grant_id := code_row.grant_id;
+    return;
+  end if;
+
+  -- A grant with under a minute left would get an expires_in of 0 and a dead
+  -- refresh token. A null lifetime (never expires) passes.
+  if code_row.expires_at <= now()
+    or code_row.grant_expires_in <= c_min_grant_remaining
+  then
+    outcome := 'invalid_grant';
     return;
   end if;
 
@@ -463,7 +531,8 @@ begin
       new_grant.id,
       new_grant.expires_at,
       p_access_hash,
-      case when p_issue_refresh then p_refresh_hash end
+      case when p_issue_refresh then p_refresh_hash end,
+      null
     );
 
   update agent_oauth_clients c
@@ -491,12 +560,24 @@ grant execute on function public.exchange_agent_oauth_code (
 
 -- ── rotate_agent_oauth_refresh ─────────────────────────────────────────────
 -- Rotates a refresh token: consumes it and issues a new access and refresh
--- pair. Locking the grant row serializes refreshes per grant.
+-- pair, whose refresh token records the presented one in rotated_from_hash.
+-- Locking the grant row serializes refreshes per grant.
 --
 -- A consumed token presented again within the grace window is a concurrent
--- refresh by the same client (RFC 9700 §4.14.2) and gets another pair, up to
--- the reissue limit. Presented later, or past the limit, it is reuse: the
--- grant is revoked and its tokens deleted.
+-- refresh by the same client (RFC 9700 §4.14.2), as long as none of its
+-- successors has been used. It gets a fresh pair, and every unconsumed
+-- successor issued for it so far is superseded and loses its access token.
+-- So each consumed token has at most one live successor chain, and an
+-- attacker racing the client can't keep a chain of its own alive.
+--
+-- Reuse revokes the grant and deletes its tokens. It is any of:
+-- - a superseded token
+-- - a consumed token presented after the grace window
+-- - a consumed token with a successor that has itself been consumed
+-- - a consumed token past the reissue limit
+--
+-- A grant with under a minute left gets invalid_grant, so expires_in is never
+-- 0 and no dead refresh token is issued.
 -- outcome: 'ok' | 'invalid_grant' | 'refresh_reuse' (the grant is now revoked).
 create or replace function public.rotate_agent_oauth_refresh (
   p_refresh_hash text,
@@ -518,11 +599,17 @@ as $$
 declare
   c_grace_window constant interval := interval '60 seconds';
   c_max_grace_reissues constant int := 5;
+  c_min_grant_remaining constant interval := interval '60 seconds';
   token_grant_id uuid;
   grant_row agent_oauth_grants%rowtype;
   token_row agent_oauth_tokens%rowtype;
+  is_reuse boolean;
   issued record;
 begin
+  if p_new_access_hash is null or p_new_refresh_hash is null then
+    raise exception 'p_new_access_hash and p_new_refresh_hash are required';
+  end if;
+
   select t.grant_id into token_grant_id
     from agent_oauth_tokens t
     where t.token_hash = p_refresh_hash;
@@ -551,27 +638,56 @@ begin
     return;
   end if;
 
-  if grant_row.revoked_at is not null or grant_row.expires_at <= now() then
+  if grant_row.revoked_at is not null
+    or grant_row.expires_at <= now() + c_min_grant_remaining
+  then
     outcome := 'invalid_grant';
     return;
   end if;
 
-  if token_row.consumed_at is not null then
-    if token_row.consumed_at > now() - c_grace_window
-      and token_row.grace_reissues < c_max_grace_reissues
-    then
-      update agent_oauth_tokens t
-        set grace_reissues = t.grace_reissues + 1
-        where t.token_hash = p_refresh_hash;
-    else
-      perform agent_oauth_revoke_grant_row(grant_row.id, 'refresh_reuse');
-      outcome := 'refresh_reuse';
-      grant_id := grant_row.id;
-      return;
-    end if;
+  if token_row.superseded_at is not null then
+    is_reuse := true;
+  elsif token_row.consumed_at is not null then
+    is_reuse := token_row.consumed_at <= now() - c_grace_window
+      or token_row.grace_reissues >= c_max_grace_reissues
+      or exists (
+        select 1 from agent_oauth_tokens s
+          where s.rotated_from_hash = p_refresh_hash
+            and s.consumed_at is not null
+      );
   elsif token_row.expires_at <= now() then
     outcome := 'invalid_grant';
     return;
+  else
+    is_reuse := false;
+  end if;
+
+  if is_reuse then
+    perform agent_oauth_revoke_grant_row(grant_row.id, 'refresh_reuse');
+    outcome := 'refresh_reuse';
+    grant_id := grant_row.id;
+    return;
+  end if;
+
+  if token_row.consumed_at is not null then
+    -- Grace reissue. No successor is consumed (checked above), so superseding
+    -- the unsuperseded ones leaves only the pair issued below live.
+    with superseded as (
+      update agent_oauth_tokens s
+        set superseded_at = now()
+        where s.rotated_from_hash = p_refresh_hash
+          and s.superseded_at is null
+        returning s.pair_id
+    )
+    delete from agent_oauth_tokens a
+      using superseded
+      where a.grant_id = grant_row.id
+        and a.pair_id = superseded.pair_id
+        and a.kind = 'access';
+
+    update agent_oauth_tokens t
+      set grace_reissues = t.grace_reissues + 1
+      where t.token_hash = p_refresh_hash;
   else
     update agent_oauth_tokens t
       set consumed_at = now()
@@ -580,7 +696,11 @@ begin
 
   select * into issued
     from agent_oauth_issue_tokens(
-      grant_row.id, grant_row.expires_at, p_new_access_hash, p_new_refresh_hash
+      grant_row.id,
+      grant_row.expires_at,
+      p_new_access_hash,
+      p_new_refresh_hash,
+      p_refresh_hash
     );
 
   update agent_oauth_grants g
@@ -612,17 +732,19 @@ grant execute on function public.rotate_agent_oauth_refresh (
 -- ── revoke_agent_oauth_grant ───────────────────────────────────────────────
 -- Revokes one of the user's grants. Idempotent.
 -- outcome: 'revoked' | 'already_revoked' | 'not_found' (missing or another
--- user's).
+-- user's). grant_id is null for not_found.
 create or replace function public.revoke_agent_oauth_grant (
   p_grant_id uuid,
   p_user_id uuid,
   p_reason text,
-  out outcome text
+  out outcome text,
+  out grant_id uuid
 )
 language plpgsql
 security definer
 set search_path = public
 as $$
+#variable_conflict use_column
 begin
   if not exists (
     select 1 from agent_oauth_grants g
@@ -632,6 +754,7 @@ begin
     return;
   end if;
 
+  grant_id := p_grant_id;
   if agent_oauth_revoke_grant_row(p_grant_id, p_reason) then
     outcome := 'revoked';
   else
@@ -732,12 +855,14 @@ grant execute on function public.revoke_agent_oauth_token (text, text)
 -- ── delete_expired_agent_oauth_rows ────────────────────────────────────────
 -- Daily cleanup (app/api/cron/agent-oauth-cleanup).
 -- - Revokes grants that never expire and have been idle for the idle window,
---   so re-registered clients don't pile up against the cap.
--- - Deletes codes and tokens past their expiry by more than the retention
---   period. Consumed refresh tokens stay until their own expiry, so reuse is
---   detected for as long as the token could have been used.
+--   and deletes their tokens, so re-registered clients don't pile up against
+--   the cap.
 -- - Deletes clients that never authorized within the unused-client window.
 --   A client with any grant is kept (the grants FK is on delete restrict).
+-- - Deletes codes and tokens past their expiry by more than the retention
+--   period. Consumed and superseded refresh tokens stay until their own
+--   expiry, so reuse is detected for as long as the token could have been
+--   used.
 create or replace function public.delete_expired_agent_oauth_rows (
   out idle_grants_revoked int,
   out codes_deleted int,
@@ -754,16 +879,48 @@ declare
   c_unused_client_ttl constant interval := interval '24 hours';
   c_idle_grant_ttl constant interval := interval '30 days';
 begin
-  -- Filtering on the result makes the planner evaluate the volatile call for
-  -- every row.
-  select count(*) filter (where idle.newly_revoked) into idle_grants_revoked
-    from (
-      select agent_oauth_revoke_grant_row(g.id, 'idle') as newly_revoked
-        from agent_oauth_grants g
-        where g.revoked_at is null
-          and g.expires_at is null
-          and g.last_used_at < now() - c_idle_grant_ttl
-    ) as idle;
+  -- Grants locked by a refresh, touch or revocation in flight are skipped
+  -- until the next run. Locking re-checks the idle test against the latest
+  -- row version, and the update re-checks it again, so a grant used since
+  -- this statement began is kept.
+  with idle as (
+    select g.id
+      from agent_oauth_grants g
+      where g.revoked_at is null
+        and g.expires_at is null
+        and g.last_used_at < now() - c_idle_grant_ttl
+      order by g.id
+      for update skip locked
+  ),
+  revoked as (
+    update agent_oauth_grants g
+      set revoked_at = now(), revoke_reason = 'idle'
+      from idle
+      where g.id = idle.id
+        and g.revoked_at is null
+        and g.expires_at is null
+        and g.last_used_at < now() - c_idle_grant_ttl
+      returning g.id
+  ),
+  revoked_tokens as (
+    delete from agent_oauth_tokens t
+      using revoked
+      where t.grant_id = revoked.id
+  )
+  select count(*) into idle_grants_revoked from revoked;
+
+  -- Before the code delete, so cleanup locks client rows before code rows
+  -- (this cascades to the client's codes), the order the exchange uses. A
+  -- first exchange in flight holds a no-key-update lock on the client row and
+  -- sets first_authorized_at, so this delete waits for it and then skips the
+  -- client when it re-checks the updated row.
+  delete from agent_oauth_clients c
+    where c.first_authorized_at is null
+      and c.created_at < now() - c_unused_client_ttl
+      and not exists (
+        select 1 from agent_oauth_grants g where g.client_id = c.client_id
+      );
+  get diagnostics clients_deleted = row_count;
 
   delete from agent_oauth_codes c
     where c.expires_at < now() - c_retention_after_expiry;
@@ -774,21 +931,12 @@ begin
       and t.expires_at < now() - c_retention_after_expiry;
   get diagnostics access_tokens_deleted = row_count;
 
+  -- Consumed, superseded or neither: each refresh token is kept until a day
+  -- past its own expiry.
   delete from agent_oauth_tokens t
     where t.kind = 'refresh'
       and t.expires_at < now() - c_retention_after_expiry;
   get diagnostics refresh_tokens_deleted = row_count;
-
-  -- A concurrent first exchange holds a key-share lock on the client row
-  -- (the grant's FK) and sets first_authorized_at, so the re-check after
-  -- that lock is released skips it.
-  delete from agent_oauth_clients c
-    where c.first_authorized_at is null
-      and c.created_at < now() - c_unused_client_ttl
-      and not exists (
-        select 1 from agent_oauth_grants g where g.client_id = c.client_id
-      );
-  get diagnostics clients_deleted = row_count;
 end;
 $$;
 

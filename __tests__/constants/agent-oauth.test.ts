@@ -10,8 +10,10 @@ import { join } from "path";
 import {
   AGENT_COMP_SCOPES,
   AGENT_RATE_LIMITS,
+  AGENT_TOKEN_EXPIRY_DAYS_OPTIONS,
   AGENT_TOKEN_PREFIX,
   AGENT_TOKEN_SCOPES,
+  MCP_RESOURCE_PATH,
   SCOPE_IMPLIES,
 } from "@/lib/constants/agent-access";
 import {
@@ -190,6 +192,36 @@ describe("agent OAuth constants mirror the CHECKs in migration 045", () => {
       AGENT_OAUTH_LIMITS.maxGraceReissues
     );
   });
+
+  it("redirect_uris CHECK rejects empty entries", () => {
+    expect(migration).toContain("'' <> all (redirect_uris)");
+  });
+
+  it("grant_expires_in CHECK is positive and capped at the longest PAT expiry option", () => {
+    const maxDays = Number(
+      firstGroup(
+        /grant_expires_in > interval '0' and grant_expires_in <= interval '(\d+) days'/i,
+        "grant_expires_in"
+      )
+    );
+    expect(maxDays).toBe(AGENT_OAUTH_LIMITS.grantExpiresInMaxDays);
+    expect(AGENT_OAUTH_LIMITS.grantExpiresInMaxDays).toBe(Math.max(...AGENT_TOKEN_EXPIRY_DAYS_OPTIONS));
+    expect(AGENT_OAUTH_LIMITS.grantExpiresInMaxDays).toBe(365);
+  });
+
+  it("tokens link each pair and each rotation, and only refresh tokens carry rotation state", () => {
+    expect(migration).toMatch(/^\s+pair_id uuid not null,$/m);
+    expect(migration).toMatch(/^\s+rotated_from_hash text check \(rotated_from_hash ~ '\^\[0-9a-f\]\{64\}\$'\),$/m);
+    expect(migration).toMatch(/^\s+superseded_at timestamptz,$/m);
+    const rotationCheck = firstGroup(
+      /constraint agent_oauth_tokens_rotation_is_refresh check \(([\s\S]*?)\n  \),/,
+      "rotation_is_refresh"
+    );
+    for (const column of ["consumed_at is null", "superseded_at is null", "grace_reissues = 0", "rotated_from_hash is null"]) {
+      expect(rotationCheck).toContain(column);
+    }
+    expect(migration).toMatch(/check \(\s*consumed_at is null or superseded_at is null\s*\)/);
+  });
 });
 
 describe("agent OAuth cap and lifetimes mirror migration 045", () => {
@@ -209,8 +241,19 @@ describe("agent OAuth cap and lifetimes mirror migration 045", () => {
     ["c_unused_client_ttl", AGENT_OAUTH_LIFETIME_SECONDS.unusedClient],
     ["c_idle_grant_ttl", AGENT_OAUTH_LIFETIME_SECONDS.idleGrant],
     ["c_retention_after_expiry", AGENT_OAUTH_LIFETIME_SECONDS.retentionAfterExpiry],
+    ["c_min_grant_remaining", AGENT_OAUTH_LIFETIME_SECONDS.minGrantRemaining],
   ])("%s matches its lifetime constant", (sqlName, seconds) => {
-    expect(intervalConstants(sqlName)).toEqual([seconds]);
+    for (const value of intervalConstants(sqlName)) expect(value).toBe(seconds);
+  });
+
+  it("exchange and rotation both refuse a grant with under a minute left", () => {
+    expect(intervalConstants("c_min_grant_remaining")).toHaveLength(2);
+    expect(functionSource(AGENT_OAUTH_RPC.exchangeCode)).toContain(
+      "code_row.grant_expires_in <= c_min_grant_remaining"
+    );
+    expect(functionSource(AGENT_OAUTH_RPC.rotateRefresh)).toContain(
+      "grant_row.expires_at <= now() + c_min_grant_remaining"
+    );
   });
 
   it("uses the PRD lifetimes", () => {
@@ -219,6 +262,7 @@ describe("agent OAuth cap and lifetimes mirror migration 045", () => {
       refreshTokenIdle: 30 * 86_400,
       authorizationCode: 300,
       refreshGraceWindow: 60,
+      minGrantRemaining: 60,
     });
     expect(AGENT_OAUTH_LIMITS.maxActiveGrantsPerUser).toBe(10);
   });
@@ -270,6 +314,49 @@ describe("agent OAuth functions in migration 045", () => {
     }
   );
 
+  it("revoke_agent_oauth_grant returns a record with the grant id", () => {
+    expect(functionSource(AGENT_OAUTH_RPC.revokeGrant)).toMatch(/out outcome text,\s+out grant_id uuid\s*\)/);
+  });
+
+  it("create_agent_oauth_code locks the client row instead of an unlocked existence check", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.createCode);
+    expect(source).toMatch(/from agent_oauth_clients c\s+where c\.client_id = p_client_id\s+for key share;/);
+    expect(source).not.toMatch(/if not exists/);
+  });
+
+  it("exchange takes the user lock, then the client row, then the code row, and checks reuse before expiry", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.exchangeCode);
+    const userLock = source.indexOf("pg_advisory_xact_lock");
+    const clientLock = source.search(/where c\.client_id = p_client_id\s+for no key update;/);
+    const codeLock = source.search(/where c\.code_hash = p_code_hash\s+for update;/);
+    const reuseCheck = source.indexOf("if code_row.used_at is not null");
+    const expiryCheck = source.indexOf("code_row.expires_at <= now()");
+    expect(userLock).toBeGreaterThan(-1);
+    expect(clientLock).toBeGreaterThan(userLock);
+    expect(codeLock).toBeGreaterThan(clientLock);
+    expect(reuseCheck).toBeGreaterThan(codeLock);
+    expect(expiryCheck).toBeGreaterThan(reuseCheck);
+  });
+
+  it("rotation raises on missing new hashes, links rotations and supersedes earlier successors", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.rotateRefresh);
+    expect(source).toMatch(/if p_new_access_hash is null or p_new_refresh_hash is null then\s+raise exception/);
+    expect(source).toContain("s.rotated_from_hash = p_refresh_hash");
+    expect(source).toContain("set superseded_at = now()");
+    expect(source).toContain("if token_row.superseded_at is not null then");
+    expect(source).toMatch(/agent_oauth_issue_tokens\([\s\S]*?p_new_refresh_hash,\s+p_refresh_hash\s*\)/);
+  });
+
+  it("cleanup revokes idle grants set-based under skip-locked row locks, and deletes clients before codes", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.deleteExpiredRows);
+    expect(source).toMatch(/order by g\.id\s+for update skip locked/);
+    expect(source).not.toContain("agent_oauth_revoke_grant_row");
+    const clientDelete = source.indexOf("delete from agent_oauth_clients");
+    const codeDelete = source.indexOf("delete from agent_oauth_codes");
+    expect(clientDelete).toBeGreaterThan(-1);
+    expect(codeDelete).toBeGreaterThan(clientDelete);
+  });
+
   it("enables RLS on all four tables and defines no policies", () => {
     const tables = allGroups(/create table if not exists public\.(\w+)/g, "tables");
     expect(sorted(tables)).toEqual(
@@ -300,6 +387,10 @@ describe("agent OAuth protocol constants", () => {
 
   it("the scope hint is the PAT default scopes", () => {
     expect(AGENT_OAUTH_DEFAULT_SCOPE_HINT).toBe("wins:read wins:write");
+  });
+
+  it("the MCP resource path is the mcp-handler endpoint", () => {
+    expect(MCP_RESOURCE_PATH).toBe("/api/mcp");
   });
 
   it("the protected resource metadata path is the root path plus the MCP path", () => {
@@ -418,6 +509,15 @@ describe("parseAcceptedMcpOrigins", () => {
   ])("throws on %s", (entry) => {
     expect(() => parseAcceptedMcpOrigins(site, entry)).toThrow(/CAREEROTTER_MCP_EXTRA_ORIGINS/);
   });
+
+  it.each(["https://*.careerotter.io", "https://*", "http://preview-*.careerotter.io"])(
+    "throws a wildcard error on %s",
+    (entry) => {
+      expect(() => parseAcceptedMcpOrigins(site, entry)).toThrow(
+        /CAREEROTTER_MCP_EXTRA_ORIGINS: .* contains a wildcard/
+      );
+    }
+  );
 });
 
 describe("accepted MCP origins and resources from the environment", () => {
