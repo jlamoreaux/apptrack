@@ -8,11 +8,16 @@ import {
   type ProjectionYear,
 } from "@/lib/careerotter/comp-projection";
 
-/** Series in stack order, bottom to top. Colors come from globals.css tokens. */
+/**
+ * Series in stack order, bottom to top. Colors come from globals.css tokens,
+ * each with its light-mode value as a fallback: an undefined custom property
+ * makes the whole background-color invalid, which paints the bars, legend and
+ * table swatches transparent rather than in a slightly-off shade.
+ */
 export const COMP_SERIES = [
-  { key: "salary", label: "Salary", color: "var(--comp-salary)" },
-  { key: "stock", label: "Stock", color: "var(--comp-stock)" },
-  { key: "incentives", label: "Incentives", color: "var(--comp-incentives)" },
+  { key: "salary", label: "Salary", color: "var(--comp-salary, #c9761d)" },
+  { key: "stock", label: "Stock", color: "var(--comp-stock, #2a78d6)" },
+  { key: "incentives", label: "Incentives", color: "var(--comp-incentives, #1baf7a)" },
 ] as const;
 
 type SeriesKey = (typeof COMP_SERIES)[number]["key"];
@@ -28,6 +33,12 @@ export const COMP_SERIES_TOP_DOWN = [...COMP_SERIES].reverse();
 const PLOT_HEIGHT = 200;
 /** Gap between stacked segments, in pixels. */
 const SEGMENT_GAP = 2;
+/**
+ * Width of the Y axis gutter, in pixels. The X axis and legend indent by the
+ * same amount so the year labels sit under their columns; sharing one number
+ * keeps the three from drifting apart.
+ */
+const AXIS_WIDTH = 56;
 
 interface ProjectionChartProps {
   years: ProjectionYear[];
@@ -66,7 +77,10 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
         <div className="relative flex select-none" style={{ height: PLOT_HEIGHT }}>
           {/* Y axis. Labels are anchored by `top`, so translating up half their
               height centers each one on its gridline. */}
-          <div className="relative w-14 shrink-0 text-[11px] tabular-nums text-muted-foreground">
+          <div
+            className="relative shrink-0 text-[11px] tabular-nums text-muted-foreground"
+            style={{ width: AXIS_WIDTH }}
+          >
             {ticks.map((t) => (
               <span
                 key={t}
@@ -195,7 +209,7 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
       </div>
 
       {/* X axis */}
-      <div className="flex pl-14">
+      <div className="flex" style={{ paddingLeft: AXIS_WIDTH }}>
         <div className="flex flex-1 justify-around gap-2 px-2 text-xs tabular-nums">
           {years.map((y) => (
             <span
@@ -211,7 +225,11 @@ export function ProjectionChart({ years, hasVestSchedule, currentYear }: Project
         </div>
       </div>
 
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 pl-14 text-xs text-muted-foreground" aria-label="Legend">
+      <ul
+        className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+        style={{ paddingLeft: AXIS_WIDTH }}
+        aria-label="Legend"
+      >
         {COMP_SERIES_TOP_DOWN.map((s) => (
           <li key={s.key} className="flex items-center gap-1.5">
             <span
