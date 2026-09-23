@@ -50,8 +50,8 @@ export default async function DataPage(): Promise<React.JSX.Element> {
               career data on your behalf.
             </p>
           </div>
-          {/* Resolved on the server: site-config validates env at load and would
-              throw in the client bundle, and VERCEL_URL is server-only. */}
+          {/* Resolved here: VERCEL_URL is only set on the server, and site-config
+              can throw at module load, which should not happen in the browser. */}
           <ConnectedAgents appUrl={getAppUrl()} />
         </section>
       </main>
