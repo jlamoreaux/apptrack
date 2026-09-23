@@ -21,8 +21,8 @@ import {
 } from "@/lib/constants/agent-oauth";
 import { oauthJson, oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
 import { advertisedMcpResource } from "@/lib/auth/oauth/resource";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 
-const HTTP_OK = 200;
 const RESOURCE_NAME = "CareerOtter";
 const BEARER_METHODS_SUPPORTED = ["header"];
 
@@ -75,13 +75,13 @@ export function protectedResourceMetadata(requestUrl: string): Record<string, un
 /** GET /.well-known/oauth-authorization-server */
 export function authorizationServerMetadataResponse(): Response {
   if (!isMcpOAuthEnabled()) return oauthNotFound();
-  return oauthJson(authorizationServerMetadata(), HTTP_OK, METADATA_HEADERS);
+  return oauthJson(authorizationServerMetadata(), HTTP_STATUS.OK, METADATA_HEADERS);
 }
 
 /** GET /.well-known/oauth-protected-resource, with or without the /api/mcp suffix. */
 export function protectedResourceMetadataResponse(request: Request): Response {
   if (!isMcpOAuthEnabled()) return oauthNotFound();
-  return oauthJson(protectedResourceMetadata(request.url), HTTP_OK, PROTECTED_RESOURCE_HEADERS);
+  return oauthJson(protectedResourceMetadata(request.url), HTTP_STATUS.OK, PROTECTED_RESOURCE_HEADERS);
 }
 
 /** OPTIONS on any of the metadata documents. */

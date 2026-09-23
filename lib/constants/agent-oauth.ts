@@ -154,15 +154,22 @@ export type AgentOAuthTokenEndpointAuthMethod =
 export const DEFAULT_AGENT_OAUTH_AUTH_METHOD =
   "none" satisfies AgentOAuthTokenEndpointAuthMethod;
 
+export const AGENT_OAUTH_GRANT_TYPE = {
+  authorizationCode: "authorization_code",
+  refreshToken: "refresh_token",
+} as const;
+
 export const AGENT_OAUTH_GRANT_TYPES = [
-  "authorization_code",
-  "refresh_token",
+  AGENT_OAUTH_GRANT_TYPE.authorizationCode,
+  AGENT_OAUTH_GRANT_TYPE.refreshToken,
 ] as const;
 export type AgentOAuthGrantType = (typeof AGENT_OAUTH_GRANT_TYPES)[number];
 
 // Registration must include this one; the refresh grant is optional.
-export const REQUIRED_AGENT_OAUTH_GRANT_TYPE =
-  "authorization_code" satisfies AgentOAuthGrantType;
+export const REQUIRED_AGENT_OAUTH_GRANT_TYPE = AGENT_OAUTH_GRANT_TYPE.authorizationCode;
+
+// Scope parameters are space-separated lists (RFC 6749 §3.3).
+export const AGENT_OAUTH_SCOPE_SEPARATOR = " ";
 
 export const AGENT_OAUTH_RESPONSE_TYPE = "code";
 
@@ -216,7 +223,15 @@ export const AGENT_OAUTH_REGISTRATION_ERROR_CODES = [
 export type AgentOAuthRegistrationErrorCode =
   (typeof AGENT_OAUTH_REGISTRATION_ERROR_CODES)[number];
 
-export const AGENT_OAUTH_TOKEN_KINDS = ["access", "refresh"] as const;
+export const AGENT_OAUTH_TOKEN_KIND = {
+  access: "access",
+  refresh: "refresh",
+} as const;
+
+export const AGENT_OAUTH_TOKEN_KINDS = [
+  AGENT_OAUTH_TOKEN_KIND.access,
+  AGENT_OAUTH_TOKEN_KIND.refresh,
+] as const;
 export type AgentOAuthTokenKind = (typeof AGENT_OAUTH_TOKEN_KINDS)[number];
 
 export const AGENT_OAUTH_REVOKE_REASONS = [
@@ -286,7 +301,7 @@ export type AgentOAuthTokenErrorCode =
 
 // Sent in the 401 challenge so SDK-based clients request the PAT defaults
 // rather than every supported scope.
-export const AGENT_OAUTH_DEFAULT_SCOPE_HINT = DEFAULT_AGENT_TOKEN_SCOPES.join(" ");
+export const AGENT_OAUTH_DEFAULT_SCOPE_HINT = DEFAULT_AGENT_TOKEN_SCOPES.join(AGENT_OAUTH_SCOPE_SEPARATOR);
 
 // ── Redirect URIs ───────────────────────────────────────────────────────────
 
@@ -391,10 +406,15 @@ export const AGENT_OAUTH_RATE_LIMITS = {
   // stored, so malformed requests can't spend it.
   registerGlobal: { tokens: 2000, window: "1 d", keyPrefix: "oauth-register:global" },
   // Charged only after client authentication succeeds, so a caller presenting
-  // another client's id can't drain that client's quota.
+  // another client's id with a bad secret can't drain that client's quota. A
+  // public client (auth method none) proves nothing but its public id, so its
+  // bucket is split per caller IP (IPv6 by /64): see perClientKey in
+  // lib/auth/oauth/token-endpoint.ts.
   tokenPerClient: { tokens: 60, window: "1 m", keyPrefix: "oauth-token:client:" },
   // Counts only failed client authentication, since hosted clients share IPs.
-  // A failed authentication is charged here and nowhere else.
+  // A failed authentication is charged here and nowhere else. It is checked,
+  // without charging, before the client lookup, so an IP over it can't keep
+  // making database queries.
   tokenAuthFailPerIp: { tokens: 600, window: "1 m", keyPrefix: "oauth-token-auth-fail:" },
   // co_oat_ failures at /api/mcp. Bounds database lookups rather than
   // guessing (tokens carry 256 bits); kept apart from the PAT lockout.
@@ -403,9 +423,28 @@ export const AGENT_OAUTH_RATE_LIMITS = {
   perGrant: { ...AGENT_RATE_LIMITS.perToken, keyPrefix: "mcp-oauth-grant:" },
 } as const satisfies Record<string, AgentRateLimit>;
 
-// Rate-limit checks are abandoned after this; registration then fails closed.
+// Rate-limit checks and the token endpoint's side-effect-free lookups (the
+// client, the code, the refresh token) are abandoned after these, and the
+// request fails closed with 503. The lookups are aborted, not just abandoned.
+// The mutating functions are never aborted from here: their lock waits are
+// bounded in the database instead (AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS).
 export const AGENT_OAUTH_DEADLINES_MS = {
   rateLimit: 2_000,
+  dbRead: 5_000,
+} as const;
+
+// `set lock_timeout` on migration 045's functions that wait for the per-user
+// advisory lock or a row lock, so a stuck lock fails the call (503) instead of
+// holding the request until the platform kills it.
+export const AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS = 3;
+
+// delete_expired_agent_oauth_rows removes at most batchSize rows per rule per
+// call, so a backlog can't outrun the statement timeout. The cron calls it
+// again while a rule filled its batch, up to maxRounds calls per run; anything
+// left waits for the next day.
+export const AGENT_OAUTH_CLEANUP = {
+  batchSize: 5000,
+  maxRounds: 10,
 } as const;
 
 // The error code of a 503 from the registration, token and revocation

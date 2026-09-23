@@ -28,7 +28,6 @@ import {
   checkOAuthRateLimit,
   oauthRateLimitedResponse,
   oauthUnavailableResponse,
-  type OAuthLimitVerdict,
 } from "@/lib/auth/oauth/rate-limit";
 import { trackAfterResponse } from "@/lib/careerotter/domain-result";
 import {
@@ -41,21 +40,15 @@ import {
   isMcpOAuthEnabled,
   type AgentOAuthRegistrationErrorCode,
 } from "@/lib/constants/agent-oauth";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 import { clientIp, rateLimitIpKey, readBodyWithinLimit } from "@/lib/http/request";
 import { createRateLimiter } from "@/lib/redis/client";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import type { RegisteredClient } from "@/types";
+import type { OAuthLimitVerdict, RegisteredClient } from "@/types";
 
 export const runtime = "nodejs";
-
-const HTTP = {
-  created: 201,
-  badRequest: 400,
-  payloadTooLarge: 413,
-  internalError: 500,
-} as const;
 
 const RESPONSE_HEADERS = {
   ...AGENT_OAUTH_ENDPOINT_CORS_HEADERS,
@@ -106,7 +99,7 @@ export async function POST(request: Request): Promise<Response> {
   const result = await registerClient(createAdminClient(), validation.registration);
   if (!result.ok) return serverError();
   trackRegistration(result.client);
-  return oauthJson(registrationResponseBody(result.client), HTTP.created, RESPONSE_HEADERS);
+  return oauthJson(registrationResponseBody(result.client), HTTP_STATUS.CREATED, RESPONSE_HEADERS);
 }
 
 export async function OPTIONS(): Promise<Response> {
@@ -123,7 +116,7 @@ async function readJsonBody(
   if (!read.ok) {
     const response =
       read.reason === "too_large"
-        ? registrationError("invalid_client_metadata", MESSAGES.tooLarge, HTTP.payloadTooLarge)
+        ? registrationError("invalid_client_metadata", MESSAGES.tooLarge, HTTP_STATUS.PAYLOAD_TOO_LARGE)
         : rejected("invalid_client_metadata", MESSAGES.unreadable);
     return { ok: false, response };
   }
@@ -193,7 +186,7 @@ function registrationError(
 function serverError(): Response {
   return oauthJson(
     { error: "server_error", error_description: MESSAGES.serverError },
-    HTTP.internalError,
+    HTTP_STATUS.INTERNAL_SERVER_ERROR,
     RESPONSE_HEADERS
   );
 }
@@ -205,7 +198,7 @@ function rejected(error: AgentOAuthRegistrationErrorCode, description: string): 
     action: "mcp_oauth_register_rejected",
     metadata: { error, description },
   });
-  return registrationError(error, description, HTTP.badRequest);
+  return registrationError(error, description, HTTP_STATUS.BAD_REQUEST);
 }
 
 /** RFC 7591 §3.2.1. Only the fields we store are echoed. */

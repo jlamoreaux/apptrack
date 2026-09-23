@@ -11,6 +11,12 @@
  * code or token. Access and refresh tokens are `co_oat_` and `co_ort_`
  * prefixed secrets stored as SHA-256 digests. Rows go through the
  * service-role client. Nothing here throws or logs token material.
+ *
+ * The side-effect-free lookups are aborted after AGENT_OAUTH_DEADLINES_MS.dbRead
+ * (then `unavailable`, a 503). The database functions are never aborted from
+ * here, since a cancelled call could leave the client unsure whether a code or
+ * refresh token was consumed; their lock waits are bounded by lock_timeout in
+ * migration 045 instead, and a timeout comes back as an error (`unavailable`).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -28,13 +34,16 @@ import { isNullableString, isPlainObject, isStringArray } from "@/lib/careerotte
 import { LAST_USED_TOUCH_INTERVAL_MS } from "@/lib/constants/agent-access";
 import {
   AGENT_OAUTH_CODES_TABLE,
+  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_EXCHANGE_OUTCOMES,
   AGENT_OAUTH_GRANT_CAP_DESCRIPTION,
+  AGENT_OAUTH_GRANT_TYPE,
   AGENT_OAUTH_GRANTS_TABLE,
   AGENT_OAUTH_PREFIXES,
   AGENT_OAUTH_REVOKE_OUTCOMES,
   AGENT_OAUTH_ROTATE_OUTCOMES,
   AGENT_OAUTH_RPC,
+  AGENT_OAUTH_TOKEN_KIND,
   AGENT_OAUTH_TOKENS_TABLE,
   type AgentOAuthExchangeOutcome,
   type AgentOAuthRevokeOutcome,
@@ -42,6 +51,8 @@ import {
 } from "@/lib/constants/agent-oauth";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { isExpiredAt } from "@/lib/utils/date";
+import { withAbortableTimeout } from "@/lib/utils/with-timeout";
 import type {
   AgentOAuthAccessTokenLookup,
   AgentOAuthClientRecord,
@@ -76,12 +87,9 @@ type Rejected = Extract<AgentOAuthTokenGrantResult<AgentOAuthIssuedTokens>, { ki
 
 // ── constants ──────────────────────────────────────────────────────────────
 
-const REFRESH_GRANT_TYPE = "refresh_token";
 const CODE_SELECT = "client_id, redirect_uri, code_challenge, resource";
 const REFRESH_TOKEN_SELECT = `kind, grant:${AGENT_OAUTH_GRANTS_TABLE}(client_id, resource, scopes)`;
 const ACCESS_TOKEN_SELECT = `expires_at, grant:${AGENT_OAUTH_GRANTS_TABLE}(id, user_id, scopes, last_used_at, expires_at, revoked_at)`;
-const ACCESS_KIND = "access";
-const REFRESH_KIND = "refresh";
 
 const DESCRIPTIONS = {
   code: "The authorization code is invalid, expired, or doesn't match this request",
@@ -157,6 +165,39 @@ interface CodeRow {
 
 type Lookup<T> = { kind: "found"; row: T } | { kind: "not_found" } | { kind: "unavailable" };
 
+interface LookupQueryResult {
+  data: unknown;
+  error: unknown;
+}
+
+/**
+ * Runs a single-row lookup within AGENT_OAUTH_DEADLINES_MS.dbRead, aborting it
+ * at the deadline, and checks the row's shape. A query error, a timeout or an
+ * unexpected shape is `unavailable` and logged (without token material).
+ */
+async function boundedLookup<T>(
+  run: (signal: AbortSignal) => PromiseLike<LookupQueryResult>,
+  isRow: (value: unknown) => value is T,
+  log: { message: string; action: string; table: string }
+): Promise<Lookup<T>> {
+  const outcome = await withAbortableTimeout(async (signal) => await run(signal), AGENT_OAUTH_DEADLINES_MS.dbRead);
+  if (outcome.timedOut) {
+    logDatabaseFailure(log.message, log.action, `${log.table} lookup timed out`);
+    return { kind: "unavailable" };
+  }
+  const { data, error } = outcome.value;
+  if (error) {
+    logDatabaseFailure(log.message, log.action, error);
+    return { kind: "unavailable" };
+  }
+  if (data === null) return { kind: "not_found" };
+  if (!isRow(data)) {
+    logDatabaseFailure(log.message, log.action, `Unexpected ${log.table} row shape`);
+    return { kind: "unavailable" };
+  }
+  return { kind: "found", row: data };
+}
+
 interface ExchangeRow {
   outcome: AgentOAuthExchangeOutcome;
   grant_id: string | null;
@@ -177,22 +218,18 @@ function isCodeRow(value: unknown): value is CodeRow {
   );
 }
 
-async function loadCode(admin: SupabaseClient, codeHash: string): Promise<Lookup<CodeRow>> {
-  const { data, error } = await admin
-    .from(AGENT_OAUTH_CODES_TABLE)
-    .select(CODE_SELECT)
-    .eq("code_hash", codeHash)
-    .maybeSingle();
-  if (error) {
-    logDatabaseFailure("OAuth code lookup failed", EXCHANGE_ACTION, error);
-    return { kind: "unavailable" };
-  }
-  if (data === null) return { kind: "not_found" };
-  if (!isCodeRow(data)) {
-    logDatabaseFailure("OAuth code lookup failed", EXCHANGE_ACTION, "Unexpected agent_oauth_codes row shape");
-    return { kind: "unavailable" };
-  }
-  return { kind: "found", row: data };
+function loadCode(admin: SupabaseClient, codeHash: string): Promise<Lookup<CodeRow>> {
+  return boundedLookup(
+    (signal) =>
+      admin
+        .from(AGENT_OAUTH_CODES_TABLE)
+        .select(CODE_SELECT)
+        .eq("code_hash", codeHash)
+        .abortSignal(signal)
+        .maybeSingle(),
+    isCodeRow,
+    { message: "OAuth code lookup failed", action: EXCHANGE_ACTION, table: AGENT_OAUTH_CODES_TABLE }
+  );
 }
 
 /**
@@ -281,7 +318,7 @@ function exchangeResult(
 }
 
 function registeredRefreshGrant(client: AgentOAuthClientRecord): boolean {
-  return client.grant_types.some((grantType) => grantType === REFRESH_GRANT_TYPE);
+  return client.grant_types.some((grantType) => grantType === AGENT_OAUTH_GRANT_TYPE.refreshToken);
 }
 
 async function exchange(
@@ -368,25 +405,18 @@ function isRefreshTokenRow(value: unknown): value is RefreshTokenRow {
   );
 }
 
-async function loadRefreshToken(
-  admin: SupabaseClient,
-  tokenHash: string
-): Promise<Lookup<RefreshTokenRow>> {
-  const { data, error } = await admin
-    .from(AGENT_OAUTH_TOKENS_TABLE)
-    .select(REFRESH_TOKEN_SELECT)
-    .eq("token_hash", tokenHash)
-    .maybeSingle();
-  if (error) {
-    logDatabaseFailure("OAuth refresh token lookup failed", REFRESH_ACTION, error);
-    return { kind: "unavailable" };
-  }
-  if (data === null) return { kind: "not_found" };
-  if (!isRefreshTokenRow(data)) {
-    logDatabaseFailure("OAuth refresh token lookup failed", REFRESH_ACTION, "Unexpected agent_oauth_tokens row shape");
-    return { kind: "unavailable" };
-  }
-  return { kind: "found", row: data };
+function loadRefreshToken(admin: SupabaseClient, tokenHash: string): Promise<Lookup<RefreshTokenRow>> {
+  return boundedLookup(
+    (signal) =>
+      admin
+        .from(AGENT_OAUTH_TOKENS_TABLE)
+        .select(REFRESH_TOKEN_SELECT)
+        .eq("token_hash", tokenHash)
+        .abortSignal(signal)
+        .maybeSingle(),
+    isRefreshTokenRow,
+    { message: "OAuth refresh token lookup failed", action: REFRESH_ACTION, table: AGENT_OAUTH_TOKENS_TABLE }
+  );
 }
 
 /**
@@ -400,7 +430,7 @@ function refreshMismatch(
   request: RefreshRequest
 ): Rejected | null {
   const grant = row.grant;
-  if (row.kind !== REFRESH_KIND || grant === null || grant.client_id !== client.client_id) {
+  if (row.kind !== AGENT_OAUTH_TOKEN_KIND.refresh || grant === null || grant.client_id !== client.client_id) {
     return rejectRefresh("unknown_refresh_token");
   }
   if (!resourceMatches(request.resource, grant.resource)) {
@@ -606,15 +636,11 @@ function isAccessTokenRow(value: unknown): value is AccessTokenRow {
   );
 }
 
-function isPast(timestamp: string | null, now: Date): boolean {
-  return timestamp !== null && Date.parse(timestamp) <= now.getTime();
-}
-
 function accessLookupFromRow(row: AccessTokenRow, now: Date): AgentOAuthAccessTokenLookup {
   const grant = row.grant;
   if (grant === null) return { kind: "not_found" };
   if (grant.revoked_at !== null) return { kind: "revoked" };
-  if (isPast(row.expires_at, now) || isPast(grant.expires_at, now)) return { kind: "expired" };
+  if (isExpiredAt(row.expires_at, now) || isExpiredAt(grant.expires_at, now)) return { kind: "expired" };
   return {
     kind: "active",
     grantId: grant.id,
@@ -634,7 +660,7 @@ async function lookupAccess(
     .from(AGENT_OAUTH_TOKENS_TABLE)
     .select(ACCESS_TOKEN_SELECT)
     .eq("token_hash", tokenHash)
-    .eq("kind", ACCESS_KIND);
+    .eq("kind", AGENT_OAUTH_TOKEN_KIND.access);
   const { data, error } = await (signal ? query.abortSignal(signal) : query).maybeSingle();
   // The caller aborted because it stopped waiting and already reported why.
   if (signal?.aborted) return { kind: "unavailable" };

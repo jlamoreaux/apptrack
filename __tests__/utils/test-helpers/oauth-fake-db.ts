@@ -2,12 +2,19 @@
  * An in-memory stand-in for migration 045's tables and the functions the
  * token and revocation endpoints call, for route tests. It follows the SQL's
  * rules (code reuse revokes, the grace window supersedes earlier successors,
- * expiries capped by the grant) closely enough to exercise the endpoints end
- * to end; the SQL itself is verified by schemas/tests/045_mcp_oauth_verify.sql.
+ * rotation deletes the grant's expired access tokens, expiries capped by the
+ * grant) closely enough to exercise the endpoints end to end; the SQL itself
+ * is verified by schemas/tests/045_mcp_oauth_verify.sql.
  *
  * Supports exactly the queries the endpoints make:
- * from(table).select(columns).eq(...).maybeSingle() on clients, codes and
- * tokens, and rpc(name, args).single().
+ * from(table).select(columns).eq(...).abortSignal(signal).maybeSingle() on
+ * clients, codes and tokens, and rpc(name, args).single(). select() parses
+ * its column list, including an embedded `alias:table(columns)`, returns only
+ * those keys and throws on a column the table doesn't have, as PostgREST
+ * would refuse it. Every from() is recorded in `queries` and every rpc() in
+ * `rpcCalls`, so tests can assert that nothing reached the database.
+ *
+ * Also holds the fixtures and request builders the OAuth route suites share.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -16,6 +23,7 @@ import { s256Challenge } from "@/lib/auth/oauth/pkce";
 import {
   AGENT_OAUTH_CLIENTS_TABLE,
   AGENT_OAUTH_CODES_TABLE,
+  AGENT_OAUTH_GRANTS_TABLE,
   AGENT_OAUTH_LIFETIME_SECONDS,
   AGENT_OAUTH_LIMITS,
   AGENT_OAUTH_PREFIXES,
@@ -26,6 +34,12 @@ import {
   type AgentOAuthRevokeReason,
   type AgentOAuthTokenEndpointAuthMethod,
 } from "@/lib/constants/agent-oauth";
+
+export const OAUTH_TEST_ORIGIN = "https://careerotter.io";
+export const OAUTH_TEST_IP = "203.0.113.7";
+export const OAUTH_TEST_REDIRECT = "https://app.example/callback";
+// RFC 7636 appendix B.
+export const OAUTH_TEST_VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 
 const MS = 1000;
 const START_MS = Date.parse("2026-09-23T12:00:00.000Z");
@@ -102,6 +116,60 @@ type Filters = Record<string, unknown>;
 type RpcArgs = Record<string, unknown>;
 type RpcRow = Record<string, unknown>;
 
+/** One entry of a PostgREST select list: a column, or `alias:table(columns)`. */
+type SelectedColumn =
+  | { kind: "column"; name: string }
+  | { kind: "embedded"; alias: string; table: string; columns: SelectedColumn[] };
+
+const EMBEDDED_PATTERN = /^(\w+):(\w+)\(([\s\S]*)\)$/;
+const COLUMN_PATTERN = /^\w+$/;
+
+// The embeddings the endpoints use: the foreign key from a table to the
+// embedded one.
+const EMBEDDED_FOREIGN_KEYS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  [AGENT_OAUTH_TOKENS_TABLE]: { [AGENT_OAUTH_GRANTS_TABLE]: "grant_id" },
+};
+
+/** Splits on commas outside parentheses. */
+function splitTopLevel(list: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let current = "";
+  for (const char of list) {
+    if (char === "(") depth++;
+    if (char === ")") depth--;
+    if (char === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  parts.push(current);
+  return parts.map((part) => part.trim());
+}
+
+function parseSelect(list: string): SelectedColumn[] {
+  return splitTopLevel(list).map((entry) => {
+    const embedded = EMBEDDED_PATTERN.exec(entry);
+    if (embedded !== null) {
+      return { kind: "embedded", alias: embedded[1], table: embedded[2], columns: parseSelect(embedded[3]) };
+    }
+    if (!COLUMN_PATTERN.test(entry)) throw new Error(`OAuthFakeDb: can't parse select entry "${entry}"`);
+    return { kind: "column", name: entry };
+  });
+}
+
+function isoOrNull(ms: number | null): string | null {
+  return ms === null ? null : new Date(ms).toISOString();
+}
+
+function abortError(): Error {
+  const error = new Error("The operation was aborted");
+  error.name = "AbortError";
+  return error;
+}
+
 // Postgres returns every OUT column, null unless set.
 const EXCHANGE_ROW: RpcRow = {
   grant_id: null,
@@ -130,6 +198,14 @@ export class OAuthFakeDb {
   readonly grants = new Map<string, FakeGrant>();
   readonly tokens = new Map<string, FakeToken>();
   readonly rpcCalls: { name: string; args: RpcArgs }[] = [];
+  /** Every table queried with from(), in order. */
+  readonly queries: string[] = [];
+  /** Queries on these tables never answer; aborting one rejects it, as fetch does. */
+  readonly stalledTables = new Set<string>();
+  /** Tables whose stalled query was aborted by its caller. */
+  readonly abortedQueries: string[] = [];
+  /** Functions that answer with this error instead of running (e.g. a lock timeout). */
+  readonly rpcErrors = new Map<string, unknown>();
   private nextId = 1;
 
   readonly client = {
@@ -138,6 +214,11 @@ export class OAuthFakeDb {
       single: () => Promise.resolve(this.callRpc(name, args)),
     }),
   } as unknown as SupabaseClient;
+
+  /** True when neither a table nor a function has been touched. */
+  get untouched(): boolean {
+    return this.queries.length === 0 && this.rpcCalls.length === 0;
+  }
 
   advanceSeconds(seconds: number): void {
     this.nowMs += seconds * MS;
@@ -154,7 +235,7 @@ export class OAuthFakeDb {
       grant_types: options.grantTypes ?? ["authorization_code", "refresh_token"],
       client_name: options.name ?? "Test app",
       client_uri: null,
-      redirect_uris: options.redirectUris ?? ["https://app.example/callback"],
+      redirect_uris: options.redirectUris ?? [OAUTH_TEST_REDIRECT],
       created_at: new Date(this.nowMs).toISOString(),
       first_authorized_at: null,
     });
@@ -198,74 +279,123 @@ export class OAuthFakeDb {
   // ── queries ──────────────────────────────────────────────────────────────
 
   private query(table: string) {
+    this.queries.push(table);
     const filters: Filters = {};
+    let columns: SelectedColumn[] | null = null;
+    let signal: AbortSignal | undefined;
     const builder = {
-      select: () => builder,
+      select: (list: string) => {
+        columns = parseSelect(list);
+        return builder;
+      },
       eq: (column: string, value: unknown) => {
         filters[column] = value;
         return builder;
       },
-      maybeSingle: () => Promise.resolve({ data: this.selectOne(table, filters), error: null }),
+      abortSignal: (abort: AbortSignal) => {
+        signal = abort;
+        return builder;
+      },
+      maybeSingle: () => {
+        if (this.stalledTables.has(table)) return this.stall(table, signal);
+        if (columns === null) throw new Error(`OAuthFakeDb: ${table} queried without select()`);
+        return Promise.resolve({ data: this.selectOne(table, columns, filters), error: null });
+      },
     };
     return builder;
   }
 
-  private selectOne(table: string, filters: Filters): Row | null {
+  private stall(table: string, signal: AbortSignal | undefined): Promise<never> {
+    return new Promise((_resolve, reject) => {
+      signal?.addEventListener("abort", () => {
+        this.abortedQueries.push(table);
+        reject(abortError());
+      });
+    });
+  }
+
+  private selectOne(table: string, columns: SelectedColumn[], filters: Filters): Row | null {
+    const rows = this.rowsOf(table);
+    const match = rows.find((row) =>
+      Object.entries(filters).every(([column, value]) => {
+        if (!(column in row)) throw new Error(`OAuthFakeDb: ${table} has no column ${column}`);
+        return row[column] === value;
+      })
+    );
+    return match === undefined ? null : this.project(table, match, columns);
+  }
+
+  /** Only the selected keys, as PostgREST returns them. */
+  private project(table: string, row: Row, columns: SelectedColumn[]): Row {
+    const projected: Row = {};
+    for (const column of columns) {
+      if (column.kind === "column") {
+        if (!(column.name in row)) throw new Error(`OAuthFakeDb: ${table} has no column ${column.name}`);
+        projected[column.name] = row[column.name];
+        continue;
+      }
+      const foreignKey = EMBEDDED_FOREIGN_KEYS[table]?.[column.table];
+      if (foreignKey === undefined) throw new Error(`OAuthFakeDb: no relation from ${table} to ${column.table}`);
+      const related = this.rowsOf(column.table).find((candidate) => candidate.id === row[foreignKey]);
+      projected[column.alias] = related === undefined ? null : this.project(column.table, related, column.columns);
+    }
+    return projected;
+  }
+
+  /** Every row of a table, with the migration's column names. */
+  private rowsOf(table: string): Row[] {
     switch (table) {
       case AGENT_OAUTH_CLIENTS_TABLE:
-        return this.clientRow(String(filters.client_id));
+        return [...this.clients.values()].map((client) => ({ ...client }));
       case AGENT_OAUTH_CODES_TABLE:
-        return this.codeRow(String(filters.code_hash));
+        return [...this.codes].map(([codeHash, code]) => ({
+          code_hash: codeHash,
+          client_id: code.client_id,
+          user_id: code.user_id,
+          redirect_uri: code.redirect_uri,
+          code_challenge: code.code_challenge,
+          scopes: code.scopes,
+          grant_expires_in: code.grantExpiresInSeconds === null ? null : `${code.grantExpiresInSeconds} seconds`,
+          resource: code.resource,
+          expires_at: isoOrNull(code.expiresAtMs),
+          used_at: isoOrNull(code.usedAtMs),
+          grant_id: code.grant_id,
+        }));
       case AGENT_OAUTH_TOKENS_TABLE:
-        return this.tokenRow(String(filters.token_hash), filters.kind);
+        return [...this.tokens].map(([tokenHash, token]) => ({
+          token_hash: tokenHash,
+          grant_id: token.grant_id,
+          kind: token.kind,
+          pair_id: token.pair_id,
+          rotated_from_hash: token.rotated_from_hash,
+          expires_at: isoOrNull(token.expiresAtMs),
+          consumed_at: isoOrNull(token.consumedAtMs),
+          superseded_at: isoOrNull(token.supersededAtMs),
+          grace_reissues: token.grace_reissues,
+        }));
+      case AGENT_OAUTH_GRANTS_TABLE:
+        return [...this.grants.values()].map((grant) => ({
+          id: grant.id,
+          user_id: grant.user_id,
+          client_id: grant.client_id,
+          client_name: grant.client_name,
+          resource: grant.resource,
+          scopes: grant.scopes,
+          expires_at: isoOrNull(grant.expiresAtMs),
+          last_used_at: isoOrNull(grant.lastUsedAtMs),
+          revoked_at: isoOrNull(grant.revokedAtMs),
+          revoke_reason: grant.revoke_reason,
+        }));
       default:
         throw new Error(`OAuthFakeDb: unexpected table ${table}`);
     }
-  }
-
-  private clientRow(clientId: string): Row | null {
-    const client = this.clients.get(clientId);
-    return client === undefined ? null : { ...client };
-  }
-
-  private codeRow(codeHash: string): Row | null {
-    const code = this.codes.get(codeHash);
-    if (code === undefined) return null;
-    return {
-      client_id: code.client_id,
-      redirect_uri: code.redirect_uri,
-      code_challenge: code.code_challenge,
-      resource: code.resource,
-    };
-  }
-
-  private tokenRow(tokenHash: string, kind: unknown): Row | null {
-    const token = this.tokens.get(tokenHash);
-    if (token === undefined || (kind !== undefined && token.kind !== kind)) return null;
-    const grant = this.grants.get(token.grant_id);
-    return {
-      kind: token.kind,
-      expires_at: new Date(token.expiresAtMs).toISOString(),
-      grant:
-        grant === undefined
-          ? null
-          : {
-              id: grant.id,
-              user_id: grant.user_id,
-              client_id: grant.client_id,
-              resource: grant.resource,
-              scopes: grant.scopes,
-              last_used_at: new Date(grant.lastUsedAtMs).toISOString(),
-              expires_at: grant.expiresAtMs === null ? null : new Date(grant.expiresAtMs).toISOString(),
-              revoked_at: grant.revokedAtMs === null ? null : new Date(grant.revokedAtMs).toISOString(),
-            },
-    };
   }
 
   // ── functions ────────────────────────────────────────────────────────────
 
   private callRpc(name: string, args: RpcArgs): { data: RpcRow | null; error: unknown } {
     this.rpcCalls.push({ name, args });
+    if (this.rpcErrors.has(name)) return { data: null, error: this.rpcErrors.get(name) };
     switch (name) {
       case AGENT_OAUTH_RPC.exchangeCode:
         return { data: { ...EXCHANGE_ROW, ...this.exchange(args) }, error: null };
@@ -466,6 +596,11 @@ export class OAuthFakeDb {
     }
     const issued = this.issueTokens(grant, String(args.p_new_access_hash), String(args.p_new_refresh_hash), presentedHash);
     grant.lastUsedAtMs = this.nowMs;
+    for (const [hash, other] of this.tokens) {
+      if (other.grant_id === grant.id && other.kind === "access" && other.expiresAtMs <= this.nowMs) {
+        this.tokens.delete(hash);
+      }
+    }
     return { outcome: "ok", grant_id: grant.id, user_id: grant.user_id, scopes: grant.scopes, ...issued };
   }
 
@@ -478,4 +613,65 @@ export class OAuthFakeDb {
     const outcome = this.revokeGrantRow(grant.id, "client") ? "revoked" : "already_revoked";
     return { outcome, grant_id: grant.id };
   }
+}
+
+// ── shared request builders ────────────────────────────────────────────────
+
+type RoutePost = (request: Request) => Promise<Response>;
+
+/** A form-encoded POST to `path`, from OAUTH_TEST_IP unless headers say otherwise. */
+export function oauthFormRequest(
+  path: string,
+  fields: Record<string, string> | URLSearchParams,
+  headers: Record<string, string> = {}
+): Request {
+  return new Request(`${OAUTH_TEST_ORIGIN}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      "x-forwarded-for": OAUTH_TEST_IP,
+      ...headers,
+    },
+    body: new URLSearchParams(fields).toString(),
+  });
+}
+
+/**
+ * A public client with both grants, connected through the token endpoint's
+ * POST: registers the client, stores a code and exchanges it.
+ */
+export async function connectOAuthClient(
+  db: OAuthFakeDb,
+  tokenPost: RoutePost
+): Promise<{ clientId: string; accessToken: string; refreshToken: string }> {
+  const { clientId } = db.addClient();
+  const code = db.addCode({ clientId, redirectUri: OAUTH_TEST_REDIRECT, verifier: OAUTH_TEST_VERIFIER });
+  const response = await tokenPost(
+    oauthFormRequest("/api/oauth/token", {
+      grant_type: "authorization_code",
+      client_id: clientId,
+      code,
+      code_verifier: OAUTH_TEST_VERIFIER,
+      redirect_uri: OAUTH_TEST_REDIRECT,
+    })
+  );
+  const body = await response.json();
+  if (typeof body.access_token !== "string" || typeof body.refresh_token !== "string") {
+    throw new Error(`exchange failed: ${JSON.stringify(body)}`);
+  }
+  return { clientId, accessToken: body.access_token, refreshToken: body.refresh_token };
+}
+
+/**
+ * `raw` with one checksum character changed: the right prefix and length, but
+ * a checksum that no longer matches, so the format check alone rejects it.
+ */
+export function withBadChecksum(raw: string): string {
+  const last = raw.slice(-1);
+  return `${raw.slice(0, -1)}${last === "0" ? "1" : "0"}`;
+}
+
+/** `Authorization: Basic` for a client id and secret (RFC 6749 §2.3.1). */
+export function basicAuthorization(clientId: string, secret: string): Record<string, string> {
+  return { authorization: `Basic ${Buffer.from(`${clientId}:${secret}`).toString("base64")}` };
 }

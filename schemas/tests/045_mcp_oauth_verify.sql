@@ -65,6 +65,13 @@ select pg_temp.check('A: internal ' || p.proname || ' not executable by service_
 select pg_temp.check('A: all 10 security definer functions set search_path=public',
   (select count(*) = 10 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like '%agent_oauth%'
      and p.prosecdef and p.proconfig @> array['search_path=public']));
+select pg_temp.check('A: ' || p.proname || ' bounds lock waits with lock_timeout = 3s',
+    p.proconfig @> array['lock_timeout=3s'])
+  from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in (
+    'create_agent_oauth_code', 'exchange_agent_oauth_code', 'rotate_agent_oauth_refresh', 'revoke_agent_oauth_grant',
+    'revoke_all_agent_oauth_grants', 'revoke_agent_oauth_token');
+select pg_temp.check('A: 6 functions set lock_timeout',
+  (select count(*) = 6 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proconfig @> array['lock_timeout=3s']));
 select pg_temp.check('A: RLS on for ' || c.relname, c.relrowsecurity)
   from pg_class c where c.relnamespace = 'public'::regnamespace and c.relname like 'agent_oauth_%' and c.relkind = 'r';
 select pg_temp.check('A: no policies on agent_oauth tables', not exists (select 1 from pg_policies where tablename like 'agent_oauth_%'));
@@ -426,6 +433,27 @@ select pg_temp.check('G6: replaying rt0 within 60 s -> refresh_reuse (its succes
   and (select revoke_reason = 'refresh_reuse' from agent_oauth_grants where id = :'g6_grant_id')
   and not exists (select 1 from agent_oauth_tokens where grant_id = :'g6_grant_id'));
 
+-- ═══ G8. Two refreshes race and the client keeps the older successor ═══
+-- rt0 -> rt1, then a racing rt0 -> rt2 inside the grace window supersedes rt1.
+-- If the client stores rt1 (say, its response arrived last), its next refresh,
+-- however much later, presents a superseded token: reuse, the grant is revoked.
+select pg_temp.check('G8: create code',
+  (select outcome = 'ok' from create_agent_oauth_code(pg_temp.uid('u5'), pg_temp.cid('c8'), pg_temp.h('g8'), 'https://example.com/cb', :chal, array['wins:read'], null, :res)));
+select * from exchange_agent_oauth_code(pg_temp.h('g8'), pg_temp.cid('c8'), pg_temp.h('g8-at0'), pg_temp.h('g8-rt0'), true) \gset g8_
+select pg_temp.check('G8: rt0 -> rt1, then a racing rt0 -> rt2',
+  (select outcome = 'ok' from rotate_agent_oauth_refresh(pg_temp.h('g8-rt0'), pg_temp.cid('c8'), pg_temp.h('g8-at1'), pg_temp.h('g8-rt1')))
+  and (select outcome = 'ok' from rotate_agent_oauth_refresh(pg_temp.h('g8-rt0'), pg_temp.cid('c8'), pg_temp.h('g8-at2'), pg_temp.h('g8-rt2'))));
+-- A day passes before the client refreshes again.
+update agent_oauth_tokens set consumed_at = consumed_at - interval '1 day', superseded_at = superseded_at - interval '1 day'
+  where grant_id = :'g8_grant_id';
+select pg_temp.check('G8: a day later, refreshing with the kept older successor rt1 -> refresh_reuse',
+  (select outcome = 'refresh_reuse' and grant_id = :'g8_grant_id'
+   from rotate_agent_oauth_refresh(pg_temp.h('g8-rt1'), pg_temp.cid('c8'), pg_temp.h('g8-at3'), pg_temp.h('g8-rt3'))));
+select pg_temp.check('G8: grant revoked (refresh_reuse), all tokens deleted, the newer successor rt2 no longer works',
+  (select revoke_reason = 'refresh_reuse' from agent_oauth_grants where id = :'g8_grant_id')
+  and not exists (select 1 from agent_oauth_tokens where grant_id = :'g8_grant_id')
+  and (select outcome = 'invalid_grant' from rotate_agent_oauth_refresh(pg_temp.h('g8-rt2'), pg_temp.cid('c8'), pg_temp.h('g8-at4'), pg_temp.h('g8-rt4'))));
+
 -- ═══ G7. Token CHECKs ═══
 do $$ begin
   insert into agent_oauth_tokens (token_hash, grant_id, kind, pair_id, rotated_from_hash, expires_at)
@@ -505,12 +533,16 @@ select pg_temp.check('H: revoked access token cannot be rotated / looked up as a
 -- ═══ I. Cleanup ═══
 insert into agent_oauth_clients (client_id, token_endpoint_auth_method, grant_types, client_name, redirect_uris, created_at, first_authorized_at) values
   (pg_temp.cid('i-old'),      'none', array['authorization_code'], 'Old unused',  array['https://example.com/cb'], now() - interval '25 hours', null),
+  (pg_temp.cid('i-oldcode'),  'none', array['authorization_code'], 'Old, live code', array['https://example.com/cb'], now() - interval '25 hours', null),
   (pg_temp.cid('i-new'),      'none', array['authorization_code'], 'New unused',  array['https://example.com/cb'], now() - interval '23 hours', null),
   (pg_temp.cid('i-grant'),    'none', array['authorization_code'], 'Has grant',   array['https://example.com/cb'], now() - interval '25 hours', null),
   (pg_temp.cid('i-authold'),  'none', array['authorization_code'], 'Authorized',  array['https://example.com/cb'], now() - interval '40 days', now() - interval '40 days');
--- A code on the old unused client disappears with it (cascade), but isn't past retention itself.
+-- An expired code on the old unused client disappears with it (cascade), but
+-- isn't past retention itself. An unexpired code keeps its client: the user
+-- may have just approved it.
 insert into agent_oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scopes, resource, expires_at) values
-  (pg_temp.h('i-code-oldclient'), pg_temp.cid('i-old'), pg_temp.uid('u9'), 'https://example.com/cb', :chal, array['wins:read'], :res, now() + interval '1 minute'),
+  (pg_temp.h('i-code-oldclient'), pg_temp.cid('i-old'), pg_temp.uid('u9'), 'https://example.com/cb', :chal, array['wins:read'], :res, now() - interval '1 minute'),
+  (pg_temp.h('i-code-live'), pg_temp.cid('i-oldcode'), pg_temp.uid('u9'), 'https://example.com/cb', :chal, array['wins:read'], :res, now() + interval '4 minutes'),
   (pg_temp.h('i-code-2d'),  pg_temp.cid('c14'), pg_temp.uid('u9'), 'https://example.com/cb', :chal, array['wins:read'], :res, now() - interval '2 days'),
   (pg_temp.h('i-code-1h'),  pg_temp.cid('c14'), pg_temp.uid('u9'), 'https://example.com/cb', :chal, array['wins:read'], :res, now() - interval '1 hour');
 insert into agent_oauth_grants (id, user_id, client_id, client_name, resource, scopes, expires_at, last_used_at) values
@@ -548,6 +580,9 @@ select pg_temp.check('I: unused client >24 h deleted (its code cascaded); unused
   not exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-old'))
   and not exists (select 1 from agent_oauth_codes where code_hash = pg_temp.h('i-code-oldclient'))
   and exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-new')));
+select pg_temp.check('I: unused client >24 h with an unexpired code kept, and its code with it',
+  exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-oldcode'))
+  and exists (select 1 from agent_oauth_codes where code_hash = pg_temp.h('i-code-live')));
 select pg_temp.check('I: client with a grant never deleted (even with first_authorized_at null); authorized old client kept',
   exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-grant'))
   and exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-authold')));
@@ -560,6 +595,23 @@ select * from delete_expired_agent_oauth_rows() \gset i2_
 select pg_temp.check('I: second run is a no-op',
   :i2_idle_grants_revoked = 0 and :i2_codes_deleted = 0 and :i2_access_tokens_deleted = 0
   and :i2_refresh_tokens_deleted = 0 and :i2_clients_deleted = 0);
+update agent_oauth_codes set expires_at = now() - interval '1 second' where code_hash = pg_temp.h('i-code-live');
+select * from delete_expired_agent_oauth_rows() \gset i3_
+select pg_temp.check('I: once its code has expired, the unused client is deleted',
+  :i3_clients_deleted = 1
+  and not exists (select 1 from agent_oauth_clients where client_id = pg_temp.cid('i-oldcode')));
+
+-- Batches: 5003 expired access tokens take two calls, 5000 then 3.
+insert into agent_oauth_tokens (token_hash, grant_id, kind, pair_id, expires_at)
+  select pg_temp.h('i-batch-' || i), '00000000-0000-0000-0000-0000000000a1', 'access', gen_random_uuid(), now() - interval '2 days'
+  from generate_series(1, 5003) i;
+select * from delete_expired_agent_oauth_rows() \gset i4_
+select * from delete_expired_agent_oauth_rows() \gset i5_
+select pg_temp.check(format('I: a backlog is deleted in batches of 5000 (first call %s, second %s)',
+    :i4_access_tokens_deleted, :i5_access_tokens_deleted),
+  :i4_access_tokens_deleted = 5000 and :i5_access_tokens_deleted = 3
+  and not exists (select 1 from agent_oauth_tokens where token_hash = pg_temp.h('i-batch-1')));
+
 do $$ begin
   delete from agent_oauth_clients where client_id = 'co_client_' || substr(md5('i-grant'), 1, 22);
   raise exception 'FAIL: client with grants deleted';

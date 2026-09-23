@@ -2,7 +2,8 @@
 # Runs the migration 045 behavioral checks against a throwaway local
 # Postgres 16: the Supabase stubs, the migration, 045_mcp_oauth_verify.sql,
 # then the checks that need several sessions at once (parallel exchanges and
-# refreshes, lock order against cleanup). Run by hand; not run by Jest or CI.
+# refreshes, lock order against cleanup, lock timeouts). Run by hand; not run
+# by Jest or CI.
 #
 # DESTRUCTIVE: drops the public and auth schemas and the anon, authenticated
 # and service_role roles of the database it connects to. Never point it at
@@ -160,28 +161,36 @@ echo "K2: parallel refresh outcomes: ok=$ok refresh_reuse=$reuse (of 7)"
   || fail "K2: expected 6 ok and 1 refresh_reuse"
 
 # ── L. A first exchange in flight vs cleanup deleting its unused client ────
-# A trigger stalls the exchange mid-way (after it has locked the code row)
-# while cleanup tries to delete the client. Locking the client row first
-# makes cleanup wait and then skip the client, instead of deadlocking.
+# Cleanup skips a client with an unexpired code, so to reach the lock-order
+# path the code expires while the exchange is stalled: the exchange checked
+# expiry against its own start time, and cleanup, starting later, sees the
+# code as expired and picks the client. A trigger stalls the exchange mid-way
+# (after it has locked the client and code rows). Locking the client row
+# first makes cleanup wait and then skip the client (first_authorized_at is
+# re-checked on the updated row), instead of deadlocking.
 add_client l1 '25 hours'
 [ "$(create_code u4 l1 l1)" = ok ]
 "${PSQL[@]}" <<SQL
 create function public.verify_045_stall_grant () returns trigger language plpgsql as \$\$
 begin
-  if new.client_id = $(cid l1) then perform pg_sleep(2); end if;
+  if new.client_id = $(cid l1) then perform pg_sleep(3); end if;
   return new;
 end \$\$;
 create trigger verify_045_stall_grant before insert on public.agent_oauth_grants
   for each row execute function public.verify_045_stall_grant ();
 SQL
+q "update agent_oauth_codes set expires_at = clock_timestamp() + interval '1 second' where code_hash = $(h l1)"
 q "set role service_role; select outcome from exchange_agent_oauth_code($(h l1), $(cid l1), $(h l1-at), $(h l1-rt), true)" >"$OUT/l.exchange" 2>&1 &
-sleep 0.5
+sleep 1.5
+start=$(date +%s%N)
 if cleanup=$(q "set role service_role; select clients_deleted from delete_expired_agent_oauth_rows()" 2>&1); then
+  elapsed_ms=$(( ($(date +%s%N) - start) / 1000000 ))
   wait
   [ "$(cat "$OUT/l.exchange")" = ok ] \
     && [ "$(q "select first_authorized_at is not null from agent_oauth_clients where client_id = $(cid l1)")" = t ] \
-    && pass "L: exchange and cleanup ran concurrently without deadlock; exchange ok, client kept (cleanup deleted $cleanup other client(s))" \
-    || fail "L: exchange=$(cat "$OUT/l.exchange") client state wrong"
+    && [ "$elapsed_ms" -ge 500 ] \
+    && pass "L: cleanup waited ${elapsed_ms} ms for the in-flight exchange, then kept its client; exchange ok (cleanup deleted $cleanup other client(s))" \
+    || fail "L: exchange=$(cat "$OUT/l.exchange") elapsed=${elapsed_ms}ms client state wrong"
 else
   wait
   fail "L: cleanup failed while an exchange was in flight: $cleanup (exchange: $(cat "$OUT/l.exchange"))"
@@ -236,6 +245,41 @@ wait
   && [ "$(q "select count(*) from agent_oauth_tokens where grant_id = '00000000-0000-0000-0000-0000000000b1'")" = 0 ] \
   && pass "N: the next run revokes the grant once it's unlocked" \
   || fail "N: the next run did not revoke the previously locked grant"
+
+# ── O. Lock waits are bounded by lock_timeout ─────────────────────────────
+# A rotation waiting on a grant row lock, and an exchange waiting on the
+# per-user advisory lock, fail with lock_not_available after about 3 s instead
+# of waiting for the holder.
+lock_wait() { # label holder_sql call_sql
+  q "$2" >/dev/null 2>&1 &
+  sleep 0.5
+  local start elapsed_ms out
+  start=$(date +%s%N)
+  out=$(q "set role service_role; $3" 2>&1 || true)
+  elapsed_ms=$(( ($(date +%s%N) - start) / 1000000 ))
+  wait
+  if grep -q "lock timeout" <<<"$out" && [ "$elapsed_ms" -ge 2500 ] && [ "$elapsed_ms" -lt 4500 ]; then
+    pass "O: $1 gave up after ${elapsed_ms} ms with a lock timeout"
+  else
+    fail "O: $1: elapsed=${elapsed_ms}ms out=$out"
+  fi
+}
+exchange_fresh u7 c4 o
+o_grant=$(q "select grant_id from agent_oauth_tokens where token_hash = $(h o-rt0)")
+lock_wait "rotation behind a held grant row lock" \
+  "begin; select 1 from agent_oauth_grants where id = '$o_grant' for update; select pg_sleep(6); commit;" \
+  "select outcome from rotate_agent_oauth_refresh($(h o-rt0), $(cid c4), $(h o-at1), $(h o-rt1))"
+[ "$(q "select consumed_at is null from agent_oauth_tokens where token_hash = $(h o-rt0)")" = t ] \
+  && pass "O: the timed-out rotation consumed nothing" || fail "O: the timed-out rotation left changes"
+[ "$(create_code u7 c5 o2)" = ok ] || fail "O: create code o2"
+lock_wait "exchange behind the held per-user advisory lock" \
+  "begin; select pg_advisory_xact_lock(hashtext('agent_tokens:' || $(uid u7)::text)); select pg_sleep(6); commit;" \
+  "select outcome from exchange_agent_oauth_code($(h o2), $(cid c5), $(h o2-at), $(h o2-rt), true)"
+[ "$(q "select used_at is null from agent_oauth_codes where code_hash = $(h o2)")" = t ] \
+  && pass "O: the timed-out exchange left the code unused" || fail "O: the timed-out exchange used the code"
+lock_wait "client revocation behind a held grant row lock" \
+  "begin; select 1 from agent_oauth_grants where id = '$o_grant' for update; select pg_sleep(6); commit;" \
+  "select outcome from revoke_agent_oauth_token($(h o-rt0), $(cid c4))"
 
 echo "multi-session failures: $failures"
 [ "$failures" = 0 ]

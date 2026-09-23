@@ -763,13 +763,57 @@ export type AgentOAuthTokenRevocation =
   | { ok: false; kind: "unavailable" };
 
 /**
- * Outcome of the cleanup cron's call. `missing_function` means migration 045
- * hasn't run yet.
+ * Outcome of the cleanup cron's run: the counts summed over every call of
+ * delete_expired_agent_oauth_rows. `complete` is false when the run stopped at
+ * the round limit with rows left for the next run. `missing_function` means
+ * migration 045 hasn't run yet. `failed` carries what earlier rounds did.
  */
 export type AgentOAuthCleanupRun =
-  | { kind: "ok"; counts: AgentOAuthCleanupResult }
+  | { kind: "ok"; counts: AgentOAuthCleanupResult; rounds: number; complete: boolean }
   | { kind: "missing_function" }
-  | { kind: "failed" };
+  | { kind: "failed"; counts: AgentOAuthCleanupResult; rounds: number };
+
+/** Why OAuth client authentication failed; for security logs, never for the response body. */
+export type AgentOAuthClientAuthFailureReason =
+  | "missing_client_id"
+  | "malformed_basic"
+  | "multiple_methods"
+  | "unknown_client"
+  | "method_mismatch"
+  | "wrong_secret";
+
+/**
+ * Outcome of authenticating a client at the token or revocation endpoint. On
+ * `invalid_client` the caller answers 401, adding `WWW-Authenticate: Basic`
+ * when `usedBasic` (RFC 6749 §5.2); `unavailable` means the database couldn't
+ * be reached in time.
+ */
+export type AgentOAuthClientAuthentication =
+  | { ok: true; client: AgentOAuthClientRecord }
+  | {
+      ok: false;
+      kind: "invalid_client";
+      reason: AgentOAuthClientAuthFailureReason;
+      usedBasic: boolean;
+    }
+  | { ok: false; kind: "unavailable" };
+
+/**
+ * A rate-limit check at the OAuth endpoints. `unavailable` (no Redis, an
+ * error or a timeout) fails closed.
+ */
+export type OAuthLimitVerdict =
+  | { kind: "allowed" }
+  | { kind: "limited"; retryAfterSeconds: number }
+  | { kind: "unavailable" };
+
+/** Which of the token endpoint's two client-facing endpoints is asking, for logs. */
+export type TokenEndpointName = "token" | "revoke";
+
+/** One step of a token or revocation request: a value, or the response to send instead. */
+export type TokenEndpointStep<T> =
+  | { ok: true; value: T }
+  | { ok: false; response: Response };
 
 /** Failure categories shared by the REST routes and MCP tools that call a service. */
 export type DomainErrorKind =

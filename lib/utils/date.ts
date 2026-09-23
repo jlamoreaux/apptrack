@@ -216,6 +216,15 @@ export function isInPast(dateInput: string | Date): boolean {
 }
 
 /**
+ * True when an expiry timestamp (ISO) is at or before `now`. A null expiry
+ * never expires. Used for token and grant expiries, which expire at the
+ * instant itself, not after it.
+ */
+export function isExpiredAt(expiresAt: string | null, now: Date): boolean {
+  return expiresAt !== null && Date.parse(expiresAt) <= now.getTime();
+}
+
+/**
  * Check if a date is in the future
  * 
  * @param dateInput - Date string or Date object

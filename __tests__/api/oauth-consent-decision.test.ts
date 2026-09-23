@@ -87,6 +87,7 @@ function admin(
   const query: Record<string, jest.Mock> = {};
   query.select = jest.fn(() => query);
   query.eq = jest.fn(() => query);
+  query.abortSignal = jest.fn(() => query);
   query.maybeSingle = jest.fn(() => Promise.resolve(lookup));
   const rpc = jest.fn(() => ({ single: () => Promise.resolve(rpcResult) }));
   mockAdmin.mockReturnValue({ from: jest.fn(() => query), rpc });

@@ -3,7 +3,8 @@
  * the challenge stored with the code is base64url(SHA-256(code_verifier)).
  */
 
-import { createHash, timingSafeEqual } from "crypto";
+import { createHash } from "crypto";
+import { digestsEqual } from "@/lib/auth/prefixed-secret";
 import { AGENT_OAUTH_PKCE } from "@/lib/constants/agent-oauth";
 
 // RFC 7636 §4.1: unreserved characters, 43 to 128 of them.
@@ -21,17 +22,12 @@ export function s256Challenge(verifier: string): string {
   return createHash("sha256").update(verifier, "ascii").digest("base64url");
 }
 
-function sha256(value: string): Buffer {
-  return createHash("sha256").update(value, "utf8").digest();
-}
-
 /**
  * True when `verifier` is well formed and its S256 challenge equals
- * `storedChallenge`. The two challenge strings are compared as SHA-256
- * digests, which always have the same length, so timingSafeEqual never throws
- * and a malformed stored value simply doesn't match.
+ * `storedChallenge`, compared timing-safely (digestsEqual), so a malformed
+ * stored value simply doesn't match.
  */
 export function verifyPkceS256(verifier: string, storedChallenge: string): boolean {
   if (!isValidCodeVerifier(verifier)) return false;
-  return timingSafeEqual(sha256(s256Challenge(verifier)), sha256(storedChallenge));
+  return digestsEqual(s256Challenge(verifier), storedChallenge);
 }

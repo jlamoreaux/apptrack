@@ -16,15 +16,24 @@
  * - reusing a code after a successful exchange revokes the grant
  * - refresh: rotation, a grace-window reuse succeeds and the earlier
  *   successor stops working, presenting the superseded token revokes, a
- *   later reuse revokes; a wider scope is invalid_scope, a foreign resource
+ *   client that kept the older successor of a race revokes on its next
+ *   refresh, a later reuse revokes; rotation drops the grant's expired access
+ *   tokens; a wider scope is invalid_scope, a foreign or empty resource
  *   invalid_target, a client without the refresh grant unauthorized_client
+ * - a code or refresh token with the right prefix and length but a wrong
+ *   checksum is invalid_grant without touching codes, tokens or functions
  * - unsupported and missing grant types
  * - client authentication: a confidential client with no secret, a wrong
- *   Basic secret (with the Basic challenge) -> 401
- * - rate limits: the per-client bucket charged only after authentication, a
- *   failed authentication charged only to the per-IP bucket (another
- *   client's id can't spend its quota), 429 with Retry-After, Redis down or
+ *   Basic secret (with the Basic challenge) -> 401; Basic with an empty body
+ *   client_id is one method
+ * - rate limits: the per-client bucket charged only after authentication
+ *   (a public client's bucket split per caller IP, a confidential client's
+ *   not), a failed authentication charged only to the per-IP bucket (another
+ *   client's id can't spend its quota), an IP over its failed-auth limit
+ *   refused before any database access, 429 with Retry-After, Redis down or
  *   unconfigured -> 503
+ * - deadlines: a stalled client, code or refresh-token lookup is aborted and
+ *   answered 503; a function error (e.g. a lock timeout) is 503
  * - body rules: form encoding only, the size cap, repeated parameters
  * - OAuth disabled -> 404; the CORS preflight
  *
@@ -39,15 +48,30 @@ import { loggerService } from "@/lib/services/logger.service";
 import { hashSecret } from "@/lib/auth/prefixed-secret";
 import {
   AGENT_OAUTH_BASIC_CHALLENGE,
+  AGENT_OAUTH_CLIENTS_TABLE,
+  AGENT_OAUTH_CODES_TABLE,
+  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_ENDPOINT_CORS_HEADERS,
   AGENT_OAUTH_GRANT_CAP_DESCRIPTION,
   AGENT_OAUTH_LIFETIME_SECONDS,
   AGENT_OAUTH_LIMITS,
   AGENT_OAUTH_RATE_LIMITS,
   AGENT_OAUTH_RPC,
+  AGENT_OAUTH_TOKENS_TABLE,
   CANONICAL_MCP_RESOURCE,
 } from "@/lib/constants/agent-oauth";
-import { FAKE_USER_ID, OAuthFakeDb } from "@/__tests__/utils/test-helpers/oauth-fake-db";
+import {
+  basicAuthorization,
+  connectOAuthClient,
+  FAKE_USER_ID,
+  OAUTH_TEST_IP as IP,
+  OAUTH_TEST_ORIGIN,
+  OAUTH_TEST_REDIRECT as REDIRECT,
+  OAUTH_TEST_VERIFIER as VERIFIER,
+  OAuthFakeDb,
+  oauthFormRequest,
+  withBadChecksum,
+} from "@/__tests__/utils/test-helpers/oauth-fake-db";
 
 const fetchPrimitives = jest.requireActual("next/dist/compiled/@edge-runtime/primitives");
 global.Request = fetchPrimitives.Request;
@@ -55,6 +79,7 @@ global.Response = fetchPrimitives.Response;
 global.Headers = fetchPrimitives.Headers;
 
 const mockLimit = jest.fn();
+const mockGetRemaining = jest.fn();
 // Read when the token-endpoint module loads and creates its limiters.
 let mockRedisConfigured = true;
 
@@ -65,7 +90,12 @@ jest.mock("next/server", () => ({
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
 jest.mock("@/lib/redis/client", () => ({
   createRateLimiter: jest.fn(() =>
-    mockRedisConfigured ? { limit: (...args: unknown[]) => mockLimit(...args) } : null
+    mockRedisConfigured
+      ? {
+          limit: (...args: unknown[]) => mockLimit(...args),
+          getRemaining: (...args: unknown[]) => mockGetRemaining(...args),
+        }
+      : null
   ),
 }));
 jest.mock("@/lib/services/logger.service", () => ({
@@ -81,11 +111,8 @@ const { POST, OPTIONS } = require("@/app/api/oauth/token/route");
 const mockAdmin = createAdminClient as jest.Mock;
 const mockCapture = captureServerEvent as jest.Mock;
 
-const TOKEN_URL = "https://careerotter.io/api/oauth/token";
-const IP = "203.0.113.7";
-const REDIRECT = "https://app.example/callback";
-// RFC 7636 appendix B.
-const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const TOKEN_PATH = "/api/oauth/token";
+const OTHER_IP = "198.51.100.9";
 const OTHER_VERIFIER = "x".repeat(43);
 const RESET_IN_MS = 42_000;
 const OAUTH_ENV = ["CAREEROTTER_ENABLED", "CAREEROTTER_MCP_OAUTH_ENABLED", "VERCEL_ENV"] as const;
@@ -105,18 +132,13 @@ interface TokenBody {
 
 function allowAll(): void {
   mockLimit.mockImplementation(() => Promise.resolve({ success: true, reset: Date.now() + RESET_IN_MS }));
+  mockGetRemaining.mockImplementation(() =>
+    Promise.resolve({ remaining: AGENT_OAUTH_RATE_LIMITS.tokenAuthFailPerIp.tokens, reset: Date.now() + RESET_IN_MS })
+  );
 }
 
 function post(fields: Record<string, string>, headers: Record<string, string> = {}): Request {
-  return new Request(TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/x-www-form-urlencoded",
-      "x-forwarded-for": IP,
-      ...headers,
-    },
-    body: new URLSearchParams(fields).toString(),
-  });
+  return oauthFormRequest(TOKEN_PATH, fields, headers);
 }
 
 async function call(
@@ -155,13 +177,14 @@ function publicClientWithCode(options: { grantExpiresInSeconds?: number | null }
 }
 
 /** Exchange a fresh code and return the issued tokens. */
-async function connect(): Promise<{ clientId: string; accessToken: string; refreshToken: string }> {
-  const { clientId, code } = publicClientWithCode();
-  const { body } = await call(exchangeFields(clientId, code));
-  if (body.access_token === undefined || body.refresh_token === undefined) {
-    throw new Error("exchange failed");
-  }
-  return { clientId, accessToken: body.access_token, refreshToken: body.refresh_token };
+function connect(): Promise<{ clientId: string; accessToken: string; refreshToken: string }> {
+  return connectOAuthClient(db, POST);
+}
+
+/** Forget the queries and calls made so far, e.g. by connect(). */
+function resetDbLog(): void {
+  db.queries.length = 0;
+  db.rpcCalls.length = 0;
 }
 
 function chargedKeys(): string[] {
@@ -255,8 +278,17 @@ describe("authorization_code", () => {
     const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
     const fields = exchangeFields(clientId, code);
     delete fields.client_id;
-    const basic = Buffer.from(`${clientId}:${secret}`).toString("base64");
-    const { response } = await call(fields, { authorization: `Basic ${basic}` });
+    const { response } = await call(fields, basicAuthorization(clientId, secret ?? ""));
+    expect(response.status).toBe(200);
+  });
+
+  it("treats an empty client_id alongside Basic as absent, not a second method", async () => {
+    const { clientId, secret } = db.addClient({ authMethod: "client_secret_basic" });
+    const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
+    const { response } = await call(
+      exchangeFields(clientId, code, { client_id: "" }),
+      basicAuthorization(clientId, secret ?? "")
+    );
     expect(response.status).toBe(200);
   });
 
@@ -305,10 +337,21 @@ describe("authorization_code", () => {
     expect(db.grants.size).toBe(0);
   });
 
-  it("invalid_target with no RPC when the resource isn't the code's", async () => {
+  it.each([
+    ["isn't the code's", "https://evil.example/api/mcp"],
+    ["is empty", ""],
+  ])("invalid_target with no RPC when the resource %s", async (_label, resource) => {
     const { clientId, code } = publicClientWithCode();
-    const { body } = await call(exchangeFields(clientId, code, { resource: "https://evil.example/api/mcp" }));
+    const { body } = await call(exchangeFields(clientId, code, { resource }));
     expect(body.error).toBe("invalid_target");
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
+  it("invalid_grant without reading codes for a code whose checksum is wrong", async () => {
+    const { clientId, code } = publicClientWithCode();
+    const { body } = await call(exchangeFields(clientId, code, { code: withBadChecksum(code) }));
+    expect(body.error).toBe("invalid_grant");
+    expect(db.queries).toEqual([AGENT_OAUTH_CLIENTS_TABLE]);
     expect(db.rpcCalls).toHaveLength(0);
   });
 
@@ -379,6 +422,40 @@ describe("refresh_token", () => {
     expect([...db.grants.values()][0]).toMatchObject({ revoke_reason: "refresh_reuse" });
   });
 
+  it("a client that kept the older successor of a race revokes the grant on its next refresh", async () => {
+    const { clientId, refreshToken } = await connect();
+    // Two refreshes race; the first response (the older successor) is the one
+    // the client ends up storing.
+    const older = await call(refreshFields(clientId, refreshToken));
+    const newer = await call(refreshFields(clientId, refreshToken));
+    expect(newer.response.status).toBe(200);
+    db.advanceSeconds(AGENT_OAUTH_LIFETIME_SECONDS.accessToken);
+    const next = await call(refreshFields(clientId, older.body.refresh_token ?? ""));
+    expect(next.body.error).toBe("invalid_grant");
+    const grant = [...db.grants.values()][0];
+    expect(grant).toMatchObject({ revoke_reason: "refresh_reuse" });
+    expect(db.hasToken(newer.body.refresh_token ?? "")).toBe(false);
+    expect(db.hasToken(newer.body.access_token ?? "")).toBe(false);
+  });
+
+  it("rotation deletes the grant's expired access tokens", async () => {
+    const { clientId, accessToken, refreshToken } = await connect();
+    db.advanceSeconds(AGENT_OAUTH_LIFETIME_SECONDS.accessToken);
+    const { response, body } = await call(refreshFields(clientId, refreshToken));
+    expect(response.status).toBe(200);
+    expect(db.hasToken(accessToken)).toBe(false);
+    expect(db.hasToken(body.access_token ?? "")).toBe(true);
+  });
+
+  it("invalid_grant without reading tokens for a refresh token whose checksum is wrong", async () => {
+    const { clientId, refreshToken } = await connect();
+    resetDbLog();
+    const { body } = await call(refreshFields(clientId, withBadChecksum(refreshToken)));
+    expect(body.error).toBe("invalid_grant");
+    expect(db.queries).toEqual([AGENT_OAUTH_CLIENTS_TABLE]);
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
   it("a reuse after the grace window revokes the grant", async () => {
     const { clientId, refreshToken } = await connect();
     const rotated = await call(refreshFields(clientId, refreshToken));
@@ -409,10 +486,13 @@ describe("refresh_token", () => {
     expect(response.status).toBe(200);
   });
 
-  it("invalid_target with no RPC for a foreign resource", async () => {
+  it.each([
+    ["a foreign", "https://evil.example/api/mcp"],
+    ["an empty", ""],
+  ])("invalid_target with no RPC for %s resource", async (_label, resource) => {
     const { clientId, refreshToken } = await connect();
     db.rpcCalls.length = 0;
-    const { body } = await call(refreshFields(clientId, refreshToken, { resource: "https://evil.example/api/mcp" }));
+    const { body } = await call(refreshFields(clientId, refreshToken, { resource }));
     expect(body.error).toBe("invalid_target");
     expect(db.rpcCalls).toHaveLength(0);
   });
@@ -481,7 +561,11 @@ describe("client authentication", () => {
     mockAdmin.mockReturnValue({
       from: () => ({
         select: () => ({
-          eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: { code: "XX000" } }) }),
+          eq: () => ({
+            abortSignal: () => ({
+              maybeSingle: () => Promise.resolve({ data: null, error: { code: "XX000" } }),
+            }),
+          }),
         }),
       }),
     });
@@ -495,10 +579,66 @@ describe("rate limits", () => {
   const perClientPrefix = AGENT_OAUTH_RATE_LIMITS.tokenPerClient.keyPrefix;
   const authFailPrefix = AGENT_OAUTH_RATE_LIMITS.tokenAuthFailPerIp.keyPrefix;
 
-  it("charges only the client's bucket after authentication succeeds", async () => {
+  it("charges only a public client's bucket for the caller's IP after authentication succeeds", async () => {
     const { clientId, code } = publicClientWithCode();
     await call(exchangeFields(clientId, code));
+    expect(chargedKeys()).toEqual([`${perClientPrefix}${clientId}:ip:${IP}`]);
+    // Checked without charging before the lookup.
+    expect(mockGetRemaining.mock.calls.map(([key]) => key)).toEqual([`${authFailPrefix}${IP}`]);
+  });
+
+  it("keys an IPv6 caller's public-client bucket by its /64", async () => {
+    const { clientId, code } = publicClientWithCode();
+    await call(exchangeFields(clientId, code), { "x-forwarded-for": "2001:db8:1:2:aaaa::1" });
+    expect(chargedKeys()).toEqual([`${perClientPrefix}${clientId}:ip:2001:db8:1:2::/64`]);
+  });
+
+  it("charges a confidential client's bucket by client_id alone", async () => {
+    const { clientId, secret } = db.addClient({ authMethod: "client_secret_post" });
+    const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
+    await call(exchangeFields(clientId, code, { client_secret: secret ?? "" }));
     expect(chargedKeys()).toEqual([`${perClientPrefix}${clientId}`]);
+  });
+
+  /** A limiter that allows `quota` requests per key for the per-client bucket. */
+  function countingLimiter(quota: number): Map<string, number> {
+    const counts = new Map<string, number>();
+    mockLimit.mockImplementation((key: string) => {
+      const count = (counts.get(key) ?? 0) + 1;
+      counts.set(key, count);
+      const limit = key.startsWith(perClientPrefix) ? quota : AGENT_OAUTH_RATE_LIMITS.tokenAuthFailPerIp.tokens;
+      return Promise.resolve({ success: count <= limit, reset: Date.now() + RESET_IN_MS });
+    });
+    return counts;
+  }
+
+  it("a public client_id exhausted from one IP still works from another", async () => {
+    const quota = AGENT_OAUTH_RATE_LIMITS.tokenPerClient.tokens;
+    countingLimiter(quota);
+    const { clientId } = db.addClient();
+    const fromA = { "x-forwarded-for": IP };
+    for (let i = 0; i < quota; i++) {
+      const { response } = await call({ grant_type: "password", client_id: clientId }, fromA);
+      expect(response.status).toBe(400);
+    }
+    const blocked = await call({ grant_type: "password", client_id: clientId }, fromA);
+    expect(blocked.response.status).toBe(429);
+
+    const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
+    const fromB = await call(exchangeFields(clientId, code), { "x-forwarded-for": OTHER_IP });
+    expect(fromB.response.status).toBe(200);
+  });
+
+  it("a confidential client's bucket is shared across IPs", async () => {
+    const quota = AGENT_OAUTH_RATE_LIMITS.tokenPerClient.tokens;
+    countingLimiter(quota);
+    const { clientId, secret } = db.addClient({ authMethod: "client_secret_post" });
+    const credentials = { client_id: clientId, client_secret: secret ?? "" };
+    for (let i = 0; i < quota; i++) {
+      await call({ grant_type: "password", ...credentials }, { "x-forwarded-for": IP });
+    }
+    const fromB = await call({ grant_type: "password", ...credentials }, { "x-forwarded-for": OTHER_IP });
+    expect(fromB.response.status).toBe(429);
   });
 
   it("charges a failed authentication only to the IP's bucket", async () => {
@@ -546,11 +686,33 @@ describe("rate limits", () => {
     expect(db.rpcCalls).toHaveLength(0);
   });
 
-  it("429 when an IP is over its failed-authentication limit", async () => {
+  it("429 when a failed authentication takes an IP over its limit", async () => {
     mockLimit.mockResolvedValue({ success: false, reset: Date.now() + RESET_IN_MS });
     const { response } = await call({ grant_type: "refresh_token", client_id: "co_client_unknown" });
     expect(response.status).toBe(429);
     expect(response.headers.get("Retry-After")).not.toBeNull();
+  });
+
+  it("429 before any database access when the IP's failed-auth bucket is already spent", async () => {
+    mockGetRemaining.mockResolvedValue({ remaining: 0, reset: Date.now() + RESET_IN_MS });
+    const { clientId, code } = publicClientWithCode();
+    const { response, body } = await call(exchangeFields(clientId, code));
+    expect(response.status).toBe(429);
+    expectCorsAndNoStore(response);
+    expect(Number(response.headers.get("Retry-After"))).toBeGreaterThanOrEqual(RESET_IN_MS / 1000 - 1);
+    expect(body).toEqual({ error: "invalid_request", error_description: "rate limited" });
+    expect(db.untouched).toBe(true);
+    expect(mockLimit).not.toHaveBeenCalled();
+  });
+
+  it("503 before any database access when the failed-auth check errors", async () => {
+    mockGetRemaining.mockRejectedValue(new Error("redis down"));
+    const { clientId, code } = publicClientWithCode();
+    const { response, body } = await call(exchangeFields(clientId, code));
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).not.toBeNull();
+    expect(body.error).toBe("temporarily_unavailable");
+    expect(db.untouched).toBe(true);
   });
 
   it.each([
@@ -583,10 +745,63 @@ describe("rate limits", () => {
   });
 });
 
+describe("deadlines", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  /** Posts with fake timers, lets the lookup deadline pass, and returns the response. */
+  async function callPastDeadline(fields: Record<string, string>): Promise<Response> {
+    jest.useFakeTimers({ doNotFake: ["nextTick", "queueMicrotask", "setImmediate"] });
+    const pending = POST(post(fields));
+    await jest.advanceTimersByTimeAsync(AGENT_OAUTH_DEADLINES_MS.dbRead);
+    return pending;
+  }
+
+  it.each([
+    ["client", AGENT_OAUTH_CLIENTS_TABLE],
+    ["code", AGENT_OAUTH_CODES_TABLE],
+  ])("503 when the %s lookup outlasts its deadline, with no RPC", async (_label, table) => {
+    const { clientId, code } = publicClientWithCode();
+    db.stalledTables.add(table);
+    const response = await callPastDeadline(exchangeFields(clientId, code));
+    expect(response.status).toBe(503);
+    expectCorsAndNoStore(response);
+    expect((await response.json()).error).toBe("temporarily_unavailable");
+    expect(db.abortedQueries).toEqual([table]);
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
+  it("503 when the refresh-token lookup outlasts its deadline, with no RPC", async () => {
+    const { clientId, refreshToken } = await connect();
+    resetDbLog();
+    db.stalledTables.add(AGENT_OAUTH_TOKENS_TABLE);
+    const response = await callPastDeadline(refreshFields(clientId, refreshToken));
+    expect(response.status).toBe(503);
+    expect(db.abortedQueries).toEqual([AGENT_OAUTH_TOKENS_TABLE]);
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
+  it.each([
+    ["exchange", AGENT_OAUTH_RPC.exchangeCode],
+    ["rotation", AGENT_OAUTH_RPC.rotateRefresh],
+  ])("503 when the %s function fails with a lock timeout", async (_label, rpc) => {
+    const { clientId, refreshToken } = await connect();
+    const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
+    db.rpcErrors.set(rpc, { code: "55P03", message: "canceling statement due to lock timeout" });
+    const fields =
+      rpc === AGENT_OAUTH_RPC.exchangeCode ? exchangeFields(clientId, code) : refreshFields(clientId, refreshToken);
+    const { response, body } = await call(fields);
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Retry-After")).not.toBeNull();
+    expect(body.error).toBe("temporarily_unavailable");
+  });
+});
+
 describe("request body", () => {
   it("400 invalid_request for a JSON body", async () => {
     const response = await POST(
-      new Request(TOKEN_URL, {
+      new Request(`${OAUTH_TEST_ORIGIN}${TOKEN_PATH}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ grant_type: "authorization_code" }),
@@ -621,7 +836,7 @@ describe("request body", () => {
     repeatedResource.append("resource", CANONICAL_MCP_RESOURCE);
     repeatedResource.append("resource", CANONICAL_MCP_RESOURCE);
     const request = (body: URLSearchParams) =>
-      new Request(TOKEN_URL, {
+      new Request(`${OAUTH_TEST_ORIGIN}${TOKEN_PATH}`, {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: body.toString(),
@@ -629,6 +844,24 @@ describe("request body", () => {
     expect((await (await POST(request(repeatedCode))).json()).error).toBe("invalid_request");
     expect((await (await POST(request(repeatedResource))).json()).error).toBe("invalid_target");
     expect(db.rpcCalls).toHaveLength(0);
+  });
+});
+
+describe("the fake database", () => {
+  it("returns only the selected columns, embedded ones included", async () => {
+    const { refreshToken } = await connect();
+    const { data } = await db.client
+      .from(AGENT_OAUTH_TOKENS_TABLE)
+      .select("kind, grant:agent_oauth_grants(client_id, scopes)")
+      .eq("token_hash", hashSecret(refreshToken))
+      .maybeSingle();
+    expect(data).toEqual({ kind: "refresh", grant: { client_id: expect.any(String), scopes: ["wins:read", "wins:write"] } });
+  });
+
+  it("throws on a column the table doesn't have", () => {
+    const { clientId } = db.addClient();
+    const query = db.client.from(AGENT_OAUTH_CLIENTS_TABLE).select("client_id, secret").eq("client_id", clientId);
+    expect(() => query.maybeSingle()).toThrow(/no column secret/);
   });
 });
 

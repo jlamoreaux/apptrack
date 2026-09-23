@@ -17,7 +17,14 @@
 -- The functions report expected outcomes (bad code, reuse, the grant cap) in an
 -- `outcome` column instead of raising, so the TypeScript layer can map them to
 -- OAuth errors. They raise only on programming errors (a missing required
--- argument, or a CHECK or FK failure).
+-- argument, or a CHECK or FK failure), and when a lock wait passes their
+-- lock_timeout.
+--
+-- The functions the endpoints call that wait for the per-user advisory lock or
+-- a row lock set lock_timeout = '3s' (AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS), so
+-- a stuck lock fails the call (SQLSTATE 55P03, which the endpoint answers with
+-- 503) instead of holding the request open. The caller never aborts these
+-- calls itself: a cancelled exchange or rotation could have committed.
 --
 -- Constants that mirror these CHECK lists, lifetimes, outcomes and the grant
 -- cap live in lib/constants/agent-oauth.ts (guarded by
@@ -361,6 +368,7 @@ create or replace function public.create_agent_oauth_code (
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 declare
   c_code_ttl constant interval := interval '5 minutes';
@@ -435,6 +443,7 @@ create or replace function public.exchange_agent_oauth_code (
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 #variable_conflict use_column
 declare
@@ -595,6 +604,7 @@ create or replace function public.rotate_agent_oauth_refresh (
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 #variable_conflict use_column
 declare
@@ -751,6 +761,7 @@ create or replace function public.revoke_agent_oauth_grant (
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 #variable_conflict use_column
 begin
@@ -788,6 +799,7 @@ returns int
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 declare
   revoked_count int;
@@ -829,6 +841,7 @@ create or replace function public.revoke_agent_oauth_token (
 language plpgsql
 security definer
 set search_path = public
+set lock_timeout = '3s'
 as $$
 #variable_conflict use_column
 declare
@@ -861,12 +874,17 @@ grant execute on function public.revoke_agent_oauth_token (text, text)
   to service_role;
 
 -- ── delete_expired_agent_oauth_rows ────────────────────────────────────────
--- Daily cleanup (app/api/cron/agent-oauth-cleanup).
+-- Daily cleanup (app/api/cron/agent-oauth-cleanup). Each rule handles at most
+-- c_batch_size rows per call (AGENT_OAUTH_CLEANUP.batchSize), so a large
+-- backlog can't outrun the statement timeout; the cron calls again while any
+-- count comes back equal to the batch size.
 -- - Revokes grants that never expire and have been idle for the idle window,
 --   and deletes their tokens, so re-registered clients don't pile up against
 --   the cap.
 -- - Deletes clients that never authorized within the unused-client window.
---   A client with any grant is kept (the grants FK is on delete restrict).
+--   A client with any grant is kept (the grants FK is on delete restrict), and
+--   so is one with an unexpired code: a user may have just approved it, and
+--   deleting the client would cascade to the code before it is exchanged.
 -- - Deletes codes and tokens past their expiry by more than the retention
 --   period. Consumed and superseded refresh tokens stay until their own
 --   expiry, so reuse is detected for as long as the token could have been
@@ -886,6 +904,7 @@ declare
   c_retention_after_expiry constant interval := interval '1 day';
   c_unused_client_ttl constant interval := interval '24 hours';
   c_idle_grant_ttl constant interval := interval '30 days';
+  c_batch_size constant int := 5000;
 begin
   -- Grants locked by a refresh, touch or revocation in flight are skipped
   -- until the next run. Locking re-checks the idle test against the latest
@@ -898,6 +917,7 @@ begin
         and g.expires_at is null
         and g.last_used_at < now() - c_idle_grant_ttl
       order by g.id
+      limit c_batch_size
       for update skip locked
   ),
   revoked as (
@@ -921,29 +941,61 @@ begin
   -- (this cascades to the client's codes), the order the exchange uses. A
   -- first exchange in flight holds a no-key-update lock on the client row and
   -- sets first_authorized_at, so this delete waits for it and then skips the
-  -- client when it re-checks the updated row.
+  -- client when it re-checks first_authorized_at on the updated row (the
+  -- condition is repeated outside the batch subquery for that re-check).
   delete from agent_oauth_clients c
-    where c.first_authorized_at is null
-      and c.created_at < now() - c_unused_client_ttl
+    where c.client_id in (
+      select u.client_id
+        from agent_oauth_clients u
+        where u.first_authorized_at is null
+          and u.created_at < now() - c_unused_client_ttl
+          and not exists (
+            select 1 from agent_oauth_grants g where g.client_id = u.client_id
+          )
+          and not exists (
+            select 1 from agent_oauth_codes k
+              where k.client_id = u.client_id
+                and k.expires_at > now()
+          )
+        limit c_batch_size
+    )
+      and c.first_authorized_at is null
       and not exists (
-        select 1 from agent_oauth_grants g where g.client_id = c.client_id
+        select 1 from agent_oauth_codes k
+          where k.client_id = c.client_id
+            and k.expires_at > now()
       );
   get diagnostics clients_deleted = row_count;
 
   delete from agent_oauth_codes c
-    where c.expires_at < now() - c_retention_after_expiry;
+    where c.code_hash in (
+      select e.code_hash
+        from agent_oauth_codes e
+        where e.expires_at < now() - c_retention_after_expiry
+        limit c_batch_size
+    );
   get diagnostics codes_deleted = row_count;
 
   delete from agent_oauth_tokens t
-    where t.kind = 'access'
-      and t.expires_at < now() - c_retention_after_expiry;
+    where t.token_hash in (
+      select e.token_hash
+        from agent_oauth_tokens e
+        where e.kind = 'access'
+          and e.expires_at < now() - c_retention_after_expiry
+        limit c_batch_size
+    );
   get diagnostics access_tokens_deleted = row_count;
 
   -- Consumed, superseded or neither: each refresh token is kept until a day
   -- past its own expiry.
   delete from agent_oauth_tokens t
-    where t.kind = 'refresh'
-      and t.expires_at < now() - c_retention_after_expiry;
+    where t.token_hash in (
+      select e.token_hash
+        from agent_oauth_tokens e
+        where e.kind = 'refresh'
+          and e.expires_at < now() - c_retention_after_expiry
+        limit c_batch_size
+    );
   get diagnostics refresh_tokens_deleted = row_count;
 end;
 $$;

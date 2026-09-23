@@ -34,6 +34,7 @@ import {
   AGENT_OAUTH_CLIENTS_TABLE,
   AGENT_OAUTH_DEFAULT_CLIENT_NAME,
   AGENT_OAUTH_LIMITS,
+  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_PREFIXES,
 } from "@/lib/constants/agent-oauth";
 import { SITE_URL } from "@/lib/constants/site-config";
@@ -68,6 +69,7 @@ function adminResolving(result: QueryResult | Error): AdminMock {
     insert: jest.fn(() => query),
     select: jest.fn(() => query),
     eq: jest.fn(() => query),
+    abortSignal: jest.fn(() => query),
     single: terminal,
     maybeSingle: terminal,
   };
@@ -510,6 +512,13 @@ describe("authenticateClient", () => {
     expect(otherId.result).toMatchObject({ reason: "multiple_methods", usedBasic: true });
   });
 
+  it("treats an empty body client_id alongside Basic as absent, not a second method", async () => {
+    const { result } = await authenticate(clientRow("client_secret_basic"), basicHeader(CLIENT_ID, SECRET), {
+      client_id: "",
+    });
+    expect(result.ok).toBe(true);
+  });
+
   it("ignores a non-Basic Authorization header", async () => {
     for (const authorization of ["Bearer x", "Basicx abc"]) {
       const { result } = await authenticate(clientRow("none", null), new Headers({ authorization }), {
@@ -565,6 +574,39 @@ describe("authenticateClient", () => {
     expect(await authenticateClient(thrown.admin, new Headers(), form)).toEqual({ ok: false, kind: "unavailable" });
     const malformed = adminResolving({ data: { ...clientRow("none", null), grant_types: ["bogus"] }, error: null });
     expect(await authenticateClient(malformed.admin, new Headers(), form)).toEqual({ ok: false, kind: "unavailable" });
+  });
+});
+
+describe("client lookup deadline", () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  /** A lookup that never answers, recording the abort signal it was given. */
+  function stalledAdmin(): { admin: SupabaseClient; signal: () => AbortSignal | undefined } {
+    let signal: AbortSignal | undefined;
+    const query: Record<string, jest.Mock> = {};
+    query.select = jest.fn(() => query);
+    query.eq = jest.fn(() => query);
+    query.abortSignal = jest.fn((given: AbortSignal) => {
+      signal = given;
+      return query;
+    });
+    query.maybeSingle = jest.fn(() => new Promise(() => undefined));
+    return { admin: { from: jest.fn(() => query) } as unknown as SupabaseClient, signal: () => signal };
+  }
+
+  it.each([
+    ["authenticateClient", (admin: SupabaseClient) =>
+      authenticateClient(admin, new Headers(), new URLSearchParams({ client_id: CLIENT_ID }))],
+    ["findClient", (admin: SupabaseClient) => findClient(admin, CLIENT_ID)],
+  ])("%s gives up and aborts the query at the deadline", async (_label, run) => {
+    jest.useFakeTimers();
+    const mock = stalledAdmin();
+    const pending = run(mock.admin);
+    await jest.advanceTimersByTimeAsync(AGENT_OAUTH_DEADLINES_MS.dbRead);
+    expect(await pending).toMatchObject({ kind: "unavailable" });
+    expect(mock.signal()?.aborted).toBe(true);
   });
 });
 

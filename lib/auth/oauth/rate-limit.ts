@@ -18,13 +18,9 @@ import type { createRateLimiter } from "@/lib/redis/client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { withTimeout } from "@/lib/utils/with-timeout";
+import type { OAuthLimitVerdict } from "@/types";
 
 export type OAuthRateLimiter = NonNullable<ReturnType<typeof createRateLimiter>>;
-
-export type OAuthLimitVerdict =
-  | { kind: "allowed" }
-  | { kind: "limited"; retryAfterSeconds: number }
-  | { kind: "unavailable" };
 
 /** Where a limiter failure is logged: the endpoint's action name. */
 export interface OAuthLimitLogContext {
@@ -54,6 +50,30 @@ export async function checkOAuthRateLimit(
     const outcome = await withTimeout(limiter.limit(key), AGENT_OAUTH_DEADLINES_MS.rateLimit);
     if (outcome.timedOut) return limiterUnavailable("OAuth rate limiter timed out", undefined, log);
     if (outcome.value.success) return { kind: "allowed" };
+    return { kind: "limited", retryAfterSeconds: retryAfterSeconds(outcome.value.reset, now) };
+  } catch (error) {
+    return limiterUnavailable("OAuth rate limiter failed", error, log);
+  }
+}
+
+/**
+ * Whether `key` on `limiter` has any requests left, without charging one:
+ * `limited` once the window's quota is spent. Never throws; fails closed like
+ * checkOAuthRateLimit.
+ */
+export async function peekOAuthRateLimit(
+  limiter: OAuthRateLimiter | null,
+  key: string,
+  now: number,
+  log: OAuthLimitLogContext
+): Promise<OAuthLimitVerdict> {
+  if (limiter === null) {
+    return limiterUnavailable("OAuth rate limiter is not configured", undefined, log);
+  }
+  try {
+    const outcome = await withTimeout(limiter.getRemaining(key), AGENT_OAUTH_DEADLINES_MS.rateLimit);
+    if (outcome.timedOut) return limiterUnavailable("OAuth rate limiter timed out", undefined, log);
+    if (outcome.value.remaining > 0) return { kind: "allowed" };
     return { kind: "limited", retryAfterSeconds: retryAfterSeconds(outcome.value.reset, now) };
   } catch (error) {
     return limiterUnavailable("OAuth rate limiter failed", error, log);

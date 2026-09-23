@@ -77,6 +77,7 @@ function adminWith(client: Result, grants: Result = grantRows([])): Record<strin
   const clientQuery: Record<string, jest.Mock> = {};
   clientQuery.select = jest.fn(() => clientQuery);
   clientQuery.eq = jest.fn(() => clientQuery);
+  clientQuery.abortSignal = jest.fn(() => clientQuery);
   clientQuery.maybeSingle = jest.fn(() => Promise.resolve(client));
   const tables: Record<string, unknown> = {
     [AGENT_OAUTH_CLIENTS_TABLE]: clientQuery,

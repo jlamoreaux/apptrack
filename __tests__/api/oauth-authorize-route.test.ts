@@ -56,6 +56,7 @@ function clientLookupReturns(result: { data: unknown; error: unknown }): void {
   const query: Record<string, jest.Mock> = {};
   query.select = jest.fn(() => query);
   query.eq = jest.fn(() => query);
+  query.abortSignal = jest.fn(() => query);
   query.maybeSingle = jest.fn(() => Promise.resolve(result));
   mockAdmin.mockReturnValue({ from: jest.fn(() => query) });
 }

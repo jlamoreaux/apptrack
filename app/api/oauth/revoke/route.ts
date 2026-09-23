@@ -14,10 +14,9 @@
 
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
-import { oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
+import { formParam, oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
 import {
   authenticateEndpointClient,
-  formParam,
   readTokenEndpointForm,
   TOKEN_ENDPOINT_HEADERS,
   tokenEndpointUnavailable,

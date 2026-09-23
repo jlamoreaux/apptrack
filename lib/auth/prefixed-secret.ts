@@ -11,7 +11,7 @@
  * Only the SHA-256 hex digest is ever stored.
  */
 
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import {
   AGENT_TOKEN_CHECKSUM_LENGTH,
   AGENT_TOKEN_SECRET_BYTES,
@@ -86,6 +86,19 @@ function formatPattern(prefix: string): RegExp {
 /** SHA-256 hex of the full raw secret, as stored in the database. */
 export function hashSecret(raw: string): string {
   return createHash("sha256").update(raw, "utf8").digest("hex");
+}
+
+function sha256Digest(value: string): Buffer {
+  return createHash("sha256").update(value, "utf8").digest();
+}
+
+/**
+ * Timing-safe equality of two strings, compared as their SHA-256 digests.
+ * Digests always have the same length, so timingSafeEqual never throws, and a
+ * malformed value (wrong length, stray characters) simply doesn't match.
+ */
+export function digestsEqual(a: string, b: string): boolean {
+  return timingSafeEqual(sha256Digest(a), sha256Digest(b));
 }
 
 /** Mint a new secret with `prefix`. Store only `hash`; hand out `raw` once. */

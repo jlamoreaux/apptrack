@@ -3,9 +3,15 @@
  *
  * Calls delete_expired_agent_oauth_rows (migration 045), which revokes grants
  * idle for 30 days and deletes clients that never authorized, and codes and
- * tokens past their retention. Gated on CAREEROTTER_ENABLED only, not the
- * OAuth flag, so rows keep getting cleaned up while OAuth is switched off.
- * Before 045 has run the function doesn't exist, and the run is a no-op.
+ * tokens past their retention, in batches: lib/auth/oauth/cleanup.ts calls it
+ * again while a batch came back full, up to a round limit, and the rest waits
+ * for the next day. The response carries the summed counts, the number of
+ * rounds and whether the backlog was cleared; a failed run is logged at error
+ * level and answered with 500.
+ *
+ * Gated on CAREEROTTER_ENABLED only, not the OAuth flag, so rows keep getting
+ * cleaned up while OAuth is switched off. Before 045 has run the function
+ * doesn't exist, and the run is a no-op.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -36,6 +42,11 @@ export async function GET(request: NextRequest): Promise<Response> {
       });
       return NextResponse.json({ skipped: MIGRATION_NOT_APPLIED });
     case "failed":
+      loggerService.error("OAuth cleanup run failed", undefined, {
+        category: LogCategory.DATABASE,
+        action: "mcp_oauth_cleanup_run_failed",
+        metadata: { ...run.counts, rounds: run.rounds },
+      });
       return NextResponse.json(
         { error: "cleanup failed" },
         { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
@@ -44,8 +55,15 @@ export async function GET(request: NextRequest): Promise<Response> {
       loggerService.info("OAuth cleanup complete", {
         category: LogCategory.BUSINESS,
         action: "mcp_oauth_cleanup_complete",
-        metadata: { ...run.counts },
+        metadata: { ...run.counts, rounds: run.rounds, complete: run.complete },
       });
+      if (!run.complete) {
+        loggerService.warn("OAuth cleanup stopped at the round limit with rows left", {
+          category: LogCategory.DATABASE,
+          action: "mcp_oauth_cleanup_backlog",
+          metadata: { rounds: run.rounds },
+        });
+      }
       if (run.counts.idle_grants_revoked > 0) {
         loggerService.info("OAuth grants revoked as idle", {
           category: LogCategory.SECURITY,
@@ -53,6 +71,6 @@ export async function GET(request: NextRequest): Promise<Response> {
           metadata: { count: run.counts.idle_grants_revoked },
         });
       }
-      return NextResponse.json(run.counts);
+      return NextResponse.json({ ...run.counts, rounds: run.rounds, complete: run.complete });
   }
 }

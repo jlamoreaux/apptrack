@@ -225,7 +225,20 @@ helper for the `redirect_uris` CHECK.
 
 Every public function reports expected results in an `outcome` column (or a
 count) and never raises for them; it raises only on programming errors (a
-CHECK or FK failure).
+CHECK or FK failure) and when a lock wait passes its `lock_timeout`.
+
+**Lock waits.** The functions the endpoints call that wait for the per-user
+advisory lock or a row lock (`create_agent_oauth_code`,
+`exchange_agent_oauth_code`, `rotate_agent_oauth_refresh`,
+`revoke_agent_oauth_grant`, `revoke_all_agent_oauth_grants`,
+`revoke_agent_oauth_token`) `set lock_timeout = '3s'`
+(`AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS`). A stuck lock then fails the call with
+SQLSTATE 55P03, which the endpoint answers with 503 `temporarily_unavailable`,
+and the transaction rolls back, so nothing was consumed. TypeScript never
+aborts these calls itself: a cancelled exchange or rotation could have
+committed without the client learning its new tokens. The token endpoint's
+side-effect-free lookups (the client, the code, the refresh token) are
+aborted after `AGENT_OAUTH_DEADLINES_MS.dbRead` (5 s), with the same 503.
 
 `agent_oauth_clients`:
 - `client_id text primary key`, CHECK `^co_client_[A-Za-z0-9_-]{22}$`
@@ -413,8 +426,10 @@ to that client, and otherwise does nothing. It returns `(outcome, grant_id)`
 with the same outcomes as `revoke_agent_oauth_grant`.
 
 **`delete_expired_agent_oauth_rows()`** deletes:
-- clients whose `first_authorized_at` is null, that are older than 24 hours
-  and that have no grants. This runs before the code delete, so cleanup locks
+- clients whose `first_authorized_at` is null, that are older than 24 hours,
+  that have no grants and that have no unexpired code (a user may have just
+  approved the client; deleting it would cascade to the code before the
+  exchange). This runs before the code delete, so cleanup locks
   client rows before code rows, in the exchange's order. A first exchange in
   flight holds the client row lock and sets `first_authorized_at`, so the
   delete waits and then skips that client.
@@ -432,6 +447,16 @@ grants `order by id for update skip locked` (so a grant a request is using is
 left for the next run), re-checks the idle test under the row lock, and
 deletes the revoked grants' tokens in the same statement. It returns the count
 for each rule.
+
+Each rule handles at most 5,000 rows per call (`AGENT_OAUTH_CLEANUP.batchSize`,
+a `limit` on each statement's selection), so a large backlog can't outrun the
+statement timeout. The client delete repeats `first_authorized_at is null` and
+the unexpired-code test outside its batch subquery, so they are re-checked on
+the row version it waits for. The cron calls the function again while any
+count comes back equal to the batch size, up to 10 calls
+(`AGENT_OAUTH_CLEANUP.maxRounds`) per run; whatever is left waits for the next
+day, with a warning log. A failed call ends the run with 500 and an
+error-level log carrying the counts of the calls before it.
 
 **Lookup at the MCP route.** One indexed select: the token joined to its grant,
 filtered by `kind = 'access'`. It returns the grant id, user id, scopes and
@@ -793,7 +818,9 @@ It renders:
     `refresh_token` grant.
 - **`grant_type=refresh_token`:**
   - `refresh_token` is required.
-  - If `resource` is present, it must normalize to the grant's resource.
+  - If `resource` is present, it must normalize to the grant's resource. An
+    empty `resource=` counts as present and fails (`invalid_target`), at both
+    grants.
   - If `scope` is present, it must be a subset of the grant's scopes after
     ignoring unknown values; otherwise `invalid_scope`. The same scopes are
     issued either way (no downscoping).
@@ -805,15 +832,26 @@ It renders:
   `expires_in` is the real remaining lifetime from the RPC (at most 86400), and
   `scope` is space-separated.
 - **Rate limits:**
-  - 60 requests per minute per `client_id`, charged only after client
-    authentication succeeds
-  - 600 failed client authentications per minute per IP
+  - 60 requests per minute per client, charged only after client
+    authentication succeeds. A confidential client proved its secret, so its
+    bucket is keyed on its `client_id`. A public client (`none`) proves only
+    that it knows a public `client_id`, so its bucket is keyed on the
+    `client_id` and the caller's IP (an IPv6 caller by its /64): anyone else
+    sending that id can exhaust only their own IP's slice, never the real
+    client's.
+  - 600 failed client authentications per minute per IP (IPv6 by /64).
 
   A failed authentication is charged only to the per-IP bucket, never to the
   `client_id` it named, so a caller can't drain another client's quota by
-  sending its id with a bad secret. Successful requests don't count toward the
-  per-IP limit, because hosted clients share IPs. Over the limit → 429 with `Retry-After` and
-  `{ error: "invalid_request", error_description: "rate limited" }`.
+  sending its id with a bad secret. Before the client lookup, the per-IP
+  bucket is checked without charging (Upstash `getRemaining`): an IP that has
+  already spent it gets 429 without any database query. Successful requests
+  don't count toward the per-IP limit, because hosted clients share IPs, but
+  an IP over it is refused even for a client that would have authenticated;
+  bounding database work for a failing IP is worth that. Over a limit → 429
+  with `Retry-After` and
+  `{ error: "invalid_request", error_description: "rate limited" }`. Every
+  check fails closed: Redis missing, erroring or slower than 2 s → 503.
 
 ### Revocation: `POST /api/oauth/revoke`
 
@@ -824,7 +862,10 @@ It renders:
   (RFC 7009).
 - CORS headers as for registration.
 - Rate limits: the token endpoint's two buckets, shared with it (per client
-  after authentication succeeds; failed authentication per IP).
+  after authentication succeeds, split per caller IP for a public client;
+  failed authentication per IP, checked before the client lookup).
+- A token that isn't an OAuth token of ours, or whose checksum doesn't match,
+  revokes nothing and is answered 200 without a database call.
 
 ### Metadata
 
@@ -1028,11 +1069,29 @@ Security logs go through `loggerService` with `LogCategory.SECURITY`:
     within one allocation doesn't help; rotating across many /64s still
     runs into the global cap.
 - **Shared egress IPs (Claude.ai).** The per-IP limits cover only failures or
-  registrations, and are sized for a shared backend. The MCP route's OAuth
+  registrations, and are sized for a shared backend. At the token endpoint an
+  IP over 600 failed authentications a minute is refused for every client
+  until the window moves on, so a noisy neighbour on a shared egress IP can
+  block others for up to a minute; public clients' per-client buckets are
+  split per IP, so they can't be drained from elsewhere. The MCP route's OAuth
   failures have their own 600/min limiter and never trip the PAT lockout.
 - **Database load.** One indexed primary-key lookup per MCP request, the same
   as for PATs. See "Row counts" for token churn.
 - **Clocks.** Every expiry is computed in Postgres with `now()`.
+- **Concurrent refreshes, and the client keeps the older successor.** Two
+  refreshes of one token race: the first rotates it (successor A), the second
+  is a grace reissue (successor B) that supersedes A. If the client ends up
+  storing A (say, A's response arrived last), its next refresh, however much
+  later, presents a superseded token, which is reuse: the grant is revoked and
+  the user has to reconnect. This is deliberate: the server can't tell a
+  client that lost its own race from an attacker replaying a stolen token,
+  and letting A live would let an attacker keep a chain alongside the client.
+  Clients should serialize refreshes or keep the newest response. Covered by
+  the verifier (G4, G8) and the token route suite.
+- **Stuck locks.** The functions that wait for locks give up after 3 seconds
+  (`lock_timeout`) and the endpoint answers 503; the side-effect-free lookups
+  are aborted after 5 seconds. A request never hangs until the platform kills
+  it, and a timed-out exchange or rotation consumed nothing.
 - **Concurrent exchanges of the same code.** Serialized by the row lock.
   Exactly one succeeds. The second is a reuse (it passed client
   authentication and PKCE, so it's the same client) and revokes the new grant.
@@ -1247,9 +1306,8 @@ Critic review of this design, and how each point was resolved:
   `invalid_grant` without calling `rotate_agent_oauth_refresh`, and `resource`
   and `scope` are checked against that grant.
 - A failed client authentication over the per-IP limit gets 429 instead of
-  401. The client lookup still runs first: checking the bucket before
-  authenticating would let failures from a shared IP block that IP's
-  successful clients.
+  401. (Changed in the review below: the bucket is now also checked, without
+  charging, before the client lookup.)
 - A client lookup failure is 503 `temporarily_unavailable`, as is Redis being
   unavailable for either bucket.
 - `mcp_oauth_revoked` from the revocation endpoint uses the `client_id` as the
@@ -1261,6 +1319,42 @@ Critic review of this design, and how each point was resolved:
 - The fail-closed rate-limit check and the 429/503 bodies moved to
   `lib/auth/oauth/rate-limit.ts`, shared by registration, token and
   revocation.
+
+**Review of Task 4**
+- Public-client quota drain: a `none` client authenticates with just its
+  public `client_id`, so anyone could spend its 60/min bucket → a public
+  client's bucket is keyed on the `client_id` plus the caller's IP key;
+  confidential clients keep the plain `client_id` key.
+- The failed-auth bucket didn't protect the database: every request still ran
+  the client lookup → the bucket is checked without charging before the
+  lookup (429 when spent, 503 when Redis fails), and still charged on
+  failure. An IP over it is now refused even for good clients; that trade-off
+  replaces the Task 4 note above.
+- Unbounded waits → the lookups are aborted after 5 s
+  (`AGENT_OAUTH_DEADLINES_MS.dbRead`); the lock-taking functions set
+  `lock_timeout = '3s'` in 045 instead of being aborted by the caller; either
+  failure is 503.
+- Cleanup could delete a client whose user had just approved it (cascading
+  to the code) → a client with an unexpired code is kept. The deletes are
+  batched (5,000 per rule per call, up to 10 calls per run), and a failed run
+  logs at error level.
+- A client that keeps the older successor of a refresh race revokes its grant
+  on the next refresh → documented under Edge cases, with verifier and route
+  tests.
+- An empty `client_id=` alongside Basic counted as a second method → read as
+  absent. An empty `resource=` at the token endpoint was read as absent →
+  `invalid_target`.
+- The route tests' fake database ignored the select list → it returns only
+  the selected columns (embedded ones included), throws on an unknown column,
+  records every query, and drops expired access tokens on rotation like the
+  SQL. Tokens with a wrong checksum are refused without touching codes,
+  tokens or functions.
+- Conventions: one `formParam`; `AGENT_OAUTH_GRANT_TYPE`,
+  `AGENT_OAUTH_TOKEN_KIND` and `AGENT_OAUTH_SCOPE_SEPARATOR` constants;
+  `isExpiredAt` in `lib/utils/date.ts`; `digestsEqual` in
+  `lib/auth/prefixed-secret.ts` for PKCE and client secrets; `HTTP_STATUS`
+  everywhere in the OAuth code; the cross-module types in `types/index.ts`;
+  shared test fixtures in `__tests__/utils/test-helpers/oauth-fake-db.ts`.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

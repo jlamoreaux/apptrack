@@ -7,8 +7,10 @@
  * - an access or refresh token revokes its whole grant (reason `client`):
  *   200 with an empty body, no-store and CORS; token_type_hint is ignored;
  *   mcp_oauth_revoked is sent with the reason
+ * - a confidential client authenticating with HTTP Basic revokes its token
  * - an unknown token, a token that isn't ours, or another client's token ->
- *   200 and nothing revoked
+ *   200 and nothing revoked; a token with the right prefix and length but a
+ *   wrong checksum -> 200 without touching tokens or functions
  * - a missing token -> 400 invalid_request; failed client authentication ->
  *   401 (the only non-200 for a well-formed request), charged to the per-IP
  *   bucket only
@@ -20,11 +22,21 @@ import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { generatePrefixedSecret } from "@/lib/auth/prefixed-secret";
 import {
+  AGENT_OAUTH_CLIENTS_TABLE,
   AGENT_OAUTH_ENDPOINT_CORS_HEADERS,
   AGENT_OAUTH_PREFIXES,
   AGENT_OAUTH_RATE_LIMITS,
 } from "@/lib/constants/agent-oauth";
-import { OAuthFakeDb } from "@/__tests__/utils/test-helpers/oauth-fake-db";
+import {
+  basicAuthorization,
+  connectOAuthClient,
+  OAUTH_TEST_IP as IP,
+  OAUTH_TEST_REDIRECT as REDIRECT,
+  OAUTH_TEST_VERIFIER as VERIFIER,
+  OAuthFakeDb,
+  oauthFormRequest,
+  withBadChecksum,
+} from "@/__tests__/utils/test-helpers/oauth-fake-db";
 
 const fetchPrimitives = jest.requireActual("next/dist/compiled/@edge-runtime/primitives");
 global.Request = fetchPrimitives.Request;
@@ -32,6 +44,7 @@ global.Response = fetchPrimitives.Response;
 global.Headers = fetchPrimitives.Headers;
 
 const mockLimit = jest.fn();
+const mockGetRemaining = jest.fn();
 
 jest.mock("next/server", () => ({
   ...jest.requireActual("next/server"),
@@ -39,7 +52,10 @@ jest.mock("next/server", () => ({
 }));
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
 jest.mock("@/lib/redis/client", () => ({
-  createRateLimiter: jest.fn(() => ({ limit: (...args: unknown[]) => mockLimit(...args) })),
+  createRateLimiter: jest.fn(() => ({
+    limit: (...args: unknown[]) => mockLimit(...args),
+    getRemaining: (...args: unknown[]) => mockGetRemaining(...args),
+  })),
 }));
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -55,42 +71,19 @@ const { POST, OPTIONS } = require("@/app/api/oauth/revoke/route");
 const mockAdmin = createAdminClient as jest.Mock;
 const mockCapture = captureServerEvent as jest.Mock;
 
-const ORIGIN = "https://careerotter.io";
-const IP = "203.0.113.7";
-const REDIRECT = "https://app.example/callback";
-const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
+const REVOKE_PATH = "/api/oauth/revoke";
 const OAUTH_ENV = ["CAREEROTTER_ENABLED", "CAREEROTTER_MCP_OAUTH_ENABLED", "VERCEL_ENV"] as const;
 const savedEnv: Partial<Record<(typeof OAUTH_ENV)[number], string>> = {};
 
 let db: OAuthFakeDb;
 
-function formRequest(path: string, fields: Record<string, string>): Request {
-  return new Request(`${ORIGIN}${path}`, {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": IP },
-    body: new URLSearchParams(fields).toString(),
-  });
-}
-
-function revoke(fields: Record<string, string>): Promise<Response> {
-  return POST(formRequest("/api/oauth/revoke", fields));
+function revoke(fields: Record<string, string>, headers: Record<string, string> = {}): Promise<Response> {
+  return POST(oauthFormRequest(REVOKE_PATH, fields, headers));
 }
 
 /** A client with a connected grant, through the token endpoint. */
-async function connect(): Promise<{ clientId: string; accessToken: string; refreshToken: string }> {
-  const { clientId } = db.addClient();
-  const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
-  const response: Response = await tokenRoute.POST(
-    formRequest("/api/oauth/token", {
-      grant_type: "authorization_code",
-      client_id: clientId,
-      code,
-      code_verifier: VERIFIER,
-      redirect_uri: REDIRECT,
-    })
-  );
-  const body = await response.json();
-  return { clientId, accessToken: body.access_token, refreshToken: body.refresh_token };
+function connect(): Promise<{ clientId: string; accessToken: string; refreshToken: string }> {
+  return connectOAuthClient(db, tokenRoute.POST);
 }
 
 async function expectEmptyOk(response: Response): Promise<void> {
@@ -121,6 +114,7 @@ beforeEach(() => {
   process.env.CAREEROTTER_MCP_OAUTH_ENABLED = "1";
   delete process.env.VERCEL_ENV;
   mockLimit.mockResolvedValue({ success: true, reset: Date.now() + 1000 });
+  mockGetRemaining.mockResolvedValue({ remaining: 1, reset: Date.now() + 1000 });
   db = new OAuthFakeDb();
   mockAdmin.mockReturnValue(db.client);
 });
@@ -144,6 +138,43 @@ describe("revocation", () => {
       $process_person_profile: false,
     });
   });
+
+  it("a confidential client using HTTP Basic revokes its grant", async () => {
+    const { clientId, secret } = db.addClient({ authMethod: "client_secret_basic" });
+    const code = db.addCode({ clientId, redirectUri: REDIRECT, verifier: VERIFIER });
+    const exchanged: Response = await tokenRoute.POST(
+      oauthFormRequest(
+        "/api/oauth/token",
+        { grant_type: "authorization_code", code, code_verifier: VERIFIER, redirect_uri: REDIRECT },
+        basicAuthorization(clientId, secret ?? "")
+      )
+    );
+    const { access_token: accessToken } = await exchanged.json();
+    const grantId = db.grantForToken(accessToken)?.id ?? "";
+    await expectEmptyOk(await revoke({ token: accessToken }, basicAuthorization(clientId, secret ?? "")));
+    expect(db.grants.get(grantId)).toMatchObject({ revoke_reason: "client" });
+  });
+
+  it("401 with the Basic challenge for a wrong Basic secret, revoking nothing", async () => {
+    const { clientId } = db.addClient({ authMethod: "client_secret_basic" });
+    const response = await revoke({ token: "co_oat_x" }, basicAuthorization(clientId, "co_cs_wrong"));
+    expect(response.status).toBe(401);
+    expect(response.headers.get("WWW-Authenticate")).toMatch(/^Basic /);
+    expect(db.rpcCalls).toHaveLength(0);
+  });
+
+  it.each(["accessToken", "refreshToken"] as const)(
+    "200 without touching tokens or functions for a %s whose checksum is wrong",
+    async (which) => {
+      const tokens = await connect();
+      db.queries.length = 0;
+      db.rpcCalls.length = 0;
+      await expectEmptyOk(await revoke({ client_id: tokens.clientId, token: withBadChecksum(tokens[which]) }));
+      expect(db.queries).toEqual([AGENT_OAUTH_CLIENTS_TABLE]);
+      expect(db.rpcCalls).toHaveLength(0);
+      expect(db.grantForToken(tokens.accessToken)?.revokedAtMs).toBeNull();
+    }
+  );
 
   it("200 for an unknown token, revoking nothing", async () => {
     const tokens = await connect();

@@ -31,6 +31,7 @@ import {
   AGENT_OAUTH_PKCE,
   AGENT_OAUTH_RESPONSE_PARAMS,
   AGENT_OAUTH_RESPONSE_TYPE,
+  AGENT_OAUTH_SCOPE_SEPARATOR,
   CANONICAL_MCP_RESOURCE,
   type AgentOAuthAuthorizeErrorCode,
   type AgentOAuthErrorPageReason,
@@ -57,7 +58,6 @@ type SingleParam = { ok: true; value: string | null } | { ok: false };
 
 const PARAM = AGENT_OAUTH_AUTHORIZE_PARAMS;
 const RESPONSE_PARAM = AGENT_OAUTH_RESPONSE_PARAMS;
-const SCOPE_SEPARATOR = " ";
 const QUERY_START = "?";
 const QUERY_SEPARATOR = "&";
 const CODE_CHALLENGE_PATTERN = new RegExp(
@@ -101,7 +101,7 @@ export function searchParamsFromRecord(
 
 /** The known scopes in a scope parameter, deduplicated, in canonical order. */
 export function requestedKnownScopes(scope: string | null): AgentTokenScope[] {
-  const requested = new Set((scope ?? "").split(SCOPE_SEPARATOR).filter(isAgentTokenScope));
+  const requested = new Set((scope ?? "").split(AGENT_OAUTH_SCOPE_SEPARATOR).filter(isAgentTokenScope));
   return AGENT_TOKEN_SCOPES.filter((known) => requested.has(known));
 }
 

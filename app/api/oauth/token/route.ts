@@ -14,10 +14,9 @@
 
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
-import { oauthJson, oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
+import { formParam, oauthJson, oauthNotFound, oauthPreflight } from "@/lib/auth/oauth/http";
 import {
   authenticateEndpointClient,
-  formParam,
   readTokenEndpointForm,
   TOKEN_ENDPOINT_HEADERS,
   tokenEndpointUnavailable,
@@ -27,6 +26,8 @@ import { exchangeAuthorizationCode, refreshTokens } from "@/lib/auth/oauth/token
 import { trackAfterResponse } from "@/lib/careerotter/domain-result";
 import {
   AGENT_OAUTH_ENDPOINT_CORS_HEADERS,
+  AGENT_OAUTH_GRANT_TYPE,
+  AGENT_OAUTH_SCOPE_SEPARATOR,
   AGENT_OAUTH_TOKEN_PARAMS,
   AGENT_OAUTH_TOKEN_TYPE,
   isMcpOAuthEnabled,
@@ -47,11 +48,9 @@ export const runtime = "nodejs";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
-const SCOPE_SEPARATOR = " ";
-
 const MESSAGES = {
   grantTypeRequired: "grant_type is required",
-  unsupportedGrantType: "grant_type must be authorization_code or refresh_token",
+  unsupportedGrantType: `grant_type must be ${AGENT_OAUTH_GRANT_TYPE.authorizationCode} or ${AGENT_OAUTH_GRANT_TYPE.refreshToken}`,
   missingParam: "Missing required parameter",
 } as const;
 
@@ -79,9 +78,9 @@ async function grantResponse(
 ): Promise<Response> {
   const grantType = formParam(form, AGENT_OAUTH_TOKEN_PARAMS.grantType);
   switch (grantType) {
-    case "authorization_code":
+    case AGENT_OAUTH_GRANT_TYPE.authorizationCode:
       return authorizationCodeGrant(admin, client, form);
-    case "refresh_token":
+    case AGENT_OAUTH_GRANT_TYPE.refreshToken:
       return refreshTokenGrant(admin, client, form);
     case null:
       return tokenErrorResponse("invalid_request", MESSAGES.grantTypeRequired);
@@ -107,10 +106,10 @@ async function authorizationCodeGrant(
   const redirectUri = formParam(form, names.redirectUri);
   if (redirectUri === null) return missingParamResponse(names.redirectUri);
 
-  const resource = formParam(form, names.resource);
+  const resource = presentedResource(form);
   const result = await exchangeAuthorizationCode(admin, client, { code, codeVerifier, redirectUri, resource });
   if (result.ok) trackConnected(result.tokens);
-  return grantResultResponse(result, client, "authorization_code");
+  return grantResultResponse(result, client, AGENT_OAUTH_GRANT_TYPE.authorizationCode);
 }
 
 async function refreshTokenGrant(
@@ -123,10 +122,19 @@ async function refreshTokenGrant(
   if (refreshToken === null) return missingParamResponse(names.refreshToken);
   const result = await refreshTokens(admin, client, {
     refreshToken,
-    resource: formParam(form, names.resource),
+    resource: presentedResource(form),
     scope: formParam(form, names.scope),
   });
-  return grantResultResponse(result, client, "refresh_token");
+  return grantResultResponse(result, client, AGENT_OAUTH_GRANT_TYPE.refreshToken);
+}
+
+/**
+ * The resource parameter exactly as sent. An empty `resource=` counts as
+ * present, so it fails normalization and is invalid_target (RFC 8707 §2)
+ * rather than silently meaning "no resource".
+ */
+function presentedResource(form: URLSearchParams): string | null {
+  return form.get(AGENT_OAUTH_TOKEN_PARAMS.resource);
 }
 
 // ── responses ──────────────────────────────────────────────────────────────
@@ -138,7 +146,7 @@ function successBody(tokens: AgentOAuthIssuedTokens): Record<string, unknown> {
     token_type: AGENT_OAUTH_TOKEN_TYPE,
     expires_in: tokens.expiresIn,
     ...(tokens.refreshToken === null ? {} : { refresh_token: tokens.refreshToken }),
-    scope: tokens.scopes.join(SCOPE_SEPARATOR),
+    scope: tokens.scopes.join(AGENT_OAUTH_SCOPE_SEPARATOR),
   };
 }
 

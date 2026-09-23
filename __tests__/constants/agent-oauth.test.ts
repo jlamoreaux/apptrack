@@ -17,8 +17,11 @@ import {
   SCOPE_IMPLIES,
 } from "@/lib/constants/agent-access";
 import {
+  AGENT_OAUTH_CLEANUP,
   AGENT_OAUTH_CLIENT_ID_BYTES,
   AGENT_OAUTH_CREATE_CODE_OUTCOMES,
+  AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS,
+  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_DEFAULT_SCOPE_HINT,
   AGENT_OAUTH_DENIED_REDIRECT_SCHEMES,
   AGENT_OAUTH_EXCHANGE_OUTCOMES,
@@ -359,9 +362,48 @@ describe("agent OAuth functions in migration 045", () => {
     expect(graceReissue).toBeGreaterThan(expiredConsumed);
   });
 
+  it.each([
+    AGENT_OAUTH_RPC.createCode,
+    AGENT_OAUTH_RPC.exchangeCode,
+    AGENT_OAUTH_RPC.rotateRefresh,
+    AGENT_OAUTH_RPC.revokeGrant,
+    AGENT_OAUTH_RPC.revokeAllGrants,
+    AGENT_OAUTH_RPC.revokeToken,
+  ])("%s bounds its lock waits with AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS", (name) => {
+    expect(functionSource(name)).toMatch(
+      new RegExp(`set search_path = public\\s+set lock_timeout = '${AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS}s'\\s+as \\$\\$`)
+    );
+  });
+
+  it("only the functions the endpoints call set lock_timeout, and the cleanup doesn't", () => {
+    expect(Array.from(migration.matchAll(/^set lock_timeout = /gm))).toHaveLength(6);
+    expect(functionSource(AGENT_OAUTH_RPC.deleteExpiredRows)).not.toContain("lock_timeout");
+  });
+
+  it("the lock timeout is shorter than the database-read deadline", () => {
+    expect(AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS * 1000).toBeLessThan(AGENT_OAUTH_DEADLINES_MS.dbRead);
+  });
+
+  it("cleanup deletes in batches of AGENT_OAUTH_CLEANUP.batchSize, one limit per rule", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.deleteExpiredRows);
+    expect(intConstants("c_batch_size")).toEqual([AGENT_OAUTH_CLEANUP.batchSize]);
+    // Idle grants, clients, codes, access tokens, refresh tokens.
+    expect(Array.from(source.matchAll(/limit c_batch_size/g))).toHaveLength(5);
+  });
+
+  it("cleanup keeps an unused client that has an unexpired code, re-checked outside the batch", () => {
+    const source = functionSource(AGENT_OAUTH_RPC.deleteExpiredRows);
+    const clientDelete = source.slice(
+      source.indexOf("delete from agent_oauth_clients"),
+      source.indexOf("get diagnostics clients_deleted")
+    );
+    expect(Array.from(clientDelete.matchAll(/and k\.expires_at > now\(\)/g))).toHaveLength(2);
+    expect(clientDelete).toMatch(/\)\s+and c\.first_authorized_at is null/);
+  });
+
   it("cleanup revokes idle grants set-based under skip-locked row locks, and deletes clients before codes", () => {
     const source = functionSource(AGENT_OAUTH_RPC.deleteExpiredRows);
-    expect(source).toMatch(/order by g\.id\s+for update skip locked/);
+    expect(source).toMatch(/order by g\.id\s+limit c_batch_size\s+for update skip locked/);
     expect(source).not.toContain("agent_oauth_revoke_grant_row");
     const clientDelete = source.indexOf("delete from agent_oauth_clients");
     const codeDelete = source.indexOf("delete from agent_oauth_codes");

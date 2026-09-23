@@ -13,7 +13,7 @@
  * agent_oauth_clients has RLS on and no policies.
  */
 
-import { randomBytes, timingSafeEqual } from "crypto";
+import { randomBytes } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   OAuthClientMetadataSchema,
@@ -21,21 +21,25 @@ import {
 } from "@modelcontextprotocol/sdk/shared/auth.js";
 import {
   base64urlLength,
+  digestsEqual,
   generatePrefixedSecret,
   hashSecret,
 } from "@/lib/auth/prefixed-secret";
+import { formParam } from "@/lib/auth/oauth/http";
 import { validateRedirectUris } from "@/lib/auth/oauth/redirect-uri";
 import { hasUnsafeUriCharacters } from "@/lib/auth/oauth/url";
 import {
   AGENT_OAUTH_CLIENT_ID_BYTES,
   AGENT_OAUTH_CLIENT_NAME_MAX_COMBINING_MARKS,
   AGENT_OAUTH_CLIENTS_TABLE,
+  AGENT_OAUTH_DEADLINES_MS,
   AGENT_OAUTH_DEFAULT_CLIENT_NAME,
   AGENT_OAUTH_GRANT_TYPES,
   AGENT_OAUTH_LIMITS,
   AGENT_OAUTH_PREFIXES,
   AGENT_OAUTH_RESPONSE_TYPE,
   AGENT_OAUTH_TOKEN_ENDPOINT_AUTH_METHODS,
+  AGENT_OAUTH_TOKEN_PARAMS,
   DEFAULT_AGENT_OAUTH_AUTH_METHOD,
   REQUIRED_AGENT_OAUTH_GRANT_TYPE,
   getOwnHostnames,
@@ -52,7 +56,14 @@ import {
 } from "@/lib/careerotter/field-guards";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-import type { AgentOAuthClientRecord, RedirectUriKind, RegisteredClient } from "@/types";
+import { withAbortableTimeout } from "@/lib/utils/with-timeout";
+import type {
+  AgentOAuthClientAuthentication,
+  AgentOAuthClientAuthFailureReason,
+  AgentOAuthClientRecord,
+  RedirectUriKind,
+  RegisteredClient,
+} from "@/types";
 
 // ── types ──────────────────────────────────────────────────────────────────
 
@@ -74,25 +85,6 @@ export type ClientRegistrationValidation =
 export type ClientRegistrationResult =
   | { ok: true; client: RegisteredClient }
   | { ok: false; kind: "db" };
-
-/** Why client authentication failed; for security logs, never for the response body. */
-export type ClientAuthFailureReason =
-  | "missing_client_id"
-  | "malformed_basic"
-  | "multiple_methods"
-  | "unknown_client"
-  | "method_mismatch"
-  | "wrong_secret";
-
-/**
- * Outcome of authenticating a client. On `invalid_client` the caller answers
- * 401, adding `WWW-Authenticate: Basic` when `usedBasic` (RFC 6749 §5.2);
- * `unavailable` means the database couldn't be reached.
- */
-export type ClientAuthentication =
-  | { ok: true; client: AgentOAuthClientRecord }
-  | { ok: false; kind: "invalid_client"; reason: ClientAuthFailureReason; usedBasic: boolean }
-  | { ok: false; kind: "unavailable" };
 
 // ── constants ──────────────────────────────────────────────────────────────
 
@@ -386,7 +378,7 @@ type PresentedCredentials =
 
 type Presented =
   | { ok: true; credentials: PresentedCredentials }
-  | { ok: false; reason: ClientAuthFailureReason };
+  | { ok: false; reason: AgentOAuthClientAuthFailureReason };
 
 type ClientLookup =
   | { kind: "found"; row: ClientRow }
@@ -429,13 +421,27 @@ function logLookupFailure(error: unknown): void {
   });
 }
 
+/**
+ * The client row by id, within AGENT_OAUTH_DEADLINES_MS.dbRead: a slower
+ * lookup is aborted and reported as `unavailable`.
+ */
 async function findClientRow(admin: SupabaseClient, clientId: string): Promise<ClientLookup> {
   try {
-    const { data, error } = await admin
-      .from(AGENT_OAUTH_CLIENTS_TABLE)
-      .select(CLIENT_SELECT)
-      .eq("client_id", clientId)
-      .maybeSingle();
+    const outcome = await withAbortableTimeout(
+      async (signal) =>
+        await admin
+          .from(AGENT_OAUTH_CLIENTS_TABLE)
+          .select(CLIENT_SELECT)
+          .eq("client_id", clientId)
+          .abortSignal(signal)
+          .maybeSingle(),
+      AGENT_OAUTH_DEADLINES_MS.dbRead
+    );
+    if (outcome.timedOut) {
+      logLookupFailure("OAuth client lookup timed out");
+      return { kind: "unavailable" };
+    }
+    const { data, error } = outcome.value;
     if (error) {
       logLookupFailure(error);
       return { kind: "unavailable" };
@@ -496,24 +502,18 @@ function decodeBasicCredentials(encoded: string): { clientId: string; secret: st
   return { clientId, secret };
 }
 
-/** A form field's value, with an empty one read as absent. */
-function nonEmptyField(form: URLSearchParams, name: string): string | null {
-  const value = form.get(name);
-  return value === null || value === "" ? null : value;
-}
-
 /**
  * The Basic header's credentials. `encoded` is null when the header names the
  * Basic scheme but carries no single credentials token. An empty password
  * means the header carries only the client_id, as a public client would send
  * it. A client_secret in the body as well is two methods at once, and a body
- * client_id must name the same client.
+ * client_id must name the same client (an empty one counts as absent).
  */
 function presentedBasic(encoded: string | null, form: URLSearchParams): Presented {
   const decoded = encoded === null ? null : decodeBasicCredentials(encoded);
   if (decoded === null) return { ok: false, reason: "malformed_basic" };
-  const bodyClientId = form.get("client_id");
-  const bodySecret = nonEmptyField(form, "client_secret");
+  const bodyClientId = formParam(form, AGENT_OAUTH_TOKEN_PARAMS.clientId);
+  const bodySecret = formParam(form, AGENT_OAUTH_TOKEN_PARAMS.clientSecret);
   if (bodySecret !== null || (bodyClientId !== null && bodyClientId !== decoded.clientId)) {
     return { ok: false, reason: "multiple_methods" };
   }
@@ -524,9 +524,9 @@ function presentedBasic(encoded: string | null, form: URLSearchParams): Presente
 }
 
 function presentedInBody(form: URLSearchParams): Presented {
-  const clientId = nonEmptyField(form, "client_id");
+  const clientId = formParam(form, AGENT_OAUTH_TOKEN_PARAMS.clientId);
   if (clientId === null) return { ok: false, reason: "missing_client_id" };
-  const secret = nonEmptyField(form, "client_secret");
+  const secret = formParam(form, AGENT_OAUTH_TOKEN_PARAMS.clientSecret);
   if (secret === null) return { ok: true, credentials: { method: "none", clientId } };
   return { ok: true, credentials: { method: "client_secret_post", clientId, secret } };
 }
@@ -542,10 +542,8 @@ function basicAuthorizationIn(headers: Headers): { encoded: string | null } | nu
   return { encoded: BASIC_AUTHORIZATION_PATTERN.exec(header)?.[1] ?? null };
 }
 
-// Both sides are SHA-256 digests, so the buffers always have equal length and
-// timingSafeEqual never throws.
 function secretMatches(secret: string, storedHash: string): boolean {
-  return timingSafeEqual(Buffer.from(hashSecret(secret), "hex"), Buffer.from(storedHash, "hex"));
+  return digestsEqual(hashSecret(secret), storedHash);
 }
 
 function credentialsMatch(credentials: PresentedCredentials, row: ClientRow): boolean {
@@ -565,10 +563,10 @@ export async function authenticateClient(
   admin: SupabaseClient,
   headers: Headers,
   form: URLSearchParams
-): Promise<ClientAuthentication> {
+): Promise<AgentOAuthClientAuthentication> {
   const basic = basicAuthorizationIn(headers);
   const usedBasic = basic !== null;
-  const fail = (reason: ClientAuthFailureReason): ClientAuthentication => ({
+  const fail = (reason: AgentOAuthClientAuthFailureReason): AgentOAuthClientAuthentication => ({
     ok: false,
     kind: "invalid_client",
     reason,

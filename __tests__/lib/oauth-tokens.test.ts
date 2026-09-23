@@ -31,6 +31,10 @@ import {
 } from "@/lib/constants/agent-oauth";
 import { loggerService } from "@/lib/services/logger.service";
 import type { AgentOAuthClientRecord } from "@/types";
+import {
+  OAUTH_TEST_REDIRECT as REDIRECT,
+  OAUTH_TEST_VERIFIER as VERIFIER,
+} from "@/__tests__/utils/test-helpers/oauth-fake-db";
 
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -40,8 +44,6 @@ const NOW = new Date("2026-09-23T12:00:00.000Z");
 const HASH = "a".repeat(64);
 const GRANT_ID = "00000000-0000-4000-8000-000000000001";
 const USER_ID = "11111111-2222-4333-8444-555555555555";
-const REDIRECT = "https://app.example/callback";
-const VERIFIER = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk";
 
 interface QueryResult {
   data: unknown;
@@ -194,6 +196,7 @@ describe("grant RPC failures", () => {
     const query: Record<string, jest.Mock> = {};
     query.select = jest.fn(() => query);
     query.eq = jest.fn(() => query);
+    query.abortSignal = jest.fn(() => query);
     query.maybeSingle = jest.fn(() => Promise.resolve({ data: tableRow, error: null }));
     const rpc = jest.fn(() => ({
       single: () => (rpcResult instanceof Error ? Promise.reject(rpcResult) : Promise.resolve(rpcResult)),

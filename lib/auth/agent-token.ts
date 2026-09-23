@@ -27,6 +27,7 @@ import {
   type AgentTokenExpiryDays,
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
+import { isExpiredAt } from "@/lib/utils/date";
 import {
   generatePrefixedSecret,
   hashSecret,
@@ -240,17 +241,13 @@ function toDateOrNull(value: string | null): Date | null {
   return value === null ? null : new Date(value);
 }
 
-function isExpired(expiresAt: string | null, now: Date): boolean {
-  return expiresAt !== null && Date.parse(expiresAt) <= now.getTime();
-}
-
 /** Status of a token at `now`: revocation wins over expiry. */
 export function agentTokenStatus(
   row: Pick<AgentTokenRow, "expires_at" | "revoked_at">,
   now: Date
 ): AgentTokenStatus {
   if (row.revoked_at !== null) return "revoked";
-  return isExpired(row.expires_at, now) ? "expired" : "active";
+  return isExpiredAt(row.expires_at, now) ? "expired" : "active";
 }
 
 function toAgentTokenRecord(row: AgentTokenRow, now: Date): AgentTokenRecord {
@@ -609,7 +606,7 @@ function summarizeRevoked(
   context: FailureContext
 ): DomainResult<RevokeAllResult> {
   if (!isArrayOf(rows, isRevokedRow)) return dbFailure(context, UNEXPECTED_ROW_SHAPE);
-  const activeRevoked = rows.filter((row) => !isExpired(row.expires_at, now)).length;
+  const activeRevoked = rows.filter((row) => !isExpiredAt(row.expires_at, now)).length;
   return ok({ revoked: rows.length, activeRevoked });
 }
 

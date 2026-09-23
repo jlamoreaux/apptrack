@@ -2,13 +2,15 @@
 /**
  * Tests for lib/auth/prefixed-secret.ts: every OAuth prefix round-trips
  * through generate/check/hash, a secret never validates under another
- * prefix, the PAT wrappers produce the same format as before, and
- * base64urlLength matches Node's unpadded base64url output.
+ * prefix, the PAT wrappers produce the same format as before,
+ * base64urlLength matches Node's unpadded base64url output, and digestsEqual
+ * compares exactly without throwing on different lengths.
  */
 
 import { createHash } from "crypto";
 import {
   base64urlLength,
+  digestsEqual,
   generatePrefixedSecret,
   hashSecret,
   hasValidPrefixedSecretFormat,
@@ -89,5 +91,19 @@ describe("PAT wrappers", () => {
 describe("base64urlLength", () => {
   it.each([0, 1, 2, 3, 16, 31, 32, 33])("matches the unpadded encoding of %i bytes", (bytes) => {
     expect(base64urlLength(bytes)).toBe(Buffer.alloc(bytes).toString("base64url").length);
+  });
+});
+
+describe("digestsEqual", () => {
+  it("is true only for identical strings", () => {
+    const hash = hashSecret("co_cs_example");
+    expect(digestsEqual(hash, hash)).toBe(true);
+    expect(digestsEqual(hash, hash.toUpperCase())).toBe(false);
+    expect(digestsEqual(hash, `${hash.slice(0, -1)}0`)).toBe(hash.endsWith("0"));
+  });
+
+  it.each(["", "short", "x".repeat(200)])("never throws for a value of another length (%j)", (other) => {
+    expect(() => digestsEqual(hashSecret("a"), other)).not.toThrow();
+    expect(digestsEqual(hashSecret("a"), other)).toBe(false);
   });
 });
