@@ -2,7 +2,8 @@
  * Tests for the weekly recap cron's wins loader:
  * - more than one page of wins is fully grouped across users
  * - a query error on a later page returns 500
- * - a single short page behaves as before (one range call, recaps stored)
+ * - a server that caps pages below the requested size still yields every row
+ * - a single short page is followed by one empty-page probe, then recaps are stored
  */
 
 import { GET } from "@/app/api/cron/careerotter-recap/route";
@@ -84,9 +85,14 @@ describe("GET /api/cron/careerotter-recap wins pagination", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(winsBuilder.range).toHaveBeenCalledTimes(2);
+    expect(winsBuilder.range).toHaveBeenCalledTimes(3);
     expect(winsBuilder.range).toHaveBeenNthCalledWith(1, 0, PAGE_SIZE - 1);
     expect(winsBuilder.range).toHaveBeenNthCalledWith(2, PAGE_SIZE, 2 * PAGE_SIZE - 1);
+    expect(winsBuilder.range).toHaveBeenNthCalledWith(
+      3,
+      PAGE_SIZE + secondPage.length,
+      2 * PAGE_SIZE + secondPage.length - 1
+    );
     expect(winsBuilder.order).toHaveBeenCalledWith("created_at", { ascending: true });
     expect(winsBuilder.order).toHaveBeenCalledWith("id", { ascending: true });
 
@@ -116,7 +122,25 @@ describe("GET /api/cron/careerotter-recap wins pagination", () => {
     expect(mockOpenAI).not.toHaveBeenCalled();
   });
 
-  it("stops after a single short page", async () => {
+  it("advances by rows returned when the server caps pages lower", async () => {
+    const serverCap = 2;
+    const { winsBuilder, upsert } = adminWithPages([
+      { data: [win("user-a", 1), win("user-a", 2)], error: null },
+      { data: [win("user-b", 1), win("user-c", 1)], error: null },
+      { data: [win("user-c", 2)], error: null },
+    ]);
+
+    const res = await GET(cronReq());
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ weekStart: "2026-09-21", eligibleUsers: 3, generated: 3 });
+    expect(winsBuilder.range).toHaveBeenNthCalledWith(2, serverCap, serverCap + PAGE_SIZE - 1);
+    expect(winsBuilder.range).toHaveBeenNthCalledWith(3, 2 * serverCap, 2 * serverCap + PAGE_SIZE - 1);
+    expect(winsBuilder.range).toHaveBeenCalledTimes(4);
+    expect(upsert).toHaveBeenCalledTimes(3);
+  });
+
+  it("stops after a short page and an empty probe", async () => {
     const { winsBuilder, upsert } = adminWithPages([
       { data: [win("user-a", 1), win("user-a", 2), win("user-b", 1)], error: null },
     ]);
@@ -125,8 +149,9 @@ describe("GET /api/cron/careerotter-recap wins pagination", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ weekStart: "2026-09-21", eligibleUsers: 2, generated: 2 });
-    expect(winsBuilder.range).toHaveBeenCalledTimes(1);
-    expect(winsBuilder.range).toHaveBeenCalledWith(0, PAGE_SIZE - 1);
+    expect(winsBuilder.range).toHaveBeenCalledTimes(2);
+    expect(winsBuilder.range).toHaveBeenNthCalledWith(1, 0, PAGE_SIZE - 1);
+    expect(winsBuilder.range).toHaveBeenNthCalledWith(2, 3, 3 + PAGE_SIZE - 1);
     expect(upsert).toHaveBeenCalledTimes(2);
   });
 });

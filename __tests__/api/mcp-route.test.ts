@@ -130,6 +130,14 @@ async function expectInvalidToken(response: Response): Promise<void> {
   expect(await response.json()).toEqual({ error: "invalid_token" });
 }
 
+// mcp-handler starts a module-level cleanup interval on first use that is
+// never unref'd; clear it so Jest can exit.
+const setIntervalSpy = jest.spyOn(global, "setInterval");
+afterAll(() => {
+  for (const { value } of setIntervalSpy.mock.results) clearInterval(value);
+  setIntervalSpy.mockRestore();
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockLimit.mockResolvedValue({ success: true, reset: NOW + 60_000 });

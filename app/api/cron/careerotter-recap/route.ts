@@ -24,7 +24,8 @@ export const maxDuration = 300;
 const ENDPOINT = "/api/cron/careerotter-recap";
 const MAX_USERS = 200; // Backstop for a runaway job; log if we hit it.
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
-// Matches PostgREST's default max-rows, so a full page means "maybe more".
+// Requested page size. The server may cap pages lower (PostgREST max-rows), so
+// paging advances by rows actually returned and stops only on an empty page.
 const WINS_PAGE_SIZE = 1000;
 
 interface RecapWinRow {
@@ -46,7 +47,7 @@ type LoadWinsResult =
  */
 async function loadRecentWins(admin: AdminClient, windowStartIso: string): Promise<LoadWinsResult> {
   const wins: RecapWinRow[] = [];
-  for (let from = 0; ; from += WINS_PAGE_SIZE) {
+  for (let from = 0; ; ) {
     const { data, error } = await admin
       .from("wins")
       .select("user_id, text, tag, impact_number")
@@ -58,8 +59,9 @@ async function loadRecentWins(admin: AdminClient, windowStartIso: string): Promi
     if (error) return { wins, error };
 
     const page: RecapWinRow[] = data ?? [];
+    if (page.length === 0) return { wins, error: null };
     wins.push(...page);
-    if (page.length < WINS_PAGE_SIZE) return { wins, error: null };
+    from += page.length;
   }
 }
 
