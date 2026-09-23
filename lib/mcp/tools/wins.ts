@@ -333,10 +333,7 @@ async function runGetCoverage(
   ctx: McpToolContext
 ): Promise<DomainResult<ToolSuccess<z.infer<typeof coverageOutput>>>> {
   // Unbounded: coverage is over every win, not a page of them.
-  const listed = await listWins(ctx.admin, ctx.userId, {
-    select: WIN_REST_SELECT,
-    sort: "created_desc",
-  });
+  const listed = await listWins(ctx.admin, ctx.userId, { select: WIN_REST_SELECT });
   if (!listed.ok) return listed;
   const coverage = computeCoverage(listed.value.wins);
   return ok({
