@@ -34,23 +34,23 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   implication map is closed over the scope list.
 
 ## Task 2: Wins service and REST refactor
-- [ ] 2.1: Create `lib/careerotter/wins-service.ts` with `validateWinInput`,
+- [x] 2.1: Create `lib/careerotter/wins-service.ts` with `validateWinInput`,
   `createWin` (insert, detect 23505 by constraint name, return the existing row
   as `duplicate`, agent quota check), `listWins` (occurred_at range, tag, limit,
   `truncated`), `updateWin` and `deleteWin` (uuid check, `onlySource` option).
   Never throws; generic error messages; `win_logged` only on a non-duplicate
   create.
-- [ ] 2.2: Refactor `app/api/wins/route.ts` and `app/api/wins/[id]/route.ts`
+- [x] 2.2: Refactor `app/api/wins/route.ts` and `app/api/wins/[id]/route.ts`
   onto the service. Keep the response shapes (select list as a parameter) and
   all current coercions; non-uuid id → 404.
-- [ ] 2.3: Write tests for Task 2: service unit tests (validation, duplicate ref
+- [x] 2.3: Write tests for Task 2: service unit tests (validation, duplicate ref
   path incl. constraint-name check and vanished row, quota, onlySource,
   `user_id` filter on every query, no event on duplicate), and update
   `__tests__/api/wins.test.ts` for the uuid 404 change. Existing assertions
   otherwise unchanged.
 
 ## Task 3: Comp service, plan lookup, cached quotes and REST refactor
-- [ ] 3.1: Create `lib/careerotter/comp-service.ts`:
+- [x] 3.1: Create `lib/careerotter/comp-service.ts`:
   - `validateCompInput`, moving the rules out of the POST and adding the ticker
     charset and amount maximums
   - `createCompEntry` (duplicate ref, agent quotas, 500-entry cap)
@@ -59,14 +59,14 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - `deleteCompEntry`
   - `listCompEntries` (ordered with the `created_at` tiebreak)
   - `currentCompEntry(entries, asOf)` → `{ current, upcoming }`
-- [ ] 3.2: Create `lib/careerotter/plan.ts` `isProUser(admin, userId)` using the
+- [x] 3.2: Create `lib/careerotter/plan.ts` `isProUser(admin, userId)` using the
   admin client, `isEntitledStatus` and `isOnProOrHigher`.
-- [ ] 3.3: Add `readCachedQuotes(admin, tickers)` (select-only) to
+- [x] 3.3: Add `readCachedQuotes(admin, tickers)` (select-only) to
   `lib/careerotter/stock-price-cache.ts`.
-- [ ] 3.4: Refactor `app/api/careerotter/comp/route.ts` and `[id]/route.ts` onto
+- [x] 3.4: Refactor `app/api/careerotter/comp/route.ts` and `[id]/route.ts` onto
   the service. Comp GET returns 500 when the entries query errors; non-uuid id →
   404; REST keeps `comp_entered` with `total`; the agent path sends no amount.
-- [ ] 3.5: Write tests for Task 3:
+- [x] 3.5: Write tests for Task 3:
   - comp-service unit tests: every validation rule, merged-row cliff/vest check,
     duplicate ref, quotas and cap, onlySource, `currentCompEntry` ties and future
     entries
@@ -76,19 +76,19 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
     changes
 
 ## Task 4: Agent token library and token API
-- [ ] 4.1: Create `lib/auth/agent-token.ts`:
+- [x] 4.1: Create `lib/auth/agent-token.ts`:
   - `generateAgentToken` (random + CRC32 checksum)
   - `hasValidAgentTokenFormat`
   - `hashAgentToken`
   - `normalizeScopes` (dedupe, add implied reads, sort, reject unknown)
   - `verifyAgentToken` (invalid vs unavailable; revoked/expired → invalid)
   - `touchLastUsed` (5-minute throttle)
-- [ ] 4.2: Create `app/api/careerotter/agent-tokens/route.ts` (GET list with
+- [x] 4.2: Create `app/api/careerotter/agent-tokens/route.ts` (GET list with
   status, POST create, DELETE revoke-all) and `[id]/route.ts` (DELETE revoke
   one, idempotent). Cookie session only via `createClient().auth.getUser()`.
   Create is rate limited on the `pat-create:${userId}` key. Covers the 10-token
   limit (422), duplicate active name (409), and comp scopes forbidding "never".
-- [ ] 4.3: Write tests for Task 4:
+- [x] 4.3: Write tests for Task 4:
   - token format and checksum round-trip; tampered checksum rejected
   - hash stability
   - `normalizeScopes` cases
@@ -223,3 +223,15 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   `scripts/run-schema.sh` still exits 0 in that case (no `ON_ERROR_STOP`); the
   operator must read the psql output. Changing the script affects every
   migration and is left out of this change.
+- Agent write quotas are soft: count-then-insert, so N concurrent writes can
+  exceed a quota by up to N-1, and deleting agent rows frees their slots. Same
+  for the 10-active-token limit (bounded by the create rate limit when Redis is up).
+- Comp create checks the quota before looking up a retried `external_ref`
+  (the lookup still runs when the quota rejects, so retries return the stored row).
+  Wins looks the ref up first. Behavior is equivalent for callers.
+- `loadQuotes` keeps its pre-existing `as StockPriceRow[]` cast so its behavior
+  is unchanged; the new `readCachedQuotes` path uses a runtime guard.
+- Revoke-all reports `db` if the returned rows have an unexpected shape even
+  though the update committed; revoke is idempotent, so a retry is harmless.
+- Revoking expired tokens (on name reuse and revoke-all) changes their listed
+  status from "expired" to "revoked".

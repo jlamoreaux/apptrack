@@ -285,11 +285,15 @@ Messages never include Supabase error text. Ids are validated as uuids up front
   `(user_id, external_ref)` and return it with `duplicate: true`. If that select
   finds nothing (deleted in between), return `conflict`. No analytics event
   fires on a duplicate.
-- Quotas (agent source only; counted by query):
+- Quotas (24h quotas count agent-source rows only; the comp total cap counts
+  rows from every source; all counted by query):
   - 50 agent wins per user per rolling 24h
   - 25 agent comp entries per 24h
-  - 500 total comp entries per user
+  - 500 total comp entries per user, manual and agent alike
   - over quota → `quota`
+  - Quotas are soft: each write counts and then inserts, so concurrent calls
+    can exceed a quota by up to the concurrency level. A deleted agent row no
+    longer counts, so deleting frees its slot.
 - `lib/careerotter/plan.ts`: `isProUser(admin, userId)`. It runs the
   `getSubscription` query (active/trialing, latest) on the admin client and
   derives Pro with `isEntitledStatus` and `isOnProOrHigher`, because
@@ -307,6 +311,10 @@ Messages never include Supabase error text. Ids are validated as uuids up front
 | Comp amounts above `numeric(12,2)` | 500 | 400 |
 | Ticker with characters outside the charset | accepted | 400 |
 | Comp GET when the entries query errors | 200 with `[]` | 500 |
+| Non-object or `null` JSON body on wins POST/PATCH and comp POST | 500 | 400 |
+| Comp entries beyond 500 per user, any source | accepted | 429 |
+| `vest_years` below 0.01 (not storable in `numeric(4,2)`) | accepted | 400 |
+| Ticker longer than 10 characters after trimming | truncated to 10 | 400 |
 
 Existing tests that encode the old behavior are updated in the same task.
 
