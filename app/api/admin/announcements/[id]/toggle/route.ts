@@ -7,10 +7,10 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
-  const announcementId = params.id;
+  const { id: announcementId } = await params;
   
   try {
     const supabase = await createClient();
@@ -58,7 +58,7 @@ export async function PATCH(
         active,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', announcementId)
       .select()
       .single();
 

@@ -7,6 +7,16 @@
 # depends on "change a signature, follow the compiler" working, so the count must not grow.
 #
 # To lower the baseline after fixing errors:  ./scripts/ci/typecheck-ratchet.sh --update
+#
+# If this disagrees between your machine and CI, the cause is almost certainly `.next/`.
+# tsconfig.json includes `.next/types/**/*.ts`, which only exists after a build — so a local
+# run counts Next's generated route validator and a fresh CI checkout does not.
+#
+# Those errors are NOT noise and must not be excluded from the count: they are how Next
+# reports a route whose handler signature it rejects. Exactly that caught three route
+# handlers still using synchronous `params`, which Next 16 removed — they would have
+# returned undefined ids at runtime. If the counts diverge, run a build and read the
+# `.next/types/validator.ts` errors before touching the baseline.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 BASELINE_FILE=".typecheck-baseline"
