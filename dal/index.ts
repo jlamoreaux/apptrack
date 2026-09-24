@@ -2,7 +2,6 @@
 export * from "./base";
 
 // Export all DAL classes
-export { UserDAL } from "./users";
 export { ApplicationDAL } from "./applications";
 export { SubscriptionDAL } from "./subscriptions";
 export {
@@ -14,13 +13,6 @@ export {
 } from "./ai-coach";
 
 // Export input types
-export type {
-  CreateUserInput,
-  UpdateUserInput,
-  CreateProfileInput,
-  UpdateProfileInput,
-} from "./users";
-
 export type {
   CreateApplicationInput,
   UpdateApplicationInput,

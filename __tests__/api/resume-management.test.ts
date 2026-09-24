@@ -40,7 +40,6 @@ jest.mock('@/lib/utils/text-extraction-server', () => ({
 }));
 
 // Mock pdf-parse to prevent it from running debug code
-jest.mock('pdf-parse', () => jest.fn());
 
 // Mock file-type-validation to avoid missing 'file-type' ESM package
 jest.mock('@/lib/utils/file-type-validation', () => ({

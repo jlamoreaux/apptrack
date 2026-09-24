@@ -1,0 +1,898 @@
+-- 0001_extras.sql — objects drizzle-kit cannot express
+--
+-- drizzle-kit pull captures tables, columns, indexes, constraints, policies and plain
+-- views, but NOT plpgsql functions, triggers, or materialized views. Without this file
+-- the baseline does not reproduce production.
+--
+-- Generated from db/prod-truth/01_public_schema.sql by scripts/migration/gen-extras.py.
+-- Regenerate rather than hand-editing.
+--
+-- NOTE: this file deliberately reproduces production AS IT IS, including known defects,
+-- because a baseline's job is fidelity, not correction. Defects are removed later, in
+-- their own migrations, so each change is attributable. Known issues reproduced here:
+--   * get_next_display_order() uses FOR UPDATE with an aggregate and always raises
+--     "FOR UPDATE is not allowed with aggregate functions".
+--   * handle_new_user_subscription() is defined but attached to no trigger.
+--   * application_ai_analyses.interview_prep_count is 0 for every row.
+
+
+-- ============ FUNCTIONS (39) ============
+
+-- auto_assign_default_resume()
+CREATE FUNCTION public.auto_assign_default_resume() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  next_resume_id UUID;
+BEGIN
+  -- If a default resume was deleted and user still has other resumes
+  IF OLD.is_default = true THEN
+    -- Find the resume with the lowest display_order
+    SELECT id INTO next_resume_id
+    FROM public.user_resumes
+    WHERE user_id = OLD.user_id
+      AND id != OLD.id
+    ORDER BY display_order ASC
+    LIMIT 1;
+
+    -- Set it as default if found
+    IF next_resume_id IS NOT NULL THEN
+      UPDATE public.user_resumes
+      SET is_default = true,
+          updated_at = NOW()
+      WHERE id = next_resume_id;
+    END IF;
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+-- check_ai_feature_allowance(uuid, text, text)
+CREATE FUNCTION public.check_ai_feature_allowance(p_user_id uuid, p_feature_type text, p_subscription_tier text DEFAULT 'free'::text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  usage_count INTEGER;
+  max_free_uses INTEGER := 1; -- Each feature gets 1 free try
+BEGIN
+  -- AI Coach tier gets unlimited access
+  IF p_subscription_tier = 'ai_coach' THEN
+    RETURN TRUE;
+  END IF;
+
+  -- Career advice is AI Coach only (no free tier)
+  IF p_feature_type = 'career_advice' OR p_feature_type = 'career_chat' THEN
+    RETURN FALSE;
+  END IF;
+
+  -- Check free tier usage count using correct column name
+  SELECT COALESCE(SUM(ai_feature_usage.usage_count), 0)
+  INTO usage_count
+  FROM ai_feature_usage
+  WHERE user_id = p_user_id
+    AND feature_name = p_feature_type;
+
+  -- Return TRUE if user has free tries remaining
+  RETURN usage_count < max_free_uses;
+END;
+$$;
+
+-- check_resume_limit()
+CREATE FUNCTION public.check_resume_limit() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  resume_count INTEGER;
+  user_plan TEXT;
+  max_resumes INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO resume_count
+  FROM public.user_resumes
+  WHERE user_id = NEW.user_id;
+
+  -- Get user's plan (AI Coach/Pro = 100, Free = 1)
+  SELECT COALESCE(sp.name, 'Free') INTO user_plan
+  FROM public.profiles p
+  LEFT JOIN public.user_subscriptions us ON p.id = us.user_id
+  LEFT JOIN public.subscription_plans sp ON us.plan_id = sp.id
+  WHERE p.id = NEW.user_id
+    AND (us.status IN ('active', 'trialing') OR us.status IS NULL);
+
+  max_resumes := CASE WHEN user_plan IN ('AI Coach', 'Pro') THEN 100 ELSE 1 END;
+
+  IF TG_OP = 'INSERT' AND resume_count >= max_resumes THEN
+    RAISE EXCEPTION 'Resume limit reached. Your % plan allows % resume(s).', user_plan, max_resumes
+      USING ERRCODE = '23514'; -- check_violation
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- cleanup_expired_roasts()
+CREATE FUNCTION public.cleanup_expired_roasts() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  deleted_count INTEGER;
+BEGIN
+  -- Delete roasts that have expired
+  WITH deleted AS (
+    DELETE FROM public.roasts
+    WHERE expires_at < NOW()
+    RETURNING id
+  )
+  SELECT COUNT(*) INTO deleted_count FROM deleted;
+  
+  -- Log the cleanup (optional - you can create a cleanup_logs table if you want to track this)
+  RAISE NOTICE 'Cleaned up % expired roasts at %', deleted_count, NOW();
+  
+  -- You could also insert into a log table here if you want to track cleanup history
+  -- INSERT INTO cleanup_logs (table_name, deleted_count, cleaned_at)
+  -- VALUES ('roasts', deleted_count, NOW());
+END;
+$$;
+
+-- cleanup_expired_trial_results()
+CREATE FUNCTION public.cleanup_expired_trial_results() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_deleted_count integer;
+BEGIN
+  DELETE FROM public.ai_trial_results
+  WHERE expires_at <= now();
+  
+  GET DIAGNOSTICS v_deleted_count = ROW_COUNT;
+  RETURN v_deleted_count;
+END;
+$$;
+
+-- cleanup_old_ai_preview_sessions()
+CREATE FUNCTION public.cleanup_old_ai_preview_sessions() RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  -- Delete unconverted preview sessions older than 30 days
+  DELETE FROM ai_preview_sessions
+  WHERE created_at < NOW() - INTERVAL '30 days'
+    AND user_id IS NULL;  -- Only delete unconverted sessions
+
+  -- Delete rate limit entries older than 7 days
+  DELETE FROM ai_preview_usage
+  WHERE used_at < NOW() - INTERVAL '7 days';
+
+  -- Log cleanup (optional - for monitoring)
+  RAISE NOTICE 'Cleaned up old AI preview sessions and rate limit entries';
+END;
+$$;
+
+-- consume_ai_analysis(uuid, integer)
+CREATE FUNCTION public.consume_ai_analysis(p_user_id uuid, p_limit integer DEFAULT 5) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  UPDATE public.profiles
+  SET ai_analyses_used = ai_analyses_used + 1,
+      updated_at = NOW()
+  WHERE id = p_user_id
+    AND ai_analyses_used < p_limit
+  RETURNING ai_analyses_used INTO new_count;
+
+  IF new_count IS NULL THEN
+    RETURN -1; -- Budget exhausted
+  END IF;
+
+  RETURN new_count;
+END;
+$$;
+
+-- convert_guest_to_user(uuid, jsonb)
+CREATE FUNCTION public.convert_guest_to_user(p_user_id uuid, p_guest_identifier jsonb) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_first_session record;
+  v_last_session record;
+  v_trial_count integer;
+  v_time_to_conversion integer;
+BEGIN
+  -- Find first and last sessions for this guest
+  SELECT * INTO v_first_session
+  FROM public.ai_guest_sessions
+  WHERE ip_hash = p_guest_identifier->>'ip_hash'
+    AND browser_fingerprint = p_guest_identifier->>'browser_fingerprint'
+  ORDER BY session_started_at ASC
+  LIMIT 1;
+  
+  SELECT * INTO v_last_session
+  FROM public.ai_guest_sessions
+  WHERE ip_hash = p_guest_identifier->>'ip_hash'
+    AND browser_fingerprint = p_guest_identifier->>'browser_fingerprint'
+  ORDER BY session_started_at DESC
+  LIMIT 1;
+  
+  -- Count total trials
+  SELECT COUNT(*) INTO v_trial_count
+  FROM public.ai_guest_sessions
+  WHERE ip_hash = p_guest_identifier->>'ip_hash'
+    AND browser_fingerprint = p_guest_identifier->>'browser_fingerprint';
+  
+  -- Calculate time to conversion
+  v_time_to_conversion := EXTRACT(EPOCH FROM (now() - v_first_session.session_started_at))::integer;
+  
+  -- Update the last session as converted
+  UPDATE public.ai_guest_sessions
+  SET 
+    converted_to_signup = true,
+    converted_user_id = p_user_id
+  WHERE id = v_last_session.id;
+  
+  -- Track conversion
+  INSERT INTO public.ai_guest_conversions (
+    guest_session_id,
+    user_id,
+    time_to_conversion_seconds,
+    trial_count_before_conversion,
+    first_feature_tried,
+    last_feature_tried
+  ) VALUES (
+    v_last_session.id,
+    p_user_id,
+    v_time_to_conversion,
+    v_trial_count,
+    v_first_session.feature_name,
+    v_last_session.feature_name
+  );
+END;
+$$;
+
+-- delete_expired_roasts()
+CREATE FUNCTION public.delete_expired_roasts() RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    DELETE FROM roasts WHERE expires_at < NOW();
+END;
+$$;
+
+-- enforce_one_default_resume()
+CREATE FUNCTION public.enforce_one_default_resume() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  -- When setting a resume as default, lock all user's resumes to prevent race conditions
+  IF NEW.is_default = true THEN
+    -- Lock all user's resumes for this transaction to prevent concurrent modifications
+    -- This prevents TOCTOU (Time-of-check to time-of-use) race conditions where
+    -- two concurrent requests could both try to set different resumes as default
+    PERFORM 1 FROM public.user_resumes
+    WHERE user_id = NEW.user_id
+    FOR UPDATE;
+
+    -- Now safely unset all other defaults for this user
+    UPDATE public.user_resumes
+    SET is_default = false
+    WHERE user_id = NEW.user_id
+      AND id != NEW.id
+      AND is_default = true;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- ensure_single_welcome_offer()
+CREATE FUNCTION public.ensure_single_welcome_offer() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  -- If setting this code as welcome offer, unset all others
+  IF NEW.is_welcome_offer = true THEN
+    UPDATE public.promo_codes 
+    SET is_welcome_offer = false 
+    WHERE id != NEW.id AND is_welcome_offer = true;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+-- generate_shareable_id()
+CREATE FUNCTION public.generate_shareable_id() RETURNS character varying
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    chars TEXT := 'abcdefghijklmnopqrstuvwxyz0123456789';
+    result VARCHAR := '';
+    i INTEGER;
+BEGIN
+    -- Generate 8 character random string
+    FOR i IN 1..8 LOOP
+        result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+    END LOOP;
+    RETURN result;
+END;
+$$;
+
+-- get_ai_usage_count(uuid, text, integer)
+CREATE FUNCTION public.get_ai_usage_count(p_user_id uuid, p_feature_name text, p_window_hours integer DEFAULT 24) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN (
+    SELECT COUNT(*)
+    FROM public.ai_usage_tracking
+    WHERE user_id = p_user_id
+      AND feature_name = p_feature_name
+      AND used_at > (now() - interval '1 hour' * p_window_hours)
+      AND success = true
+  );
+END;
+$$;
+
+-- get_guest_trial_result(uuid)
+CREATE FUNCTION public.get_guest_trial_result(p_session_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_result jsonb;
+BEGIN
+  -- Get the most recent trial result for the session
+  SELECT result_data INTO v_result
+  FROM public.ai_trial_results
+  WHERE session_id = p_session_id
+    AND user_id IS NULL  -- Only for guest sessions
+    AND expires_at > now()
+  ORDER BY created_at DESC
+  LIMIT 1;
+  
+  -- Update access tracking if result found
+  IF v_result IS NOT NULL THEN
+    UPDATE public.ai_trial_results
+    SET 
+      accessed_at = now(),
+      access_count = access_count + 1
+    WHERE session_id = p_session_id
+      AND user_id IS NULL
+      AND expires_at > now();
+  END IF;
+  
+  RETURN v_result;
+END;
+$$;
+
+-- get_guest_usage_count(character varying, character varying, text, integer)
+CREATE FUNCTION public.get_guest_usage_count(p_ip_hash character varying, p_browser_fingerprint character varying, p_feature_name text, p_window_hours integer DEFAULT 24) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  RETURN (
+    SELECT COUNT(*)
+    FROM public.ai_guest_sessions
+    WHERE (ip_hash = p_ip_hash OR browser_fingerprint = p_browser_fingerprint)
+      AND feature_name = p_feature_name
+      AND session_started_at > (now() - interval '1 hour' * p_window_hours)
+  );
+END;
+$$;
+
+-- get_next_display_order(uuid)
+CREATE FUNCTION public.get_next_display_order(p_user_id uuid) RETURNS integer
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  next_order INTEGER;
+BEGIN
+  -- Lock the user's resumes to prevent concurrent inserts getting the same order
+  -- This ensures atomicity when calculating the next display_order
+  SELECT COALESCE(MAX(display_order), 0) + 1 INTO next_order
+  FROM public.user_resumes
+  WHERE user_id = p_user_id
+  FOR UPDATE;
+
+  RETURN next_order;
+END;
+$$;
+
+-- get_trial_result(uuid, uuid)
+CREATE FUNCTION public.get_trial_result(p_user_id uuid, p_session_id uuid) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_result jsonb;
+BEGIN
+  SELECT result_data INTO v_result
+  FROM public.ai_trial_results
+  WHERE session_id = p_session_id
+    AND (user_id = p_user_id OR user_id IS NULL)
+    AND expires_at > now();
+  
+  -- Update access tracking
+  IF v_result IS NOT NULL THEN
+    UPDATE public.ai_trial_results
+    SET 
+      accessed_at = now(),
+      access_count = access_count + 1,
+      user_id = p_user_id -- Link to user if not already linked
+    WHERE session_id = p_session_id
+      AND expires_at > now();
+  END IF;
+  
+  RETURN v_result;
+END;
+$$;
+
+-- get_user_ai_limits(uuid, text, text)
+CREATE FUNCTION public.get_user_ai_limits(p_user_id uuid, p_feature_name text, p_subscription_tier text) RETURNS TABLE(daily_limit integer, hourly_limit integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  -- First check for user-specific overrides
+  RETURN QUERY
+  SELECT uo.daily_limit, uo.hourly_limit
+  FROM public.ai_user_limit_overrides uo
+  WHERE uo.user_id = p_user_id
+    AND uo.feature_name = p_feature_name
+    AND (uo.expires_at IS NULL OR uo.expires_at > now())
+  LIMIT 1;
+  
+  -- If no override found, return default limits for tier
+  IF NOT FOUND THEN
+    RETURN QUERY
+    SELECT fl.daily_limit, fl.hourly_limit
+    FROM public.ai_feature_limits fl
+    WHERE fl.feature_name = p_feature_name
+      AND fl.subscription_tier = p_subscription_tier
+    LIMIT 1;
+  END IF;
+END;
+$$;
+
+-- handle_new_user()
+CREATE FUNCTION public.handle_new_user() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, full_name)
+  VALUES (
+    new.id,
+    new.email,
+    COALESCE(new.raw_user_meta_data->>'full_name', new.email)
+  );
+  RETURN new;
+END;
+$$;
+
+-- handle_new_user_subscription()
+CREATE FUNCTION public.handle_new_user_subscription() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    free_plan_id UUID;
+BEGIN
+    -- Get the free plan ID
+    SELECT id INTO free_plan_id FROM public.subscription_plans WHERE name = 'Free' LIMIT 1;
+    
+    -- Create default subscription
+    INSERT INTO public.user_subscriptions (user_id, plan_id, current_period_end)
+    VALUES (
+        NEW.id,
+        free_plan_id,
+        NOW() + INTERVAL '1 year' -- Free plan doesn't expire
+    );
+    
+    -- Create usage tracking
+    INSERT INTO public.usage_tracking (user_id, applications_count)
+    VALUES (NEW.id, 0);
+    
+    RETURN NEW;
+END;
+$$;
+
+-- handle_updated_at()
+CREATE FUNCTION public.handle_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+-- increment_access_count(uuid, text)
+CREATE FUNCTION public.increment_access_count(p_user_id uuid, p_feature_name text) RETURNS void
+    LANGUAGE sql
+    AS $$
+  UPDATE ai_trial_results 
+  SET 
+    accessed_at = NOW(),
+    access_count = COALESCE(access_count, 0) + 1
+  WHERE user_id = p_user_id 
+    AND feature_name = p_feature_name;
+$$;
+
+-- increment_ai_feature_usage(uuid, text)
+CREATE FUNCTION public.increment_ai_feature_usage(p_user_id uuid, p_feature_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO public.ai_feature_usage (user_id, feature_name, usage_count)
+  VALUES (p_user_id, p_feature_name, 1)
+  ON CONFLICT (user_id, feature_name, usage_date)
+  DO UPDATE SET 
+    usage_count = ai_feature_usage.usage_count + 1,
+    updated_at = now();
+END;
+$$;
+
+-- increment_promo_code_usage(uuid)
+CREATE FUNCTION public.increment_promo_code_usage(promo_code_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  UPDATE promo_codes 
+  SET used_count = used_count + 1
+  WHERE id = promo_code_id;
+END;
+$$;
+
+-- increment_roast_views(character varying)
+CREATE FUNCTION public.increment_roast_views(p_shareable_id character varying) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    UPDATE roasts 
+    SET view_count = view_count + 1
+    WHERE shareable_id = p_shareable_id;
+END;
+$$;
+
+-- link_trial_results_to_user(uuid, uuid[])
+CREATE FUNCTION public.link_trial_results_to_user(p_user_id uuid, p_session_ids uuid[]) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_updated_count integer;
+BEGIN
+  UPDATE public.ai_trial_results
+  SET user_id = p_user_id
+  WHERE session_id = ANY(p_session_ids)
+    AND user_id IS NULL
+    AND expires_at > now();
+  
+  GET DIAGNOSTICS v_updated_count = ROW_COUNT;
+  RETURN v_updated_count;
+END;
+$$;
+
+-- refresh_application_ai_analyses()
+CREATE FUNCTION public.refresh_application_ai_analyses() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  -- Refresh materialized view concurrently (doesn't block reads)
+  -- Note: CONCURRENTLY requires the unique index we created above
+  REFRESH MATERIALIZED VIEW CONCURRENTLY public.application_ai_analyses;
+  RETURN NULL;
+END;
+$$;
+
+-- refund_ai_analysis(uuid)
+CREATE FUNCTION public.refund_ai_analysis(p_user_id uuid) RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  new_count INTEGER;
+BEGIN
+  UPDATE public.profiles
+  SET ai_analyses_used = GREATEST(ai_analyses_used - 1, 0),
+      updated_at = NOW()
+  WHERE id = p_user_id
+  RETURNING ai_analyses_used INTO new_count;
+
+  RETURN COALESCE(new_count, 0);
+END;
+$$;
+
+-- set_shareable_id()
+CREATE FUNCTION public.set_shareable_id() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+    new_id VARCHAR;
+    id_exists BOOLEAN;
+BEGIN
+    -- Keep generating until we get a unique ID
+    LOOP
+        new_id := generate_shareable_id();
+        SELECT EXISTS(SELECT 1 FROM roasts WHERE shareable_id = new_id) INTO id_exists;
+        EXIT WHEN NOT id_exists;
+    END LOOP;
+    
+    NEW.shareable_id := new_id;
+    RETURN NEW;
+END;
+$$;
+
+-- store_trial_result(uuid, text, jsonb, jsonb)
+CREATE FUNCTION public.store_trial_result(p_session_id uuid, p_feature_name text, p_input_data jsonb, p_result_data jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_result_id uuid;
+BEGIN
+  INSERT INTO public.ai_trial_results (
+    session_id,
+    feature_name,
+    input_data,
+    result_data
+  ) VALUES (
+    p_session_id,
+    p_feature_name,
+    p_input_data,
+    p_result_data
+  ) RETURNING id INTO v_result_id;
+  
+  RETURN v_result_id;
+END;
+$$;
+
+-- track_ai_feature_usage(uuid, text)
+CREATE FUNCTION public.track_ai_feature_usage(p_user_id uuid, p_feature_name text) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  INSERT INTO ai_feature_usage (user_id, feature_name, usage_date, usage_count)
+  VALUES (p_user_id, p_feature_name, CURRENT_DATE, 1)
+  ON CONFLICT (user_id, feature_name, usage_date)
+  DO UPDATE SET
+    usage_count = ai_feature_usage.usage_count + 1,
+    updated_at = now();
+END;
+$$;
+
+-- track_guest_session(character varying, character varying, text, jsonb)
+CREATE FUNCTION public.track_guest_session(p_ip_hash character varying, p_browser_fingerprint character varying, p_feature_name text, p_metadata jsonb DEFAULT '{}'::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  v_session_id uuid;
+BEGIN
+  INSERT INTO public.ai_guest_sessions (
+    ip_hash,
+    browser_fingerprint,
+    feature_name,
+    client_metadata
+  ) VALUES (
+    p_ip_hash,
+    p_browser_fingerprint,
+    p_feature_name,
+    p_metadata
+  ) RETURNING id INTO v_session_id;
+  
+  RETURN v_session_id;
+END;
+$$;
+
+-- update_audience_members_updated_at()
+CREATE FUNCTION public.update_audience_members_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+-- update_career_goals_updated_at()
+CREATE FUNCTION public.update_career_goals_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- update_guest_session_preview(uuid)
+CREATE FUNCTION public.update_guest_session_preview(p_session_id uuid) RETURNS void
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+  UPDATE public.ai_guest_sessions
+  SET 
+    result_previewed = true,
+    session_completed_at = now()
+  WHERE id = p_session_id;
+END;
+$$;
+
+-- update_updated_at_column()
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- update_usage_count()
+CREATE FUNCTION public.update_usage_count() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        -- Increment count
+        INSERT INTO public.usage_tracking (user_id, applications_count, last_updated)
+        VALUES (NEW.user_id, 1, NOW())
+        ON CONFLICT (user_id) 
+        DO UPDATE SET 
+            applications_count = usage_tracking.applications_count + 1,
+            last_updated = NOW();
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        -- Decrement count
+        UPDATE public.usage_tracking 
+        SET 
+            applications_count = GREATEST(0, applications_count - 1),
+            last_updated = NOW()
+        WHERE user_id = OLD.user_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$;
+
+-- update_wins_updated_at()
+CREATE FUNCTION public.update_wins_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- upsert_linkedin_profile(text, text, text, text, text, text, text)
+CREATE FUNCTION public.upsert_linkedin_profile(p_profile_url text, p_name text DEFAULT NULL::text, p_headline text DEFAULT NULL::text, p_title text DEFAULT NULL::text, p_company text DEFAULT NULL::text, p_location text DEFAULT NULL::text, p_profile_photo_url text DEFAULT NULL::text) RETURNS uuid
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_profile_id uuid;
+  v_username text;
+begin
+  -- Extract username from URL
+  v_username := regexp_replace(p_profile_url, '.*linkedin\.com/in/([^/]+).*', '\1');
+  
+  -- Try to insert or update the profile
+  insert into public.linkedin_profiles (
+    profile_url, username, name, headline, title, company, location, profile_photo_url
+  ) values (
+    p_profile_url, v_username, p_name, p_headline, p_title, p_company, p_location, p_profile_photo_url
+  )
+  on conflict (profile_url) do update set
+    name = coalesce(excluded.name, linkedin_profiles.name),
+    headline = coalesce(excluded.headline, linkedin_profiles.headline),
+    title = coalesce(excluded.title, linkedin_profiles.title),
+    company = coalesce(excluded.company, linkedin_profiles.company),
+    location = coalesce(excluded.location, linkedin_profiles.location),
+    profile_photo_url = coalesce(excluded.profile_photo_url, linkedin_profiles.profile_photo_url),
+    updated_at = now()
+  returning id into v_profile_id;
+  
+  return v_profile_id;
+end;
+$$;
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+
+-- ============ MATERIALIZED VIEWS (1) ============
+
+-- application_ai_analyses
+CREATE MATERIALIZED VIEW public.application_ai_analyses AS
+ SELECT a.id AS application_id,
+    a.user_id,
+    (count(DISTINCT jf.id))::integer AS job_fit_count,
+    (count(DISTINCT cl.id))::integer AS cover_letter_count,
+    (count(DISTINCT ip.id))::integer AS interview_prep_count,
+    max(jf.created_at) AS latest_job_fit,
+    max(cl.created_at) AS latest_cover_letter,
+    max(ip.created_at) AS latest_interview_prep,
+    max(jf.fit_score) AS best_fit_score
+   FROM (((public.applications a
+     LEFT JOIN public.job_fit_analysis jf ON ((a.id = jf.application_id)))
+     LEFT JOIN public.cover_letters cl ON ((a.id = cl.application_id)))
+     LEFT JOIN public.interview_prep ip ON (((ip.user_id = a.user_id) AND (ip.job_url IS NOT NULL) AND (a.role_link IS NOT NULL) AND (ip.job_url = a.role_link))))
+  GROUP BY a.id, a.user_id
+  WITH NO DATA;
+
+
+-- ============ MATERIALIZED VIEW INDEXES (2) ============
+
+-- idx_application_ai_analyses_app_id
+CREATE UNIQUE INDEX idx_application_ai_analyses_app_id ON public.application_ai_analyses USING btree (application_id);
+
+-- idx_application_ai_analyses_user_id
+CREATE INDEX idx_application_ai_analyses_user_id ON public.application_ai_analyses USING btree (user_id);
+
+
+-- ============ TRIGGERS (23) ============
+
+-- career_goals career_goals_updated_at
+CREATE TRIGGER career_goals_updated_at BEFORE UPDATE ON public.career_goals FOR EACH ROW EXECUTE FUNCTION public.update_career_goals_updated_at();
+
+-- promo_codes ensure_single_welcome_offer_trigger
+CREATE TRIGGER ensure_single_welcome_offer_trigger BEFORE INSERT OR UPDATE ON public.promo_codes FOR EACH ROW EXECUTE FUNCTION public.ensure_single_welcome_offer();
+
+-- applications handle_updated_at
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.applications FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- career_profiles handle_updated_at
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.career_profiles FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- cover_letters handle_updated_at
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.cover_letters FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- profiles handle_updated_at
+CREATE TRIGGER handle_updated_at BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- ai_feature_usage handle_updated_at_ai_feature_usage
+CREATE TRIGGER handle_updated_at_ai_feature_usage BEFORE UPDATE ON public.ai_feature_usage FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- promo_codes handle_updated_at_promo_codes
+CREATE TRIGGER handle_updated_at_promo_codes BEFORE UPDATE ON public.promo_codes FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- user_subscriptions handle_updated_at_subscriptions
+CREATE TRIGGER handle_updated_at_subscriptions BEFORE UPDATE ON public.user_subscriptions FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- audience_members trigger_audience_members_updated_at
+CREATE TRIGGER trigger_audience_members_updated_at BEFORE UPDATE ON public.audience_members FOR EACH ROW EXECUTE FUNCTION public.update_audience_members_updated_at();
+
+-- user_resumes trigger_auto_assign_default_resume
+CREATE TRIGGER trigger_auto_assign_default_resume BEFORE DELETE ON public.user_resumes FOR EACH ROW EXECUTE FUNCTION public.auto_assign_default_resume();
+
+-- user_resumes trigger_check_resume_limit
+CREATE TRIGGER trigger_check_resume_limit BEFORE INSERT ON public.user_resumes FOR EACH ROW EXECUTE FUNCTION public.check_resume_limit();
+
+-- user_resumes trigger_enforce_one_default_resume
+CREATE TRIGGER trigger_enforce_one_default_resume BEFORE INSERT OR UPDATE ON public.user_resumes FOR EACH ROW EXECUTE FUNCTION public.enforce_one_default_resume();
+
+-- applications trigger_refresh_analyses_on_application
+CREATE TRIGGER trigger_refresh_analyses_on_application AFTER INSERT OR DELETE ON public.applications FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_application_ai_analyses();
+
+-- cover_letters trigger_refresh_analyses_on_cover_letter
+CREATE TRIGGER trigger_refresh_analyses_on_cover_letter AFTER INSERT OR DELETE OR UPDATE ON public.cover_letters FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_application_ai_analyses();
+
+-- interview_prep trigger_refresh_analyses_on_interview_prep
+CREATE TRIGGER trigger_refresh_analyses_on_interview_prep AFTER INSERT OR DELETE OR UPDATE ON public.interview_prep FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_application_ai_analyses();
+
+-- job_fit_analysis trigger_refresh_analyses_on_job_fit
+CREATE TRIGGER trigger_refresh_analyses_on_job_fit AFTER INSERT OR DELETE OR UPDATE ON public.job_fit_analysis FOR EACH STATEMENT EXECUTE FUNCTION public.refresh_application_ai_analyses();
+
+-- roasts trigger_set_shareable_id
+CREATE TRIGGER trigger_set_shareable_id BEFORE INSERT ON public.roasts FOR EACH ROW WHEN ((new.shareable_id IS NULL)) EXECUTE FUNCTION public.set_shareable_id();
+
+-- user_resumes trigger_user_resumes_updated_at
+CREATE TRIGGER trigger_user_resumes_updated_at BEFORE UPDATE ON public.user_resumes FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- applications update_usage_on_delete
+CREATE TRIGGER update_usage_on_delete AFTER DELETE ON public.applications FOR EACH ROW EXECUTE FUNCTION public.update_usage_count();
+
+-- applications update_usage_on_insert
+CREATE TRIGGER update_usage_on_insert AFTER INSERT ON public.applications FOR EACH ROW EXECUTE FUNCTION public.update_usage_count();
+
+-- user_onboarding_preferences update_user_onboarding_preferences_updated_at
+CREATE TRIGGER update_user_onboarding_preferences_updated_at BEFORE UPDATE ON public.user_onboarding_preferences FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- user_onboarding update_user_onboarding_updated_at
+CREATE TRIGGER update_user_onboarding_updated_at BEFORE UPDATE ON public.user_onboarding FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

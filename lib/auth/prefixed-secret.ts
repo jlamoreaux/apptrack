@@ -88,8 +88,10 @@ export function hashSecret(raw: string): string {
   return createHash("sha256").update(raw, "utf8").digest("hex");
 }
 
-function sha256Digest(value: string): Buffer {
-  return createHash("sha256").update(value, "utf8").digest();
+// A plain Uint8Array rather than Buffer: under TypeScript 5.9 the installed Node
+// typings' Buffer is not assignable to timingSafeEqual's ArrayBufferView.
+function sha256Digest(value: string): Uint8Array {
+  return new Uint8Array(createHash("sha256").update(value, "utf8").digest());
 }
 
 /**

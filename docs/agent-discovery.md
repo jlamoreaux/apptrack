@@ -15,7 +15,7 @@ deliberately do not publish.
 | `/.well-known/api-catalog` | [RFC 9727](https://www.rfc-editor.org/rfc/rfc9727) / [RFC 9264](https://www.rfc-editor.org/rfc/rfc9264) | `app/.well-known/api-catalog/route.ts` |
 | `/.well-known/ai-catalog.json` | [ARD](https://agenticresourcediscovery.org) | `app/.well-known/ai-catalog.json/route.ts` |
 | `/.well-known/agent-skills/index.json` | Agent Skills Discovery v0.2.0 | `app/.well-known/agent-skills/index.json/route.ts` |
-| Markdown content negotiation | `Accept: text/markdown` | `middleware.ts` + `app/api/markdown/route.ts` |
+| Markdown content negotiation | `Accept: text/markdown` | `proxy.ts` + `app/api/markdown/route.ts` |
 | WebMCP tools | [webmachinelearning.github.io/webmcp](https://webmachinelearning.github.io/webmcp/) | `components/agents/webmcp-provider.tsx` |
 
 While MCP OAuth is enabled, the three OAuth discovery documents are published
@@ -125,7 +125,7 @@ asks the user to reconnect, or to create a token with the access needed.
 
 ### Gating
 
-`middleware.ts` returns 404 for `/api/mcp` (and the token API) unless
+`proxy.ts` returns 404 for `/api/mcp` (and the token API) unless
 `CAREEROTTER_ENABLED=1`. The OAuth surfaces also need
 `isMcpOAuthEnabled()` (`lib/constants/agent-oauth.ts`), which is true only
 when all of these hold:
@@ -137,7 +137,7 @@ when all of these hold:
   is off there whatever the flag says.
 
 When it is false, the `.well-known/oauth-*` documents, `/oauth/*` and
-`/api/oauth/*` return 404 (in middleware and again in each handler), and every
+`/api/oauth/*` return 404 (in proxy.ts and again in each handler), and every
 MCP 401 is the plain `WWW-Authenticate: Bearer error="invalid_token"` with no
 `resource_metadata`. The cleanup cron is gated on `CAREEROTTER_ENABLED` only,
 so rows keep getting cleaned up while the OAuth flag is off.

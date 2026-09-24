@@ -22,12 +22,10 @@ interface RateLimitStore {
 // In-memory store for rate limiting (use Redis in production)
 const rateLimitStore: RateLimitStore = {}
 
-// Periodic cleanup to prevent memory leaks
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  setInterval(() => {
-    cleanupExpiredEntries()
-  }, 5 * 60 * 1000) // Clean up every 5 minutes
-}
+// No periodic timer: checkRateLimit() sweeps expired entries on every call, and a
+// module-scope setInterval is a hard blocker on Cloudflare Workers (no persistent timer
+// between requests; scheduling I/O at module scope raises "Cannot perform I/O on behalf
+// of a different request"). See lib/utils/periodic-sweep.ts.
 
 // Default configurations for different AI endpoints
 export const RATE_LIMIT_CONFIGS = {

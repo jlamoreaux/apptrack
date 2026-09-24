@@ -24,6 +24,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
+          # Next.js 16 requires >= 20.9. `20` resolves to the latest 20.x, which is well
+          # past that, but the floor is recorded here so a future pin cannot drop below it.
           node-version: 20
 
       - name: Cache pnpm store
@@ -50,5 +52,103 @@ jobs:
           OPENAI_API_KEY: test-openai-key
           UPSTASH_REDIS_REST_URL: https://test.upstash.io
           UPSTASH_REDIS_REST_TOKEN: test-upstash-token
+          STRIPE_SECRET_KEY: sk_test_fake
+          STRIPE_WEBHOOK_SECRET: whsec_test_fake
+
+  typecheck:
+    name: Typecheck (ratchet)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Next.js 16 requires >= 20.9. `20` resolves to the latest 20.x, which is well
+          # past that, but the floor is recorded here so a future pin cannot drop below it.
+          node-version: 20
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # next.config.mjs sets typescript.ignoreBuildErrors: true, so this codebase has
+      # never been type-clean. This does not require zero errors - it requires the count
+      # not to grow. The Supabase -> Drizzle migration depends on "change a signature,
+      # follow the compiler", which only works if the baseline is held.
+      - name: Typecheck ratchet
+        run: pnpm typecheck:ratchet
+
+      # Prevents a repeat of the drift that made the repo's SQL unusable: if
+      # lib/db/schema/ changes, the generated migration must be committed with it.
+      # Runs offline - generate diffs schema.ts against drizzle/meta/, no DB needed.
+      - name: Schema drift guard
+        run: pnpm db:drift
+
+      # Confirms the drizzle baseline still accounts for every object captured in
+      # db/prod-truth/ (functions and triggers drizzle-kit cannot express).
+      - name: Baseline coverage
+        run: pnpm db:verify
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # There was no build step in CI before, which is how a Next 15 build that only
+      # succeeded under webpack went unnoticed. Next 16 builds with Turbopack by default and
+      # is stricter: it fails on an unresolvable dynamic import, and it prerenders routes the
+      # edge runtime used to exempt. Both broke this build and neither was visible to tests.
+      - name: Build
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-time-placeholder
+          SUPABASE_SERVICE_ROLE_KEY: build-time-placeholder
+          EXTENSION_JWT_SECRET: build-time-placeholder
+          OPENAI_API_KEY: build-time-placeholder
+          UPSTASH_REDIS_REST_URL: https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: build-time-placeholder
           STRIPE_SECRET_KEY: sk_test_fake
           STRIPE_WEBHOOK_SECRET: whsec_test_fake

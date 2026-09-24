@@ -7,10 +7,10 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
-  const announcementId = params.id;
+  const { id: announcementId } = await params;
   
   try {
     const supabase = await createClient();
@@ -58,7 +58,7 @@ export async function PUT(
         ...body,
         updated_at: new Date().toISOString()
       })
-      .eq('id', params.id)
+      .eq('id', announcementId)
       .select()
       .single();
 
@@ -105,10 +105,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
-  const announcementId = params.id;
+  const { id: announcementId } = await params;
   
   try {
     const supabase = await createClient();
@@ -151,7 +151,7 @@ export async function DELETE(
     const { error } = await adminSupabase
       .from('announcements')
       .delete()
-      .eq('id', params.id);
+      .eq('id', announcementId);
 
     if (error) {
       loggerService.error('Error deleting announcement', error, {

@@ -22,7 +22,7 @@ type SignInFormData = z.infer<typeof signInSchema>;
 
 /**
  * Where to go after signing in. The page that sent the user here comes first
- * (the middleware sets redirectTo when it bounces a protected page, the guest
+ * (the proxy sets redirectTo when it bounces a protected page, the guest
  * comp page sets it to return there, and an app connection sets it to its
  * consent page); a new user without one goes to onboarding; everyone else to
  * the dashboard.

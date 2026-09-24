@@ -1,5 +1,8 @@
 # Database Schemas
 
+> **FROZEN. See [FROZEN.md](./FROZEN.md).** These files are historical and have diverged from
+> production. The authoritative schema is `db/prod-truth/`.
+
 This directory contains SQL schema definitions for the AppTrack application.
 
 ## Active Schemas (Currently in Use)

@@ -1,5 +1,4 @@
-import pdfParse from "pdf-parse";
-import mammoth from "mammoth";
+import { extractPdfText, extractDocxText } from "./document-extraction";
 
 export interface TextExtractionResult {
   text: string;
@@ -21,14 +20,12 @@ export async function extractTextFromBuffer(
         break;
 
       case "application/pdf":
-        const pdfData = await pdfParse(buffer);
-        rawText = pdfData.text;
+        rawText = await extractPdfText(buffer);
         break;
 
       case "application/msword": // .doc
       case "application/vnd.openxmlformats-officedocument.wordprocessingml.document": // .docx
-        const docxData = await mammoth.extractRawText({ buffer });
-        rawText = docxData.value;
+        rawText = await extractDocxText(buffer);
         break;
 
       default:

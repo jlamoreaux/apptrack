@@ -138,8 +138,9 @@ jest.mock('next/navigation', () => ({
 //   }))
 // })
 
-// Mock pdf-parse to prevent debug code from running
-jest.mock('pdf-parse', () => jest.fn())
+// pdf-parse used to be mocked here "to prevent debug code from running" — its index.js
+// readFileSyncs a sample PDF at module load. That is precisely why it could not run on
+// Cloudflare Workers, and it has been replaced by unpdf (lib/utils/document-extraction.ts).
 
 // Mock fetch for tests
 global.fetch = jest.fn()

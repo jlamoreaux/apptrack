@@ -1,3 +1,4 @@
+import { dualRead } from "@/lib/db/dual-read";
 import { createClient } from "./server-client";
 import { redirect } from "next/navigation";
 
@@ -30,7 +31,7 @@ export async function requireAuth() {
   return user;
 }
 
-export async function getProfile(userId: string) {
+async function getProfileViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -50,7 +51,7 @@ export async function getProfile(userId: string) {
   }
 }
 
-export async function getSubscription(userId: string) {
+async function getSubscriptionViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -78,7 +79,7 @@ export async function getSubscription(userId: string) {
   }
 }
 
-export async function getUsage(userId: string) {
+async function getUsageViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -98,7 +99,7 @@ export async function getUsage(userId: string) {
   }
 }
 
-export async function getApplications(userId: string) {
+async function getApplicationsViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -137,7 +138,7 @@ export async function getApplications(userId: string) {
   }
 }
 
-export async function getArchivedApplications(userId: string) {
+async function getArchivedApplicationsViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -158,7 +159,7 @@ export async function getArchivedApplications(userId: string) {
   }
 }
 
-export async function getApplicationHistory(userId: string) {
+async function getApplicationHistoryViaSupabase(userId: string) {
   try {
     const supabase = await createClient();
 
@@ -184,7 +185,7 @@ export async function getApplicationHistory(userId: string) {
   }
 }
 
-export async function getApplication(id: string, userId: string) {
+async function getApplicationViaSupabase(id: string, userId: string) {
   try {
     const supabase = await createClient();
 
@@ -205,7 +206,7 @@ export async function getApplication(id: string, userId: string) {
   }
 }
 
-export async function getLinkedinProfiles(
+async function getLinkedinProfilesViaSupabase(
   applicationId: string,
   userId: string
 ) {
@@ -238,4 +239,80 @@ export async function getLinkedinProfiles(
   } catch (error) {
     return [];
   }
+}
+
+
+// ---------------------------------------------------------------------------
+// Drizzle rollout wrappers
+//
+// Each helper below keeps its original signature and routes through dualRead,
+// which honours DRIZZLE_MODE: `off` (default) runs Supabase only, `shadow` runs
+// both and logs mismatches while returning the Supabase result, `on` runs Drizzle.
+//
+// Parity was confirmed against production for 25 real users before this landed;
+// see scripts/migration/verify-drizzle-parity.mjs.
+// ---------------------------------------------------------------------------
+
+export async function getProfile(userId: string) {
+  return dualRead(
+    "getProfile",
+    () => getProfileViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getProfile(userId)
+  );
+}
+
+export async function getSubscription(userId: string) {
+  return dualRead(
+    "getSubscription",
+    () => getSubscriptionViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getSubscription(userId)
+  );
+}
+
+export async function getUsage(userId: string) {
+  return dualRead(
+    "getUsage",
+    () => getUsageViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getUsage(userId)
+  );
+}
+
+export async function getApplications(userId: string) {
+  return dualRead(
+    "getApplications",
+    () => getApplicationsViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getApplications(userId)
+  );
+}
+
+export async function getArchivedApplications(userId: string) {
+  return dualRead(
+    "getArchivedApplications",
+    () => getArchivedApplicationsViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getArchivedApplications(userId)
+  );
+}
+
+export async function getApplicationHistory(userId: string) {
+  return dualRead(
+    "getApplicationHistory",
+    () => getApplicationHistoryViaSupabase(userId),
+    async () => (await import("@/lib/db/queries")).getApplicationHistory(userId)
+  );
+}
+
+export async function getApplication(id: string, userId: string) {
+  return dualRead(
+    "getApplication",
+    () => getApplicationViaSupabase(id, userId),
+    async () => (await import("@/lib/db/queries")).getApplication(id, userId)
+  );
+}
+
+export async function getLinkedinProfiles(applicationId: string, userId: string) {
+  return dualRead(
+    "getLinkedinProfiles",
+    () => getLinkedinProfilesViaSupabase(applicationId, userId),
+    async () => (await import("@/lib/db/queries")).getLinkedinProfiles(applicationId, userId)
+  );
 }

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 /**
- * OAuth gate in middleware.ts, for every combination of CAREEROTTER_ENABLED,
+ * OAuth gate in proxy.ts, for every combination of CAREEROTTER_ENABLED,
  * CAREEROTTER_MCP_OAUTH_ENABLED and a Vercel preview:
  * - the OAuth pages, API and discovery documents 404 unless
  *   isMcpOAuthEnabled() (both flags on, not a preview)
@@ -39,7 +39,7 @@ jest.mock("@/lib/rebrand-redirect", () => ({
   resolveLegacyRedirect: jest.fn(() => null),
 }));
 
-const { middleware, config } = require("@/middleware");
+const { proxy, config } = require("@/proxy");
 const { unstable_doesMiddlewareMatch } = require("next/experimental/testing/server");
 
 const mockCreateServerClient = createServerClient as jest.Mock;
@@ -114,19 +114,19 @@ describe.each(FLAG_MATRIX)("with flags %j", (flags, oauthEnabled) => {
   beforeEach(() => setFlags(flags));
 
   it.each(OAUTH_SURFACES)(`${oauthEnabled ? "serves" : "404s"} %s`, async (path) => {
-    const response = await middleware(request(path));
+    const response = await proxy(request(path));
     if (oauthEnabled) expect(response.status).not.toBe(404);
     else expect(response.status).toBe(404);
   });
 
   it(`${flags.careerotter ? "serves" : "404s"} the cleanup cron`, async () => {
-    const response = await middleware(request(AGENT_OAUTH_PATHS.cleanupCron));
+    const response = await proxy(request(AGENT_OAUTH_PATHS.cleanupCron));
     if (flags.careerotter) expect(response.status).not.toBe(404);
     else expect(response.status).toBe(404);
   });
 
   it("never gates other /.well-known documents", async () => {
-    const response = await middleware(request("/.well-known/api-catalog"));
+    const response = await proxy(request("/.well-known/api-catalog"));
     expect(response.status).not.toBe(404);
   });
 });
@@ -137,7 +137,7 @@ describe("with OAuth enabled", () => {
   it.each(OAUTH_MACHINE_PATHS)(
     "passes %s through without Supabase or legacy redirects",
     async (path) => {
-      const response = await middleware(request(path, "POST"));
+      const response = await proxy(request(path, "POST"));
       expect(response).toBe(NEXT_RESPONSE);
       expect(mockCreateServerClient).not.toHaveBeenCalled();
       expect(resolveLegacyRedirect).not.toHaveBeenCalled();
@@ -145,7 +145,7 @@ describe("with OAuth enabled", () => {
   );
 
   it.each(OAUTH_PAGES)("refreshes the Supabase session for the page %s", async (path) => {
-    const response = await middleware(request(path));
+    const response = await proxy(request(path));
     expect(response).toBe(NEXT_RESPONSE);
     expect(mockCreateServerClient).toHaveBeenCalledTimes(1);
   });
@@ -157,14 +157,14 @@ describe("with OAuth disabled", () => {
   it.each(["/oauthx", "/api/oauthx", "/.well-known/openid-configuration"])(
     "does not gate %s, which only shares a prefix",
     async (path) => {
-      const response = await middleware(request(path));
+      const response = await proxy(request(path));
       expect(response.status).not.toBe(404);
     }
   );
 });
 
 describe("matcher", () => {
-  it.each([...OAUTH_SURFACES, AGENT_OAUTH_PATHS.cleanupCron])("runs the middleware for %s", (url) => {
+  it.each([...OAUTH_SURFACES, AGENT_OAUTH_PATHS.cleanupCron])("runs the proxy for %s", (url) => {
     expect(unstable_doesMiddlewareMatch({ config, url })).toBe(true);
   });
 

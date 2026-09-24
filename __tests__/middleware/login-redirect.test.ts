@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 /**
- * middleware.ts sends a signed-in user on /login or /signup to a valid
+ * proxy.ts sends a signed-in user on /login or /signup to a valid
  * redirectTo (e.g. an app connection's consent page), and to /dashboard when
  * there is none or it isn't an internal path. Signed-out users see the page.
  */
@@ -27,7 +27,7 @@ jest.mock("next/server", () => {
 jest.mock("@supabase/ssr", () => ({ createServerClient: jest.fn() }));
 jest.mock("@/lib/rebrand-redirect", () => ({ resolveLegacyRedirect: jest.fn(() => null) }));
 
-const { middleware } = require("@/middleware");
+const { proxy } = require("@/proxy");
 
 const mockCreateServerClient = createServerClient as jest.Mock;
 const ORIGIN = "https://careerotter.io";
@@ -58,7 +58,7 @@ beforeEach(() => {
 describe("signed-in users on the auth pages", () => {
   it.each(["/login", "/signup"])("%s goes to a valid redirectTo", async (page) => {
     signedIn({ id: "u1" });
-    const response = await middleware(pageRequest(`${page}?redirectTo=${encodeURIComponent(CONSENT_PATH)}`));
+    const response = await proxy(pageRequest(`${page}?redirectTo=${encodeURIComponent(CONSENT_PATH)}`));
     expect(response).toEqual({ redirectedTo: `${ORIGIN}${CONSENT_PATH}` });
   });
 
@@ -71,13 +71,13 @@ describe("signed-in users on the auth pages", () => {
     ["a carriage return the URL parser strips", "/login?redirectTo=%2F%0D%2Fevil.example"],
   ])("goes to the dashboard with %s", async (_label, path) => {
     signedIn({ id: "u1" });
-    const response = await middleware(pageRequest(path));
+    const response = await proxy(pageRequest(path));
     expect(response).toEqual({ redirectedTo: `${ORIGIN}/dashboard` });
   });
 
   it("lets a signed-out user see the login page", async () => {
     signedIn(null);
-    const response = await middleware(pageRequest(`/login?redirectTo=${encodeURIComponent(CONSENT_PATH)}`));
+    const response = await proxy(pageRequest(`/login?redirectTo=${encodeURIComponent(CONSENT_PATH)}`));
     expect(response).toBe(PASS_THROUGH);
   });
 });

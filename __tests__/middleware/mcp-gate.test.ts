@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 /**
- * Launch gate for the MCP route in middleware.ts:
+ * Launch gate for the MCP route in proxy.ts:
  * - /api/mcp and /api/mcp/* 404 while CAREEROTTER_ENABLED is unset
  * - when enabled they pass straight through (NextResponse.next) without the
  *   Supabase session refresh or the legacy-host redirect
@@ -30,7 +30,7 @@ jest.mock("next/server", () => {
 jest.mock("@supabase/ssr", () => ({ createServerClient: jest.fn() }));
 jest.mock("@/lib/rebrand-redirect", () => ({ resolveLegacyRedirect: jest.fn(() => null) }));
 
-const { middleware, config } = require("@/middleware");
+const { proxy, config } = require("@/proxy");
 
 function mcpRequest(pathname: string): NextRequest {
   const url = new URL(`https://careerotter.io${pathname}`);
@@ -54,7 +54,7 @@ afterEach(() => {
 describe("MCP launch gate", () => {
   it.each(["/api/mcp", "/api/mcp/extra"])("404s %s when CAREEROTTER_ENABLED is unset", async (path) => {
     delete process.env.CAREEROTTER_ENABLED;
-    const response = await middleware(mcpRequest(path));
+    const response = await proxy(mcpRequest(path));
     expect(response.status).toBe(404);
     expect(createServerClient).not.toHaveBeenCalled();
   });
@@ -63,7 +63,7 @@ describe("MCP launch gate", () => {
     "passes %s through without Supabase or legacy redirects when enabled",
     async (path) => {
       process.env.CAREEROTTER_ENABLED = "1";
-      const response = await middleware(mcpRequest(path));
+      const response = await proxy(mcpRequest(path));
       expect(response).toBe(NEXT_RESPONSE);
       expect(createServerClient).not.toHaveBeenCalled();
       expect(resolveLegacyRedirect).not.toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe("MCP launch gate", () => {
 
   it("does not gate a path that only shares the prefix", async () => {
     delete process.env.CAREEROTTER_ENABLED;
-    const response = await middleware(mcpRequest("/api/mcpx"));
+    const response = await proxy(mcpRequest("/api/mcpx"));
     expect(response.status).not.toBe(404);
   });
 

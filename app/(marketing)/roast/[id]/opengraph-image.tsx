@@ -2,7 +2,10 @@ import { ImageResponse } from "next/og";
 import { createClient } from "@/lib/supabase/server";
 import { OG_COLORS, OG_SIZE } from "@/components/og";
 
-export const runtime = "edge";
+// No `runtime` declaration. Next 16 deprecates the edge runtime, and the Cloudflare Workers
+// target this app is migrating to has no edge/node split at all — vinext ignores route
+// segment `runtime` entirely. Omitting it uses the default (nodejs), which is where this
+// ends up regardless.
 
 export const alt = "Resume Roast Results";
 export const size = OG_SIZE;

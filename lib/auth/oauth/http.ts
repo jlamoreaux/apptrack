@@ -5,7 +5,7 @@ import { HTTP_STATUS } from "@/lib/constants/http-status";
 
 const JSON_CONTENT_TYPE = "application/json";
 
-/** The same bare 404 the middleware sends for a surface that's switched off. */
+/** The same bare 404 the proxy sends for a surface that's switched off. */
 export function oauthNotFound(): Response {
   return new Response("Not Found", { status: HTTP_STATUS.NOT_FOUND });
 }
