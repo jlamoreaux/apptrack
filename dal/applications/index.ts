@@ -476,8 +476,11 @@ export class ApplicationDAL
       const { data, error } = await supabase
         .from("application_history")
         .select("*")
+        // changed_at, not created_at: application_history has no created_at column, so this
+        // query raised "column application_history.created_at does not exist" (42703) on
+        // every call. It went unnoticed because the method has no callers.
         .eq("application_id", applicationId)
-        .order("created_at", { ascending: true });
+        .order("changed_at", { ascending: true });
 
       if (error) {
         throw new DALError(

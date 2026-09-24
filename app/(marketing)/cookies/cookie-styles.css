@@ -35,29 +35,39 @@
   word-break: break-word !important;
 }
 
-/* Dark mode overrides */
-:global(.dark) [data-custom-class='title'],
-:global(.dark) [data-custom-class='title'] * {
+/* Dark mode overrides.
+ *
+ * These selectors previously used a `:global(...)` wrapper, which is CSS Modules syntax and
+ * is invalid in a plain global stylesheet — which is what this is, imported as
+ * `import './<name>.css'` rather than as a `.module.css`. Every rule below was therefore
+ * dropped by the CSS parser and dark mode has never applied to this page.
+ *
+ * Turbopack surfaced it as a parse warning during the Next 16 upgrade. `darkMode: ["class"]`
+ * in tailwind.config.ts puts `.dark` on an ancestor, so the bare descendant selector is what
+ * was intended all along.
+ */
+.dark [data-custom-class='title'],
+.dark [data-custom-class='title'] * {
   color: #ffffff !important;
 }
-:global(.dark) [data-custom-class='subtitle'],
-:global(.dark) [data-custom-class='subtitle'] * {
+.dark [data-custom-class='subtitle'],
+.dark [data-custom-class='subtitle'] * {
   color: #a3a3a3 !important;
 }
-:global(.dark) [data-custom-class='heading_1'],
-:global(.dark) [data-custom-class='heading_1'] * {
+.dark [data-custom-class='heading_1'],
+.dark [data-custom-class='heading_1'] * {
   color: #ffffff !important;
 }
-:global(.dark) [data-custom-class='heading_2'],
-:global(.dark) [data-custom-class='heading_2'] * {
+.dark [data-custom-class='heading_2'],
+.dark [data-custom-class='heading_2'] * {
   color: #ffffff !important;
 }
-:global(.dark) [data-custom-class='body_text'],
-:global(.dark) [data-custom-class='body_text'] * {
+.dark [data-custom-class='body_text'],
+.dark [data-custom-class='body_text'] * {
   color: #a3a3a3 !important;
 }
-:global(.dark) [data-custom-class='link'],
-:global(.dark) [data-custom-class='link'] * {
+.dark [data-custom-class='link'],
+.dark [data-custom-class='link'] * {
   color: #60a5fa !important;
 }
 .cookie-policy ul {

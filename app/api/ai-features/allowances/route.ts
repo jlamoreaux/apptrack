@@ -25,16 +25,13 @@ export async function GET() {
     // Get all allowances
     const allowances = await AIFeatureUsageService.getAllAllowances(user.id);
 
-    // Get user's subscription tier
-    const { data: userData } = await supabase
-      .from("users")
-      .select("subscription_tier")
-      .eq("id", user.id)
-      .single();
+    // Resolve the tier from the live subscription. The previous query targeted
+    // `public.users`, which does not exist in production and always errored.
+    const subscriptionTier = await AIFeatureUsageService.getSubscriptionTier(user.id);
 
     return NextResponse.json({
       allowances,
-      subscriptionTier: userData?.subscription_tier || "free",
+      subscriptionTier: subscriptionTier ?? "free",
       hasAnyFreeTries: Object.values(allowances).some(a => a.canUse),
     });
   } catch (error) {

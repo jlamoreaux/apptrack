@@ -1,23 +1,20 @@
-import pdf from "pdf-parse";
-import mammoth from "mammoth";
+import { extractPdfText, extractDocxText } from "@/lib/utils/document-extraction";
 
 export async function extractTextFromResume(
   file: File
 ): Promise<{ text: string; firstName: string | null }> {
-  const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-  
+  // Uint8Array rather than Buffer: Buffer is a Node global that does not exist on Workers.
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
   let text = "";
-  
+
   if (file.type === "application/pdf") {
-    const data = await pdf(buffer);
-    text = data.text;
+    text = await extractPdfText(bytes);
   } else if (
     file.type === "application/msword" ||
     file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    const result = await mammoth.extractRawText({ buffer });
-    text = result.value;
+    text = await extractDocxText(bytes);
   } else {
     throw new Error("Unsupported file type");
   }

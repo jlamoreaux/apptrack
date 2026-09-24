@@ -5,6 +5,7 @@ import { getUser } from "@/lib/supabase/server";
 import { checkIPRateLimit } from "@/lib/utils/rate-limiting";
 import { z } from "zod";
 import { RATE_LIMITS, CLEANUP_INTERVALS } from "@/lib/constants/timeouts";
+import { createSweeper, sweepExpired } from "@/lib/utils/periodic-sweep";
 
 // Validation schema for log requests
 const logRequestSchema = z.object({
@@ -17,17 +18,12 @@ const logRequestSchema = z.object({
 // In-memory rate limit store for per-user limits
 const userRateLimits = new Map<string, { count: number; resetTime: number }>();
 
-// Clean up expired entries periodically
-if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, value] of userRateLimits.entries()) {
-      if (now > value.resetTime) {
-        userRateLimits.delete(key);
-      }
-    }
-  }, CLEANUP_INTERVALS.RATE_LIMIT_STORE);
-}
+// Swept on access rather than by a timer: a module-scope setInterval cannot run on
+// Cloudflare Workers. See lib/utils/periodic-sweep.ts.
+const sweepUserRateLimits = createSweeper(
+  () => sweepExpired(userRateLimits, (entry) => entry.resetTime),
+  CLEANUP_INTERVALS.RATE_LIMIT_STORE
+);
 
 export async function POST(request: NextRequest) {
   try {
@@ -65,6 +61,8 @@ export async function POST(request: NextRequest) {
     
     // User-based rate limiting (100 logs per 5 minutes per user)
     if (user) {
+      sweepUserRateLimits();
+
       const userKey = `user:${user.id}`;
       const now = Date.now();
       const { WINDOW_MS, MAX_REQUESTS, MAX_ENTRIES } = RATE_LIMITS.CLIENT_LOGGING;
