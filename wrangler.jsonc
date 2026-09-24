@@ -9,14 +9,17 @@
   // for hex/HMAC handling in several email and auth paths.
   "compatibility_flags": ["nodejs_compat"],
 
-  // NO `main` yet. This app still runs on Next.js/Vercel; the Worker entry point is
-  // generated at the framework step (`vinext init --platform=cloudflare`, or
-  // @opennextjs/cloudflare as the fallback). Declaring bindings ahead of that means the
-  // resources are provisioned, named and reviewable now, and the generated entry merges
-  // into this file rather than inventing its own.
-  //
-  // Until `main` exists, `wrangler deploy` will not work — by design. `wrangler d1`,
-  // `wrangler r2`, `wrangler kv` and `wrangler queues` all work against these today.
+  // `main`, `assets`, `cache` and `version_metadata` below were added by
+  // `vinext init --platform=cloudflare`; the bindings above them were written by hand
+  // before that, and vinext merged rather than overwrote.
+  "main": "vinext/server/fetch-handler",
+  "assets": {
+    "directory": "dist/client",
+    "not_found_handling": "none",
+    "binding": "ASSETS"
+  },
+  "cache": { "enabled": true },
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
 
   "observability": {
     // Workers Logs: 20M events/month and 7-day retention on the Paid plan, ingested from
@@ -54,62 +57,25 @@
       //
       // NOT for rate limiting. KV is eventually consistent, so a limit enforced on it can
       // be exceeded across concurrent isolates. Rate limiting needs a Durable Object, which
-      // is declared at the framework step once there is a class to bind.
+      // is declared once there is a class to bind.
       "binding": "CACHE",
       "id": "2513d9a93066480994abdbe23f7f8a0c"
     }
-  ],
+  ]
 
-  "queues": {
-    "producers": [
-      {
-        "binding": "USER_JOBS",
-        "queue": "careerotter-user-jobs"
-      }
-    ],
-    "consumers": [
-      {
-        // The per-user fan-out crons move here — careerotter-recap (200 users x 1 LLM call
-        // sequentially), weekly-digest (LLM + email per user), stale-reminders and
-        // drip-emails. The motivation is retry granularity, not CPU: today a failure at
-        // user 150 silently loses the remaining 50, and MAX_USERS = 200 drops the tail
-        // with no signal.
-        "queue": "careerotter-user-jobs",
-        "max_batch_size": 10,
-        "max_batch_timeout": 30,
-        "max_retries": 3,
-        "dead_letter_queue": "careerotter-user-jobs-dlq"
-      }
-    ]
-  },
-
-  "triggers": {
-    // Mirrors vercel.json exactly, so the schedules are reviewable side by side.
-    // Cloudflare fires one `scheduled()` handler for all of them; the handler dispatches on
-    // `event.cron`, which is why the strings must stay in sync with the dispatch table.
-    //
-    //   0 10 * * *  trial-notifications
-    //   0 2  * * *  sync-ai-usage
-    //   0 */4 * * * drip-emails
-    //   0 9  * * 1  generate-changelog
-    //   0 14 * * *  stale-reminders
-    //   0 13 * * 1  weekly-digest
-    //   0 22 * * 5  careerotter-recap
-    //   0 6  * * *  careerotter-stock-prices
-    //
-    // Plus the two pg_cron jobs, which Neon/D1 cannot run and which become plain deletes:
-    //   0 3  * * *  cleanup-expired-roasts
-    //   0 2  * * *  cleanup-ai-preview-sessions  (folded into the 02:00 slot)
-    "crons": [
-      "0 10 * * *",
-      "0 2 * * *",
-      "0 */4 * * *",
-      "0 9 * * 1",
-      "0 14 * * *",
-      "0 13 * * 1",
-      "0 22 * * 5",
-      "0 6 * * *",
-      "0 3 * * *"
-    ]
-  }
+  // Cron triggers and the queue consumer are intentionally ABSENT while this is a spike.
+  //
+  // The generated Worker has neither a scheduled() nor a queue() handler, so declaring the
+  // consumer fails the deploy outright ("Queue handler is missing", code 11001). More
+  // importantly, Vercel is still running the real schedules — registering the same nine
+  // crons here would mean two systems sending the same drip emails and weekly digests to
+  // the same people.
+  //
+  // Both come back at the cron/queue stage, once a dispatcher exists. The schedules,
+  // mirroring vercel.json, are:
+  //   0 10  * * *  trial-notifications        0 2  * * *  sync-ai-usage
+  //   0 */4 * * *  drip-emails                0 9  * * 1  generate-changelog
+  //   0 14  * * *  stale-reminders            0 13 * * 1  weekly-digest
+  //   0 22  * * 5  careerotter-recap          0 6  * * *  careerotter-stock-prices
+  //   0 3   * * *  cleanup-expired-roasts     (was pg_cron)
 }
