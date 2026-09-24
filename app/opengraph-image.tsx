@@ -1,7 +1,15 @@
 import { ImageResponse } from "next/og"
 import { OG_COLORS, OG_SIZE } from "@/components/og"
+// Inlined at build time by scripts/build/gen-content.mjs, matching
+// app/blog/[slug]/opengraph-image.tsx. Replaces a fetch() of a file:// URL, which only
+// worked because the edge runtime polyfilled it — and which fails under static
+// prerendering on the nodejs runtime. Workers has no filesystem either way.
+import { LOGO_SQUARE_DATA_URI } from "@/lib/content/generated"
 
-export const runtime = "edge"
+// No `runtime` declaration. Next 16 deprecates the edge runtime, and the Cloudflare Workers
+// target this app is migrating to has no edge/node split at all — vinext ignores route
+// segment `runtime` entirely. Omitting it uses the default (nodejs), which is where this
+// ends up regardless.
 export const alt = "CareerOtter - Smart Job Application Tracker"
 export const size = OG_SIZE
 export const contentType = "image/png"
@@ -12,10 +20,6 @@ export const contentType = "image/png"
  * Matches patterns from Linear, Vercel, Raycast.
  */
 export default async function Image() {
-  const logoData = await fetch(
-    new URL("../public/logo_square.png", import.meta.url)
-  ).then((res) => res.arrayBuffer())
-
   return new ImageResponse(
     (
       <div
@@ -39,7 +43,7 @@ export default async function Image() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={logoData as unknown as string}
+            src={LOGO_SQUARE_DATA_URI}
             width={44}
             height={44}
             alt=""

@@ -21,6 +21,21 @@ const nextConfig = {
   },
   // No serverExternalPackages: pdf-parse is gone (replaced by unpdf) and mammoth is now
   // imported via its prebuilt browser bundle, which has no Node dependencies to exclude.
+  turbopack: {
+    resolveAlias: {
+      // `resend` lazily imports @react-email/render, an OPTIONAL peer it only needs for
+      // the `react:` body option. This app always sends `html` strings, so the package is
+      // not installed. Webpack tolerated the unresolvable dynamic import; Turbopack — the
+      // Next 16 default for `next build` — fails the build on it.
+      //
+      // The stub throws a clear error if the `react:` path is ever used, rather than
+      // resolving to an empty module that would fail later with "render is not a function".
+      //
+      // NOTE: vinext ignores Turbopack config entirely. This alias must be re-expressed as
+      // a Vite `resolve.alias` entry when the app moves off Next.
+      "@react-email/render": "./lib/stubs/react-email-render.ts",
+    },
+  },
   async headers() {
     return agentDiscoveryHeaders();
   },
