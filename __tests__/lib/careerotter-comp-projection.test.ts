@@ -108,6 +108,28 @@ describe("projectComp", () => {
     expect(p.years[0].total).toBe(232_000);
   });
 
+  it("puts a cliff exactly at midnight on Jan 1 in the new year's row", () => {
+    const grant = entry({ vest_start: "2025-01-01", effective_date: "2025-01-01" });
+    const before = new Date("2024-06-01T12:00:00");
+    const [y25, y26] = projectComp(grant, { sharePrice: 250, years: [2025, 2026], asOf: before }).years;
+    expect(y25.stock).toBe(0);
+    // The Jan 1 2026 cliff lump (12/48) plus the rest of 2026 (12/48 more).
+    expect(y26.stock).toBeCloseTo((300_000 * 24) / 48, -3);
+    expect(grantFractionReceivedInYear(2025, new Date("2025-01-01T00:00:00"), 4, 12)).toBe(0);
+  });
+
+  it("counts a cliff at the as_of instant itself as vested", () => {
+    const grant = entry({ vest_start: "2025-01-01", effective_date: "2025-01-01" });
+    const cliff = new Date("2026-01-01T00:00:00");
+    const [y26] = projectComp(grant, { sharePrice: 250, years: [2026], asOf: cliff }).years;
+    expect(y26.stockVested).toBeCloseTo(300_000 * vestedFractionAt(cliff, {
+      start: new Date("2025-01-01T00:00:00"),
+      vestYears: 4,
+      cliffMonths: 12,
+    }), 6);
+    expect(vestSummary(grant, 250, cliff)?.cliffPassed).toBe(true);
+  });
+
   it("values shares at zero when no price is known", () => {
     const p = projectComp(entry({ equity: 0 }), { sharePrice: null, years: [2028], asOf });
     expect(p.years[0].stock).toBe(0);
@@ -196,6 +218,14 @@ describe("projectionYears", () => {
 
   it("does not count a year the vest only touches at midnight on Jan 1", () => {
     expect(projectionYears(entry({ vest_start: "2026-01-01", vest_years: 3 }), 2026)).toEqual([2026, 2027, 2028]);
+  });
+
+  it("counts the year a cliff as long as the vest pays the whole grant on Jan 1", () => {
+    const lump = entry({ vest_start: "2026-01-01", vest_years: 4, vest_cliff_months: 48 });
+    const years = projectionYears(lump, 2026);
+    expect(years).toEqual([2026, 2027, 2028, 2029, 2030]);
+    const projected = projectComp(lump, { sharePrice: 10, years, asOf: new Date(2026, 0, 1) });
+    expect(projected.years.map((row) => row.stock)).toEqual([0, 0, 0, 0, 12_000]);
   });
 
   it("is the three-year default without a schedule", () => {

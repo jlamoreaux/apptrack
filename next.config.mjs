@@ -1,4 +1,5 @@
 import { agentDiscoveryHeaders } from "./lib/constants/agent-discovery-links.mjs";
+import { oauthFramingHeaders } from "./lib/constants/oauth-framing-headers.mjs";
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -37,7 +38,7 @@ const nextConfig = {
     },
   },
   async headers() {
-    return agentDiscoveryHeaders();
+    return [...agentDiscoveryHeaders(), ...oauthFramingHeaders()];
   },
 };
 

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { capturePostHogEvent } from "@/lib/analytics/posthog";
+import { authCallbackUrl } from "@/lib/utils/auth-redirect";
 
 interface GoogleSignInButtonProps {
   /** Context for analytics tracking */
@@ -36,9 +37,7 @@ export function GoogleSignInButton({
 
     capturePostHogEvent("google_signin_clicked", { context });
 
-    const callbackUrl = redirectTo
-      ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
-      : `${window.location.origin}/auth/callback`;
+    const callbackUrl = authCallbackUrl(window.location.origin, redirectTo || null);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",

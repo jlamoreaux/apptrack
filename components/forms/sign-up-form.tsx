@@ -13,6 +13,7 @@ import { signUpWithPassword } from "@/lib/actions";
 import { signUpSchema, passwordRequirements } from "@/lib/actions/schemas";
 import type { TrafficSource, TrafficSourceTrial } from "@/types/promo-codes";
 import { getStoredTrafficSource } from "@/lib/utils/traffic-source";
+import { validInternalPath } from "@/lib/utils/auth-redirect";
 import { toast } from "@/hooks/use-toast";
 import { trackLinkedInSignup } from "@/lib/analytics/linkedin";
 import {
@@ -87,7 +88,12 @@ function PasswordCriteria({
   );
 }
 
-export function SignUpForm() {
+/**
+ * `redirectTo` is where to go once signed up (a validated internal path); it
+ * reaches the confirmation email's link too, and wins over the onboarding,
+ * promo and preview destinations.
+ */
+export function SignUpForm({ redirectTo = null }: { redirectTo?: string | null }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordCriteria, setPasswordCriteria] = useState({
@@ -171,7 +177,8 @@ export function SignUpForm() {
         data.password,
         data.name,
         trafficSource || undefined,
-        trafficSourceTrial || undefined
+        trafficSourceTrial || undefined,
+        redirectTo ?? undefined
       );
 
       if (result.error) {
@@ -239,9 +246,15 @@ export function SignUpForm() {
           // Redirect to email confirmation page
           router.push("/auth/confirm-email");
         } else {
+          // Where the user was headed before signing up comes first,
+          // re-resolved here so only a same-origin path is ever pushed
+          const destination = validInternalPath(redirectTo, window.location.origin);
+          if (destination !== null) {
+            router.push(destination);
+          }
           // If user came from preview session, redirect to unlock page
-          if (previewSessionId) {
-            router.push(`/try/unlock?session=${previewSessionId}`);
+          else if (previewSessionId) {
+            router.push(`/try/unlock?session=${encodeURIComponent(previewSessionId)}`);
           }
           // If user came from layoff-offer, redirect with promo code
           else if (new URLSearchParams(window.location.search).get("intent") === "layoff-offer") {

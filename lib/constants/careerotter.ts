@@ -1,7 +1,10 @@
+import { MONTHS_PER_YEAR } from "@/lib/constants/dates";
+
 /**
  * CareerOtter Phase 2 (M2) shared constants — single source of truth mirrored by
- * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql. Keep
- * these in sync; __tests__ guards against drift.
+ * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql and
+ * 044_mcp_agent_access.sql (wins.source, comp_entries.source, external_ref and
+ * evidence_url lengths). Keep these in sync; __tests__ guards against drift.
  */
 
 // The onboarding fork (RFC §2): one question routes the experience. Same data
@@ -21,6 +24,14 @@ export const CAREER_MODE_GOAL_LABEL: Record<CareerMode, string> = {
   promotion: "a promotion",
   raise: "a raise",
   job_search: "a better role",
+};
+
+// The noun a date countdown leads with: job search works toward a target date,
+// not a performance review.
+export const CAREER_MODE_COUNTDOWN_NOUN: Record<CareerMode, string> = {
+  promotion: "Review",
+  raise: "Review",
+  job_search: "Target",
 };
 
 // Fields on career_profiles the user can edit after onboarding (the goal
@@ -50,14 +61,24 @@ export const WIN_TAG_OPTIONS: { value: WinTag; label: string; hint: string }[] =
   { value: "craft", label: "Craft", hint: "Something you made better that nobody asked you to" },
 ];
 
-// Where a win came from (provenance). "manual" is the capture bar.
+// Where a win came from (provenance). "manual" is the capture bar; "agent" is
+// a write through the MCP server, which may only edit or delete its own rows.
 export const WIN_SOURCES = [
   "manual",
   "recap",
   "zero_to_case",
   "import",
+  "agent",
 ] as const;
 export type WinSource = (typeof WIN_SOURCES)[number];
+
+// Where a comp entry came from, with the same agent-owns-its-rows rule as wins.
+export const COMP_SOURCES = ["manual", "agent"] as const;
+export type CompSource = (typeof COMP_SOURCES)[number];
+
+// Length caps shared by wins and comp_entries, mirrored by CHECKs in 044.
+export const EXTERNAL_REF_MAX = 200;
+export const EVIDENCE_URL_MAX = 2048;
 
 // How many wins Today's "Recently" list shows. One value for the fetch limit,
 // the optimistic prepend and the render cap, so they cannot drift apart.
@@ -68,6 +89,11 @@ export const WIN_LIMITS = {
   textMax: 2000,
   impactNumberMax: 120,
 } as const;
+
+// The provenance values the server assigns itself: the web UI writes "manual",
+// the MCP server writes "agent". Both appear in WIN_SOURCES and COMP_SOURCES.
+export const MANUAL_SOURCE = "manual" as const satisfies WinSource & CompSource;
+export const AGENT_SOURCE = "agent" as const satisfies WinSource & CompSource;
 
 // ─── Comp tracker ───
 
@@ -81,12 +107,32 @@ export const GUEST_COMP_TTL_MS = 24 * 60 * 60 * 1000;
 // guest page batches its lookups to match.
 export const GUEST_QUOTE_BATCH = 5;
 
-// Field caps for a comp entry, enforced by the shared validator before the
-// form saves and before the API inserts. sharesMax is numeric(14,4)'s ceiling.
-export const COMP_ENTRY_LIMITS = {
+// vest_years is numeric(4,2): two decimal places.
+const VEST_YEARS_SCALE = 2;
+const VEST_YEARS_FACTOR = 10 ** VEST_YEARS_SCALE;
+// Projections round a vest to whole months, so a shorter vest would model a
+// grant that never vests.
+const VEST_MIN_MONTHS = 1;
+export const VEST_YEARS_MIN_LABEL = "one month";
+
+// Field caps for a comp entry, mirroring the column types in 033/035/040 and
+// enforced by the shared validator (lib/careerotter/comp-entry-validation.ts)
+// in the entry form, the guest cache, the REST API and the MCP tools. The
+// *Scale values are the column's decimal places, used to format the caps in
+// validation messages.
+export const COMP_LIMITS = {
+  // numeric(12,2)
+  amountMax: 9_999_999_999.99,
+  amountScale: 2,
+  // numeric(14,4)
   sharesMax: 9_999_999_999.9999,
-  vestYearsMax: 10,
-  cliffMonthsMax: 60,
+  sharesScale: 4,
   noteMax: 500,
   tickerMax: 10,
+  // The smallest numeric(4,2) value that is at least VEST_MIN_MONTHS: 1/12
+  // rounded up to 0.09, which projections round to one month.
+  vestYearsMin:
+    Math.ceil((VEST_MIN_MONTHS / MONTHS_PER_YEAR) * VEST_YEARS_FACTOR) / VEST_YEARS_FACTOR,
+  vestYearsMax: 10,
+  vestCliffMonthsMax: 60,
 } as const;

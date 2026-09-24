@@ -1,16 +1,31 @@
 /**
- * Ticker normalization shared by the comp API, the public quote endpoint and
- * the guest page. Kept free of server imports so the client can use it.
+ * Ticker normalization shared by the comp API, the public quote endpoint, the
+ * guest page, the entry validator and the MCP tools. Kept free of server
+ * imports so the client can use it.
  */
 
-const TICKER = /^[A-Z0-9.-]{1,10}$/;
+import { COMP_LIMITS } from "@/lib/constants/careerotter";
+
+/**
+ * What a stored ticker looks like once trimmed and uppercased: letters, digits,
+ * dots or hyphens, starting with a letter or digit, at most COMP_LIMITS.tickerMax
+ * characters.
+ */
+export const TICKER_PATTERN = new RegExp(
+  `^[A-Z0-9][A-Z0-9.\\-]{0,${COMP_LIMITS.tickerMax - 1}}$`
+);
+
+/** A ticker as stored: trimmed and uppercased. */
+export function normalizeTicker(ticker: string): string {
+  return ticker.trim().toUpperCase();
+}
 
 /** Uppercase, trimmed, deduplicated tickers that look like tickers, in the order given. */
-export function normalizeTickers(values: Array<string | null | undefined>): string[] {
+export function normalizeTickers(values: ReadonlyArray<string | null | undefined>): string[] {
   const seen = new Set<string>();
   for (const value of values) {
-    const ticker = typeof value === "string" ? value.trim().toUpperCase() : "";
-    if (ticker && TICKER.test(ticker)) seen.add(ticker);
+    const ticker = typeof value === "string" ? normalizeTicker(value) : "";
+    if (TICKER_PATTERN.test(ticker)) seen.add(ticker);
   }
   return [...seen];
 }
