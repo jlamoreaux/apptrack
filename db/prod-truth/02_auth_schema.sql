@@ -62,7 +62,8 @@ CREATE TYPE auth.factor_status AS ENUM (
 CREATE TYPE auth.factor_type AS ENUM (
     'totp',
     'webauthn',
-    'phone'
+    'phone',
+    'recovery_code'
 );
 
 
@@ -438,6 +439,35 @@ COMMENT ON COLUMN auth.mfa_factors.last_webauthn_challenge_data IS 'Stores the l
 
 
 --
+-- Name: mfa_recovery_code_sets; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.mfa_recovery_code_sets (
+    id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    mfa_factor_id uuid NOT NULL,
+    failed_verification_count integer DEFAULT 0 NOT NULL,
+    verification_locked_until timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT mfa_recovery_code_sets_failed_verification_count_check CHECK ((failed_verification_count >= 0))
+);
+
+
+--
+-- Name: mfa_recovery_codes; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.mfa_recovery_codes (
+    id uuid NOT NULL,
+    mfa_recovery_code_set_id uuid NOT NULL,
+    code_hash text NOT NULL,
+    consumed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: oauth_authorizations; Type: TABLE; Schema: auth; Owner: -
 --
 
@@ -543,6 +573,7 @@ CREATE TABLE auth.one_time_tokens (
     relates_to text NOT NULL,
     created_at timestamp without time zone DEFAULT now() NOT NULL,
     updated_at timestamp without time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone,
     CONSTRAINT one_time_tokens_token_hash_check CHECK ((char_length(token_hash) > 0))
 );
 
@@ -655,6 +686,43 @@ CREATE TABLE auth.schema_migrations (
 --
 
 COMMENT ON TABLE auth.schema_migrations IS 'Auth: Manages updates to the auth system.';
+
+
+--
+-- Name: scim_tokens; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.scim_tokens (
+    id uuid NOT NULL,
+    sso_provider_id uuid NOT NULL,
+    token_hash text NOT NULL,
+    prefix text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    last_used_at timestamp with time zone,
+    CONSTRAINT scim_tokens_expires_at_future CHECK (((expires_at IS NULL) OR (expires_at > created_at))),
+    CONSTRAINT scim_tokens_revoked_after_created CHECK (((revoked_at IS NULL) OR (revoked_at >= created_at))),
+    CONSTRAINT scim_tokens_token_hash_check CHECK ((token_hash ~ '^[0-9a-f]{64}$'::text))
+);
+
+
+--
+-- Name: scim_users; Type: TABLE; Schema: auth; Owner: -
+--
+
+CREATE TABLE auth.scim_users (
+    id uuid NOT NULL,
+    sso_provider_id uuid NOT NULL,
+    user_id uuid,
+    resource jsonb NOT NULL,
+    user_name text GENERATED ALWAYS AS (lower((resource ->> 'userName'::text))) STORED NOT NULL,
+    external_id text GENERATED ALWAYS AS ((resource ->> 'externalId'::text)) STORED,
+    active boolean GENERATED ALWAYS AS (COALESCE(((resource ->> 'active'::text))::boolean, true)) STORED NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    deleted_at timestamp with time zone
+);
 
 
 --
@@ -957,6 +1025,38 @@ ALTER TABLE ONLY auth.mfa_factors
 
 
 --
+-- Name: mfa_recovery_code_sets mfa_recovery_code_sets_mfa_factor_id_key; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_code_sets
+    ADD CONSTRAINT mfa_recovery_code_sets_mfa_factor_id_key UNIQUE (mfa_factor_id);
+
+
+--
+-- Name: mfa_recovery_code_sets mfa_recovery_code_sets_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_code_sets
+    ADD CONSTRAINT mfa_recovery_code_sets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mfa_recovery_code_sets mfa_recovery_code_sets_user_id_key; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_code_sets
+    ADD CONSTRAINT mfa_recovery_code_sets_user_id_key UNIQUE (user_id);
+
+
+--
+-- Name: mfa_recovery_codes mfa_recovery_codes_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_codes
+    ADD CONSTRAINT mfa_recovery_codes_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: oauth_authorizations oauth_authorizations_authorization_code_key; Type: CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -1066,6 +1166,22 @@ ALTER TABLE ONLY auth.saml_relay_states
 
 ALTER TABLE ONLY auth.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: scim_tokens scim_tokens_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.scim_tokens
+    ADD CONSTRAINT scim_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scim_users scim_users_pkey; Type: CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.scim_users
+    ADD CONSTRAINT scim_users_pkey PRIMARY KEY (id);
 
 
 --
@@ -1258,6 +1374,13 @@ CREATE INDEX mfa_factors_user_id_idx ON auth.mfa_factors USING btree (user_id);
 
 
 --
+-- Name: mfa_recovery_codes_set_id_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX mfa_recovery_codes_set_id_idx ON auth.mfa_recovery_codes USING btree (mfa_recovery_code_set_id);
+
+
+--
 -- Name: oauth_auth_pending_exp_idx; Type: INDEX; Schema: auth; Owner: -
 --
 
@@ -1388,6 +1511,97 @@ CREATE INDEX saml_relay_states_for_email_idx ON auth.saml_relay_states USING btr
 --
 
 CREATE INDEX saml_relay_states_sso_provider_id_idx ON auth.saml_relay_states USING btree (sso_provider_id);
+
+
+--
+-- Name: scim_tokens_expires_at_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_tokens_expires_at_idx ON auth.scim_tokens USING btree (expires_at);
+
+
+--
+-- Name: scim_tokens_revoked_at_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_tokens_revoked_at_idx ON auth.scim_tokens USING btree (revoked_at);
+
+
+--
+-- Name: scim_tokens_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_tokens_sso_provider_id_idx ON auth.scim_tokens USING btree (sso_provider_id);
+
+
+--
+-- Name: scim_tokens_token_hash_key; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE UNIQUE INDEX scim_tokens_token_hash_key ON auth.scim_tokens USING btree (token_hash);
+
+
+--
+-- Name: scim_users_created_at_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_created_at_idx ON auth.scim_users USING btree (sso_provider_id, created_at, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: scim_users_deleted_at_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_deleted_at_idx ON auth.scim_users USING btree (deleted_at);
+
+
+--
+-- Name: scim_users_external_id_key; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE UNIQUE INDEX scim_users_external_id_key ON auth.scim_users USING btree (sso_provider_id, external_id) WHERE ((external_id IS NOT NULL) AND (deleted_at IS NULL));
+
+
+--
+-- Name: scim_users_id_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_id_idx ON auth.scim_users USING btree (sso_provider_id, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: scim_users_sso_provider_id_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_sso_provider_id_idx ON auth.scim_users USING btree (sso_provider_id);
+
+
+--
+-- Name: scim_users_updated_at_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_updated_at_idx ON auth.scim_users USING btree (sso_provider_id, updated_at, id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: scim_users_user_id_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_user_id_idx ON auth.scim_users USING btree (user_id);
+
+
+--
+-- Name: scim_users_user_name_idx; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE INDEX scim_users_user_name_idx ON auth.scim_users USING btree (sso_provider_id, user_name COLLATE "C", id) WHERE (deleted_at IS NULL);
+
+
+--
+-- Name: scim_users_user_name_key; Type: INDEX; Schema: auth; Owner: -
+--
+
+CREATE UNIQUE INDEX scim_users_user_name_key ON auth.scim_users USING btree (sso_provider_id, user_name) WHERE (deleted_at IS NULL);
 
 
 --
@@ -1556,6 +1770,30 @@ ALTER TABLE ONLY auth.mfa_factors
 
 
 --
+-- Name: mfa_recovery_code_sets mfa_recovery_code_sets_mfa_factor_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_code_sets
+    ADD CONSTRAINT mfa_recovery_code_sets_mfa_factor_id_fkey FOREIGN KEY (mfa_factor_id) REFERENCES auth.mfa_factors(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mfa_recovery_code_sets mfa_recovery_code_sets_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_code_sets
+    ADD CONSTRAINT mfa_recovery_code_sets_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mfa_recovery_codes mfa_recovery_codes_mfa_recovery_code_set_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.mfa_recovery_codes
+    ADD CONSTRAINT mfa_recovery_codes_mfa_recovery_code_set_id_fkey FOREIGN KEY (mfa_recovery_code_set_id) REFERENCES auth.mfa_recovery_code_sets(id) ON DELETE CASCADE;
+
+
+--
 -- Name: oauth_authorizations oauth_authorizations_client_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
 --
 
@@ -1625,6 +1863,30 @@ ALTER TABLE ONLY auth.saml_relay_states
 
 ALTER TABLE ONLY auth.saml_relay_states
     ADD CONSTRAINT saml_relay_states_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: scim_tokens scim_tokens_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.scim_tokens
+    ADD CONSTRAINT scim_tokens_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: scim_users scim_users_sso_provider_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.scim_users
+    ADD CONSTRAINT scim_users_sso_provider_id_fkey FOREIGN KEY (sso_provider_id) REFERENCES auth.sso_providers(id) ON DELETE CASCADE;
+
+
+--
+-- Name: scim_users scim_users_user_id_fkey; Type: FK CONSTRAINT; Schema: auth; Owner: -
+--
+
+ALTER TABLE ONLY auth.scim_users
+    ADD CONSTRAINT scim_users_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL;
 
 
 --
