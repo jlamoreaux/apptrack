@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server"
+import { resolveInternalUrl } from "@/lib/utils/internal-path";
 import { createCallbackClient } from "@/lib/supabase/server-client";
 import { handleOnSignup } from "@/lib/services/on-signup.service";
 import { loggerService } from "@/lib/services/logger.service";
@@ -41,15 +42,6 @@ export async function GET(request: NextRequest) {
           }
         });
 
-        // Validate next param to prevent open redirect attacks
-        const isValidInternalPath = (path: string | null): boolean => {
-          if (!path || typeof path !== "string") return false;
-          if (!path.startsWith("/")) return false;
-          if (path.startsWith("//")) return false;
-          if (path.includes("://")) return false;
-          return true;
-        };
-
         // Route new signups (email confirmation) to the welcome page.
         // A user is "new" if their account was created in the last 5 minutes —
         // confirming an email that quickly means this is their first login.
@@ -88,12 +80,12 @@ export async function GET(request: NextRequest) {
           }
         }
 
-        const redirectPath = isValidInternalPath(next)
-          ? next
-          : isNewUser
-            ? "/onboarding/welcome"
-            : "/dashboard";
-        const response = NextResponse.redirect(new URL(requestUrl.origin + redirectPath));
+        // The requested destination is honoured only when it parses back to
+        // this origin; anything else lands on the default page.
+        const requested = resolveInternalUrl(next, requestUrl.origin);
+        const target =
+          requested ?? new URL(isNewUser ? "/onboarding/welcome" : "/dashboard", requestUrl.origin);
+        const response = NextResponse.redirect(target);
         // Apply session cookies to the redirect response so the browser
         // receives Set-Cookie headers alongside the 302.
         cookiesToSet.forEach(({ name, value, options }) => {

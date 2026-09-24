@@ -22,6 +22,7 @@ import {
   Shield,
   Flame,
   LifeBuoy,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/actions";
@@ -90,7 +91,11 @@ export function MobileNavigation({
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[280px] sm:w-[350px]">
+      {/* Content can exceed short viewports (e.g. mobile Safari with toolbars), so the sheet must scroll */}
+      <SheetContent
+        side="right"
+        className="w-[280px] sm:w-[350px] overflow-y-auto overscroll-contain pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+      >
         <SheetHeader>
           <SheetTitle>Menu</SheetTitle>
         </SheetHeader>
@@ -182,6 +187,15 @@ export function MobileNavigation({
             </Link>
           )}
 
+          <Link
+            href="/how-it-works"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-md text-sm hover:bg-accent/50 transition-colors"
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>How CareerOtter works</span>
+          </Link>
+
           <button
             type="button"
             onClick={() => {
@@ -195,9 +209,10 @@ export function MobileNavigation({
           </button>
 
           <button
+            type="button"
             onClick={handleSignOut}
             disabled={loading}
-            className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
+            className="w-full flex items-center gap-3 px-3 py-2 min-h-[44px] rounded-md text-sm hover:bg-accent/50 transition-colors text-left"
           >
             <LogOut className="h-4 w-4" />
             <span>{loading ? "Signing out..." : "Logout"}</span>

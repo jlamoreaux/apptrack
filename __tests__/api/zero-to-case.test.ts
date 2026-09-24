@@ -136,6 +136,42 @@ it("generates a starter case, returns 201, and fires ztc_completed", async () =>
   );
 });
 
+it("rewrites a draft that invents figures, and reports how many were caught", async () => {
+  adminOps({
+    insert: { data: { user_id: "user-1" }, error: null },
+    update: { data: null, error: null },
+  });
+  mockCallOpenAI
+    .mockResolvedValueOnce("I migrated billing and improved reliability by 30%.")
+    .mockResolvedValueOnce("I migrated billing and reliability improved [add: by how much?].");
+
+  const res = await POST(req({ mode: "promotion", wins: ["migrated billing"] }));
+
+  expect(res.status).toBe(201);
+  expect((await res.json()).starterCase).not.toContain("30%");
+  expect(mockCallOpenAI).toHaveBeenCalledTimes(2);
+  // The rewrite turn carries the first draft back plus the correction naming the figure.
+  const { messages } = mockCallOpenAI.mock.calls[1][0];
+  expect(messages.map((m: { role: string }) => m.role)).toEqual(["user", "assistant", "user"]);
+  expect(messages[2].content).toContain("30%");
+  expect(mockCapture).toHaveBeenCalledWith(
+    USER.id,
+    CAREEROTTER_EVENT_NAMES.ZTC_COMPLETED,
+    expect.objectContaining({ invented_figures_caught: 1 })
+  );
+});
+
+it("keeps a figure the user actually gave, with no rewrite", async () => {
+  adminOps({
+    insert: { data: { user_id: "user-1" }, error: null },
+    update: { data: null, error: null },
+  });
+  mockCallOpenAI.mockResolvedValue("I cut latency by 40%.");
+  const res = await POST(req({ mode: "promotion", wins: ["cut container latency 40%"] }));
+  expect((await res.json()).starterCase).toContain("40%");
+  expect(mockCallOpenAI).toHaveBeenCalledTimes(1);
+});
+
 it("400 on an invalid review_date format", async () => {
   adminOps({});
   const res = await POST(req({ mode: "promotion", review_date: "next tuesday" }));

@@ -162,50 +162,70 @@ process.env = {
   SUPABASE_SERVICE_ROLE_KEY: 'test-service-role-key',
 }
 
-// Mock Lucide React icons to avoid SVG rendering issues in tests
-jest.mock('lucide-react', () => ({
-  Building2: () => <div data-testid="building2-icon" />,
-  Calendar: () => <div data-testid="calendar-icon" />,
-  TrendingUp: () => <div data-testid="trending-up-icon" />,
-  Plus: () => <div data-testid="plus-icon" />,
-  ExternalLink: () => <div data-testid="external-link-icon" />,
-  Target: () => <div data-testid="target-icon" />,
-  TrendingDown: () => <div data-testid="trending-down-icon" />,
-  Lightbulb: () => <div data-testid="lightbulb-icon" />,
-  CheckCircle2: () => <div data-testid="check-circle2-icon" />,
-  AlertTriangle: () => <div data-testid="alert-triangle-icon" />,
-  CheckCircle: () => <div data-testid="check-circle-icon" />,
-  ChevronDown: () => <div data-testid="chevron-down-icon" />,
-  ChevronRight: () => <div data-testid="chevron-right-icon" />,
-  Copy: () => <div data-testid="copy-icon" />,
-  Download: () => <div data-testid="download-icon" />,
-  // AI Coach specific icons
-  Brain: () => <div data-testid="brain-icon" />,
-  MessageCircle: () => <div data-testid="message-circle-icon" />,
-  FileText: () => <div data-testid="file-text-icon" />,
-  Sparkles: () => <div data-testid="sparkles-icon" />,
-  Lock: () => <div data-testid="lock-icon" />,
-  Crown: () => <div data-testid="crown-icon" />,
-  ArrowRight: () => <div data-testid="arrow-right-icon" />,
-  Clock: () => <div data-testid="clock-icon" />,
-  RotateCcw: () => <div data-testid="rotate-ccw-icon" />,
-  Progress: () => <div data-testid="progress-icon" />,
-}))
+// Mock Lucide React icons to avoid SVG rendering issues in tests.
+// A Proxy rather than a hand-maintained list: every icon in the library resolves
+// to a stub, so adding an icon to a component can't break an unrelated test with
+// "element type is invalid". Test ids keep the previous kebab-case convention
+// (TrendingUp -> trending-up-icon, CheckCircle2 -> check-circle2-icon), and a
+// test that needs different ids can still mock the module locally.
+jest.mock('lucide-react', () => {
+  const React = require('react')
+  // The real module decides which names exist. Without this an icon that does
+  // not exist (a typo, a renamed export) would resolve to a working stub and
+  // the test would pass; CI runs neither tsc nor next build, so nothing else
+  // would catch it.
+  const actual = jest.requireActual('lucide-react')
+  const stubs = new Map()
 
-// Mock window.matchMedia for components that use prefers-reduced-motion
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // deprecated
-    removeListener: jest.fn(), // deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
+  return new Proxy(
+    {},
+    {
+      get(_target, name) {
+        if (name === '__esModule') return true
+        if (typeof name !== 'string') return undefined
+        if (!(name in actual)) return undefined
+        if (!stubs.has(name)) {
+          const testId = `${name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase()}-icon`
+          const Icon = () => React.createElement('div', { 'data-testid': testId })
+          Icon.displayName = name
+          stubs.set(name, Icon)
+        }
+        return stubs.get(name)
+      },
+      has: (_target, name) => typeof name === 'string' && name in actual,
+    }
+  )
 })
+
+// Mock window.matchMedia for components that use prefers-reduced-motion.
+// Guarded like scrollIntoView below: this file also runs for suites on the node
+// environment, where `window` does not exist and an unguarded reference fails
+// the whole suite before any test body runs.
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // deprecated
+      removeListener: jest.fn(), // deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  })
+}
+
+// jsdom has no ResizeObserver; Radix primitives (Checkbox, Switch) measure
+// themselves with it on mount and would throw before a test can assert.
+if (typeof window !== 'undefined' && typeof window.ResizeObserver === 'undefined') {
+  window.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+}
 
 // jsdom does not implement scrollIntoView; components that call it from an
 // effect (e.g. chat auto-scroll) would otherwise throw inside a timer and flake.

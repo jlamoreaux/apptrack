@@ -21,6 +21,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    {
+      url: `${baseUrl}/how-it-works`,
+      lastModified: currentDate,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
   ]
 
   // Free tool pages - high priority for SEO traffic
@@ -55,6 +61,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.9,
     },
+    // The guest comp page 404s behind the launch gate; only advertise it
+    // once the gate is open.
+    ...(process.env.CAREEROTTER_ENABLED === '1'
+      ? [
+          {
+            url: `${baseUrl}/try/comp`,
+            lastModified: currentDate,
+            changeFrequency: 'weekly' as const,
+            priority: 0.9,
+          },
+        ]
+      : []),
   ]
 
   // Role-specific landing pages for SEO - generated from constant

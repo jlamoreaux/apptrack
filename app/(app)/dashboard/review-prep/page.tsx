@@ -20,7 +20,9 @@ export default async function ReviewPrepPage() {
         <div className="mb-6 space-y-1">
           <h1 className="text-2xl font-bold">Review prep</h1>
           <p className="text-sm text-muted-foreground">
-            Assemble your logged wins into a case you can walk in with.
+            Turns your logged wins into a review document: summary, evidence by
+            area, impact, gaps, and the ask. Needs at least three wins. Copy it,
+            download it, or print it.
           </p>
         </div>
         <CaseBuilder />

@@ -4,14 +4,8 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
+import { WinTagSelect } from "./win-tag-select";
+import type { WinTag } from "@/lib/constants/careerotter";
 
 export interface LoggedWin {
   id: string;
@@ -30,8 +24,11 @@ export interface LoggedWin {
  */
 export function WinCaptureBar({
   onLogged,
+  inputRef,
 }: {
   onLogged?: (win: LoggedWin) => void;
+  /** Lets a parent put the cursor here — Today's "log a win" prompt focuses it. */
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   const [text, setText] = useState("");
   const [tag, setTag] = useState<string>("");
@@ -79,6 +76,7 @@ export function WinCaptureBar({
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="w-full sm:flex-1 sm:min-w-0">
           <Input
+            ref={inputRef}
             value={text}
             onChange={(e) => {
               setText(e.target.value);
@@ -91,21 +89,12 @@ export function WinCaptureBar({
           />
         </div>
         <div className="w-full sm:w-44 sm:shrink-0">
-          <Select value={tag} onValueChange={setTag} disabled={submitting}>
-            <SelectTrigger
-              className="min-h-[44px] w-full"
-              aria-label="Impact area (optional)"
-            >
-              <SelectValue placeholder="Area (optional)" />
-            </SelectTrigger>
-            <SelectContent>
-              {WIN_TAG_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <WinTagSelect
+            value={tag}
+            onValueChange={setTag}
+            disabled={submitting}
+            className="min-h-[44px] w-full"
+          />
         </div>
         <Button
           type="submit"

@@ -1,4 +1,5 @@
 import type React from "react";
+import type { FeatureIconColor } from "@/components/ui/feature-icon";
 
 // Single source of truth for the subscription status union.
 // Type-only re-export keeps this free of runtime/client-bundle coupling.
@@ -394,4 +395,33 @@ export interface PricingTier {
 export interface Faq {
   question: string;
   answer: string;
+}
+
+// ─── CareerOtter comp tracker ───
+
+/** What the entry form collects: the POST body for /api/careerotter/comp. */
+export interface CompEntryInput {
+  effective_date: string;
+  base: number;
+  bonus: number;
+  equity: number;
+  ticker: string | null;
+  shares: number | null;
+  vest_start: string | null;
+  vest_years: number | null;
+  vest_cliff_months: number | null;
+}
+
+/** A guest's entry: the input plus a local id so the page can render and delete it. */
+export interface GuestCompEntry extends CompEntryInput {
+  id: string;
+}
+
+/** A tool that lives in the app and needs a (free) account, as the marketing surfaces list it. */
+export interface AccountTool {
+  title: string;
+  shortDescription: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconColor: FeatureIconColor;
 }

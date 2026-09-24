@@ -286,13 +286,17 @@
   }
 }
 
-/* Ensure sufficient color contrast for all interactive elements */
-button, 
-input, 
-select, 
-textarea, 
+/* Minimum touch target size. Checkboxes, radios and switches are left out:
+   their controls draw a 16px box and get the 44px target from a wrapper, and
+   a 44px min-height on the box itself stretches it into a tall oval. :where()
+   keeps the specificity of a bare element selector, so min-h-* utilities
+   still override it. */
+button:where(:not([role="checkbox"], [role="radio"], [role="switch"])),
+input:where(:not([type="checkbox"], [type="radio"])),
+select,
+textarea,
 a[href] {
-  min-height: 44px; /* Minimum touch target size */
+  min-height: 44px;
 }
 
 /* Status badge accessibility improvements */
@@ -339,4 +343,44 @@ a[href] {
   .onboarding-tooltip {
     z-index: 9999; /* Matches spotlight Z_INDEX.TOOLTIP */
   }
+}
+
+/* iOS Safari renders date and time inputs at their intrinsic size and
+   ignores the width and height classes on them, so in a two-column form
+   they overflow their column and stand taller than their neighbours.
+   Drop the native appearance and pin the box; the picker still opens on tap. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  -webkit-min-logical-width: calc(100% - 16px);
+}
+
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value,
+input[type="time"]::-webkit-date-and-time-value {
+  /* 44px control minus the 8px vertical padding on each side. */
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+  text-align: left;
+}
+
+/* Comp tracker series colors: Salary, Stock, Incentives. Stepped per mode and
+   validated for adjacent-pair colorblind separation against the card surface. */
+:root {
+  --comp-salary: #c9761d;
+  --comp-stock: #2a78d6;
+  --comp-incentives: #1baf7a;
+}
+
+.dark {
+  --comp-salary: #c8711b;
+  --comp-stock: #3987e5;
+  --comp-incentives: #199e70;
 }

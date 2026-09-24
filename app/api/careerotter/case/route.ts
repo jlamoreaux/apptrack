@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { callOpenAI } from "@/lib/openai/client";
+import type { ChatMessage } from "@/lib/openai/types";
+import { generateGroundedDraft } from "@/lib/ai/evidence-grounding";
 import { buildCasePrompt, CASE_PROMPT_VERSION } from "@/lib/careerotter/case-prompt";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
@@ -56,23 +58,55 @@ export async function POST() {
   if (!wins || wins.length < MIN_WINS) {
     return NextResponse.json(
       {
-        error: `Log at least ${MIN_WINS} wins first — a case needs evidence to stand on.`,
+        error: `Log at least ${MIN_WINS} wins first. A case needs evidence to stand on.`,
         needsMoreWins: true,
       },
       { status: 422 }
     );
   }
 
+  const systemPrompt = buildCasePrompt(profile ?? null, wins);
   let markdown = "";
+  let inventedFigures: string[] = [];
   try {
-    markdown = await callOpenAI({
-      systemPrompt: buildCasePrompt(profile ?? null, wins),
-      messages: [
-        { role: "user", content: "Assemble my case document from my logged wins." },
-      ],
-      maxTokens: 1600,
-      temperature: 0.5,
-    });
+    // Every figure in the document is checked against the logged wins and
+    // goal. An invented one gets a rewrite turn; see lib/ai/evidence-grounding.ts.
+    const draft = await generateGroundedDraft(
+      (rewrite) => {
+        const messages: ChatMessage[] = [
+          { role: "user", content: "Assemble my case document from my logged wins." },
+        ];
+        if (rewrite) {
+          messages.push(
+            { role: "assistant", content: rewrite.draft },
+            { role: "user", content: rewrite.correction }
+          );
+        }
+        return callOpenAI({
+          systemPrompt,
+          messages,
+          maxTokens: 1600,
+          temperature: 0.5,
+        });
+      },
+      [
+        profile?.role,
+        profile?.level,
+        profile?.target,
+        profile?.review_date,
+        ...wins.flatMap((w) => [w.text, w.impact_number]),
+      ]
+    );
+    markdown = draft.text;
+    inventedFigures = draft.invented;
+    if (draft.scrubbed) {
+      loggerService.warn("Case document still had invented figures after rewrite", {
+        category: LogCategory.AI_SERVICE,
+        userId: user.id,
+        action: "case_figures_scrubbed",
+        metadata: { invented: draft.invented },
+      });
+    }
   } catch (error) {
     loggerService.error("Case generation failed", error, {
       category: LogCategory.AI_SERVICE,
@@ -89,6 +123,7 @@ export async function POST() {
     captureServerEvent(user.id, CAREEROTTER_EVENT_NAMES.CASE_EXPORTED, {
       prompt_version: CASE_PROMPT_VERSION,
       wins_used: wins.length,
+      invented_figures_caught: inventedFigures.length,
     })
   );
 

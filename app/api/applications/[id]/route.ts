@@ -156,6 +156,31 @@ export async function PUT(
       new_status: validatedData.status,
     }));
 
+    // Record the status transition so that "when did this reach status X" is
+    // answerable. applications.updated_at cannot answer it: the
+    // handle_updated_at trigger bumps that column on any edit. Best-effort —
+    // a failed history write must not fail the update.
+    if (validatedData.status && validatedData.status !== existingApp.status) {
+      const previousStatus = existingApp.status;
+      const newStatus = validatedData.status;
+      after(async () => {
+        try {
+          await applicationDAL.addHistory({
+            application_id: id,
+            old_status: previousStatus,
+            new_status: newStatus,
+          });
+        } catch (historyError) {
+          loggerService.error('Failed to record status change', historyError, {
+            category: LogCategory.DATABASE,
+            userId: user.id,
+            action: 'application_history_write_failed',
+            metadata: { applicationId: id, newStatus },
+          });
+        }
+      });
+    }
+
     return NextResponse.json({ application: updatedApp });
 
   } catch (error) {

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import type { Application, LinkedinProfile } from "@/lib/supabase";
-import { trackStatusChange } from "@/lib/application-history";
 
 export function useSupabaseApplications(userId: string | null) {
   const [applications, setApplications] = useState<Application[]>([]);

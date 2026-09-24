@@ -7,9 +7,10 @@
  */
 
 import { VOICE_GUARDRAILS } from "@/lib/ai/voice-guardrails";
+import { EVIDENCE_GROUNDING_RULES } from "@/lib/ai/evidence-grounding";
 import { WIN_TAG_OPTIONS, type WinTag } from "@/lib/constants/careerotter";
 
-export const CASE_PROMPT_VERSION = "1.0.0";
+export const CASE_PROMPT_VERSION = "1.1.0";
 
 // Kept local so the case builder doesn't depend on the coach module (they ship
 // on independent branches). Shapes match the wins/career_profiles selections.
@@ -35,8 +36,8 @@ const TAG_LABEL: Record<WinTag, string> = Object.fromEntries(
 // Generic promo-case rubric v1. Custom rubric upload is a fast follow (PRD M4).
 export const CASE_RUBRIC_V1 = [
   "Summary: one paragraph stating the case for the raise or promotion.",
-  "Evidence by theme: group the wins by impact area (delivery, leadership, collaboration, craft). Lead each with the strongest, quantified where possible (situation, action, measurable result).",
-  "Impact: pull the hardest numbers into a short highlights list.",
+  "Evidence by theme: group the wins by impact area (delivery, leadership, collaboration, craft). Lead each with the strongest: what the situation was, what I did, what it changed. Use the numbers I logged; where a win has none, keep it qualitative.",
+  "Impact: pull the numbers I logged into a short highlights list. If I logged none, say so in one line and name the wins that most need a figure.",
   "Gaps: name honestly what the case is still light on. One or two lines.",
   "The ask: a direct, specific ask (the promotion/raise and why now).",
 ];
@@ -67,7 +68,9 @@ export function buildCasePrompt(
 
   return `${VOICE_GUARDRAILS}
 
-Write a promotion/raise case document FROM THE USER, in their first-person voice. No mascot personality, no otter references, no coaching asides. This is the document they hand a manager or paste into a review. Use only the wins below as evidence; do not invent facts or numbers. Where a win lacks a number, keep it qualitative rather than fabricating one.
+Write a promotion/raise case document FROM THE USER, in their first-person voice. No mascot personality, no otter references, no coaching asides. This is the document they hand a manager or paste into a review. Use only the wins below as evidence; do not invent facts or numbers.
+
+${EVIDENCE_GROUNDING_RULES}
 
 Structure it as markdown with these sections, in order:
 ${CASE_RUBRIC_V1.map((r, i) => `${i + 1}. ${r}`).join("\n")}

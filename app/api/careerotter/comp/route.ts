@@ -1,7 +1,7 @@
 /**
  * Comp tracker (CareerOtter Phase 2, M5).
  *
- * GET  /api/careerotter/comp?roleFamily=&level=  -> { entries, marketRange, isPro }
+ * GET  /api/careerotter/comp?roleFamily=&level=  -> { entries, marketRange, isPro, prices, priceFeedEnabled }
  * POST /api/careerotter/comp                      -> add a comp entry
  *
  * Tracking your own numbers is free. The market benchmark (the "market-vs-you"
@@ -15,23 +15,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { lookupMarketRange } from "@/lib/careerotter/market-data";
+import { isPriceFeedConfigured } from "@/lib/careerotter/stock-price";
+import { loadQuotes } from "@/lib/careerotter/stock-price-cache";
+import { normalizeTickers } from "@/lib/careerotter/tickers";
+import { validateCompEntryInput } from "@/lib/careerotter/comp-entry-validation";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * True only for a real calendar date in YYYY-MM-DD form — the regex alone
- * accepts impossible dates like 2026-02-29, which would then fail at insert
- * time as a 500 instead of a validation 400.
- */
-function isIsoDate(value: unknown): value is string {
-  if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
 
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
@@ -56,50 +47,21 @@ export async function GET(request: NextRequest) {
   // Benchmark is Pro-only; entry/history is free.
   const marketRange = plan.isPro ? lookupMarketRange(roleFamily, level) : null;
 
-  // Live cached prices for the tickers this user tracks (feature is dark until the
-  // polling cron populates stock_prices; absent tickers simply won't appear).
-  const tickers = [
-    ...new Set(
-      (entries ?? [])
-        .map((e) => (typeof e.ticker === "string" ? e.ticker.trim() : ""))
-        .filter((t) => t.length > 0)
-    ),
-  ];
-  const prices: Record<string, { price: number; as_of: string }> = {};
-  if (tickers.length > 0) {
-    const { data: priceRows } = await admin
-      .from("stock_prices")
-      .select("ticker, price, as_of")
-      .in("ticker", tickers);
-    for (const row of priceRows ?? []) {
-      prices[row.ticker] = { price: Number(row.price), as_of: row.as_of };
-    }
-  }
+  // Prices for the tickers this user tracks: cached by the daily cron and
+  // refreshed live here when a ticker is new or its quote has gone stale, so a
+  // just-added ticker gets a price on the first page load rather than tomorrow.
+  const tickers = normalizeTickers((entries ?? []).map((e) => e.ticker));
+  const prices = await loadQuotes(admin, tickers);
 
   return NextResponse.json({
     entries: entries ?? [],
     marketRange,
     isPro: plan.isPro,
     prices,
+    // Lets the page say why a ticker has no price: the feed is off, or the
+    // symbol returned nothing from the feed.
+    priceFeedEnabled: isPriceFeedConfigured(),
   });
-}
-
-type PostBody = {
-  effective_date?: unknown;
-  base?: unknown;
-  bonus?: unknown;
-  equity?: unknown;
-  note?: unknown;
-  ticker?: unknown;
-  shares?: unknown;
-  vest_start?: unknown;
-  vest_years?: unknown;
-  vest_cliff_months?: unknown;
-};
-
-function num(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v) && v >= 0) return v;
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -109,130 +71,28 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  let body: PostBody;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!isIsoDate(body.effective_date)) {
-    return NextResponse.json(
-      { error: "effective_date must be a valid YYYY-MM-DD date" },
-      { status: 400 }
-    );
+  // The same validator the entry form and the guest cache use, so nothing a
+  // guest saved before signing up can be rejected here on import.
+  const checked = validateCompEntryInput(body);
+  if (!checked.ok) {
+    return NextResponse.json({ error: checked.error }, { status: 400 });
   }
-  const base = num(body.base);
-  if (base === null) {
-    return NextResponse.json(
-      { error: "base must be a non-negative number" },
-      { status: 400 }
-    );
-  }
-  const bonus = num(body.bonus) ?? 0;
-  const equity = num(body.equity) ?? 0;
-  const note =
-    typeof body.note === "string" ? body.note.trim().slice(0, 500) || null : null;
-  const ticker =
-    typeof body.ticker === "string"
-      ? body.ticker.trim().toUpperCase().slice(0, 10) || null
-      : null;
-
-  // shares is optional, but if supplied it must be a storable non-negative number.
-  // numeric(14,4) tops out at 9,999,999,999.9999; reject rather than silently drop
-  // an invalid value (num() would map -1 / "abc" to null and lose the input).
-  const SHARES_MAX = 9_999_999_999.9999;
-  let shares: number | null = null;
-  if (body.shares !== undefined && body.shares !== null) {
-    if (
-      typeof body.shares !== "number" ||
-      !Number.isFinite(body.shares) ||
-      body.shares < 0 ||
-      body.shares > SHARES_MAX
-    ) {
-      return NextResponse.json(
-        { error: "shares must be a non-negative number no larger than 9,999,999,999.9999" },
-        { status: 400 }
-      );
-    }
-    shares = body.shares;
-  }
-
-  // Optional vesting schedule. vest_years is bounded to a sane grant length;
-  // vest_start must be a plain date. Invalid values are rejected, not dropped.
-  let vestStart: string | null = null;
-  if (body.vest_start !== undefined && body.vest_start !== null && body.vest_start !== "") {
-    if (!isIsoDate(body.vest_start)) {
-      return NextResponse.json(
-        { error: "vest_start must be a valid YYYY-MM-DD date" },
-        { status: 400 }
-      );
-    }
-    vestStart = body.vest_start;
-  }
-  let vestYears: number | null = null;
-  if (body.vest_years !== undefined && body.vest_years !== null) {
-    if (
-      typeof body.vest_years !== "number" ||
-      !Number.isFinite(body.vest_years) ||
-      body.vest_years <= 0 ||
-      body.vest_years > 10
-    ) {
-      return NextResponse.json(
-        { error: "vest_years must be a number between 0 and 10" },
-        { status: 400 }
-      );
-    }
-    vestYears = body.vest_years;
-  }
-  let vestCliffMonths: number | null = null;
-  if (body.vest_cliff_months !== undefined && body.vest_cliff_months !== null) {
-    if (
-      typeof body.vest_cliff_months !== "number" ||
-      !Number.isInteger(body.vest_cliff_months) ||
-      body.vest_cliff_months < 0 ||
-      body.vest_cliff_months > 60
-    ) {
-      return NextResponse.json(
-        { error: "vest_cliff_months must be a whole number between 0 and 60" },
-        { status: 400 }
-      );
-    }
-    vestCliffMonths = body.vest_cliff_months;
-  }
-  // A cliff only means something relative to a vest schedule: without a
-  // duration the projection would silently ignore it, and a cliff longer
-  // than the vest describes a schedule that never pays until after it ends.
-  if (vestCliffMonths !== null && vestCliffMonths > 0) {
-    if (vestYears === null) {
-      return NextResponse.json(
-        { error: "vest_cliff_months requires vest_years" },
-        { status: 400 }
-      );
-    }
-    if (vestCliffMonths > Math.round(vestYears * 12)) {
-      return NextResponse.json(
-        { error: "vest_cliff_months cannot exceed the vesting duration" },
-        { status: 400 }
-      );
-    }
-  }
+  const { value, note } = checked;
 
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("comp_entries")
     .insert({
       user_id: user.id,
-      effective_date: body.effective_date,
-      base,
-      bonus,
-      equity,
+      ...value,
       note,
-      ticker,
-      shares,
-      vest_start: vestStart,
-      vest_years: vestYears,
-      vest_cliff_months: vestCliffMonths,
     })
     .select(
       "id, effective_date, base, bonus, equity, currency, note, ticker, shares, vest_start, vest_years, vest_cliff_months"
@@ -250,7 +110,7 @@ export async function POST(request: NextRequest) {
 
   after(
     captureServerEvent(user.id, CAREEROTTER_EVENT_NAMES.COMP_ENTERED, {
-      total: base + bonus + equity,
+      total: value.base + value.bonus + value.equity,
     })
   );
 
