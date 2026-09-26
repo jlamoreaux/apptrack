@@ -39,7 +39,14 @@ export interface McpHarness {
 }
 
 export function context(scopes: AgentTokenScope[], now: Date = TEST_NOW): McpToolContext {
-  return { admin: TEST_ADMIN, userId: TEST_USER_ID, tokenId: TEST_TOKEN_ID, scopes, now };
+  return {
+    admin: TEST_ADMIN,
+    userId: TEST_USER_ID,
+    credentialKind: "pat",
+    tokenId: TEST_TOKEN_ID,
+    scopes,
+    now,
+  };
 }
 
 export async function connect(harness: McpHarness, scopes: AgentTokenScope[]): Promise<Client> {

@@ -25,6 +25,7 @@ export type {
   AgentOAuthTokenEndpointAuthMethod,
   AgentOAuthTokenErrorCode,
   AgentOAuthTokenKind,
+  McpBearerTokenFailure,
 } from "@/lib/constants/agent-oauth";
 import type {
   AgentOAuthAuthorizeErrorCode,

@@ -4,9 +4,16 @@
  * GET    /api/careerotter/agent-tokens  -> { tokens } newest first, with status
  * POST   /api/careerotter/agent-tokens  -> 201 { token, record }; the raw token
  *                                         is returned here and never again
- * DELETE /api/careerotter/agent-tokens  -> { revoked } count of tokens that were
- *                                         still active. Expired unrevoked tokens
- *                                         are revoked too but not counted.
+ * DELETE /api/careerotter/agent-tokens  -> revoke all: every token and every
+ *                                         connected app (OAuth grant), whether or
+ *                                         not OAuth is enabled.
+ *                                         { revoked, tokensRevoked, grantsRevoked }
+ *                                         where tokensRevoked counts tokens that
+ *                                         were still active (expired unrevoked
+ *                                         ones are revoked too but not counted).
+ *                                         500 { error, tokensRevoked,
+ *                                         grantsRevoked } with null for the call
+ *                                         that failed.
  *
  * Session cookie only: these routes deliberately do not use getAuthenticatedUser
  * (which accepts extension Bearer JWTs) and never accept a personal access
@@ -28,9 +35,15 @@ import {
 import { getSessionUserId, unauthorizedResponse } from "@/lib/auth/session-user";
 import { invalid, ok } from "@/lib/careerotter/domain-result";
 import { domainErrorResponse } from "@/lib/careerotter/domain-response";
+import { revokeAllAgentGrants } from "@/lib/auth/oauth/grants";
+import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
+import { trackAfterResponse } from "@/lib/careerotter/domain-result";
 import { AGENT_RATE_LIMITS } from "@/lib/constants/agent-access";
+import { HTTP_STATUS } from "@/lib/constants/http-status";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import type { AgentOAuthRevokeReason } from "@/lib/constants/agent-oauth";
 import type { DomainErrorKind, DomainResult } from "@/types";
 
 // The PRD maps the active-token limit to 422 (Unprocessable), not the 429 the
@@ -40,6 +53,8 @@ const RATE_LIMITED_STATUS = 429;
 const CREATED_STATUS = 201;
 const NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
 const INVALID_JSON_MESSAGE = "Invalid JSON body";
+const REVOKE_ALL_FAILED_MESSAGE = "Failed to revoke everything. Try again.";
+const REVOKE_ALL_GRANTS_REASON = "user_all" satisfies AgentOAuthRevokeReason;
 
 const tokenCreateLimiter = createRateLimiter(
   AGENT_RATE_LIMITS.tokenCreate.tokens,
@@ -89,6 +104,15 @@ function createdResponse(userId: string, created: CreatedAgentToken): NextRespon
   return NextResponse.json(created, { status: CREATED_STATUS, headers: NO_STORE_HEADERS });
 }
 
+// captureServerEvent never rejects, and trackAfterResponse logs a failure to
+// schedule, so analytics can't change the response.
+function trackGrantsRevoked(userId: string): void {
+  const event = CAREEROTTER_EVENT_NAMES.MCP_OAUTH_REVOKED;
+  trackAfterResponse({ action: event, userId }, () =>
+    captureServerEvent(userId, event, { reason: REVOKE_ALL_GRANTS_REASON })
+  );
+}
+
 export async function GET(): Promise<NextResponse> {
   const userId = await getSessionUserId();
   if (!userId) return unauthorizedResponse();
@@ -115,14 +139,32 @@ export async function DELETE(): Promise<NextResponse> {
   const userId = await getSessionUserId();
   if (!userId) return unauthorizedResponse();
 
-  const result = await revokeAllAgentTokens(createAdminClient(), userId, new Date());
-  if (!result.ok) return domainErrorResponse(result);
+  const admin = createAdminClient();
+  // Grants are revoked even when the tokens call fails, and whether or not
+  // OAuth is enabled: "revoke all" should cut off everything it can reach.
+  const tokens = await revokeAllAgentTokens(admin, userId, new Date());
+  const grants = await revokeAllAgentGrants(admin, userId);
+  const tokensRevoked = tokens.ok ? tokens.value.activeRevoked : null;
+  const grantsRevoked = grants.ok ? grants.value : null;
 
-  loggerService.info("All agent tokens revoked", {
+  loggerService.info("All agent tokens and connected apps revoked", {
     category: LogCategory.AUTH,
     userId,
     action: "agent_tokens_revoked_all",
-    metadata: { count: result.value.revoked, activeCount: result.value.activeRevoked },
+    metadata: {
+      count: tokens.ok ? tokens.value.revoked : null,
+      activeCount: tokensRevoked,
+      grantsRevoked,
+    },
   });
-  return NextResponse.json({ revoked: result.value.activeRevoked });
+  if (grantsRevoked !== null && grantsRevoked > 0) trackGrantsRevoked(userId);
+
+  // The two calls aren't atomic; both are idempotent, so a retry is safe.
+  if (tokensRevoked === null || grantsRevoked === null) {
+    return NextResponse.json(
+      { error: REVOKE_ALL_FAILED_MESSAGE, tokensRevoked, grantsRevoked },
+      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
+    );
+  }
+  return NextResponse.json({ revoked: tokensRevoked + grantsRevoked, tokensRevoked, grantsRevoked });
 }
