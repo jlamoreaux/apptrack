@@ -1,30 +1,14 @@
--- schemas/tests/045_mcp_oauth_verify.sql
+-- db/tests/mcp_oauth_verify.sql
 --
--- Behavioral checks for schemas/migrations/045_mcp_oauth.sql. Run by hand
--- against a throwaway local Postgres 16, never against Supabase. Not run by
--- Jest or CI.
+-- Behavioral checks for drizzle/0004_mcp_oauth.sql. Run by hand against a
+-- throwaway local Postgres 16, never against Supabase. Not run by Jest or CI.
 --
--- schemas/tests/045_mcp_oauth_verify.sh does all of this, plus the checks that
--- need several sessions at once (parallel exchanges and refreshes, lock order
--- against cleanup). To run just this file, on an empty database:
---   1. Apply these stubs for what Supabase provides:
---        create role anon nologin;
---        create role authenticated nologin;
---        create role service_role nologin bypassrls;
---        create schema auth;
---        create table auth.users (id uuid primary key);
---        create table public.profiles (
---          id uuid primary key references auth.users (id) on delete cascade
---        );
---        grant usage on schema public to anon, authenticated, service_role;
---        alter default privileges in schema public
---          grant all on functions to anon, authenticated, service_role;
---        alter default privileges in schema public
---          grant all on tables to anon, authenticated, service_role;
---   2. psql -v ON_ERROR_STOP=1 -f schemas/migrations/045_mcp_oauth.sql
---   3. psql -v ON_ERROR_STOP=1 -f schemas/tests/045_mcp_oauth_verify.sql
--- Every check prints "PASS: ..."; the first failure stops the run with
--- "FAIL: ...".
+-- db/tests/mcp_oauth_verify.sh does all of this, plus the checks that need
+-- several sessions at once (parallel exchanges and refreshes, lock order
+-- against cleanup). It first builds the production-like base and applies the
+-- drizzle migrations through 0004 (db/tests/prod-base.sh); this file expects
+-- that state. Every check prints "PASS: ..."; the first failure stops the run
+-- with "FAIL: ...".
 
 \set QUIET on
 \o /dev/null
@@ -43,8 +27,8 @@ end $$;
 \set res '''https://careerotter.io/api/mcp'''
 
 -- Fixtures: users u1..u9, clients c1..c14.
-insert into auth.users select pg_temp.uid('u' || i) from generate_series(1, 9) i;
-insert into public.profiles select id from auth.users;
+insert into auth.users (id) select pg_temp.uid('u' || i) from generate_series(1, 9) i;
+insert into public.profiles (id, email) select id, id || '@example.com' from auth.users;
 insert into agent_oauth_clients (client_id, token_endpoint_auth_method, grant_types, client_name, redirect_uris)
   select pg_temp.cid('c' || i), 'none', array['authorization_code', 'refresh_token'], 'Client ' || i, array['https://example.com/cb']
   from generate_series(1, 14) i;
@@ -624,6 +608,6 @@ do $$ begin
 exception when foreign_key_violation then raise notice 'PASS: I: on delete restrict blocks deleting a client that has grants';
 end $$;
 
--- ═══ J setup (for 045_mcp_oauth_verify.sh): one code for the parallel exchange ═══
+-- ═══ J setup (for mcp_oauth_verify.sh): one code for the parallel exchange ═══
 select pg_temp.check('J: create code for the parallel exchange',
   (select outcome = 'ok' from create_agent_oauth_code(pg_temp.uid('u7'), pg_temp.cid('c1'), pg_temp.h('j1'), 'https://example.com/cb', :chal, array['wins:read'], null, :res)));

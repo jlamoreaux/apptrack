@@ -484,7 +484,7 @@ function isTokenLimitError(error: unknown): boolean {
 }
 
 /**
- * create_agent_token (migration 044) takes a per-user lock, revokes expired
+ * create_agent_token (migration 0003_mcp_agent_access) takes a per-user lock, revokes expired
  * tokens holding the name, checks the active-token limit and inserts, all in
  * one transaction, so concurrent creates cannot exceed the limit.
  */

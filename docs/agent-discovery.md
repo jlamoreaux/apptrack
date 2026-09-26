@@ -214,7 +214,7 @@ PAT (300 requests per minute).
 
 Handlers live under `app/oauth/` and `app/api/oauth/`, with the logic in
 `lib/auth/oauth/` and the tables and functions in
-`schemas/migrations/045_mcp_oauth.sql`.
+`drizzle/0004_mcp_oauth.sql` (tables modeled in `lib/db/schema/`).
 
 - **Registration.** Dynamic registration is the only way to get a
   `client_id`; Client ID Metadata Documents are a follow-up. Redirect URIs
@@ -277,7 +277,8 @@ SHA-256 digests are stored.
 | Client secret | `co_cs_` | no expiry |
 | Client id | `co_client_` + 16 random bytes in base64url | public identifier, stored as is |
 
-The lifetimes are `constant interval` declarations in migration 045, mirrored
+The lifetimes are `constant interval` declarations in migration
+0004_mcp_oauth, mirrored
 by `AGENT_OAUTH_LIFETIME_SECONDS` and guarded by a test. Every expiry is
 computed in Postgres with `now()`.
 

@@ -16,7 +16,7 @@
  * (then `unavailable`, a 503). The database functions are never aborted from
  * here, since a cancelled call could leave the client unsure whether a code or
  * refresh token was consumed; their lock waits are bounded by lock_timeout in
- * migration 045 instead, and a timeout comes back as an error (`unavailable`).
+ * migration 0004_mcp_oauth instead, and a timeout comes back as an error (`unavailable`).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";

@@ -111,7 +111,7 @@ const VALIDATED_FIELDS = [
   "client_name",
 ] as const;
 
-// Mirrors the client_id CHECK in migration 045.
+// Mirrors the client_id CHECK in migration 0004_mcp_oauth.
 const CLIENT_ID_PATTERN = new RegExp(
   `^${AGENT_OAUTH_PREFIXES.clientId}[A-Za-z0-9_-]{${base64urlLength(AGENT_OAUTH_CLIENT_ID_BYTES)}}$`
 );

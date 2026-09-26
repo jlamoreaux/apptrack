@@ -2,7 +2,8 @@
  * Guards lib/constants/careerotter.ts against drift from the SQL CHECK lists in
  * schemas/migrations/032_careerotter_evidence.sql. If someone changes a CHECK in
  * the migration without updating the constant (or vice versa), this fails.
- * wins.source is guarded in agent-access.test.ts (its current CHECK is in 044).
+ * wins.source is guarded in agent-access.test.ts (its current CHECK is in
+ * drizzle/0003_mcp_agent_access.sql).
  */
 
 import { readFileSync } from "fs";
