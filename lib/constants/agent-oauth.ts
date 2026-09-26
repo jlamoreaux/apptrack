@@ -124,18 +124,7 @@ export const AGENT_OAUTH_LIMITS = {
   // parameters around redirect_to.
   supabaseRedirectAllowance: 512,
   requestBodyMaxBytes: 16 * 1024,
-  // Revoked or expired rows the connected-apps list returns. Reconnecting an
-  // app replaces its grant, so revoked rows inside the history window can pile
-  // up; the newest are the ones worth showing.
-  maxListedGrants: 100,
-  // Active rows are read separately so history can't crowd them out. The
-  // per-user grant cap keeps this far lower; the limit only bounds the read.
-  maxListedActiveGrants: 1000,
 } as const;
-
-// The connected-apps list shows active grants plus those revoked or expired
-// within this many days.
-export const AGENT_OAUTH_GRANT_HISTORY_DAYS = 30;
 
 export const AGENT_OAUTH_DEFAULT_CLIENT_NAME = "Unnamed app";
 
@@ -258,9 +247,6 @@ export const AGENT_OAUTH_REVOKE_REASONS = [
 export type AgentOAuthRevokeReason =
   (typeof AGENT_OAUTH_REVOKE_REASONS)[number];
 
-// A user revoking one app on /dashboard/data.
-export const AGENT_OAUTH_USER_REVOKE_REASON = "user" satisfies AgentOAuthRevokeReason;
-
 // Errors the authorize handler sends back to the client's redirect_uri.
 export const AGENT_OAUTH_AUTHORIZE_ERROR_CODES = [
   "invalid_request",
@@ -316,22 +302,6 @@ export type AgentOAuthTokenErrorCode =
 // Sent in the 401 challenge so SDK-based clients request the PAT defaults
 // rather than every supported scope.
 export const AGENT_OAUTH_DEFAULT_SCOPE_HINT = DEFAULT_AGENT_TOKEN_SCOPES.join(AGENT_OAUTH_SCOPE_SEPARATOR);
-
-// The error code in the MCP route's 401 for a refused bearer token (RFC 6750 §3.1).
-export const MCP_INVALID_TOKEN_ERROR = "invalid_token";
-
-// Why the MCP route refused a presented bearer token. PAT failures, malformed
-// bearers and unknown OAuth tokens are all `invalid`.
-export const MCP_BEARER_TOKEN_FAILURES = ["invalid", "expired", "revoked"] as const;
-export type McpBearerTokenFailure = (typeof MCP_BEARER_TOKEN_FAILURES)[number];
-
-// error_description in the MCP route's invalid_token challenge (RFC 6750 §3).
-// Values must stay within RFC 6750's error_description charset: no " or \.
-export const MCP_BEARER_FAILURE_DESCRIPTIONS = {
-  invalid: "The access token is invalid",
-  expired: "The access token has expired",
-  revoked: "The access token has been revoked",
-} as const satisfies Record<McpBearerTokenFailure, string>;
 
 // ── Redirect URIs ───────────────────────────────────────────────────────────
 
@@ -490,13 +460,6 @@ export const AGENT_OAUTH_RATE_LIMITED_ERROR = {
 // ── Endpoints ───────────────────────────────────────────────────────────────
 
 const PROTECTED_RESOURCE_METADATA_PATH = "/.well-known/oauth-protected-resource";
-
-// Path prefixes of the OAuth surfaces, for matching whole families of routes.
-export const AGENT_OAUTH_PATH_PREFIXES = {
-  pages: "/oauth",
-  api: "/api/oauth",
-  wellKnown: "/.well-known/oauth-",
-} as const;
 
 export const AGENT_OAUTH_PATHS = {
   protectedResourceMetadata: `${PROTECTED_RESOURCE_METADATA_PATH}${MCP_RESOURCE_PATH}`,

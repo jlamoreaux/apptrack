@@ -37,8 +37,7 @@ const SNIPPET_SECTIONS: readonly SnippetSection[] = [
   },
 ];
 
-/** A titled, keyboard-scrollable code block for one setup step. */
-export function SetupSnippet({
+function Snippet({
   id,
   title,
   note,
@@ -94,7 +93,7 @@ export function AgentSetupSnippets({ appUrl }: { appUrl: string }): React.JSX.El
         </p>
       </div>
       {SNIPPET_SECTIONS.map((section) => (
-        <SetupSnippet
+        <Snippet
           key={section.key}
           id={`agent-snippet-${section.key}`}
           title={section.title}

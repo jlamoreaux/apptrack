@@ -206,7 +206,7 @@ function logToolError(
     category: LogCategory.API,
     userId: ctx.userId,
     action: "mcp_tool_call",
-    metadata: { tool, tokenId: ctx.tokenId, credentialKind: ctx.credentialKind },
+    metadata: { tool, tokenId: ctx.tokenId },
   });
 }
 
@@ -222,7 +222,6 @@ function trackToolCall(
       tool,
       ok: errorKind === null,
       error_kind: errorKind,
-      credential_kind: ctx.credentialKind,
     })
   );
 }

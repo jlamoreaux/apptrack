@@ -10,7 +10,7 @@
  * - invalid arguments are rejected by the SDK before the wrapper runs
  * - a DomainResult failure becomes isError with the service message
  * - structured output is returned and validated against the output schema
- * - mcp_tool_called fires with ok / error_kind / credential_kind, and a failure to schedule it
+ * - mcp_tool_called fires with ok / error_kind, and a failure to schedule it
  *   never changes the result
  */
 
@@ -100,7 +100,6 @@ function context(scopes: AgentTokenScope[]): McpToolContext {
   return {
     admin: {} as SupabaseClient,
     userId: USER_ID,
-    credentialKind: "pat",
     tokenId: "token-1",
     scopes,
     now: new Date("2026-09-01T00:00:00Z"),
@@ -254,7 +253,6 @@ describe("tool deadline", () => {
       tool: "flaky",
       ok: false,
       error_kind: "timeout",
-      credential_kind: "pat",
     });
   });
 
@@ -280,7 +278,6 @@ describe("mcp_tool_called", () => {
       tool: "read_thing",
       ok: true,
       error_kind: null,
-      credential_kind: "pat",
     });
   });
 
@@ -291,7 +288,6 @@ describe("mcp_tool_called", () => {
       tool: "flaky",
       ok: false,
       error_kind: "quota",
-      credential_kind: "pat",
     });
   });
 
@@ -304,7 +300,6 @@ describe("mcp_tool_called", () => {
       tool: "flaky",
       ok: false,
       error_kind: "exception",
-      credential_kind: "pat",
     });
   });
 

@@ -60,9 +60,7 @@ upgrade path depends on.
   Claude.ai connector listing. Consequence: clients must support a custom
   `Authorization` header (Claude Code, Cursor, VS Code). Claude Desktop connects
   through the `mcp-remote` stdio bridge with `--header`; this is documented in
-  the setup instructions, not solved. (Later added behind
-  `CAREEROTTER_MCP_OAUTH_ENABLED`, with CareerOtter as its own authorization
-  server: see `mcp-oauth-PRD.md`.)
+  the setup instructions, not solved.
 - A candidate/suggestion inbox and any server-side gathering from GitHub,
   Calendar, Slack, etc.
 - A Claude Code plugin, `/win` command, or hooks.
@@ -218,14 +216,8 @@ gets 401.
 - `DELETE /api/careerotter/agent-tokens/:id` → revoke one. Non-uuid id → 404.
   Not the caller's → 404. Already revoked → 200 without changing `revoked_at`
   (`.is('revoked_at', null)` on the update, then a re-read).
-- `DELETE /api/careerotter/agent-tokens` → revoke all agent access: every
-  unrevoked token (expired ones included, so their names free up) and, once
-  MCP OAuth ships, every connected app (OAuth grant). Returns
-  `{ revoked, tokensRevoked, grantsRevoked }`: `tokensRevoked` and
-  `grantsRevoked` count the tokens and grants that were still active (expired
-  ones are revoked but not counted), and `revoked` is their sum. A failure is
-  500 `{ error, tokensRevoked, grantsRevoked }` with `null` for the call that
-  failed.
+- `DELETE /api/careerotter/agent-tokens` → revoke every unrevoked token (expired ones included, so their names free up); returns the number of active tokens revoked as the
+  count.
 
 ### UI
 
@@ -512,8 +504,6 @@ chunks of 1000 until a short page.
    Cloudflare `workers-oauth-provider` as an OAuth front door forwarding to this
    route. Deciding factor: support for Client ID Metadata Documents, which the
    2026-07-28 spec prefers over dynamic registration.
-   Resolved in `mcp-oauth-PRD.md`: neither. CareerOtter runs its own OAuth 2.1
-   authorization server with dynamic registration only; CIMD is a follow-up.
 4. Should the recap/coverage window use `occurred_at`? Default: no in v1.
 5. `comp_entered` REST event sends `total` (a salary figure) to PostHog.
    Pre-existing; remove? Default: leave; flag to the product owner.

@@ -288,7 +288,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - cron: requires auth, calls the function, `42883` is a no-op
 
 ## Task 5: OAuth tokens at the MCP route
-- [x] 5.1: `app/api/mcp/route.ts`:
+- [ ] 5.1: `app/api/mcp/route.ts`:
   - `co_oat_` dispatch, the lookup under the abortable deadline, and the
     per-grant rate limit
   - failure accounting: with OAuth on, a missing header isn't counted and
@@ -297,16 +297,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - `WWW-Authenticate` with `resource_metadata` and the `scope` hint, plus
     `error="invalid_token"` when a token was presented
   - touch and rate-limit calls branch on `credentialKind`
-- [x] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
+- [ ] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
   `lib/mcp/define-tool.ts`: add `credentialKind` to analytics. Server
   instructions: tell the agent to have the user reconnect when it needs more
   scopes.
-- [x] 5.3: `middleware.ts`:
+- [ ] 5.3: `middleware.ts`:
   - `isCareerotterSurface` gains the new paths
   - the OAuth-enabled gate
   - matcher entries for `/api/oauth/:path*` and the cleanup cron
   - the early return extended to `/.well-known/oauth-*` and `/api/oauth/*`
-- [x] 5.4: Write tests for Task 5:
+- [ ] 5.4: Write tests for Task 5:
   - an active `co_oat_` token gets exactly its grant's tools
   - expired, revoked, not-found and bad-checksum tokens get 401 with the right
     `WWW-Authenticate`
@@ -325,16 +325,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the middleware gate matrix for both flags and preview
 
 ## Task 6: Connected apps UI and API
-- [x] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
+- [ ] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
   `[id]/route.ts` (DELETE). Both accept a session cookie only.
-- [x] 6.2: The existing revoke-all route:
+- [ ] 6.2: The existing revoke-all route:
   - also revokes grants, regardless of the flag
   - treats `42883` as zero grants revoked
   - on a partial failure, returns 500 with the counts
-- [x] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
+- [ ] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
   list, and the "Sign in with your browser" setup option. The flag reaches them
   as a prop from `app/(app)/dashboard/data/page.tsx`.
-- [x] 6.4: Write tests for Task 6:
+- [ ] 6.4: Write tests for Task 6:
   - the list shape and its 30-day window
   - OAuth disabled hides the list and the option
   - revoke: success; a foreign or missing id → 404
@@ -344,11 +344,11 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the snippets contain the MCP URL and no token
 
 ## Task 7: Docs made inaccurate
-- [x] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
+- [ ] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
   MCP". With OAuth enabled, CareerOtter is the OAuth authorization server for
   `/api/mcp` and serves the three `.well-known` documents. It still has no
   `openid-configuration`, and `co_pat_` tokens remain.
-- [x] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
+- [ ] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
   - step 0: turn off the Supabase OAuth server and dynamic registration
   - run migration 045
   - confirm Supabase's redirect allow-list accepts `/auth/callback?next=…`
@@ -358,10 +358,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - register `co_oat_`, `co_ort_` and `co_cs_` with GitHub secret scanning,
     alongside `co_pat_`
   - confirm the cleanup cron runs
-- [x] 7.3: Setup docs: the MCP URL must be the canonical SITE_URL host; legacy
-  host and Vercel aliases can't complete OAuth (resource mismatch), PATs
-  still work there.
-- [x] 7.4: Write tests for Task 7: none for prose. Confirm every path, flag and
+- [ ] 7.3: Write tests for Task 7: none for prose. Confirm every path, flag and
   prefix the docs name exists in code.
 
 ## Known trade-offs

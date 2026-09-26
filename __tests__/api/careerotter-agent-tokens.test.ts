@@ -11,10 +11,7 @@
  *   create_agent_token RPC (limit and expired-name release live in SQL).
  * - GET: list never includes token_hash, no-store
  * - DELETE one: idempotent, non-uuid id -> 404, 500 on update or re-read error
- * - DELETE all: revokes expired tokens too, returns the count of active ones;
- *   also revokes OAuth grants whether or not OAuth is enabled, counts a
- *   missing revoke_all_agent_oauth_grants (42883 or PGRST202) as zero, and on
- *   a partial failure returns 500 with the counts (null for the failed call)
+ * - DELETE all: revokes expired tokens too, returns the count of active ones
  */
 
 import { NextRequest } from "next/server";
@@ -32,16 +29,9 @@ import {
   DEFAULT_AGENT_TOKEN_EXPIRY_DAYS,
 } from "@/lib/constants/agent-access";
 import { MS_PER_DAY } from "@/lib/constants/dates";
-import {
-  FUNCTION_NOT_FOUND_CODE,
-  RAISE_EXCEPTION_CODE,
-  UNDEFINED_FUNCTION_CODE,
-  UNIQUE_VIOLATION_CODE,
-} from "@/lib/constants/postgres";
-import { AGENT_OAUTH_RPC } from "@/lib/constants/agent-oauth";
+import { RAISE_EXCEPTION_CODE, UNIQUE_VIOLATION_CODE } from "@/lib/constants/postgres";
 
 const mockLimit = jest.fn();
-const mockRpc = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({ createClient: jest.fn() }));
 jest.mock("@/lib/supabase/admin-client", () => ({ createAdminClient: jest.fn() }));
@@ -53,9 +43,6 @@ jest.mock("@/lib/redis/client", () => ({
 jest.mock("@/lib/auth/extension-auth", () => ({
   getAuthenticatedUser: jest.fn(),
   verifyExtensionToken: jest.fn(),
-}));
-jest.mock("@/lib/analytics/posthog-server", () => ({
-  captureServerEvent: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -103,7 +90,7 @@ function adminWithResults(...results: QueryResult[]): MockQuery[] {
     queries.push(query);
     return query;
   });
-  mockAdmin.mockReturnValue({ from, rpc: mockRpc });
+  mockAdmin.mockReturnValue({ from });
   return queries;
 }
 
@@ -157,7 +144,6 @@ beforeEach(() => {
   jest.clearAllMocks();
   setUser(USER);
   mockLimit.mockResolvedValue({ success: true });
-  mockRpc.mockResolvedValue({ data: 0, error: null });
 });
 
 describe("authentication", () => {
@@ -394,105 +380,24 @@ describe("DELETE one", () => {
 });
 
 describe("DELETE all", () => {
-  const ACTIVE_AND_EXPIRED_ROWS = [
-    { id: "a", expires_at: "2099-01-01T00:00:00.000Z" },
-    { id: "b", expires_at: null },
-    { id: "c", expires_at: "2026-01-01T00:00:00.000Z" },
-  ];
-  const ENV_KEYS = ["CAREEROTTER_ENABLED", "CAREEROTTER_MCP_OAUTH_ENABLED", "VERCEL_ENV"] as const;
-  const savedEnv = ENV_KEYS.map((key) => [key, process.env[key]] as const);
-
-  afterEach(() => {
-    for (const [key, value] of savedEnv) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  });
-
-  it("revokes expired tokens too but counts only the active ones", async () => {
-    const queries = adminWithResults({ data: ACTIVE_AND_EXPIRED_ROWS });
+  it("revokes expired tokens too but returns only the number of active ones", async () => {
+    const queries = adminWithResults({
+      data: [
+        { id: "a", expires_at: "2099-01-01T00:00:00.000Z" },
+        { id: "b", expires_at: null },
+        { id: "c", expires_at: "2026-01-01T00:00:00.000Z" },
+      ],
+    });
     const res = await DELETE_ALL();
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ revoked: 2, tokensRevoked: 2, grantsRevoked: 0 });
+    expect(await res.json()).toEqual({ revoked: 2 });
     expect(queries[0].eq).toHaveBeenCalledWith("user_id", USER.id);
     expect(queries[0].is).toHaveBeenCalledWith("revoked_at", null);
     expect(queries[0].or).not.toHaveBeenCalled();
   });
 
-  it.each([
-    ["enabled", "1"],
-    ["disabled", undefined],
-  ])("revokes connected apps too while OAuth is %s", async (_label, flag) => {
-    process.env.CAREEROTTER_ENABLED = "1";
-    if (flag === undefined) delete process.env.CAREEROTTER_MCP_OAUTH_ENABLED;
-    else process.env.CAREEROTTER_MCP_OAUTH_ENABLED = flag;
-    adminWithResults({ data: ACTIVE_AND_EXPIRED_ROWS });
-    mockRpc.mockResolvedValue({ data: 3, error: null });
-
-    const res = await DELETE_ALL();
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ revoked: 5, tokensRevoked: 2, grantsRevoked: 3 });
-    expect(mockRpc).toHaveBeenCalledTimes(1);
-    expect(mockRpc).toHaveBeenCalledWith(AGENT_OAUTH_RPC.revokeAllGrants, { p_user_id: USER.id });
-  });
-
-  it.each([UNDEFINED_FUNCTION_CODE, FUNCTION_NOT_FOUND_CODE])(
-    "counts a missing grants function (%s) as zero apps revoked",
-    async (code) => {
-      adminWithResults({ data: ACTIVE_AND_EXPIRED_ROWS });
-      mockRpc.mockResolvedValue({ data: null, error: { code, message: "missing" } });
-
-      const res = await DELETE_ALL();
-
-      expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ revoked: 2, tokensRevoked: 2, grantsRevoked: 0 });
-    }
-  );
-
-  it("500 with the token count when the grants call fails after the tokens were revoked", async () => {
-    adminWithResults({ data: ACTIVE_AND_EXPIRED_ROWS });
-    mockRpc.mockResolvedValue({ data: null, error: { code: "55P03", message: "lock timeout" } });
-
-    const res = await DELETE_ALL();
-
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      error: expect.any(String),
-      tokensRevoked: 2,
-      grantsRevoked: null,
-    });
-  });
-
-  it("500 on an unexpected grants result", async () => {
-    adminWithResults({ data: ACTIVE_AND_EXPIRED_ROWS });
-    mockRpc.mockResolvedValue({ data: "3", error: null });
-
-    const res = await DELETE_ALL();
-
-    expect(res.status).toBe(500);
-    expect(await res.json()).toMatchObject({ tokensRevoked: 2, grantsRevoked: null });
-  });
-
-  it("still revokes connected apps when the tokens call fails, and reports 500", async () => {
+  it("500 on a DB error", async () => {
     adminWithResults({ error: { message: "boom" } });
-    mockRpc.mockResolvedValue({ data: 1, error: null });
-
-    const res = await DELETE_ALL();
-
-    expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({
-      error: expect.any(String),
-      tokensRevoked: null,
-      grantsRevoked: 1,
-    });
-    expect(mockRpc).toHaveBeenCalledWith(AGENT_OAUTH_RPC.revokeAllGrants, { p_user_id: USER.id });
-  });
-
-  it("401 without a session and revokes nothing", async () => {
-    setUser(null);
-    adminWithResults();
-    expect((await DELETE_ALL()).status).toBe(401);
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect((await DELETE_ALL()).status).toBe(500);
   });
 });
