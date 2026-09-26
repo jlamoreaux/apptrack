@@ -1,7 +1,7 @@
 /**
- * Guards lib/constants/agent-access.ts and the 044-era lists in
+ * Guards lib/constants/agent-access.ts and the agent-era lists in
  * lib/constants/careerotter.ts against drift from the SQL CHECKs in
- * schemas/migrations/044_mcp_agent_access.sql, checks the create_agent_token
+ * drizzle/0003_mcp_agent_access.sql, checks the create_agent_token
  * function's name, limit error and grants match what the service expects, and
  * keeps the scope implication map closed over the scope list.
  */
@@ -26,7 +26,7 @@ import {
 } from "@/lib/constants/careerotter";
 
 const migration = readFileSync(
-  join(process.cwd(), "schemas/migrations/044_mcp_agent_access.sql"),
+  join(process.cwd(), "drizzle/0003_mcp_agent_access.sql"),
   "utf8"
 );
 
@@ -36,20 +36,20 @@ function quotedValues(list: string): string[] {
 
 function firstGroup(pattern: RegExp, label: string): string {
   const match = migration.match(pattern);
-  if (!match) throw new Error(`no match in migration 044 for ${label}`);
+  if (!match) throw new Error(`no match in migration 0003 for ${label}`);
   return match[1];
 }
 
-/** Values of `constraint <name> check (source in (...))`. */
+/** Values of `CONSTRAINT "<name>" CHECK (source in (...))`. */
 function namedSourceCheckValues(constraintName: string): string[] {
   const pattern = new RegExp(
-    `constraint ${constraintName}\\s+check \\(source in \\(([^)]*)\\)`,
+    `constraint "${constraintName}"\\s+check \\(source in \\(([^)]*)\\)`,
     "i"
   );
   return quotedValues(firstGroup(pattern, constraintName));
 }
 
-describe("agent access constants mirror migration 044", () => {
+describe("agent access constants mirror migration 0003", () => {
   it("AGENT_TOKEN_SCOPES matches the agent_tokens.scopes CHECK", () => {
     const sqlScopes = quotedValues(
       firstGroup(/scopes <@ array\[([^\]]*)\]/i, "agent_tokens.scopes")
@@ -93,7 +93,7 @@ describe("agent access constants mirror migration 044", () => {
   });
 });
 
-describe("create_agent_token in migration 044", () => {
+describe("create_agent_token in migration 0003", () => {
   const body = firstGroup(
     new RegExp(`create or replace function public\\.${CREATE_AGENT_TOKEN_RPC} \\(([\\s\\S]*?)\\n\\$\\$;`, "i"),
     CREATE_AGENT_TOKEN_RPC
@@ -129,7 +129,7 @@ describe("create_agent_token in migration 044", () => {
   });
 
   it("relies on the active-name index the service maps to conflict", () => {
-    expect(migration).toContain(`create unique index if not exists ${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}`);
+    expect(migration).toContain(`CREATE UNIQUE INDEX "${AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT}"`);
   });
 });
 

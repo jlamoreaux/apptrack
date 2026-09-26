@@ -62,12 +62,15 @@ Supabase OAuth 2.1 server and its dynamic client registration. While it's on, an
 signed-in user can mint full-power Supabase tokens for their own account.
 CareerOtter runs its own authorization server and doesn't use it.
 
-0. Run migration 044 **before the code from PR #226 deploys to any environment with
-   `CAREEROTTER_ENABLED=1`**: `./scripts/run-schema.sh schemas/migrations/044_mcp_agent_access.sql`.
-   The comp REST routes (not only `/api/mcp`) read and write its new columns, so
-   without it `GET`/`POST /api/careerotter/comp` return 500. It runs in one
-   transaction, and `run-schema.sh` exits 0 even when it rolls back, so read the
-   psql output for errors rather than trusting the exit code.
+0. Apply drizzle migration `drizzle/0003_mcp_agent_access.sql` **before the code from
+   PR #226 deploys to any environment with `CAREEROTTER_ENABLED=1`**, with psql as
+   described in `drizzle/README.md` ("Applying a migration to Supabase production"):
+   `ON_ERROR_STOP=1` and `--single-transaction`, so any error rolls the whole file
+   back and psql exits non-zero. Not `drizzle-kit migrate` (production has no drizzle
+   ledger yet) and not `scripts/run-schema.sh` (deprecated). The comp REST routes (not
+   only `/api/mcp`) read and write its new columns, so without it
+   `GET`/`POST /api/careerotter/comp` return 500. Check it locally first with
+   `db/tests/mcp_agent_access_verify.sh`.
 1. Merge order per `phase2-ROLLOUT.md`: M0 → M2a → M2b/M3/M4/M5/M2c (flag OFF) → M6 →
    M7 → **M1 rebrand last**.
 2. Domain cutover: point `careerotter.io`, set Vercel env per environment (incl.
@@ -82,7 +85,7 @@ CareerOtter runs its own authorization server and doesn't use it.
 6. Retire the banner at cutover + 30 days (`NEXT_PUBLIC_REBRAND_BANNER=off`).
 7. MCP server (`/api/mcp`) and personal access tokens — before setting
    `CAREEROTTER_ENABLED=1`:
-   - Confirm migration 044 has run (step 0).
+   - Confirm migration 0003_mcp_agent_access has been applied (step 0).
    - Update `app/llms.txt/route.ts` and `content/agent-skills/careerotter-public-api/SKILL.md`,
      which both say there is no MCP server / no programmatic access. `llms.txt` is
      `force-static`, so the change needs a redeploy; the skill's digest is published,
@@ -97,12 +100,12 @@ CareerOtter runs its own authorization server and doesn't use it.
 8. MCP OAuth sign-in (`.claude/ship/mcp-oauth-PRD.md`) — runs after step 7, with
    `CAREEROTTER_ENABLED=1` already on in production (`isMcpOAuthEnabled` needs both
    flags), in this order, before and after setting `CAREEROTTER_MCP_OAUTH_ENABLED=1`:
-   - Run migration 045 with `.env` pointing at the production database:
-     `./scripts/run-schema.sh schemas/migrations/045_mcp_oauth.sql`. It runs in one
-     transaction, and `run-schema.sh` exits 0 and prints success even when it rolls
-     back, so read the psql output for `ERROR` lines. It has to run before the flag
-     is on, but not before the code deploys: with the flag off only revoke-all and
-     the cleanup cron touch it, and both treat a missing function as a no-op.
+   - Apply drizzle migration `drizzle/0004_mcp_oauth.sql` to production the same way
+     as step 0 (`drizzle/README.md`, "Applying a migration to Supabase production"),
+     after 0003. Check it locally first with `db/tests/mcp_oauth_verify.sh`. It has
+     to be applied before the flag is on, but not before the code deploys: with the
+     flag off only revoke-all and the cleanup cron touch it, and both treat a missing
+     function as a no-op.
    - Confirm Supabase's redirect allow-list accepts
      `https://careerotter.io/auth/callback?next=…` (Google sign-in and the sign-up
      confirmation link carry the consent URL in `next`). Google sign-in with `next`
@@ -169,8 +172,8 @@ CareerOtter runs its own authorization server and doesn't use it.
      The route is gated on `CAREEROTTER_ENABLED` only (404 without it), not the
      OAuth flag. After the first run, check the Vercel cron log for a 200 and the
      `mcp_oauth_cleanup_complete` log line. A `mcp_oauth_cleanup_skipped` run also
-     returns 200, so check the log line, not just the status: it means 045
-     hasn't run.
+     returns 200, so check the log line, not just the status: it means
+     0004_mcp_oauth hasn't been applied.
    - Kill switch, if OAuth has to go dark: unset `CAREEROTTER_MCP_OAUTH_ENABLED`
      (or set it to anything but `1`) in the Vercel production environment and
      redeploy. `isMcpOAuthEnabled` reads it at runtime, so nothing is rebuilt, but

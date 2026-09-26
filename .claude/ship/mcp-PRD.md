@@ -132,7 +132,10 @@ Verified in the 1.1.0 source (unpacked from npm, not yet installed):
   on the 2026-07-28 revision is **unverified** and is a launch-checklist item
   (real-client test with Claude Code, Cursor and MCP Inspector).
 
-### Data model: `schemas/migrations/044_mcp_agent_access.sql`
+### Data model: `drizzle/0003_mcp_agent_access.sql`
+
+Modeled in `lib/db/schema/`; the function and grants are hand-written SQL in the
+same drizzle migration.
 
 - `agent_tokens`
   - `id uuid pk`, `user_id uuid not null → profiles(id) on delete cascade`
@@ -184,7 +187,7 @@ Verified in the 1.1.0 source (unpacked from npm, not yet installed):
 - Expiry: enum `30 | 90 | 365 | null` (null = never). Default 90. `null` is
   rejected when any `comp:*` scope is requested.
 - Limit: 10 active tokens per user. Enforced atomically by the
-  `create_agent_token` SQL function (migration 044): it takes a per-user
+  `create_agent_token` SQL function (migration 0003_mcp_agent_access): it takes a per-user
   advisory lock, revokes expired tokens holding the name, counts active tokens
   and inserts in one transaction, so concurrent creates cannot exceed it.
 - Names: trimmed, internal whitespace collapsed, 1-60 code points, no control

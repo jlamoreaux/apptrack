@@ -3,7 +3,7 @@
  * revoking one, and revoking all of them.
  *
  * Service functions take the service-role admin client, scope every call to
- * the acting user, and never throw. Revocation goes through migration 045's
+ * the acting user, and never throw. Revocation goes through migration 0004_mcp_oauth's
  * functions, which also delete the grant's tokens, so the next MCP request
  * with any of them fails.
  */
@@ -239,7 +239,7 @@ export async function revokeAgentGrant(
  * included, and return how many of them were still unexpired: the live access
  * this cut off, which is what the response and analytics report. Runs
  * whether or not OAuth is enabled, so turning the flag off and on can't revive
- * a grant the user meant to revoke. Before migration 045 has run the function
+ * a grant the user meant to revoke. Before migration 0004_mcp_oauth has run the function
  * doesn't exist, and there can be no grants, so that counts as 0.
  */
 export async function revokeAllAgentGrants(

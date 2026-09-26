@@ -2,7 +2,7 @@
  * CareerOtter OAuth 2.1 authorization server for the MCP server.
  *
  * The lists, lifetimes, limits and function outcomes here mirror
- * schemas/migrations/045_mcp_oauth.sql; __tests__/constants/agent-oauth.test.ts
+ * drizzle/0004_mcp_oauth.sql; __tests__/constants/agent-oauth.test.ts
  * guards against drift. Scopes are the PAT scopes (AGENT_TOKEN_SCOPES).
  */
 
@@ -69,7 +69,7 @@ const SECONDS_PER_DAY = 24 * SECONDS_PER_HOUR;
 
 /**
  * Every expiry is computed in the database with now(); these mirror the
- * interval constants in migration 045 for display and for tests.
+ * interval constants in migration 0004_mcp_oauth for display and for tests.
  */
 export const AGENT_OAUTH_LIFETIME_SECONDS = {
   // Capped at the grant's expiry. Revocation is checked on every request, so a
@@ -369,7 +369,7 @@ export const AGENT_OAUTH_DENIED_REDIRECT_SCHEMES = [
   "ftp",
 ] as const;
 
-// ── Database (migration 045) ────────────────────────────────────────────────
+// ── Database (migration 0004_mcp_oauth) ─────────────────────────────────────
 
 export const AGENT_OAUTH_CLIENTS_TABLE = "agent_oauth_clients";
 export const AGENT_OAUTH_GRANTS_TABLE = "agent_oauth_grants";
@@ -463,7 +463,7 @@ export const AGENT_OAUTH_DEADLINES_MS = {
   dbRead: 5_000,
 } as const;
 
-// `set lock_timeout` on migration 045's functions that wait for the per-user
+// `set lock_timeout` on migration 0004_mcp_oauth's functions that wait for the per-user
 // advisory lock or a row lock, so a stuck lock fails the call (503) instead of
 // holding the request until the platform kills it.
 export const AGENT_OAUTH_DB_LOCK_TIMEOUT_SECONDS = 3;

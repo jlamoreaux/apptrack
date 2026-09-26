@@ -11,7 +11,8 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   style.
 
 ## Task 1: Migration, constants and types
-- [x] 1.1: Write `schemas/migrations/044_mcp_agent_access.sql`:
+- [x] 1.1: Write migration `drizzle/0003_mcp_agent_access.sql` (first written as
+  `schemas/migrations/044_mcp_agent_access.sql`, then converted to drizzle):
   - the `agent_tokens` table with checks and indexes
   - on `wins`: `occurred_at` NOT NULL with backfill and index, `evidence_url`,
     `external_ref`, the partial unique index
@@ -210,7 +211,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - real-client test (Claude Code, Cursor, MCP Inspector, including a
     2026-07-28-era client)
   - register the `co_pat_` pattern with GitHub secret scanning
-  - run migration 044
+  - apply drizzle migration 0003_mcp_agent_access (`drizzle/README.md`)
 - [x] 10.3: Write tests for Task 10: none needed for prose. Confirm
   `__tests__/agent-discovery/discovery-documents.test.ts` still passes, since
   the skill file is deliberately unchanged.
@@ -219,13 +220,12 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 
 - Lint gate is skipped for every task: `.eslintrc.json` exists but `eslint` is not
   a dependency, so `pnpm lint` cannot run. Type check and convention review stand in.
-- Migration 044 runs in one transaction, so a failed step rolls everything back.
-  `scripts/run-schema.sh` still exits 0 in that case (no `ON_ERROR_STOP`); the
-  operator must read the psql output. Changing the script affects every
-  migration and is left out of this change.
+- Migration 0003_mcp_agent_access must run in one transaction, so a failed step
+  rolls everything back: `drizzle-kit migrate` does that, and the psql procedure
+  in `drizzle/README.md` uses `--single-transaction` with `ON_ERROR_STOP=1`.
 - Agent write quotas are soft: count-then-insert, so N concurrent writes can
   exceed a quota by up to N-1, and deleting agent rows frees their slots. The
-  10-active-token limit is not soft: `create_agent_token` (migration 044) counts
+  10-active-token limit is not soft: `create_agent_token` (migration 0003_mcp_agent_access) counts
   and inserts under a per-user advisory lock in one transaction.
 - Comp create checks the quota before looking up a retried `external_ref`
   (the lookup still runs when the quota rejects, so retries return the stored row).

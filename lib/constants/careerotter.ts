@@ -3,8 +3,8 @@ import { MONTHS_PER_YEAR } from "@/lib/constants/dates";
 /**
  * CareerOtter Phase 2 (M2) shared constants — single source of truth mirrored by
  * the SQL CHECK lists in schemas/migrations/032_careerotter_evidence.sql and
- * 044_mcp_agent_access.sql (wins.source, comp_entries.source, external_ref and
- * evidence_url lengths). Keep these in sync; __tests__ guards against drift.
+ * drizzle/0003_mcp_agent_access.sql (wins.source, comp_entries.source,
+ * external_ref and evidence_url lengths). Keep these in sync; __tests__ guards against drift.
  */
 
 // The onboarding fork (RFC §2): one question routes the experience. Same data
@@ -76,7 +76,8 @@ export type WinSource = (typeof WIN_SOURCES)[number];
 export const COMP_SOURCES = ["manual", "agent"] as const;
 export type CompSource = (typeof COMP_SOURCES)[number];
 
-// Length caps shared by wins and comp_entries, mirrored by CHECKs in 044.
+// Length caps shared by wins and comp_entries, mirrored by CHECKs in
+// migration 0003_mcp_agent_access.
 export const EXTERNAL_REF_MAX = 200;
 export const EVIDENCE_URL_MAX = 2048;
 

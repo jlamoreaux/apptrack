@@ -1,6 +1,6 @@
 /**
  * Guards lib/constants/agent-oauth.ts against drift from
- * schemas/migrations/045_mcp_oauth.sql (CHECK lists, limits, lifetimes, the
+ * drizzle/0004_mcp_oauth.sql (CHECK lists, limits, lifetimes, the
  * grant cap, function outcomes and grants), and unit-tests its pure helpers:
  * the OAuth gate and accepted-origin parsing.
  */
@@ -49,7 +49,7 @@ import {
 import { SITE_URL } from "@/lib/constants/site-config";
 
 const migration = readFileSync(
-  join(process.cwd(), "schemas/migrations/045_mcp_oauth.sql"),
+  join(process.cwd(), "drizzle/0004_mcp_oauth.sql"),
   "utf8"
 );
 
@@ -66,13 +66,13 @@ function quotedValues(list: string): string[] {
 
 function allGroups(pattern: RegExp, label: string): string[] {
   const groups = Array.from(migration.matchAll(pattern)).map((match) => match[1]);
-  if (groups.length === 0) throw new Error(`no match in migration 045 for ${label}`);
+  if (groups.length === 0) throw new Error(`no match in migration 0004 for ${label}`);
   return groups;
 }
 
 function firstGroup(pattern: RegExp, label: string): string {
   const match = migration.match(pattern);
-  if (!match) throw new Error(`no match in migration 045 for ${label}`);
+  if (!match) throw new Error(`no match in migration 0004 for ${label}`);
   return match[1];
 }
 
@@ -107,7 +107,7 @@ function intConstants(name: string): number[] {
   return allGroups(new RegExp(`${name} constant int := (\\d+)`, "g"), name).map(Number);
 }
 
-describe("agent OAuth constants mirror the CHECKs in migration 045", () => {
+describe("agent OAuth constants mirror the CHECKs in migration 0004", () => {
   it("both scope CHECKs (grants, codes) match AGENT_TOKEN_SCOPES", () => {
     const lists = allGroups(/scopes <@ array\[([^\]]*)\]/gi, "scopes");
     expect(lists).toHaveLength(2);
@@ -213,21 +213,24 @@ describe("agent OAuth constants mirror the CHECKs in migration 045", () => {
   });
 
   it("tokens link each pair and each rotation, and only refresh tokens carry rotation state", () => {
-    expect(migration).toMatch(/^\s+pair_id uuid not null,$/m);
-    expect(migration).toMatch(/^\s+rotated_from_hash text check \(rotated_from_hash ~ '\^\[0-9a-f\]\{64\}\$'\),$/m);
-    expect(migration).toMatch(/^\s+superseded_at timestamptz,$/m);
+    expect(migration).toMatch(/^\s+"pair_id" uuid NOT NULL,$/m);
+    expect(migration).toMatch(/^\s+"rotated_from_hash" text,$/m);
+    expect(migration).toContain(
+      `CONSTRAINT "agent_oauth_tokens_rotated_from_hash_check" CHECK (rotated_from_hash ~ '^[0-9a-f]{64}$')`
+    );
+    expect(migration).toMatch(/^\s+"superseded_at" timestamp with time zone,$/m);
     const rotationCheck = firstGroup(
-      /constraint agent_oauth_tokens_rotation_is_refresh check \(([\s\S]*?)\n  \),/,
+      /CONSTRAINT "agent_oauth_tokens_rotation_is_refresh" CHECK \((.*)\),?$/m,
       "rotation_is_refresh"
     );
     for (const column of ["consumed_at is null", "superseded_at is null", "grace_reissues = 0", "rotated_from_hash is null"]) {
       expect(rotationCheck).toContain(column);
     }
-    expect(migration).toMatch(/check \(\s*consumed_at is null or superseded_at is null\s*\)/);
+    expect(migration).toMatch(/check \(\s*consumed_at is null or superseded_at is null\s*\)/i);
   });
 });
 
-describe("agent OAuth cap and lifetimes mirror migration 045", () => {
+describe("agent OAuth cap and lifetimes mirror migration 0004", () => {
   it("the grant cap matches AGENT_OAUTH_LIMITS.maxActiveGrantsPerUser", () => {
     expect(intConstants("c_max_active_grants")).toEqual([AGENT_OAUTH_LIMITS.maxActiveGrantsPerUser]);
   });
@@ -271,7 +274,7 @@ describe("agent OAuth cap and lifetimes mirror migration 045", () => {
   });
 });
 
-describe("agent OAuth functions in migration 045", () => {
+describe("agent OAuth functions in migration 0004", () => {
   it.each([
     [AGENT_OAUTH_RPC.createCode, AGENT_OAUTH_CREATE_CODE_OUTCOMES],
     [AGENT_OAUTH_RPC.exchangeCode, AGENT_OAUTH_EXCHANGE_OUTCOMES],
@@ -412,19 +415,20 @@ describe("agent OAuth functions in migration 045", () => {
   });
 
   it("enables RLS on all four tables and defines no policies", () => {
-    const tables = allGroups(/create table if not exists public\.(\w+)/g, "tables");
+    const tables = allGroups(/CREATE TABLE "(\w+)"/g, "tables");
     expect(sorted(tables)).toEqual(
       sorted(["agent_oauth_clients", "agent_oauth_grants", "agent_oauth_tokens", "agent_oauth_codes"])
     );
     for (const table of tables) {
-      expect(migration).toContain(`alter table public.${table} enable row level security;`);
+      expect(migration).toContain(`ALTER TABLE "${table}" ENABLE ROW LEVEL SECURITY;`);
     }
     expect(migration).not.toMatch(/create policy/i);
   });
 
-  it("runs in one transaction", () => {
-    expect(migration).toMatch(/^begin;$/m);
-    expect(migration.trimEnd()).toMatch(/commit;$/);
+  it("leaves the transaction to the runner", () => {
+    // drizzle-kit migrate wraps each migration in one transaction (psql needs
+    // --single-transaction); a BEGIN or COMMIT here would end it early.
+    expect(migration).not.toMatch(/^\s*(begin|commit)\s*;/im);
   });
 });
 

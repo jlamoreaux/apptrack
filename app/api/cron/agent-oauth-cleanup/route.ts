@@ -1,7 +1,7 @@
 /**
  * Daily OAuth cleanup cron for the MCP server's authorization server.
  *
- * Calls delete_expired_agent_oauth_rows (migration 045), which revokes grants
+ * Calls delete_expired_agent_oauth_rows (migration 0004_mcp_oauth), which revokes grants
  * idle for 30 days and deletes clients that never authorized, and codes and
  * tokens past their retention, in batches: lib/auth/oauth/cleanup.ts calls it
  * again while a batch came back full, up to a round limit, and the rest waits
@@ -10,7 +10,7 @@
  * level and answered with 500.
  *
  * Gated on CAREEROTTER_ENABLED only, not the OAuth flag, so rows keep getting
- * cleaned up while OAuth is switched off. Before 045 has run the function
+ * cleaned up while OAuth is switched off. Before 0004_mcp_oauth has run the function
  * doesn't exist, and the run is a no-op.
  */
 
@@ -24,7 +24,7 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
-const MIGRATION_NOT_APPLIED = "delete_expired_agent_oauth_rows doesn't exist; migration 045 hasn't run";
+const MIGRATION_NOT_APPLIED = "delete_expired_agent_oauth_rows doesn't exist; migration 0004_mcp_oauth hasn't run";
 
 export async function GET(request: NextRequest): Promise<Response> {
   if (!isCareerotterEnabled()) return oauthNotFound();

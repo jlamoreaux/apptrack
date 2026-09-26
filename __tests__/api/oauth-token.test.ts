@@ -3,7 +3,7 @@
  */
 /**
  * Tests for POST/OPTIONS /api/oauth/token, end to end against an in-memory
- * stand-in for migration 045 (__tests__/utils/test-helpers/oauth-fake-db.ts):
+ * stand-in for migration 0004_mcp_oauth (__tests__/utils/test-helpers/oauth-fake-db.ts):
  * - authorization_code: the response shape, expires_in 86400 or capped by the
  *   grant's expiry, the scope string, no-store and CORS; no refresh token for
  *   a client that didn't register that grant type; a loopback redirect on

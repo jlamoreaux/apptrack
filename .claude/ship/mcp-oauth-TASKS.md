@@ -13,8 +13,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 - SQL: exercise migrations on a local Postgres 16, never against the Supabase
   project.
 
-## Task 1: Migration 045, constants and types
-- [x] 1.1: Write `schemas/migrations/045_mcp_oauth.sql` (begin/commit):
+## Task 1: Migration 0004_mcp_oauth, constants and types
+- [x] 1.1: Write migration `drizzle/0004_mcp_oauth.sql` (first written as
+  `schemas/migrations/045_mcp_oauth.sql` with begin/commit, then converted to
+  drizzle, which runs it in one transaction):
   - the `agent_oauth_clients` table, including `grant_types` and
     `first_authorized_at`
   - the `agent_oauth_grants` table, including `client_name`, `resource` and
@@ -65,9 +67,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the token-endpoint error type
 - [x] 1.4: Write tests for Task 1:
   - the constants mirror the migration's CHECK lists, bounds and the cap
-  - on local Postgres, with stubs for `auth.users`, `profiles` and
-    `service_role` (committed as `schemas/tests/045_mcp_oauth_verify.sql`
-    and `.sh`, run by hand):
+  - on local Postgres, on a production-like base built from `db/prod-truth/`
+    with Supabase stubs (committed as `db/tests/mcp_oauth_verify.sql` and
+    `.sh`, run by hand):
     - code creation respects the cap, and allows replacing an app at the cap
     - the cap is re-checked at exchange: two codes created at 9 grants → the
       second exchange returns `grant_cap`
@@ -350,7 +352,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   `openid-configuration`, and `co_pat_` tokens remain.
 - [x] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
   - step 0: turn off the Supabase OAuth server and dynamic registration
-  - run migration 045
+  - apply drizzle migration 0004_mcp_oauth (`drizzle/README.md`)
   - confirm Supabase's redirect allow-list accepts `/auth/callback?next=…`
   - set the flag in production
   - real-client tests, confirming each registers via DCR: Claude.ai connector,

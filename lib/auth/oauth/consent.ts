@@ -62,7 +62,7 @@ function logFailure(message: string, action: string, userId: string, error: unkn
   loggerService.error(message, error, { category: LogCategory.DATABASE, action, userId });
 }
 
-// Mirrors agent_oauth_grant_cap_reached in migration 045: the cap counts the
+// Mirrors agent_oauth_grant_cap_reached in migration 0004_mcp_oauth: the cap counts the
 // user's other active grants, so replacing an app's grant is always allowed.
 function toGrantState(clientIds: readonly string[], clientId: string): ConsentGrantState {
   const others = clientIds.filter((id) => id !== clientId).length;

@@ -211,7 +211,10 @@ must have left, retention, idle) are
 a test. Every timestamp is computed in the database with `now()`, so one clock
 decides all expiries.
 
-### Data model: `schemas/migrations/045_mcp_oauth.sql` (one transaction)
+### Data model: `drizzle/0004_mcp_oauth.sql` (one transaction)
+
+Tables are modeled in `lib/db/schema/`; the functions and grants are
+hand-written SQL in the same drizzle migration.
 
 All tables have RLS enabled with no policies, so only the service role can use
 them, as with `agent_tokens`. All functions are `security definer`, set
@@ -477,9 +480,10 @@ or two live tokens. Concurrent refreshes add at most 5 superseded rows per
 consumed token, and are rare. That's roughly 5 KB per grant. The daily cleanup removes
 rows once they expire.
 
-045 has to run before the OAuth flag is turned on, but not before PR #226
-deploys. With the flag off, no code reads these tables except revoke-all and
-the cleanup cron, and both tolerate a missing function (see below).
+Migration 0004_mcp_oauth has to be applied before the OAuth flag is turned on,
+but not before PR #226 deploys. With the flag off, no code reads these tables
+except revoke-all and the cleanup cron, and both tolerate a missing function
+(see below).
 
 ### Registration: `POST /api/oauth/register`
 
@@ -955,8 +959,8 @@ It renders:
   `revoke_agent_oauth_grant`. A missing or foreign id → 404.
 - **Revoke-all** (the existing route) also calls
   `revoke_all_agent_oauth_grants`, whether or not OAuth is enabled. If the
-  function doesn't exist yet (045 hasn't run; Postgres `42883`), it counts as
-  zero grants.
+  function doesn't exist yet (0004_mcp_oauth hasn't been applied; Postgres
+  `42883`), it counts as zero grants.
   - The two calls aren't atomic. If the grants call fails after the tokens
     were revoked, the route returns 500 `{ tokensRevoked, grantsRevoked: null }`.
     Both calls are idempotent, so retrying is safe.
@@ -1336,7 +1340,7 @@ Critic review of this design, and how each point was resolved:
   replaces the Task 4 note above.
 - Unbounded waits → the lookups are aborted after 5 s
   (`AGENT_OAUTH_DEADLINES_MS.dbRead`); the lock-taking functions set
-  `lock_timeout = '3s'` in 045 instead of being aborted by the caller; either
+  `lock_timeout = '3s'` in 0004_mcp_oauth instead of being aborted by the caller; either
   failure is 503.
 - Cleanup could delete a client whose user had just approved it (cascading
   to the code) → a client with an unexpired code is kept. The deletes are
@@ -1433,7 +1437,7 @@ Critic review of this design, and how each point was resolved:
   failure is 500 `{ error, tokensRevoked, grantsRevoked }` with `null` for
   the call that failed. A missing function (`42883` or `PGRST202`, via
   `isMissingFunctionError`) counts as 0; a test checks the RPC argument
-  names against 045's signatures, so a rename can't turn into a silent 0.
+  names against 0004_mcp_oauth's signatures, so a rename can't turn into a silent 0.
 - `revoke_all_agent_oauth_grants` revokes every unrevoked grant, expired ones
   included, but returns only how many were unexpired, like `tokensRevoked`.
   So `grantsRevoked` and the `mcp_oauth_revoked` (`user_all`) event reflect

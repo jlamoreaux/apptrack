@@ -1,9 +1,10 @@
 // @jest-environment node
 /**
- * The grant revoke calls must name their RPC arguments exactly as migration
- * 045 declares them. PostgREST resolves a function by name and argument
- * names, so a mismatch fails with PGRST202, which revokeAllAgentGrants reads
- * as "045 not applied yet" and reports as 0 revoked instead of failing.
+ * The grant revoke calls must name their RPC arguments exactly as
+ * drizzle/0004_mcp_oauth.sql declares them. PostgREST resolves a function by
+ * name and argument names, so a mismatch fails with PGRST202, which
+ * revokeAllAgentGrants reads as "0004 not applied yet" and reports as 0
+ * revoked instead of failing.
  */
 
 import { readFileSync } from "fs";
@@ -17,19 +18,19 @@ jest.mock("@/lib/services/logger.service", () => ({
 }));
 
 const MIGRATION = readFileSync(
-  path.join(__dirname, "../../schemas/migrations/045_mcp_oauth.sql"),
+  path.join(__dirname, "../../drizzle/0004_mcp_oauth.sql"),
   "utf8"
 );
 const USER_ID = "11111111-2222-4333-8444-555555555555";
 const GRANT_ID = "aaaaaaaa-2222-4333-8444-555555555555";
 
-/** The input (non-OUT) parameter names of a function created in 045. */
+/** The input (non-OUT) parameter names of a function created in 0004. */
 function sqlInputParams(functionName: string): string[] {
   const match = new RegExp(
     `create or replace function public\\.${functionName}\\s*\\(([^)]*)\\)`,
     "i"
   ).exec(MIGRATION);
-  if (!match) throw new Error(`${functionName} is not defined in 045`);
+  if (!match) throw new Error(`${functionName} is not defined in 0004`);
   return match[1]
     .split(",")
     .map((param) => param.trim())
@@ -54,7 +55,7 @@ function argNames(rpc: jest.Mock): string[] {
   return Object.keys(args).sort();
 }
 
-describe("grant RPC arguments match migration 045", () => {
+describe("grant RPC arguments match migration 0004", () => {
   it("parses the migration's parameter lists", () => {
     expect(sqlInputParams(AGENT_OAUTH_RPC.revokeGrant)).toEqual(["p_grant_id", "p_reason", "p_user_id"]);
     expect(sqlInputParams(AGENT_OAUTH_RPC.revokeAllGrants)).toEqual(["p_user_id"]);

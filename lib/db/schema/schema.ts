@@ -1,4 +1,4 @@
-import { pgTable, index, foreignKey, pgPolicy, check, uuid, text, date, timestamp, boolean, unique, integer, jsonb, uniqueIndex, inet, numeric, varchar, pgView, bigint, pgMaterializedView } from "drizzle-orm/pg-core"
+import { pgTable, index, foreignKey, pgPolicy, check, uuid, text, date, timestamp, boolean, unique, integer, jsonb, uniqueIndex, inet, numeric, varchar, pgView, bigint, pgMaterializedView, interval } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 // `users` here is auth.users - see lib/db/schema/auth.ts. 24 foreign keys in this
 // file point at it, and drizzle-kit pull emitted them without defining the table.
@@ -1012,15 +1012,30 @@ export const wins = pgTable("wins", {
 	source: text().default('manual').notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	editedAt: timestamp("edited_at", { withTimezone: true, mode: 'string' }),
+	// When the win happened, as opposed to when it was logged. UTC, matching how the
+	// server evaluates dates. drizzle/0003_mcp_agent_access.sql backfills existing rows
+	// from created_at before enforcing NOT NULL.
+	occurredAt: date("occurred_at").default(sql`((now() at time zone 'utc')::date)`).notNull(),
+	evidenceUrl: text("evidence_url"),
+	// The agent's idempotency key; null for rows typed in by hand.
+	externalRef: text("external_ref"),
 }, (table) => [
 	index("wins_user_created_idx").using("btree", table.userId.asc().nullsLast().op("timestamptz_ops"), table.createdAt.desc().nullsFirst().op("timestamptz_ops")),
+	// Indexes added after the baseline omit .op(): drizzle-kit 0.31.10 drops DESC and NULLS
+	// from the generated SQL for any column that names an operator class.
+	index("wins_user_occurred_idx").using("btree", table.userId.asc().nullsLast(), table.occurredAt.desc().nullsFirst()),
+	// The service catches the unique violation by this name to return the existing row.
+	uniqueIndex("wins_user_external_ref_key").using("btree", table.userId.asc().nullsLast(), table.externalRef.asc().nullsLast()).where(sql`(external_ref is not null)`),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
 			name: "wins_user_id_fkey"
 		}).onDelete("cascade"),
-	check("wins_source_check", sql`source = ANY (ARRAY['manual'::text, 'recap'::text, 'zero_to_case'::text, 'import'::text])`),
+	check("wins_source_check", sql`source in ('manual', 'recap', 'zero_to_case', 'import', 'agent')`),
 	check("wins_tag_check", sql`tag = ANY (ARRAY['delivery'::text, 'leadership'::text, 'collaboration'::text, 'craft'::text])`),
+	check("wins_occurred_at_check", sql`occurred_at >= date '1970-01-01'`),
+	check("wins_evidence_url_check", sql`char_length(evidence_url) <= 2048`),
+	check("wins_external_ref_check", sql`char_length(external_ref) between 1 and 200`),
 ]).enableRLS();
 
 export const profiles = pgTable("profiles", {
@@ -1083,13 +1098,22 @@ export const compEntries = pgTable("comp_entries", {
 	vestStart: date("vest_start"),
 	vestYears: numeric("vest_years", { precision: 4, scale:  2 }),
 	vestCliffMonths: integer("vest_cliff_months"),
+	source: text().default('manual').notNull(),
+	// The agent's idempotency key; null for rows typed in by hand.
+	externalRef: text("external_ref"),
+	// Null until the row is edited; set by the service on agent updates.
+	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }),
 }, (table) => [
 	index("comp_entries_user_date_idx").using("btree", table.userId.asc().nullsLast().op("date_ops"), table.effectiveDate.desc().nullsFirst().op("date_ops")),
+	// The service catches the unique violation by this name to return the existing row.
+	uniqueIndex("comp_entries_user_external_ref_key").using("btree", table.userId.asc().nullsLast(), table.externalRef.asc().nullsLast()).where(sql`(external_ref is not null)`),
 	foreignKey({
 			columns: [table.userId],
 			foreignColumns: [profiles.id],
 			name: "comp_entries_user_id_fkey"
 		}).onDelete("cascade"),
+	check("comp_entries_source_check", sql`source in ('manual', 'agent')`),
+	check("comp_entries_external_ref_check", sql`char_length(external_ref) between 1 and 200`),
 ]).enableRLS();
 
 export const careerWaitlist = pgTable("career_waitlist", {
@@ -1206,6 +1230,196 @@ export const tailoredResumes = pgTable("tailored_resumes", {
 			name: "tailored_resumes_user_id_fkey"
 		}).onDelete("cascade"),
 	unique("tailored_resumes_application_unique").on(table.userId, table.applicationId),
+]).enableRLS();
+
+// ── CareerOtter MCP agent access (drizzle/0003_mcp_agent_access.sql) ─────────
+// Named, scoped, revocable personal access tokens. Only the SHA-256 of the raw token is
+// stored; token_prefix is kept for display. RLS on with no policies: service-role only.
+// Rows are created through create_agent_token(), which enforces the per-user active
+// token limit atomically.
+export const agentTokens = pgTable("agent_tokens", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	name: text().notNull(),
+	tokenHash: text("token_hash").notNull(),
+	tokenPrefix: text("token_prefix").notNull(),
+	scopes: text().array().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: 'string' }),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
+	revokedAt: timestamp("revoked_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("agent_tokens_user_idx").using("btree", table.userId.asc().nullsLast()),
+	// Revoked tokens keep their row for audit, so a name can be reused once the earlier
+	// token holding it is revoked. The service maps a violation of this name to conflict.
+	uniqueIndex("agent_tokens_user_active_name_key").using("btree", table.userId.asc().nullsLast(), table.name.asc().nullsLast()).where(sql`(revoked_at is null)`),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [profiles.id],
+			name: "agent_tokens_user_id_fkey"
+		}).onDelete("cascade"),
+	unique("agent_tokens_token_hash_key").on(table.tokenHash),
+	check("agent_tokens_name_check", sql`char_length(name) between 1 and 60`),
+	check("agent_tokens_token_hash_check", sql`token_hash ~ '^[0-9a-f]{64}$'`),
+	check("agent_tokens_scopes_check", sql`cardinality(scopes) > 0 and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[]`),
+]).enableRLS();
+
+// ── CareerOtter MCP OAuth (drizzle/0004_mcp_oauth.sql) ─────────────────────────
+// A self-hosted OAuth 2.1 authorization server for /api/mcp. Every table is RLS on with
+// no policies (service-role only), and every write goes through the security-definer
+// functions in the same migration, which compute every expiry with now().
+
+// Dynamically registered clients (RFC 7591).
+export const agentOauthClients = pgTable("agent_oauth_clients", {
+	clientId: text("client_id").primaryKey().notNull(),
+	clientSecretHash: text("client_secret_hash"),
+	tokenEndpointAuthMethod: text("token_endpoint_auth_method").notNull(),
+	grantTypes: text("grant_types").array().notNull(),
+	clientName: text("client_name").notNull(),
+	clientUri: text("client_uri"),
+	redirectUris: text("redirect_uris").array().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	firstAuthorizedAt: timestamp("first_authorized_at", { withTimezone: true, mode: 'string' }),
+}, (table) => [
+	index("agent_oauth_clients_created_idx").using("btree", table.createdAt.asc().nullsLast()),
+	check("agent_oauth_clients_client_id_check", sql`client_id ~ '^co_client_[A-Za-z0-9_-]{22}$'`),
+	check("agent_oauth_clients_client_secret_hash_check", sql`client_secret_hash ~ '^[0-9a-f]{64}$'`),
+	check("agent_oauth_clients_token_endpoint_auth_method_check", sql`token_endpoint_auth_method in ('none', 'client_secret_basic', 'client_secret_post')`),
+	check("agent_oauth_clients_grant_types_check", sql`cardinality(grant_types) > 0 and grant_types <@ array['authorization_code', 'refresh_token']::text[] and 'authorization_code' = any (grant_types)`),
+	check("agent_oauth_clients_client_name_check", sql`char_length(client_name) between 1 and 100`),
+	check("agent_oauth_clients_client_uri_check", sql`char_length(client_uri) <= 512 and client_uri ~ '^https://'`),
+	// CHECK constraints can't use subqueries, so the per-element length limit goes
+	// through agent_oauth_max_char_length(), created ahead of this table in 0004.
+	check("agent_oauth_clients_redirect_uris_check", sql`cardinality(redirect_uris) between 1 and 5 and array_position(redirect_uris, null) is null and '' <> all (redirect_uris) and agent_oauth_max_char_length(redirect_uris) <= 512`),
+	// A secret exists exactly when the client authenticates with one.
+	check("agent_oauth_clients_secret_matches_method", sql`(token_endpoint_auth_method = 'none') = (client_secret_hash is null)`),
+]).enableRLS();
+
+// One row per approved connection (user + client).
+export const agentOauthGrants = pgTable("agent_oauth_grants", {
+	id: uuid().defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	clientId: text("client_id").notNull(),
+	// Snapshot for the connected-apps list.
+	clientName: text("client_name").notNull(),
+	resource: text().notNull(),
+	scopes: text().array().notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	lastUsedAt: timestamp("last_used_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	revokedAt: timestamp("revoked_at", { withTimezone: true, mode: 'string' }),
+	revokeReason: text("revoke_reason"),
+}, (table) => [
+	uniqueIndex("agent_oauth_grants_user_client_active_key").using("btree", table.userId.asc().nullsLast(), table.clientId.asc().nullsLast()).where(sql`(revoked_at is null)`),
+	index("agent_oauth_grants_user_created_idx").using("btree", table.userId.asc().nullsLast(), table.createdAt.desc().nullsFirst()),
+	// Backs the on delete restrict check when cleanup deletes clients.
+	index("agent_oauth_grants_client_idx").using("btree", table.clientId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [profiles.id],
+			name: "agent_oauth_grants_user_id_fkey"
+		}).onDelete("cascade"),
+	// Restrict, so cleanup never deletes a client that a grant still names.
+	foreignKey({
+			columns: [table.clientId],
+			foreignColumns: [agentOauthClients.clientId],
+			name: "agent_oauth_grants_client_id_fkey"
+		}).onDelete("restrict"),
+	check("agent_oauth_grants_client_name_check", sql`char_length(client_name) between 1 and 100`),
+	check("agent_oauth_grants_resource_check", sql`char_length(resource) between 1 and 512`),
+	check("agent_oauth_grants_scopes_check", sql`cardinality(scopes) > 0 and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[] and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[]) and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])`),
+	check("agent_oauth_grants_revoke_reason_check", sql`revoke_reason in ('user', 'user_all', 'client', 'replaced', 'refresh_reuse', 'code_reuse', 'idle')`),
+	// Comp data is the most sensitive the agent API exposes, so a grant that carries a
+	// comp scope must expire, as for PATs.
+	check("agent_oauth_grants_comp_requires_expiry", sql`expires_at is not null or not (scopes && array['comp:read', 'comp:write']::text[])`),
+	check("agent_oauth_grants_revoke_reason_matches", sql`(revoked_at is null) = (revoke_reason is null)`),
+]).enableRLS();
+
+// Opaque access and refresh tokens, stored as SHA-256.
+export const agentOauthTokens = pgTable("agent_oauth_tokens", {
+	tokenHash: text("token_hash").primaryKey().notNull(),
+	grantId: uuid("grant_id").notNull(),
+	kind: text().notNull(),
+	// Shared by the access and refresh tokens issued together, so superseding a refresh
+	// token can delete the access token that came with it.
+	pairId: uuid("pair_id").notNull(),
+	// On refresh tokens issued by rotation: the hash of the refresh token that was
+	// presented. Null for tokens issued at code exchange. Not a foreign key: cleanup may
+	// delete the parent first.
+	rotatedFromHash: text("rotated_from_hash"),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	// Set on refresh tokens once rotated. Kept until the token's own expiry, so reuse is
+	// detected for as long as the token could have been used.
+	consumedAt: timestamp("consumed_at", { withTimezone: true, mode: 'string' }),
+	// Set on an unconsumed refresh token when a grace reissue for its parent replaces it.
+	// Presenting it afterwards is reuse. Kept until its own expiry, like a consumed token.
+	supersededAt: timestamp("superseded_at", { withTimezone: true, mode: 'string' }),
+	// Extra pairs issued for this consumed token inside the grace window.
+	graceReissues: integer("grace_reissues").default(0).notNull(),
+}, (table) => [
+	index("agent_oauth_tokens_grant_idx").using("btree", table.grantId.asc().nullsLast()),
+	// Finds the successors of a presented refresh token.
+	index("agent_oauth_tokens_rotated_from_idx").using("btree", table.rotatedFromHash.asc().nullsLast()).where(sql`(rotated_from_hash is not null)`),
+	index("agent_oauth_tokens_expires_idx").using("btree", table.expiresAt.asc().nullsLast()),
+	foreignKey({
+			columns: [table.grantId],
+			foreignColumns: [agentOauthGrants.id],
+			name: "agent_oauth_tokens_grant_id_fkey"
+		}).onDelete("cascade"),
+	check("agent_oauth_tokens_token_hash_check", sql`token_hash ~ '^[0-9a-f]{64}$'`),
+	check("agent_oauth_tokens_kind_check", sql`kind in ('access', 'refresh')`),
+	check("agent_oauth_tokens_rotated_from_hash_check", sql`rotated_from_hash ~ '^[0-9a-f]{64}$'`),
+	check("agent_oauth_tokens_grace_reissues_check", sql`grace_reissues between 0 and 5`),
+	check("agent_oauth_tokens_rotation_is_refresh", sql`kind = 'refresh' or (consumed_at is null and superseded_at is null and grace_reissues = 0 and rotated_from_hash is null)`),
+	// Only an unconsumed token is superseded, and a superseded one is never consumed.
+	check("agent_oauth_tokens_consumed_or_superseded", sql`consumed_at is null or superseded_at is null`),
+]).enableRLS();
+
+// Single-use authorization codes, stored as SHA-256.
+export const agentOauthCodes = pgTable("agent_oauth_codes", {
+	codeHash: text("code_hash").primaryKey().notNull(),
+	clientId: text("client_id").notNull(),
+	userId: uuid("user_id").notNull(),
+	// The registered URI that matched, exactly as registered.
+	redirectUri: text("redirect_uri").notNull(),
+	codeChallenge: text("code_challenge").notNull(),
+	scopes: text().array().notNull(),
+	// The chosen grant lifetime; null means the grant never expires.
+	grantExpiresIn: interval("grant_expires_in"),
+	resource: text().notNull(),
+	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	expiresAt: timestamp("expires_at", { withTimezone: true, mode: 'string' }).notNull(),
+	usedAt: timestamp("used_at", { withTimezone: true, mode: 'string' }),
+	// Set by the exchange, so reusing the code can revoke the grant it produced.
+	grantId: uuid("grant_id"),
+}, (table) => [
+	index("agent_oauth_codes_expires_idx").using("btree", table.expiresAt.asc().nullsLast()),
+	// Backs the cascade when cleanup deletes clients.
+	index("agent_oauth_codes_client_idx").using("btree", table.clientId.asc().nullsLast()),
+	foreignKey({
+			columns: [table.clientId],
+			foreignColumns: [agentOauthClients.clientId],
+			name: "agent_oauth_codes_client_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.userId],
+			foreignColumns: [profiles.id],
+			name: "agent_oauth_codes_user_id_fkey"
+		}).onDelete("cascade"),
+	foreignKey({
+			columns: [table.grantId],
+			foreignColumns: [agentOauthGrants.id],
+			name: "agent_oauth_codes_grant_id_fkey"
+		}).onDelete("set null"),
+	check("agent_oauth_codes_code_hash_check", sql`code_hash ~ '^[0-9a-f]{64}$'`),
+	check("agent_oauth_codes_redirect_uri_check", sql`char_length(redirect_uri) between 1 and 512`),
+	check("agent_oauth_codes_code_challenge_check", sql`code_challenge ~ '^[A-Za-z0-9_-]{43}$'`),
+	check("agent_oauth_codes_scopes_check", sql`cardinality(scopes) > 0 and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[] and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[]) and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])`),
+	// The upper bound is the longest PAT expiry option, and also rejects infinity.
+	check("agent_oauth_codes_grant_expires_in_check", sql`grant_expires_in > interval '0' and grant_expires_in <= interval '365 days'`),
+	check("agent_oauth_codes_resource_check", sql`char_length(resource) between 1 and 512`),
+	check("agent_oauth_codes_comp_requires_expiry", sql`grant_expires_in is not null or not (scopes && array['comp:read', 'comp:write']::text[])`),
 ]).enableRLS();
 export const activeApplications = pgView("active_applications", {	id: uuid(),
 	userId: uuid("user_id"),

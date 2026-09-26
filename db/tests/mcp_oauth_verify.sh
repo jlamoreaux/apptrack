@@ -1,29 +1,21 @@
 #!/usr/bin/env bash
-# Runs the migration 045 behavioral checks against a throwaway local
-# Postgres 16: the Supabase stubs, the migration, 045_mcp_oauth_verify.sql,
-# then the checks that need several sessions at once (parallel exchanges and
-# refreshes, lock order against cleanup, lock timeouts). Run by hand; not run
-# by Jest or CI.
+# Runs the behavioral checks for drizzle/0004_mcp_oauth.sql against a
+# throwaway local Postgres 16: the production-like base and the drizzle
+# migrations after the baseline through 0004 (see prod-base.sh), then
+# mcp_oauth_verify.sql, then the checks that need several sessions at once
+# (parallel exchanges and refreshes, lock order against cleanup, lock
+# timeouts). Run by hand; not run by Jest or CI.
 #
-# DESTRUCTIVE: drops the public and auth schemas and the anon, authenticated
-# and service_role roles of the database it connects to. Never point it at
-# Supabase. Connection comes from the standard PG* variables, e.g.
-#   VERIFY_045_THROWAWAY=1 PGHOST=/tmp/pg045 PGPORT=55445 PGUSER=postgres \
-#     PGDATABASE=postgres schemas/tests/045_mcp_oauth_verify.sh
+# DESTRUCTIVE: drops the public, auth and extensions schemas and the anon,
+# authenticated and service_role roles of the database it connects to. Never
+# point it at Supabase. Connection comes from the standard PG* variables, e.g.
+#   VERIFY_DB_THROWAWAY=1 PGHOST=/tmp/pgverify PGPORT=55445 PGUSER=postgres \
+#     PGDATABASE=postgres db/tests/mcp_oauth_verify.sh
 set -euo pipefail
 
-if [ "${VERIFY_045_THROWAWAY:-}" != 1 ]; then
-  echo "Set VERIFY_045_THROWAWAY=1 to confirm the target database is a throwaway." >&2
-  exit 2
-fi
-case "${PGHOST:-}" in
-  /* | localhost | 127.0.0.1 | ::1) ;;
-  *) echo "PGHOST must be a local socket directory or loopback host." >&2; exit 2 ;;
-esac
-
 HERE=$(cd "$(dirname "$0")" && pwd)
-ROOT=$(cd "$HERE/../.." && pwd)
-PSQL=(psql -X -q -v ON_ERROR_STOP=1)
+# shellcheck source=db/tests/prod-base.sh
+source "$HERE/prod-base.sh"
 OUT=$(mktemp -d)
 trap 'rm -rf "$OUT"' EXIT
 failures=0
@@ -46,30 +38,12 @@ add_client() { # seed created_at_offset
      values ($(cid "$1"), 'none', array['authorization_code', 'refresh_token'], 'Client $1', array['https://example.com/cb'], now() - interval '${2:-0 hours}')"
 }
 
-# ── Reset, stubs, migration ────────────────────────────────────────────────
-"${PSQL[@]}" -c "set client_min_messages = warning; drop schema if exists public cascade; drop schema if exists auth cascade; create schema public;"
-for role in anon authenticated service_role; do
-  if [ "$(q "select count(*) from pg_roles where rolname = '$role'")" = 1 ]; then
-    "${PSQL[@]}" -c "drop owned by $role; drop role $role;"
-  fi
-done
-"${PSQL[@]}" <<'SQL'
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
-create schema auth;
-create table auth.users (id uuid primary key);
-create table public.profiles (id uuid primary key references auth.users (id) on delete cascade);
-grant usage on schema public to anon, authenticated, service_role;
--- Mirror Supabase's default privileges so the migration's revokes are exercised.
-alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
-alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
-SQL
-"${PSQL[@]}" -f "$ROOT/schemas/migrations/045_mcp_oauth.sql"
-echo "migration applied"
+# ── Reset, production-like base, migrations ────────────────────────────────
+reset_to_prod_base
+apply_migrations_through 0004_mcp_oauth
 
 # ── Single-session checks ──────────────────────────────────────────────────
-"${PSQL[@]}" -f "$HERE/045_mcp_oauth_verify.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //; s/^NOTICE:  //'
+"${PSQL[@]}" -f "$HERE/mcp_oauth_verify.sql" 2>&1 | sed 's/^psql:[^ ]* NOTICE:  //; s/^NOTICE:  //'
 
 # ── Privileges at runtime ──────────────────────────────────────────────────
 for role in anon authenticated; do
@@ -171,13 +145,13 @@ echo "K2: parallel refresh outcomes: ok=$ok refresh_reuse=$reuse (of 7)"
 add_client l1 '25 hours'
 [ "$(create_code u4 l1 l1)" = ok ]
 "${PSQL[@]}" <<SQL
-create function public.verify_045_stall_grant () returns trigger language plpgsql as \$\$
+create function public.verify_oauth_stall_grant () returns trigger language plpgsql as \$\$
 begin
   if new.client_id = $(cid l1) then perform pg_sleep(3); end if;
   return new;
 end \$\$;
-create trigger verify_045_stall_grant before insert on public.agent_oauth_grants
-  for each row execute function public.verify_045_stall_grant ();
+create trigger verify_oauth_stall_grant before insert on public.agent_oauth_grants
+  for each row execute function public.verify_oauth_stall_grant ();
 SQL
 q "update agent_oauth_codes set expires_at = clock_timestamp() + interval '1 second' where code_hash = $(h l1)"
 q "set role service_role; select outcome from exchange_agent_oauth_code($(h l1), $(cid l1), $(h l1-at), $(h l1-rt), true)" >"$OUT/l.exchange" 2>&1 &
@@ -195,7 +169,7 @@ else
   wait
   fail "L: cleanup failed while an exchange was in flight: $cleanup (exchange: $(cat "$OUT/l.exchange"))"
 fi
-"${PSQL[@]}" -c "drop trigger verify_045_stall_grant on public.agent_oauth_grants; drop function public.verify_045_stall_grant ();"
+"${PSQL[@]}" -c "drop trigger verify_oauth_stall_grant on public.agent_oauth_grants; drop function public.verify_oauth_stall_grant ();"
 
 # ── L2. Exchange while the client's deletion is in flight ──────────────────
 add_client l2
