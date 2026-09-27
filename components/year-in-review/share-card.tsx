@@ -67,7 +67,13 @@ export function ShareCard({ payload, origin, layout }: ShareCardProps) {
     return (
       <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: tint, padding: 72 }}>
         {/* eslint-disable-next-line @next/next/no-img-element -- Satori renders plain img only */}
-        <img src={image} alt="" width={936} height={940} style={{ objectFit: "contain", borderRadius: 32 }} />
+        <img
+          src={image}
+          alt=""
+          width={705}
+          height={940}
+          style={{ objectFit: "cover", borderRadius: 32, alignSelf: "center" }}
+        />
         {text}
       </div>
     );

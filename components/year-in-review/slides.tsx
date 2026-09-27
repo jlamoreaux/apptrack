@@ -197,7 +197,9 @@ export function buildSlides(stats: YearInReviewStats): Slide[] {
         <div className="space-y-6">
           <Eyebrow>Still waiting</Eyebrow>
           <BigNumber value={stats.silence.count.toLocaleString("en-US")} unit={stats.silence.count === 1 ? "application" : "applications"} />
-          <p className="text-xl">never got a reply after 30 days. That says more about hiring than it does about you.</p>
+          <p className="text-xl">
+            {`${stats.silence.count === 1 ? "is" : "are"} still waiting on a reply after 30 days or more. That says more about hiring than it does about you.`}
+          </p>
           <p className="text-base opacity-80">Only you can see this card. It is never included when you share.</p>
         </div>
       ),
