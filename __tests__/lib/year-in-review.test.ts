@@ -8,6 +8,7 @@ import {
   MIN_RESPONSE_SAMPLES,
 } from "@/lib/year-in-review/compute";
 import { assignLabel, peakWindowShare, LABEL_THRESHOLDS, type LabelInput } from "@/lib/year-in-review/labels";
+import { buildShareCaption } from "@/lib/year-in-review/caption";
 import {
   buildSharePayload,
   decodeShareToken,
@@ -367,5 +368,23 @@ describe("launch gate and years", () => {
     process.env.YEAR_IN_REVIEW_SHARE_SECRET = secret;
     delete process.env.YEAR_IN_REVIEW_ENABLED;
     expect(resolveSharePayload(token)).toBeNull();
+  });
+});
+
+describe("buildShareCaption", () => {
+  const base = { v: 1 as const, y: 2026, a: 39, c: 15, i: 5, o: 1, l: "craftsperson" as const, m: 1 };
+
+  it("repeats only what the public page shows", () => {
+    expect(buildShareCaption(base)).toBe(
+      "My 2026 job search: 39 applications to 15 companies, 5 interviews. My search style: The Craftsperson."
+    );
+  });
+
+  it("adds the company only when it is in the payload", () => {
+    expect(buildShareCaption({ ...base, hc: "Northwind" })).toMatch(/Landed at Northwind\.$/);
+  });
+
+  it("handles singulars, no interviews and no label", () => {
+    expect(buildShareCaption({ ...base, a: 1, c: 1, i: 0, l: null })).toBe("My 2026 job search: 1 application to 1 company.");
   });
 });

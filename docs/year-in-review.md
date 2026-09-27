@@ -13,7 +13,7 @@ illustrated by the otter in `public/images/year-in-review/`.
 | Labels | `lib/year-in-review/labels.ts`: seven labels, ordered rules, one guaranteed fallback. |
 | Loading | `lib/year-in-review/load.ts`: server-only reads, every query scoped to the user. |
 | Page | `/dashboard/year-in-review`: full-screen cards, tap/swipe/arrow navigation, reduced-motion aware. |
-| Sharing | `POST /api/year-in-review/share` mints a signed link to `/year-in-review/[token]`, a public page with an Open Graph card and a downloadable 1080x1920 story image. |
+| Sharing | `POST /api/year-in-review/share` mints a signed link to `/year-in-review/[token]`, a public page with an Open Graph card, plus a 1080x1920 story image (`/story`), a 1080x1080 feed image (`/square`) and a suggested caption. The panel offers the phone's share sheet (where it can take an image file), copy link, LinkedIn and X posts with the caption filled in, the two downloads, and copy caption. Share-page signups carry `?ref=yir-<year>`. |
 | Launch gate | `YEAR_IN_REVIEW_ENABLED=1`. Unset, every surface 404s (same pattern as `CAREEROTTER_ENABLED`). |
 
 Deferred on purpose: the AI-written summary (AI Coach tier), the December

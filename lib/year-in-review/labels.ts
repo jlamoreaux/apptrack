@@ -80,9 +80,12 @@ export const LABELS: Record<LabelId, LabelDefinition> = {
   },
 };
 
-/** Shown in place of a label when there is too little data to assign one. */
+/**
+ * Shown in place of a label when there is too little data to assign one, and on
+ * the closing card when the year did not end in a hire.
+ */
 export const UNLABELED = {
-  image: "/images/year-in-review/reference/otter-head.jpg",
+  image: "/images/year-in-review/still-in-it.jpg",
   tint: "#EDE8E1",
   ink: INK,
 } as const;

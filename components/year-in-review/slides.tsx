@@ -101,6 +101,21 @@ function hasWork(work: YearInReviewStats["work"]): boolean {
   );
 }
 
+/**
+ * The closing line when the year did not end in a hire. Built from the user's
+ * own numbers and worded so it also reads right for someone who was hired but
+ * never logged it.
+ */
+export function stillInItLine(stats: YearInReviewStats): string {
+  const { interviewed, applied } = stats.funnel;
+  if (interviewed === 1) return "1 interview this year. That practice carries into the next one.";
+  if (interviewed > 1) {
+    return `${plural(interviewed, "interview", "interviews")} this year. Every one is practice the next one gets to use.`;
+  }
+  if (applied === 1) return "Your first application is logged. Next year builds on it.";
+  return `${plural(applied, "application", "applications")} this year. Every one made the next one sharper.`;
+}
+
 /** The ordered cards for one recap. Cards with nothing to say are left out. */
 export function buildSlides(stats: YearInReviewStats): Slide[] {
   const { volume, roles, funnel } = stats;
@@ -266,14 +281,14 @@ export function buildSlides(stats: YearInReviewStats): Slide[] {
             <div className="grid items-center gap-6 sm:grid-cols-2">
               <Image
                 src={UNLABELED.image}
-                alt="The CareerOtter otter"
-                width={1200}
-                height={1200}
-                className="mx-auto h-auto max-h-[40vh] w-auto rounded-xl"
+                alt="The otter walking forward with a bag over one shoulder"
+                width={1728}
+                height={2304}
+                className="mx-auto h-auto max-h-[45vh] w-auto rounded-xl sm:max-h-[60vh]"
               />
               <div className="space-y-4">
                 <Eyebrow>Still in it</Eyebrow>
-                <h2 className="text-4xl font-bold leading-tight">Next year starts with everything this one taught you.</h2>
+                <h2 className="text-4xl font-bold leading-tight">{stillInItLine(stats)}</h2>
               </div>
             </div>
           ),

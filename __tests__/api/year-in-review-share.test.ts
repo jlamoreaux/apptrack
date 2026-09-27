@@ -86,6 +86,8 @@ describe("POST /api/year-in-review/share", () => {
     const body = await response.json();
     expect(mockLoad).toHaveBeenCalledWith("user-1", 2026);
     expect(body.storyImageUrl).toBe(`${body.url}/story`);
+    expect(body.squareImageUrl).toBe(`${body.url}/square`);
+    expect(body.caption).toBe("My 2026 job search: 1 application to 1 company, 1 interview.");
 
     const payload = decodeShareToken(tokenFrom(body.url), SECRET);
     expect(payload).toMatchObject({ y: 2026, a: 1, o: 1 });
@@ -97,6 +99,7 @@ describe("POST /api/year-in-review/share", () => {
   it("includes the company only when asked", async () => {
     const body = await (await POST(request({ year: 2026, includeOutcome: true }))).json();
     expect(decodeShareToken(tokenFrom(body.url), SECRET)?.hc).toBe("Acme");
+    expect(body.caption).toMatch(/Landed at Acme\.$/);
   });
 
   it("refuses to share an empty year", async () => {

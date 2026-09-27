@@ -25,6 +25,12 @@ describe("fetchAllRows", () => {
     expect(build).toHaveBeenCalledTimes(1);
   });
 
+  it("reports an error rather than a partial result when every page is full", async () => {
+    const result = await fetchAllRows<number>(async () => ({ data: new Array(1000).fill(0), error: null }));
+    expect(result.error).toBeInstanceOf(Error);
+    expect(result.data).toHaveLength(20_000);
+  });
+
   it("returns what it has plus the error when a page fails", async () => {
     const error = new Error("boom");
     const result = await fetchAllRows<number>(async (from) =>
@@ -33,4 +39,44 @@ describe("fetchAllRows", () => {
     expect(result.error).toBe(error);
     expect(result.data).toHaveLength(1000);
   });
+});
+
+describe("loadYearInReview", () => {
+  // A chainable stand-in for the Supabase query builder: every method returns
+  // the builder, and awaiting it yields the result for the queried table.
+  function client(failing: string | null) {
+    return {
+      from(table: string) {
+        const result = table === failing
+          ? { data: null, count: null, error: new Error(`${table} failed`) }
+          : { data: [], count: 0, error: null };
+        const builder: Record<string, unknown> = {};
+        for (const m of ["select", "eq", "gte", "lte", "lt", "not", "order", "range", "limit"]) {
+          builder[m] = () => builder;
+        }
+        builder.then = (resolve: (v: unknown) => void) => resolve(result);
+        return builder;
+      },
+    };
+  }
+
+  async function load(failing: string | null) {
+    const { createClient } = jest.requireMock("@/lib/supabase/server");
+    const { createAdminClient } = jest.requireMock("@/lib/supabase/admin-client");
+    createClient.mockResolvedValue(client(failing));
+    createAdminClient.mockReturnValue(client(failing));
+    const { loadYearInReview } = await import("@/lib/year-in-review/load");
+    return loadYearInReview("user-1", 2026, new Date("2026-12-05T00:00:00Z"));
+  }
+
+  it("computes an empty year when every read succeeds", async () => {
+    expect((await load(null)).volume.applications).toBe(0);
+  });
+
+  it.each(["applications", "application_history", "cover_letters", "wins"])(
+    "fails the whole load when %s fails, instead of reporting zero",
+    async (table) => {
+      await expect(load(table)).rejects.toThrow("Failed to load year in review");
+    }
+  );
 });

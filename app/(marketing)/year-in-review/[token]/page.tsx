@@ -65,7 +65,7 @@ export default async function YearInReviewSharePage({
             alt={
               label
                 ? `An otter dressed as ${label.name}`
-                : "The CareerOtter otter"
+                : "The otter walking forward with a bag over one shoulder"
             }
             width={1728}
             height={2304}
@@ -116,7 +116,8 @@ export default async function YearInReviewSharePage({
             your year into a recap like this one.
           </p>
           <Button asChild size="lg">
-            <Link href="/signup">Start tracking for free</Link>
+            {/* Tagged so signups that came from a shared recap are countable. */}
+            <Link href={`/signup?ref=yir-${payload.y}`}>Start tracking for free</Link>
           </Button>
         </div>
       </main>

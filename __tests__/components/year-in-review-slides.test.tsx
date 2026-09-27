@@ -1,4 +1,4 @@
-import { buildSlides } from "@/components/year-in-review/slides";
+import { buildSlides, stillInItLine } from "@/components/year-in-review/slides";
 import { computeYearInReview } from "@/lib/year-in-review/compute";
 import { EMPTY_ACTIVITY, type ReviewApplication } from "@/lib/year-in-review/types";
 
@@ -40,5 +40,28 @@ describe("buildSlides", () => {
   it("gives every card a unique id", () => {
     const result = ids(apps(12, { status: "Applied" }), { ...EMPTY_ACTIVITY, fitAnalyses: 2 });
     expect(new Set(result).size).toBe(result.length);
+  });
+});
+
+describe("stillInItLine", () => {
+  function stats(applications: ReviewApplication[]) {
+    return computeYearInReview({ year: 2026, asOf: ASOF, applications, history: [], activity: EMPTY_ACTIVITY });
+  }
+
+  it("leads with interviews when there were any", () => {
+    expect(stillInItLine(stats(apps(3, { status: "Interviewed" })))).toBe(
+      "3 interviews this year. Every one is practice the next one gets to use."
+    );
+  });
+
+  it("falls back to applications", () => {
+    expect(stillInItLine(stats(apps(4)))).toBe("4 applications this year. Every one made the next one sharper.");
+  });
+
+  it("has its own wording for a single interview or application", () => {
+    expect(stillInItLine(stats(apps(1, { status: "Interviewed" })))).toBe(
+      "1 interview this year. That practice carries into the next one."
+    );
+    expect(stillInItLine(stats(apps(1)))).toBe("Your first application is logged. Next year builds on it.");
   });
 });

@@ -8,6 +8,7 @@ import { getAppUrl } from "@/lib/constants/site-config";
 import { isYearInReviewEnabled } from "@/lib/year-in-review/gate";
 import { loadYearInReview } from "@/lib/year-in-review/load";
 import { isReviewableYear } from "@/lib/year-in-review/years";
+import { buildShareCaption } from "@/lib/year-in-review/caption";
 import { buildSharePayload, encodeShareToken, getShareSecret } from "@/lib/year-in-review/share-token";
 
 const ShareRequestSchema = z.object({
@@ -55,7 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nothing to share for this year" }, { status: 400 });
     }
 
-    const token = encodeShareToken(buildSharePayload(stats, { includeOutcome: body.includeOutcome }), secret);
+    const payload = buildSharePayload(stats, { includeOutcome: body.includeOutcome });
+    const token = encodeShareToken(payload, secret);
     const url = `${getAppUrl()}/year-in-review/${token}`;
 
     after(() =>
@@ -66,7 +68,12 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ url, storyImageUrl: `${url}/story` });
+    return NextResponse.json({
+      url,
+      storyImageUrl: `${url}/story`,
+      squareImageUrl: `${url}/square`,
+      caption: buildShareCaption(payload),
+    });
   } catch (error) {
     loggerService.error("Failed to create year in review share link", error, {
       category: LogCategory.API,

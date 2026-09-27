@@ -23,9 +23,11 @@ export async function fetchAllRows<T>(
     const { data, error } = await build(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
     if (error) return { data: rows, error };
     rows.push(...(data ?? []));
-    if (!data || data.length < PAGE_SIZE) break;
+    if (!data || data.length < PAGE_SIZE) return { data: rows, error: null };
   }
-  return { data: rows, error: null };
+  // Every page came back full, so rows remain unread: a partial read is an error,
+  // not a smaller year.
+  return { data: rows, error: new Error(`Row limit reached (${MAX_PAGES * PAGE_SIZE})`) };
 }
 
 interface CountResult {
@@ -146,8 +148,9 @@ export async function loadYearInReview(userId: string, year: number, now = new D
       metadata: { query, year },
     });
   }
-  // Without applications there is no recap; surface that rather than render an empty year.
-  if (apps.error) throw new Error("Failed to load applications for year in review");
+  // Any failed read would turn into a zero here, and a share link would then sign
+  // that wrong number permanently. Fail the whole load instead.
+  if (named.some(([, result]) => result.error)) throw new Error("Failed to load year in review");
 
   const best = (bestFit.data as Array<{ fit_score: number | null }> | null)?.[0]?.fit_score;
   const count = (r: CountResult) => r.count ?? 0;
