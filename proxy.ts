@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
+import { isYearInReviewEnabled, isYearInReviewSurface } from "@/lib/year-in-review/gate"
 import {
   MARKDOWN_PATH_PARAM,
   MARKDOWN_REWRITE_PATH,
@@ -45,6 +46,11 @@ export async function proxy(request: NextRequest) {
     process.env.CAREEROTTER_ENABLED !== "1" &&
     isCareerotterSurface(request.nextUrl.pathname)
   ) {
+    return new NextResponse("Not Found", { status: 404 })
+  }
+
+  // Seasonal launch gate for the year-in-review recap and its share pages.
+  if (!isYearInReviewEnabled() && isYearInReviewSurface(request.nextUrl.pathname)) {
     return new NextResponse("Not Found", { status: 404 })
   }
 
@@ -145,5 +151,6 @@ export const config = {
     "/api/careerotter/:path*",
     "/api/wins/:path*",
     "/api/cron/careerotter-recap",
+    "/api/year-in-review/:path*",
   ],
 }

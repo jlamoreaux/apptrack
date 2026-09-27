@@ -269,7 +269,9 @@ export class ApplicationDAL
         }
       );
 
-      // Track status change in history (non-blocking)
+      // The single writer of status transitions: API routes and the AI coach
+      // call update() and must not add history rows themselves, or every change
+      // is recorded twice. Non-blocking.
       if (data.status !== undefined && currentStatus !== undefined && data.status !== currentStatus) {
         try {
           await this.addHistory({
