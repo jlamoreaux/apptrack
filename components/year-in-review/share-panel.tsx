@@ -100,7 +100,10 @@ export function SharePanel({ year, outcomeCompany }: SharePanelProps) {
   async function shareImage() {
     if (!links) return;
     try {
-      const blob = await (await fetch(links.storyImageUrl)).blob();
+      const response = await fetch(links.storyImageUrl);
+      // A failed render must not reach the share sheet as a broken image.
+      if (!response.ok) throw new Error(`Story image failed: ${response.status}`);
+      const blob = await response.blob();
       const file = new File([blob], `year-in-review-${year}.png`, { type: "image/png" });
       // Files and a URL together make some apps drop the image, so the link rides in the text.
       await navigator.share({ files: [file], text: `${links.caption} ${links.url}` });
