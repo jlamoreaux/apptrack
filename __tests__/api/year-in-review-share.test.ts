@@ -88,7 +88,9 @@ describe("POST /api/year-in-review/share", () => {
     expect(body.storyImageUrl).toBe(`${body.url}/story`);
 
     const payload = decodeShareToken(tokenFrom(body.url), SECRET);
-    expect(payload).toMatchObject({ y: 2026, a: 1, h: 1 });
+    expect(payload).toMatchObject({ y: 2026, a: 1, o: 1 });
+    // Whether they were hired is part of the opt-in, not the default payload.
+    expect(payload).not.toHaveProperty("h");
     expect(payload?.hc).toBeUndefined();
   });
 

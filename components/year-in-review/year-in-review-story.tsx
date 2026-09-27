@@ -45,9 +45,6 @@ export function YearInReviewStory({ stats }: YearInReviewStoryProps) {
       completed.current = true;
       capturePostHogEvent("year_in_review_completed", { year: stats.year, label: stats.label });
     }
-    // Move focus with the card so screen readers announce the new content,
-    // but not on first render, where it would steal focus from the page.
-    if (hasNavigated.current) headingRef.current?.focus();
   }, [index, slides.length, stats.year, stats.label]);
 
   const go = useCallback(
@@ -61,8 +58,12 @@ export function YearInReviewStory({ stats }: YearInReviewStoryProps) {
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      // Leave browser shortcuts (Alt+Left is Back) and focused controls alone.
+      if (event.defaultPrevented || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest("button, a, input, [role='switch']")) return;
+      if (target?.closest("button, a, input, textarea, select, [contenteditable], [role='switch'], [role='menuitem']")) {
+        return;
+      }
       if (event.key === "ArrowRight" || event.key === " ") {
         event.preventDefault();
         go(1);
@@ -126,11 +127,19 @@ export function YearInReviewStory({ stats }: YearInReviewStoryProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -offset }}
             transition={{ duration: reduceMotion ? 0.01 : 0.35, ease: "easeOut" }}
+            onAnimationComplete={(definition) => {
+              // Focus once the entering card has finished animating in: with
+              // mode="wait" the new card mounts only after the old one exits.
+              // Skipped on first render, where it would steal focus from the page.
+              const entered = typeof definition === "object" && definition !== null && "opacity" in definition && definition.opacity === 1;
+              if (entered && hasNavigated.current) headingRef.current?.focus();
+            }}
             className="mx-auto w-full max-w-3xl px-6 py-10 sm:px-10"
           >
             <div
               ref={headingRef}
               tabIndex={-1}
+              role="group"
               aria-roledescription="slide"
               aria-label={`${index + 1} of ${slides.length}`}
               className="outline-none"

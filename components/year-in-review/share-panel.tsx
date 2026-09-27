@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -22,8 +22,12 @@ export function SharePanel({ year, outcomeCompany }: SharePanelProps) {
   const [links, setLinks] = useState<ShareLinks | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [copied, setCopied] = useState(false);
+  // Only the latest request may set links, so a slow response for an earlier
+  // choice can never publish the company after the owner opted out.
+  const requestId = useRef(0);
 
   async function createLink(nextIncludeOutcome = includeOutcome) {
+    const id = ++requestId.current;
     setStatus("loading");
     setCopied(false);
     try {
@@ -33,17 +37,22 @@ export function SharePanel({ year, outcomeCompany }: SharePanelProps) {
         body: JSON.stringify({ year, includeOutcome: nextIncludeOutcome }),
       });
       if (!response.ok) throw new Error(`Share request failed: ${response.status}`);
-      setLinks((await response.json()) as ShareLinks);
+      const next = (await response.json()) as ShareLinks;
+      if (id !== requestId.current) return;
+      setLinks(next);
       setStatus("idle");
     } catch {
-      setStatus("error");
+      if (id === requestId.current) setStatus("error");
     }
   }
 
   function toggleOutcome(checked: boolean) {
     setIncludeOutcome(checked);
-    // An existing link encodes the old choice, so mint a new one.
-    if (links) void createLink(checked);
+    // An existing link encodes the old choice: drop it before minting a new one.
+    if (links) {
+      setLinks(null);
+      void createLink(checked);
+    }
   }
 
   async function copyLink() {
@@ -63,13 +72,18 @@ export function SharePanel({ year, outcomeCompany }: SharePanelProps) {
         <p className="text-base font-medium opacity-80 sm:text-lg">Share your year</p>
         <h2 className="text-4xl font-bold">Post it, or keep it</h2>
         <p className="text-lg">
-          A shared link shows your label and totals. Company names, roles and the still-waiting count stay private.
+          A shared link shows your label and totals. Roles, companies and the still-waiting count stay private, unless you choose to include where you landed.
         </p>
       </div>
 
       {outcomeCompany && (
         <div className="flex min-h-11 items-center gap-3">
-          <Switch id="yir-include-outcome" checked={includeOutcome} onCheckedChange={toggleOutcome} />
+          <Switch
+            id="yir-include-outcome"
+            checked={includeOutcome}
+            onCheckedChange={toggleOutcome}
+            disabled={status === "loading"}
+          />
           <Label htmlFor="yir-include-outcome" className="text-base">
             {`Include that I landed at ${outcomeCompany}`}
           </Label>

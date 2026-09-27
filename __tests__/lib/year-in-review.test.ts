@@ -112,6 +112,16 @@ describe("computeYearInReview", () => {
     expect(stats.volume.weekly.reduce((a, b) => a + b, 0)).toBe(2);
   });
 
+  it("never reports the 1-2 day remainder at year end as the busiest week", () => {
+    const stats = compute([
+      app({ id: "1", date_applied: "2026-12-31" }),
+      app({ id: "2", date_applied: "2026-12-31" }),
+      app({ id: "3", date_applied: "2026-06-01" }),
+    ]);
+    expect(stats.volume.weekly[52]).toBe(2);
+    expect(stats.volume.busiestWeek).toEqual({ weekStart: "2026-05-28", count: 1 });
+  });
+
   it("finds the busiest month and week", () => {
     const stats = compute([
       app({ id: "1", date_applied: "2026-03-02" }),
@@ -291,7 +301,7 @@ describe("share token", () => {
   it("rejects a tampered payload", () => {
     const token = encodeShareToken(buildSharePayload(stats, { includeOutcome: false }), secret);
     const [, signature] = token.split(".");
-    const forged = Buffer.from(JSON.stringify({ v: 1, y: 2026, a: 999, c: 1, i: 1, o: 1, h: 1, l: null, m: null })).toString("base64url");
+    const forged = Buffer.from(JSON.stringify({ v: 1, y: 2026, a: 999, c: 1, i: 1, o: 1, l: null, m: null })).toString("base64url");
     expect(decodeShareToken(`${forged}.${signature}`, secret)).toBeNull();
   });
 

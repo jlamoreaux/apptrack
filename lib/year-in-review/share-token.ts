@@ -19,7 +19,6 @@ const payloadSchema = z.object({
   c: z.number().int().min(0),
   i: z.number().int().min(0),
   o: z.number().int().min(0),
-  h: z.number().int().min(0),
   l: z.enum(LABEL_IDS).nullable(),
   m: z.number().int().min(0).max(11).nullable(),
   /** Company joined, only when the owner opted in. */
@@ -45,7 +44,6 @@ export function buildSharePayload(stats: YearInReviewStats, options: ShareOption
     c: stats.volume.companies,
     i: stats.funnel.interviewed,
     o: stats.funnel.offers,
-    h: stats.funnel.hired,
     l: stats.label,
     m: stats.volume.busiestMonth?.month ?? null,
   };

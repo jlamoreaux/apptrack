@@ -33,7 +33,9 @@ The first plan was reviewed before implementation. What changed and why:
    (`lib/year-in-review/share-token.ts`). Stable, zero schema change.
    - Trade-off: a link cannot be revoked. Accepted because the payload holds
      only what the user chose to publish (aggregate counts, their label, and
-     optionally the company they joined), never application-level data.
+     optionally the company they joined), never application-level data. The
+     payload is signed, not encrypted, so anything in it is readable: whether
+     the user was hired travels only with the opt-in company, never as a flag.
    - Fails closed: without `YEAR_IN_REVIEW_SHARE_SECRET`, share minting returns
      503 and share pages 404.
 
@@ -72,7 +74,8 @@ The first plan was reviewed before implementation. What changed and why:
 All counts are for applications whose `date_applied` falls in the year.
 
 - **Volume**: applications, distinct companies (case-insensitive), busiest
-  month, busiest ISO week, per-week counts for the year strip.
+  month, busiest week (7-day buckets counted from Jan 1; the 1-2 day remainder
+  at year end is never reported as a week), per-week counts for the year strip.
 - **Roles**: most common normalized title (seniority words stripped), distinct
   title count.
 - **Funnel**: reached interview / offer / hired, from current status or any

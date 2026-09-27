@@ -135,6 +135,8 @@ export function computeYearInReview(input: ComputeInput): YearInReviewStats {
   });
   let busiestWeek: YearInReviewStats["volume"]["busiestWeek"] = null;
   weekly.forEach((count, week) => {
+    // The last bucket holds only Dec 31 (Dec 30-31 in a leap year), not a full week.
+    if (week === WEEK_BUCKETS - 1) return;
     if (count > 0 && (!busiestWeek || count > busiestWeek.count)) {
       busiestWeek = { weekStart: isoDate(yearStart + week * 7), count };
     }

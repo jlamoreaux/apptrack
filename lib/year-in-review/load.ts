@@ -5,6 +5,29 @@ import { LogCategory } from "@/lib/services/logger.types";
 import { computeYearInReview } from "./compute";
 import type { ReviewActivity, ReviewApplication, ReviewHistoryRow, YearInReviewStats } from "./types";
 
+/** PostgREST caps a response at 1000 rows without erroring, so row reads page. */
+const PAGE_SIZE = 1000;
+const MAX_PAGES = 20;
+
+interface Page<T> {
+  data: T[] | null;
+  error: unknown;
+}
+
+/** Reads every page of a query. `build` must return a fresh query for each range. */
+export async function fetchAllRows<T>(
+  build: (from: number, to: number) => PromiseLike<Page<T>>
+): Promise<{ data: T[]; error: unknown }> {
+  const rows: T[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const { data, error } = await build(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error) return { data: rows, error };
+    rows.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 interface CountResult {
   count: number | null;
   error: unknown;
@@ -24,19 +47,29 @@ export async function loadYearInReview(userId: string, year: number, now = new D
   const createdFrom = `${year}-01-01T00:00:00Z`;
   const createdTo = `${year + 1}-01-01T00:00:00Z`;
 
-  const [apps, history, coverLetters, fitAnalyses, interviewPreps, tailoredResumes, contacts, wins] =
+  const [apps, history, coverLetters, fitCount, bestFit, interviewPreps, tailoredResumes, contactsAdded, contactsContacted, wins] =
     await Promise.all([
-      supabase
-        .from("applications")
-        .select("id, company, role, status, date_applied, archived")
-        .eq("user_id", userId)
-        .gte("date_applied", from)
-        .lte("date_applied", to),
-      supabase
-        .from("application_history")
-        .select("application_id, old_status, new_status, changed_at, applications!inner(user_id)")
-        .eq("applications.user_id", userId)
-        .gte("changed_at", createdFrom),
+      fetchAllRows<ReviewApplication>((a, b) =>
+        supabase
+          .from("applications")
+          .select("id, company, role, status, date_applied, archived")
+          .eq("user_id", userId)
+          .gte("date_applied", from)
+          .lte("date_applied", to)
+          .order("id")
+          .range(a, b)
+      ),
+      // Only history for this year's applications, whenever the change happened.
+      fetchAllRows<ReviewHistoryRow>((a, b) =>
+        supabase
+          .from("application_history")
+          .select("application_id, old_status, new_status, changed_at, applications!inner(user_id, date_applied)")
+          .eq("applications.user_id", userId)
+          .gte("applications.date_applied", from)
+          .lte("applications.date_applied", to)
+          .order("id")
+          .range(a, b)
+      ),
       supabase
         .from("cover_letters")
         .select("id", { count: "exact", head: true })
@@ -46,10 +79,19 @@ export async function loadYearInReview(userId: string, year: number, now = new D
       // Admin client: the session read policy hides analyses not linked to an application.
       admin
         .from("job_fit_analysis")
-        .select("fit_score")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .gte("created_at", createdFrom)
         .lt("created_at", createdTo),
+      admin
+        .from("job_fit_analysis")
+        .select("fit_score")
+        .eq("user_id", userId)
+        .gte("created_at", createdFrom)
+        .lt("created_at", createdTo)
+        .not("fit_score", "is", null)
+        .order("fit_score", { ascending: false })
+        .limit(1),
       supabase
         .from("interview_prep")
         .select("id", { count: "exact", head: true })
@@ -64,8 +106,15 @@ export async function loadYearInReview(userId: string, year: number, now = new D
         .lt("created_at", createdTo),
       supabase
         .from("application_linkedin_contacts")
-        .select("contacted")
+        .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
+        .gte("created_at", createdFrom)
+        .lt("created_at", createdTo),
+      supabase
+        .from("application_linkedin_contacts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("contacted", true)
         .gte("created_at", createdFrom)
         .lt("created_at", createdTo),
       admin
@@ -80,10 +129,12 @@ export async function loadYearInReview(userId: string, year: number, now = new D
     ["applications", apps],
     ["application_history", history],
     ["cover_letters", coverLetters],
-    ["job_fit_analysis", fitAnalyses],
+    ["job_fit_analysis_count", fitCount],
+    ["job_fit_analysis_best", bestFit],
     ["interview_prep", interviewPreps],
     ["tailored_resumes", tailoredResumes],
-    ["application_linkedin_contacts", contacts],
+    ["linkedin_contacts_added", contactsAdded],
+    ["linkedin_contacts_contacted", contactsContacted],
     ["wins", wins],
   ];
   for (const [query, result] of named) {
@@ -98,27 +149,25 @@ export async function loadYearInReview(userId: string, year: number, now = new D
   // Without applications there is no recap; surface that rather than render an empty year.
   if (apps.error) throw new Error("Failed to load applications for year in review");
 
-  const fitRows = (fitAnalyses.data as Array<{ fit_score: number | null }> | null) ?? [];
-  const fitScores = fitRows.map((r) => r.fit_score).filter((s): s is number => typeof s === "number");
-  const contactRows = (contacts.data as Array<{ contacted: boolean | null }> | null) ?? [];
+  const best = (bestFit.data as Array<{ fit_score: number | null }> | null)?.[0]?.fit_score;
   const count = (r: CountResult) => r.count ?? 0;
 
   const activity: ReviewActivity = {
     coverLetters: count(coverLetters),
-    fitAnalyses: fitRows.length,
-    bestFitScore: fitScores.length ? Math.max(...fitScores) : null,
+    fitAnalyses: count(fitCount),
+    bestFitScore: typeof best === "number" ? best : null,
     interviewPreps: count(interviewPreps),
     tailoredResumes: count(tailoredResumes),
-    contactsAdded: contactRows.length,
-    contactsContacted: contactRows.filter((r) => r.contacted).length,
+    contactsAdded: count(contactsAdded),
+    contactsContacted: count(contactsContacted),
     winsLogged: count(wins),
   };
 
   return computeYearInReview({
     year,
     asOf: now,
-    applications: (apps.data as ReviewApplication[] | null) ?? [],
-    history: (history.data as ReviewHistoryRow[] | null) ?? [],
+    applications: apps.data,
+    history: history.data,
     activity,
   });
 }

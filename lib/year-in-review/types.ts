@@ -73,7 +73,7 @@ export interface YearInReviewStats {
     /** 0-11, or null with no applications. */
     busiestMonth: { month: number; count: number } | null;
     busiestWeek: { weekStart: string; count: number } | null;
-    /** Applications per 7-day bucket counted from Jan 1 (53 buckets). */
+    /** Applications per 7-day bucket counted from Jan 1 (53 buckets; the last is 1-2 days). */
     weekly: number[];
     activeMonths: number;
   };
