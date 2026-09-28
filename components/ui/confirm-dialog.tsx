@@ -15,6 +15,8 @@ interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  /** Extra classes for the title, e.g. wrapping for long user-supplied names. */
+  titleClassName?: string;
   description: string;
   onConfirm: () => void;
   confirmText?: string;
@@ -26,6 +28,7 @@ export function ConfirmDialog({
   open,
   onOpenChange,
   title,
+  titleClassName,
   description,
   onConfirm,
   confirmText = "Confirm",
@@ -36,7 +39,7 @@ export function ConfirmDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogTitle className={titleClassName}>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -80,13 +80,25 @@ export function vestedFractionAt(t: number | Date, schedule: VestSchedule): numb
   return (time - startMs) / (endMs - startMs);
 }
 
-/** Fraction of the total grant that vests within [from, to). */
+/**
+ * Fraction of the total grant that vests within [from, to). vestedFractionAt
+ * counts a vest event at its own instant, so both ends are read one
+ * millisecond early: an event exactly at `from` is inside the window and one
+ * exactly at `to` (a cliff at midnight on Jan 1) belongs to the next window.
+ */
 export function grantFractionVestedBetween(
   from: number | Date,
   to: number | Date,
   schedule: VestSchedule
 ): number {
-  return Math.max(0, vestedFractionAt(to, schedule) - vestedFractionAt(from, schedule));
+  return Math.max(
+    0,
+    vestedFractionAt(justBefore(to), schedule) - vestedFractionAt(justBefore(from), schedule)
+  );
+}
+
+function justBefore(t: number | Date): number {
+  return (typeof t === "number" ? t : t.getTime()) - 1;
 }
 
 /**
@@ -173,9 +185,15 @@ export function projectionYears(entry: CompEntry, currentYear: number): number[]
   const schedule = scheduleFor(entry);
   let count = PROJECTION_MIN_YEARS;
   if (schedule) {
-    const end = addMonthsClamped(schedule.start, Math.round(schedule.vestYears * 12));
-    // A vest that ends on Jan 1 pays its last slice in the prior year.
-    const lastYear = end.getMonth() === 0 && end.getDate() === 1 ? end.getFullYear() - 1 : end.getFullYear();
+    const totalMonths = Math.round(schedule.vestYears * 12);
+    const end = addMonthsClamped(schedule.start, totalMonths);
+    // Linear vesting accrues up to the end, so a vest that ends at midnight on
+    // Jan 1 pays its last slice in the prior year. A cliff as long as the vest
+    // pays the whole grant on the end date itself, which
+    // grantFractionVestedBetween counts in the year that starts then.
+    const lumpAtEnd = schedule.cliffMonths >= totalMonths;
+    const endsOnJan1 = end.getMonth() === 0 && end.getDate() === 1;
+    const lastYear = endsOnJan1 && !lumpAtEnd ? end.getFullYear() - 1 : end.getFullYear();
     count = Math.min(PROJECTION_MAX_YEARS, Math.max(PROJECTION_MIN_YEARS, lastYear - currentYear + 1));
   }
   return Array.from({ length: count }, (_, i) => currentYear + i);
@@ -223,10 +241,11 @@ export function projectComp(
       const yearStart = new Date(year, 0, 1).getTime();
       const yearEnd = new Date(year + 1, 0, 1).getTime();
       const received = grantFractionVestedBetween(yearStart, yearEnd, schedule);
+      // A vest event at the asOf instant itself has vested, as in vestSummary.
       const vestedByNow =
-        asOfMs <= yearStart
+        asOfMs < yearStart
           ? 0
-          : grantFractionVestedBetween(yearStart, Math.min(yearEnd, asOfMs), schedule);
+          : grantFractionVestedBetween(yearStart, Math.min(yearEnd, asOfMs + 1), schedule);
       stockVested = grant * vestedByNow;
       stockUnvested = grant * Math.max(0, received - vestedByNow);
     } else {

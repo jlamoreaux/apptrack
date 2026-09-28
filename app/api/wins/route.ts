@@ -5,27 +5,25 @@
  * POST /api/wins        log a win
  *
  * Logging is FREE and calls no model (habit before payment, PRD M2). Auth is the
- * session user; writes go through the service-role admin client because the wins
- * table is RLS service-role-only, and every query is scoped to the session
- * user_id so the admin client can't leak across users.
+ * session user; reads and writes go through lib/careerotter/wins-service.ts on
+ * the service-role admin client because the wins table is RLS service-role-only,
+ * and every query is scoped to the session user_id so the admin client can't
+ * leak across users.
  */
 
-import { type NextRequest, NextResponse, after } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
+import { MANUAL_SOURCE } from "@/lib/constants/careerotter";
 import {
-  WIN_TAGS,
-  WIN_LIMITS,
-  type WinTag,
-  type WinSource,
-} from "@/lib/constants/careerotter";
-import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
-import { captureServerEvent } from "@/lib/analytics/posthog-server";
-import { emailDistinctId } from "@/lib/analytics/anonymize";
-import { loggerService } from "@/lib/services/logger.service";
-import { LogCategory } from "@/lib/services/logger.types";
+  WIN_REST_SELECT,
+  createWin,
+  listWins,
+  validateWinInput,
+} from "@/lib/careerotter/wins-service";
+import { domainErrorResponse } from "@/lib/careerotter/domain-response";
 
-export async function GET() {
+export async function GET(): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,32 +32,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("wins")
-    .select("id, text, impact_number, tag, source, created_at, edited_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const result = await listWins(createAdminClient(), user.id, {
+    select: WIN_REST_SELECT,
+    sort: "created_desc",
+  });
+  if (!result.ok) return domainErrorResponse(result);
 
-  if (error) {
-    loggerService.error("Failed to list wins", error, {
-      category: LogCategory.DATABASE,
-      userId: user.id,
-      action: "wins_list_failed",
-    });
-    return NextResponse.json({ error: "Failed to load wins" }, { status: 500 });
-  }
-
-  return NextResponse.json({ wins: data ?? [] });
+  return NextResponse.json({ wins: result.value.wins });
 }
 
-type PostBody = {
-  text?: unknown;
-  impact_number?: unknown;
-  tag?: unknown;
-};
-
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -68,80 +50,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: PostBody;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // text — required, trimmed, capped.
-  const text = typeof body.text === "string" ? body.text.trim() : "";
-  if (!text) {
-    return NextResponse.json({ error: "Win text is required" }, { status: 400 });
-  }
-  if (text.length > WIN_LIMITS.textMax) {
-    return NextResponse.json(
-      { error: `Win text must be ${WIN_LIMITS.textMax} characters or fewer` },
-      { status: 400 }
-    );
-  }
-
-  // impact_number — optional, trimmed, capped.
-  let impactNumber: string | null = null;
-  if (body.impact_number != null && body.impact_number !== "") {
-    if (typeof body.impact_number !== "string") {
-      return NextResponse.json(
-        { error: "impact_number must be a string" },
-        { status: 400 }
-      );
-    }
-    impactNumber = body.impact_number.trim().slice(0, WIN_LIMITS.impactNumberMax);
-  }
-
-  // tag — optional, must be one of the four impact areas.
-  let tag: WinTag | null = null;
-  if (body.tag != null && body.tag !== "") {
-    if (!(WIN_TAGS as readonly string[]).includes(body.tag as string)) {
-      return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
-    }
-    tag = body.tag as WinTag;
-  }
+  const input = validateWinInput(body, { allowAgentFields: false });
+  if (!input.ok) return domainErrorResponse(input);
 
   // Provenance is server-authoritative: this manual endpoint always records
   // "manual". Client-supplied `source` is ignored so callers can't forge
-  // "zero_to_case"/"recap"/"import".
-  const source: WinSource = "manual";
+  // "zero_to_case"/"recap"/"import"/"agent".
+  const result = await createWin(createAdminClient(), user.id, input.value, {
+    source: MANUAL_SOURCE,
+    select: WIN_REST_SELECT,
+  });
+  if (!result.ok) return domainErrorResponse(result);
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("wins")
-    .insert({
-      user_id: user.id,
-      text,
-      impact_number: impactNumber,
-      tag,
-      source,
-    })
-    .select("id, text, impact_number, tag, source, created_at, edited_at")
-    .single();
-
-  if (error) {
-    loggerService.error("Failed to log win", error, {
-      category: LogCategory.DATABASE,
-      userId: user.id,
-      action: "win_log_failed",
-    });
-    return NextResponse.json({ error: "Failed to log win" }, { status: 500 });
-  }
-
-  // Server-authoritative win_logged. Distinct id is the user id; best-effort.
-  after(
-    captureServerEvent(user.id ?? emailDistinctId(user.email ?? ""), CAREEROTTER_EVENT_NAMES.WIN_LOGGED, {
-      tag: tag ?? "untagged",
-      source,
-    })
-  );
-
-  return NextResponse.json({ win: data }, { status: 201 });
+  return NextResponse.json({ win: result.value.win }, { status: 201 });
 }

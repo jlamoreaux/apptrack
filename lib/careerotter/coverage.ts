@@ -12,6 +12,8 @@ import { WIN_TAGS, type WinTag } from "@/lib/constants/careerotter";
 // extra wins in one area don't inflate overall coverage — breadth is the point.
 export const COVERAGE_TARGET_PER_AREA = 3;
 
+const PERCENT = 100;
+
 export interface CoverageArea {
   tag: WinTag;
   count: number;
@@ -30,44 +32,55 @@ export interface Coverage {
   untagged: number;
 }
 
-export function computeCoverage(
-  wins: ReadonlyArray<{ tag: string | null }>
-): Coverage {
-  const counts = new Map<WinTag, number>(WIN_TAGS.map((t) => [t, 0]));
+/** Win counts per impact area: what coverage is computed from. */
+export interface WinTagCounts {
+  total: number;
+  /** Areas missing from the map count as zero. */
+  byTag: ReadonlyMap<WinTag, number>;
+  /** Wins in no known area. */
+  untagged: number;
+}
+
+function isWinTag(value: string): value is WinTag {
+  return WIN_TAGS.some((tag) => tag === value);
+}
+
+function countTags(wins: ReadonlyArray<{ tag: string | null }>): WinTagCounts {
+  const byTag = new Map<WinTag, number>();
   let untagged = 0;
-  for (const w of wins) {
-    if (w.tag && counts.has(w.tag as WinTag)) {
-      counts.set(w.tag as WinTag, (counts.get(w.tag as WinTag) ?? 0) + 1);
+  for (const win of wins) {
+    if (win.tag !== null && isWinTag(win.tag)) {
+      byTag.set(win.tag, (byTag.get(win.tag) ?? 0) + 1);
     } else {
       untagged += 1;
     }
   }
+  return { total: wins.length, byTag, untagged };
+}
 
-  const areas: CoverageArea[] = WIN_TAGS.map((tag) => {
-    const count = counts.get(tag) ?? 0;
-    const pct = Math.round(
-      (Math.min(count, COVERAGE_TARGET_PER_AREA) / COVERAGE_TARGET_PER_AREA) * 100
-    );
-    return { tag, count, pct };
-  });
+function toArea(tag: WinTag, count: number): CoverageArea {
+  const depth = Math.min(count, COVERAGE_TARGET_PER_AREA);
+  return { tag, count, pct: Math.round((depth / COVERAGE_TARGET_PER_AREA) * PERCENT) };
+}
 
+/** Coverage from per-area counts, for callers that count in the database. */
+export function coverageFromCounts(counts: WinTagCounts): Coverage {
+  const areas = WIN_TAGS.map((tag) => toArea(tag, counts.byTag.get(tag) ?? 0));
   const covered = areas.reduce(
-    (sum, a) => sum + Math.min(a.count, COVERAGE_TARGET_PER_AREA),
+    (sum, area) => sum + Math.min(area.count, COVERAGE_TARGET_PER_AREA),
     0
   );
   const overallPct = Math.round(
-    (covered / (COVERAGE_TARGET_PER_AREA * WIN_TAGS.length)) * 100
+    (covered / (COVERAGE_TARGET_PER_AREA * WIN_TAGS.length)) * PERCENT
   );
-
   // Fewest-wins area (first in tag order on a tie); only a "gap" if under target.
-  const lowest = areas.reduce((min, a) => (a.count < min.count ? a : min), areas[0]);
+  const lowest = areas.reduce((min, area) => (area.count < min.count ? area : min), areas[0]);
   const biggestGap = lowest.count < COVERAGE_TARGET_PER_AREA ? lowest.tag : null;
+  return { overallPct, areas, biggestGap, totalWins: counts.total, untagged: counts.untagged };
+}
 
-  return {
-    overallPct,
-    areas,
-    biggestGap,
-    totalWins: wins.length,
-    untagged,
-  };
+export function computeCoverage(
+  wins: ReadonlyArray<{ tag: string | null }>
+): Coverage {
+  return coverageFromCounts(countTags(wins));
 }

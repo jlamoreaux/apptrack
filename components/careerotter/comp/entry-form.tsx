@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { formatDateAsLocal } from "@/lib/utils/date";
 import type { CompEntryInput } from "@/types";
 import { validateCompEntryInput } from "@/lib/careerotter/comp-entry-validation";
+import { COMP_LIMITS } from "@/lib/constants/careerotter";
 
 interface CompEntryFormProps {
   /**
@@ -234,7 +235,7 @@ export function CompEntryForm({ onSubmit, suggestedTicker }: CompEntryFormProps)
               <Input
                 id="ticker"
                 type="text"
-                maxLength={10}
+                maxLength={COMP_LIMITS.tickerMax}
                 value={form.ticker}
                 onChange={(e) => set({ ticker: e.target.value.toUpperCase() })}
                 placeholder="NET"
@@ -286,7 +287,7 @@ export function CompEntryForm({ onSubmit, suggestedTicker }: CompEntryFormProps)
                 type="number"
                 inputMode="decimal"
                 min="0.5"
-                max="10"
+                max={COMP_LIMITS.vestYearsMax}
                 step="0.5"
                 value={form.vest_years}
                 onChange={(e) => set({ vest_years: e.target.value })}
@@ -300,7 +301,7 @@ export function CompEntryForm({ onSubmit, suggestedTicker }: CompEntryFormProps)
                 type="number"
                 inputMode="numeric"
                 min="0"
-                max="60"
+                max={COMP_LIMITS.vestCliffMonthsMax}
                 step="1"
                 value={form.vest_cliff_months}
                 onChange={(e) => set({ vest_cliff_months: e.target.value })}

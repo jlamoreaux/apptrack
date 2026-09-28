@@ -4,6 +4,8 @@ export const APP_ROUTES = {
   HOME: "/",
   LOGIN: "/login",
   SIGNUP: "/signup",
+  ONBOARDING_WELCOME: "/onboarding/welcome",
+  ONBOARDING_FIRST_JOB: "/onboarding/first-job",
 
   // Dashboard routes
   DASHBOARD: {
@@ -36,6 +38,13 @@ export const APP_ROUTES = {
       `/dashboard/ai-coach?tab=${tab}&applicationId=${applicationId}`,
   },
 } as const;
+
+// The query parameters that carry a post-auth destination through login and
+// sign-up (redirectTo), the auth callback (next) and onboarding (next).
+export const AUTH_REDIRECT_TO_PARAM = "redirectTo";
+export const AUTH_CALLBACK_PATH = "/auth/callback";
+export const AUTH_CALLBACK_NEXT_PARAM = "next";
+export const ONBOARDING_NEXT_PARAM = "next";
 
 // Navigation breadcrumb helpers
 export const ROUTE_LABELS = {

@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import type { PostgrestError } from "@supabase/supabase-js";
 import { verifyCronAuth } from "@/lib/email/lifecycle-cron";
 import { createAdminClient } from "@/lib/supabase/admin-client";
 import { weekStartOf } from "@/lib/careerotter/week-start";
@@ -23,6 +24,46 @@ export const maxDuration = 300;
 const ENDPOINT = "/api/cron/careerotter-recap";
 const MAX_USERS = 200; // Backstop for a runaway job; log if we hit it.
 const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+// Requested page size. The server may cap pages lower (PostgREST max-rows), so
+// paging advances by rows actually returned and stops only on an empty page.
+const WINS_PAGE_SIZE = 1000;
+
+interface RecapWinRow {
+  user_id: string;
+  text: string;
+  tag: string | null;
+  impact_number: string | null;
+}
+
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+type LoadWinsResult =
+  | { wins: RecapWinRow[]; error: null }
+  | { wins: RecapWinRow[]; error: PostgrestError };
+
+/**
+ * Page through the week's wins so PostgREST's max-rows cap can't silently drop
+ * rows. Ordering by created_at then id keeps pages stable when timestamps tie.
+ */
+async function loadRecentWins(admin: AdminClient, windowStartIso: string): Promise<LoadWinsResult> {
+  const wins: RecapWinRow[] = [];
+  for (let from = 0; ; ) {
+    const { data, error } = await admin
+      .from("wins")
+      .select("user_id, text, tag, impact_number")
+      .gte("created_at", windowStartIso)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + WINS_PAGE_SIZE - 1);
+
+    if (error) return { wins, error };
+
+    const page: RecapWinRow[] = data ?? [];
+    if (page.length === 0) return { wins, error: null };
+    wins.push(...page);
+    from += page.length;
+  }
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   if (!verifyCronAuth(request, ENDPOINT)) {
@@ -34,10 +75,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const windowStartIso = new Date(now.getTime() - MS_PER_WEEK).toISOString();
   const admin = createAdminClient();
 
-  const { data: recentWins, error } = await admin
-    .from("wins")
-    .select("user_id, text, tag, impact_number")
-    .gte("created_at", windowStartIso);
+  const { wins: recentWins, error } = await loadRecentWins(admin, windowStartIso);
 
   if (error) {
     loggerService.error("Recap cron: failed to load recent wins", error, {
@@ -49,7 +87,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Group wins by user.
   const byUser = new Map<string, { text: string; tag: string | null; impact_number: string | null }[]>();
-  for (const w of recentWins ?? []) {
+  for (const w of recentWins) {
     const list = byUser.get(w.user_id) ?? [];
     list.push({ text: w.text, tag: w.tag, impact_number: w.impact_number });
     byUser.set(w.user_id, list);

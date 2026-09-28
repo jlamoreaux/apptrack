@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { hasPaidSubscription } from "@/lib/utils/subscription-helpers";
+import { hasPaidSubscription, paidSubscriptionStatus } from "@/lib/utils/subscription-helpers";
+
+// Onboarding is offered only to accounts created this recently.
+const NEW_ACCOUNT_WINDOW_MS = 5 * 60 * 1000;
+
+function isWithinNewAccountWindow(createdAt: string): boolean {
+  return new Date(createdAt).getTime() > Date.now() - NEW_ACCOUNT_WINDOW_MS;
+}
 
 export async function isNewUser(userId: string): Promise<boolean> {
   try {
@@ -31,14 +38,45 @@ export async function isNewUser(userId: string): Promise<boolean> {
     // If they have applications, they're not new
     if (count && count > 0) return false;
 
-    // Check if account was created in the last 5 minutes
-    const createdAt = new Date(profile.created_at);
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-    return createdAt > fiveMinutesAgo;
+    return isWithinNewAccountWindow(profile.created_at);
   } catch (error) {
     console.error("Error checking if user is new:", error);
     return false; // Default to not interrupting flow
+  }
+}
+
+/**
+ * The strict form of isNewUser for the OAuth consent page, which would
+ * otherwise bounce the user to onboarding and back: true only when the
+ * profile row exists, onboarding isn't completed, the account is inside the
+ * new-account window, and there's no paid plan and no application. A missing
+ * row or any failed query means false, so the user sees consent.
+ */
+export async function needsOnboardingBeforeConsent(userId: string): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("onboarding_completed, created_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (error || !profile) return false;
+    if (profile.onboarding_completed === true) return false;
+    if (typeof profile.created_at !== "string" || !isWithinNewAccountWindow(profile.created_at)) {
+      return false;
+    }
+    if ((await paidSubscriptionStatus(supabase, userId)) !== "unpaid") return false;
+
+    const { count, error: applicationsError } = await supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    return !applicationsError && count === 0;
+  } catch (error) {
+    console.error("Error checking onboarding before consent:", error);
+    return false;
   }
 }
 

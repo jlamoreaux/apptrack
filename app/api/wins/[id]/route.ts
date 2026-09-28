@@ -4,27 +4,27 @@
  * PATCH  /api/wins/:id   edit text / impact_number / tag (sets edited_at)
  * DELETE /api/wins/:id   remove a win
  *
- * Every mutation is scoped to the session user_id, so the service-role admin
- * client can only ever touch the caller's own rows.
+ * Both go through lib/careerotter/wins-service.ts, which scopes every mutation
+ * to the session user_id, so the service-role admin client can only ever touch
+ * the caller's own rows. A non-uuid id is a 404, like any other unknown win.
  */
 
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin-client";
-import { WIN_TAGS, WIN_LIMITS, type WinTag } from "@/lib/constants/careerotter";
-import { loggerService } from "@/lib/services/logger.service";
-import { LogCategory } from "@/lib/services/logger.types";
+import {
+  WIN_REST_SELECT,
+  deleteWin,
+  updateWin,
+} from "@/lib/careerotter/wins-service";
+import { domainErrorResponse } from "@/lib/careerotter/domain-response";
 
-type PatchBody = {
-  text?: unknown;
-  impact_number?: unknown;
-  tag?: unknown;
-};
+type RouteContext = { params: Promise<{ id: string }> };
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: RouteContext
+): Promise<NextResponse> {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -34,106 +34,25 @@ export async function PATCH(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let body: PatchBody;
+  let body: unknown;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const update: {
-    text?: string;
-    impact_number?: string | null;
-    tag?: WinTag | null;
-    edited_at: string;
-  } = { edited_at: new Date().toISOString() };
+  const result = await updateWin(createAdminClient(), user.id, id, body, {
+    select: WIN_REST_SELECT,
+  });
+  if (!result.ok) return domainErrorResponse(result);
 
-  if (body.text !== undefined) {
-    const text = typeof body.text === "string" ? body.text.trim() : "";
-    if (!text) {
-      return NextResponse.json({ error: "Win text is required" }, { status: 400 });
-    }
-    if (text.length > WIN_LIMITS.textMax) {
-      return NextResponse.json(
-        { error: `Win text must be ${WIN_LIMITS.textMax} characters or fewer` },
-        { status: 400 }
-      );
-    }
-    update.text = text;
-  }
-
-  if (body.impact_number !== undefined) {
-    if (body.impact_number === null || body.impact_number === "") {
-      update.impact_number = null;
-    } else if (typeof body.impact_number === "string") {
-      update.impact_number = body.impact_number
-        .trim()
-        .slice(0, WIN_LIMITS.impactNumberMax);
-    } else {
-      return NextResponse.json(
-        { error: "impact_number must be a string" },
-        { status: 400 }
-      );
-    }
-  }
-
-  if (body.tag !== undefined) {
-    if (body.tag === null || body.tag === "") {
-      update.tag = null;
-    } else if ((WIN_TAGS as readonly string[]).includes(body.tag as string)) {
-      update.tag = body.tag as WinTag;
-    } else {
-      return NextResponse.json({ error: "Invalid tag" }, { status: 400 });
-    }
-  }
-
-  // A PATCH with no editable field would still bump edited_at, recording an edit
-  // that never happened. Reject it.
-  if (
-    update.text === undefined &&
-    update.impact_number === undefined &&
-    update.tag === undefined
-  ) {
-    return NextResponse.json(
-      { error: "No editable fields provided" },
-      { status: 400 }
-    );
-  }
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("wins")
-    .update(update)
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("id, text, impact_number, tag, source, created_at, edited_at")
-    .single();
-
-  // Handle real DB errors before the not-found branch, so a genuine failure
-  // isn't masked as 404 (errors generally arrive with data: null).
-  if (error) {
-    if (error.code === "PGRST116") {
-      // No row matched: wrong id or not the caller's win.
-      return NextResponse.json({ error: "Win not found" }, { status: 404 });
-    }
-    loggerService.error("Failed to update win", error, {
-      category: LogCategory.DATABASE,
-      userId: user.id,
-      action: "win_update_failed",
-    });
-    return NextResponse.json({ error: "Failed to update win" }, { status: 500 });
-  }
-  if (!data) {
-    return NextResponse.json({ error: "Win not found" }, { status: 404 });
-  }
-
-  return NextResponse.json({ win: data });
+  return NextResponse.json({ win: result.value });
 }
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+  { params }: RouteContext
+): Promise<NextResponse> {
   const { id } = await params;
   const supabase = await createClient();
   const {
@@ -143,26 +62,8 @@ export async function DELETE(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("wins")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .select("id")
-    .maybeSingle();
-
-  if (error) {
-    loggerService.error("Failed to delete win", error, {
-      category: LogCategory.DATABASE,
-      userId: user.id,
-      action: "win_delete_failed",
-    });
-    return NextResponse.json({ error: "Failed to delete win" }, { status: 500 });
-  }
-  if (!data) {
-    return NextResponse.json({ error: "Win not found" }, { status: 404 });
-  }
+  const result = await deleteWin(createAdminClient(), user.id, id);
+  if (!result.ok) return domainErrorResponse(result);
 
   return NextResponse.json({ success: true });
 }

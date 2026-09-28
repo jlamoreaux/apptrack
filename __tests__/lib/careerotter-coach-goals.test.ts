@@ -133,10 +133,11 @@ describe("grantFractionReceivedInYear", () => {
 
     it("clamps a stored cliff longer than the vest to the vest end", () => {
       // The API rejects this, but a stored bad value must still pay out the
-      // grant at vest end rather than modeling a never-paying schedule.
+      // grant at vest end rather than modeling a never-paying schedule. The
+      // vest ends at midnight on Jan 1 2027, so the payout is 2027's.
       const start = new Date("2026-01-01T00:00:00");
-      expect(grantFractionReceivedInYear(2026, start, 1, 60)).toBeCloseTo(1, 5);
-      expect(grantFractionReceivedInYear(2027, start, 1, 60)).toBe(0);
+      expect(grantFractionReceivedInYear(2026, start, 1, 60)).toBe(0);
+      expect(grantFractionReceivedInYear(2027, start, 1, 60)).toBeCloseTo(1, 5);
     });
   });
 });

@@ -18,6 +18,8 @@ import { useTrialManagement, resolveTrialDays } from "@/hooks/use-trial-manageme
 import { usePromoCodes } from "@/hooks/use-promo-codes";
 import { createCheckoutSession, buildCheckoutFallbackUrl } from "@/lib/checkout/create-checkout";
 import { UI_DELAYS } from "@/lib/constants/timeouts";
+import { APP_ROUTES, ONBOARDING_NEXT_PARAM } from "@/lib/constants/routes";
+import { redirectOrigin, validInternalPath } from "@/lib/utils/auth-redirect";
 
 export default function OnboardingWelcomePage() {
   const { user, loading } = useSupabaseAuth();
@@ -48,6 +50,9 @@ export default function OnboardingWelcomePage() {
   } = usePromoCodes();
 
   const searchParams = useSearchParams();
+  // Where to go after onboarding without a checkout (e.g. back to an app
+  // connection's consent page). Paid checkout returns via Stripe instead.
+  const next = validInternalPath(searchParams.get(ONBOARDING_NEXT_PARAM), redirectOrigin());
 
   // Auto-apply promo code from URL param or localStorage (layoff-offer flow)
   const autoPromoAppliedRef = useRef(false);
@@ -103,9 +108,9 @@ export default function OnboardingWelcomePage() {
         action: 'onboarding_redirect_paid_user',
         planName: currentPlanName
       });
-      router.push("/dashboard");
+      router.push(next ?? APP_ROUTES.DASHBOARD.ROOT);
     }
-  }, [user, loading, plansLoading, subscription, router]);
+  }, [user, loading, plansLoading, subscription, router, next]);
 
   useEffect(() => {
     // Welcome offer is now a hardcoded 7-day trial (resolveTrialDays default).
@@ -234,7 +239,9 @@ export default function OnboardingWelcomePage() {
         }
       });
       
-      if (checkoutUrl) {
+      if (checkoutUrl && planName === PLAN_NAMES.FREE && next !== null) {
+        router.push(next);
+      } else if (checkoutUrl) {
         if (checkoutUrl.startsWith("http")) {
           // External URL (Stripe checkout)
           window.location.href = checkoutUrl;

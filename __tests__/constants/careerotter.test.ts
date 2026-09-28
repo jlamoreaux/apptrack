@@ -2,6 +2,8 @@
  * Guards lib/constants/careerotter.ts against drift from the SQL CHECK lists in
  * schemas/migrations/032_careerotter_evidence.sql. If someone changes a CHECK in
  * the migration without updating the constant (or vice versa), this fails.
+ * wins.source is guarded in agent-access.test.ts (its current CHECK is in
+ * drizzle/0003_mcp_agent_access.sql).
  */
 
 import { readFileSync } from "fs";
@@ -9,7 +11,6 @@ import { join } from "path";
 import {
   CAREER_MODES,
   WIN_TAGS,
-  WIN_SOURCES,
   CAREER_MODE_OPTIONS,
   CAREER_MODE_GOAL_LABEL,
   WIN_TAG_OPTIONS,
@@ -35,10 +36,6 @@ describe("careerotter constants mirror the SQL CHECK lists", () => {
 
   it("WIN_TAGS matches wins.tag", () => {
     expect([...WIN_TAGS].sort()).toEqual(checkValues("tag").sort());
-  });
-
-  it("WIN_SOURCES matches wins.source", () => {
-    expect([...WIN_SOURCES].sort()).toEqual(checkValues("source").sort());
   });
 });
 
