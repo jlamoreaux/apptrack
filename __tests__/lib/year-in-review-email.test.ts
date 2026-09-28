@@ -180,6 +180,20 @@ describe("runYearInReviewCampaign", () => {
     expect(mockBatchSend).not.toHaveBeenCalled();
   });
 
+  it("stops on a whole-batch error without moving past the failed batch", async () => {
+    const saved = setupSupabase(null);
+    const list = recipients(CAMPAIGN_BATCH_SIZE + 5);
+    mockBatchSend
+      .mockResolvedValueOnce({ data: { data: list.slice(0, 100).map((_, i) => ({ id: String(i) })) }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { name: "rate_limit_exceeded", message: "Too many requests" } });
+
+    await expect(
+      runYearInReviewCampaign({ ...options, recipients: list, deadline: Date.now() + 60_000 })
+    ).rejects.toThrow("batch send failed");
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({ cursor: list[99].userId, sent: 100, failed: 0, done: false });
+  });
+
   it("skips opted-out users and counts per-email rejections", async () => {
     setupSupabase(null);
     const list = recipients(4);

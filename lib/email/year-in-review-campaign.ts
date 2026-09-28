@@ -163,17 +163,19 @@ export async function runYearInReviewCampaign(options: RunCampaignOptions): Prom
         }
       );
       if (error || !data) {
-        progress.failed += eligible.length;
         loggerService.error('Year in review batch send failed', error, {
           category: LogCategory.EMAIL,
           action: 'year_in_review_email_batch_failed',
           metadata: { campaign, batchSize: eligible.length },
         });
-      } else {
-        const rejected = data.errors?.length ?? 0;
-        progress.sent += eligible.length - rejected;
-        progress.failed += rejected;
+        // A whole-batch error is Resend-side (rate limit, outage), not bad
+        // addresses. Stop before the cursor moves so a resume retries this
+        // batch under the same idempotency key.
+        throw new Error('Year in review batch send failed');
       }
+      const rejected = data.errors?.length ?? 0;
+      progress.sent += eligible.length - rejected;
+      progress.failed += rejected;
     }
 
     progress.cursor = batch[batch.length - 1].userId;
