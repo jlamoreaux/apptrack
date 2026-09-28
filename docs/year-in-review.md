@@ -15,10 +15,11 @@ illustrated by the otter in `public/images/year-in-review/`.
 | Page | `/dashboard/year-in-review`: full-screen cards, tap/swipe/arrow navigation, reduced-motion aware. |
 | Sharing | `POST /api/year-in-review/share` mints a signed link to `/year-in-review/[token]`, a public page with an Open Graph card, plus a 1080x1920 story image (`/story`), a 1080x1080 feed image (`/square`) and a suggested caption. The panel offers the phone's share sheet (where it can take an image file), copy link, LinkedIn and X posts with the caption filled in, the two downloads, and copy caption. Share-page signups carry `?ref=yir-<year>`. |
 | Launch gate | `YEAR_IN_REVIEW_ENABLED=1`. Unset, every surface 404s (same pattern as `CAREEROTTER_ENABLED`). |
+| Announcement email | `POST /api/admin/year-in-review-email`, two waves (December launch, January last call). See "Announcement email" below. |
 
-Deferred on purpose: the AI-written summary (AI Coach tier), the December
-announcement email, and career-mode (wins/comp) recaps beyond a wins count. Each
-is additive and none blocks launch; see "Deferred" below.
+Deferred on purpose: the AI-written summary (AI Coach tier) and career-mode
+(wins/comp) recaps beyond a wins count. Each is additive and none blocks launch;
+see "Deferred" below.
 
 ## Critical review of the original plan
 
@@ -109,13 +110,57 @@ Checked in order; first match wins. Fewer than 5 applications gets no label.
 2. Set `YEAR_IN_REVIEW_ENABLED=1` when the recap should go live (early December).
 3. Check label distribution on real accounts; tune `LABEL_THRESHOLDS` if one
    label dominates.
+4. Set `COMPANY_POSTAL_ADDRESS` and, optionally, `YEAR_IN_REVIEW_FROM` /
+   `YEAR_IN_REVIEW_REPLY_TO`. Dry-run and test-send each wave before its date.
+
+## Announcement email
+
+`POST /api/admin/year-in-review-email` (Bearer `CRON_SECRET`), one call per wave:
+
+| Wave | When | Labeled users (5+ applications) | Light users (1-4) |
+|---|---|---|---|
+| `launch` | Dec 1 | "Which otter were you in 2026?" with all seven otters | "Your 2026 job search, in review" with the walking otter |
+| `last-call` | Jan 5 | "Still wondering which otter you were in 2026?" | "Your 2026 recap is still here" |
+
+- **The email withholds the reveal.** The label is what the recap pays off, so
+  the email shows every otter and asks which one is theirs. The only number is
+  the application count, which the user already knows. Hired users get one
+  extra line ("And it ends with the job you landed.").
+- **Recipients:** everyone with an application dated in the year, minus anyone
+  who turned off the `digest` category or unsubscribed from everything.
+- **Safety:** dry run by default (counts per version). Live sends need
+  production, `ALLOW_REAL_SEND=1`, not CI, and `YEAR_IN_REVIEW_ENABLED=1`, so
+  the email can never link to a 404. `testEmail` sends both versions of a wave
+  to one address.
+- **Resumable:** each wave has a `campaign_sends` row (`year_in_review_2026_launch`)
+  whose metadata holds a userId cursor and counts, saved after every batch of
+  100. A run stops starting batches after 4 minutes and reports `remaining`;
+  calling again resumes. A finished wave returns 409 unless `force: true`.
+  Runs must not overlap; the per-batch idempotency key covers a retry of the
+  same batch, not two runs racing.
+- **Resend:** batch API with permissive validation (one bad address fails one
+  email, not the batch), a per-batch idempotency key, `campaign` and `audience`
+  tags for filtering in Resend, and a `List-Unsubscribe` header.
+- **Sender:** `YEAR_IN_REVIEW_FROM`, else `FROM_EMAIL`. Resend's test address is
+  refused.
+
+Per wave:
+
+```bash
+curl -X POST "$APP/api/admin/year-in-review-email" -H "Authorization: Bearer $CRON_SECRET" \
+  -d '{"wave":"launch"}'                                        # dry run: counts
+# same, with -d '{"wave":"launch","testEmail":"you@example.com"}'  both versions to you
+# same, with -d '{"wave":"launch","confirm":true}'                 send; repeat while remaining > 0
+```
+
+Not done: one-click unsubscribe (`List-Unsubscribe-Post`). The unsubscribe route
+takes JSON on POST and RFC 8058 one-click posts a form, so the header would
+advertise something the route cannot handle yet.
 
 ## Deferred
 
 - **AI summary.** A paragraph generated from `YearInReviewStats`, gated by
   `checkAICoachAccess`, cached per user and year. Needs a place to cache, which
   is the one reason a table might be justified later.
-- **Announcement email.** One send through `runLifecycleSend`, filtered by the
-  `digest` preference. The careerotter.io sending domain is still warming.
 - **Career-mode recap.** Wins by tag and comp change, for `career_mode =
   employed` users.
