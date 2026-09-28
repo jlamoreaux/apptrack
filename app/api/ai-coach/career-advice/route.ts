@@ -250,13 +250,7 @@ function createCareerAdvisorTools(userId: string) {
             return { error: "Failed to update application" };
           }
 
-          // Add to history
-          await applicationDAL.addHistory({
-            application_id: applicationId,
-            user_id: userId,
-            status: newStatus,
-            notes: notes,
-          });
+          // update() records the status transition in application_history.
 
           return {
             success: true,
