@@ -1,10 +1,10 @@
 import { supabase } from "./supabase"
 
 /**
- * NOTE: status transitions are recorded server-side by
- * PUT /api/applications/[id], which is the single funnel every status change
- * goes through. `trackStatusChange` below is kept for direct/legacy callers
- * only — do not call it from the update path or rows will be written twice.
+ * NOTE: status transitions are recorded server-side by ApplicationDAL.update(),
+ * the single funnel every status change goes through (the PUT route and the AI
+ * coach both call it). `trackStatusChange` below is kept for direct/legacy
+ * callers only; do not call it from the update path or rows will be written twice.
  */
 
 export async function trackStatusChange(

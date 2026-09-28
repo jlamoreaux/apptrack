@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server"
 import { resolveLegacyRedirect } from "@/lib/rebrand-redirect"
 import { APP_ROUTES, AUTH_REDIRECT_TO_PARAM } from "@/lib/constants/routes"
 import { resolveInternalUrl } from "@/lib/utils/internal-path"
+import { isYearInReviewEnabled, isYearInReviewSurface } from "@/lib/year-in-review/gate"
 import {
   MARKDOWN_PATH_PARAM,
   MARKDOWN_REWRITE_PATH,
@@ -96,6 +97,11 @@ export async function proxy(request: NextRequest) {
   // they skip the Supabase session refresh and legacy-host redirects below.
   if (isMcpPath(pathname) || isOAuthMachinePath(pathname)) {
     return NextResponse.next()
+  }
+
+  // Seasonal launch gate for the year-in-review recap and its share pages.
+  if (!isYearInReviewEnabled() && isYearInReviewSurface(request.nextUrl.pathname)) {
+    return new NextResponse("Not Found", { status: 404 })
   }
 
   const hostname = request.headers.get("host") || ""
@@ -209,5 +215,6 @@ export const config = {
     // /oauth/* pages and /.well-known/oauth-* are covered by the first pattern.
     "/api/oauth/:path*",
     "/api/cron/agent-oauth-cleanup",
+    "/api/year-in-review/:path*",
   ],
 }
