@@ -1,7 +1,7 @@
 import { relations } from "drizzle-orm/relations";
 // auth.users - drizzle-kit pull referenced this as `usersInAuth` without defining it.
 import { users as usersInAuth } from "./auth";
-import { profiles, applications, linkedinProfiles, coverLetters, userResumes, jobFitAnalysis, applicationLinkedinContacts, linkedinProfilesNew, promoCodeUsage, resumeAnalysis, aiGuestSessions, aiTrialResults, interviewPrep, aiPreviewSessions, conversations, careerAdvice, subscriptionPlans, userSubscriptions, usageTracking, adminUsers, trialHistory, scheduledNotifications, aiUsageTracking, aiFeatureUsage, emailPreferences, audienceMembers, roasts, aiUserLimitOverrides, applicationHistory, userAnnouncements, userOnboardingPreferences, userOnboarding, dripEmails, aiGuestConversions, wins, careerGoals, compEntries, careerWaitlist, careerProfiles, weeklyRecaps, coachMemory, tailoredResumes } from "./schema";
+import { profiles, applications, linkedinProfiles, coverLetters, userResumes, jobFitAnalysis, applicationLinkedinContacts, linkedinProfilesNew, promoCodeUsage, resumeAnalysis, aiGuestSessions, aiTrialResults, interviewPrep, aiPreviewSessions, conversations, careerAdvice, subscriptionPlans, userSubscriptions, usageTracking, adminUsers, trialHistory, scheduledNotifications, aiUsageTracking, aiFeatureUsage, emailPreferences, audienceMembers, roasts, aiUserLimitOverrides, applicationHistory, userAnnouncements, userOnboardingPreferences, userOnboarding, dripEmails, aiGuestConversions, wins, careerGoals, compEntries, careerWaitlist, careerProfiles, weeklyRecaps, coachMemory, tailoredResumes, agentTokens, agentOauthClients, agentOauthGrants, agentOauthTokens, agentOauthCodes } from "./schema";
 
 export const applicationsRelations = relations(applications, ({one, many}) => ({
 	profile: one(profiles, {
@@ -37,6 +37,9 @@ export const profilesRelations = relations(profiles, ({one, many}) => ({
 	careerProfiles: many(careerProfiles),
 	weeklyRecaps: many(weeklyRecaps),
 	tailoredResumes: many(tailoredResumes),
+	agentTokens: many(agentTokens),
+	agentOauthGrants: many(agentOauthGrants),
+	agentOauthCodes: many(agentOauthCodes),
 }));
 
 export const linkedinProfilesRelations = relations(linkedinProfiles, ({one}) => ({
@@ -415,5 +418,52 @@ export const tailoredResumesRelations = relations(tailoredResumes, ({one}) => ({
 	profile: one(profiles, {
 		fields: [tailoredResumes.userId],
 		references: [profiles.id]
+	}),
+}));
+
+export const agentTokensRelations = relations(agentTokens, ({one}) => ({
+	profile: one(profiles, {
+		fields: [agentTokens.userId],
+		references: [profiles.id]
+	}),
+}));
+
+export const agentOauthClientsRelations = relations(agentOauthClients, ({many}) => ({
+	agentOauthGrants: many(agentOauthGrants),
+	agentOauthCodes: many(agentOauthCodes),
+}));
+
+export const agentOauthGrantsRelations = relations(agentOauthGrants, ({one, many}) => ({
+	profile: one(profiles, {
+		fields: [agentOauthGrants.userId],
+		references: [profiles.id]
+	}),
+	agentOauthClient: one(agentOauthClients, {
+		fields: [agentOauthGrants.clientId],
+		references: [agentOauthClients.clientId]
+	}),
+	agentOauthTokens: many(agentOauthTokens),
+	agentOauthCodes: many(agentOauthCodes),
+}));
+
+export const agentOauthTokensRelations = relations(agentOauthTokens, ({one}) => ({
+	agentOauthGrant: one(agentOauthGrants, {
+		fields: [agentOauthTokens.grantId],
+		references: [agentOauthGrants.id]
+	}),
+}));
+
+export const agentOauthCodesRelations = relations(agentOauthCodes, ({one}) => ({
+	agentOauthClient: one(agentOauthClients, {
+		fields: [agentOauthCodes.clientId],
+		references: [agentOauthClients.clientId]
+	}),
+	profile: one(profiles, {
+		fields: [agentOauthCodes.userId],
+		references: [profiles.id]
+	}),
+	agentOauthGrant: one(agentOauthGrants, {
+		fields: [agentOauthCodes.grantId],
+		references: [agentOauthGrants.id]
 	}),
 }));

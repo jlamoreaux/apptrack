@@ -1,10 +1,10 @@
 /**
- * An in-memory stand-in for migration 045's tables and the functions the
+ * An in-memory stand-in for migration 0004_mcp_oauth's tables and the functions the
  * token and revocation endpoints call, for route tests. It follows the SQL's
  * rules (code reuse revokes, the grace window supersedes earlier successors,
  * rotation deletes the grant's expired access tokens, expiries capped by the
  * grant) closely enough to exercise the endpoints end to end; the SQL itself
- * is verified by schemas/tests/045_mcp_oauth_verify.sql.
+ * is verified by db/tests/mcp_oauth_verify.sql.
  *
  * Supports exactly the queries the endpoints make:
  * from(table).select(columns).eq(...).abortSignal(signal).maybeSingle() on

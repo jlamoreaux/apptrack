@@ -1,12 +1,16 @@
--- 045_mcp_oauth.sql
+-- 0004_mcp_oauth.sql
 --
 -- CareerOtter MCP server: a self-hosted OAuth 2.1 authorization server for
--- /api/mcp, alongside the personal access tokens from 044.
+-- /api/mcp, alongside the personal access tokens from
+-- 0003_mcp_agent_access.
 --
 -- - agent_oauth_clients: dynamically registered clients (RFC 7591).
 -- - agent_oauth_grants: one row per approved connection (user + client).
 -- - agent_oauth_tokens: opaque access and refresh tokens, stored as SHA-256.
 -- - agent_oauth_codes: single-use authorization codes, stored as SHA-256.
+--
+-- APPLY BEFORE enabling CAREEROTTER_MCP_OAUTH_ENABLED (after 0003). See
+-- drizzle/README.md for how a migration after the baseline reaches production.
 --
 -- Every table is service-role only (RLS enabled, no policies), like
 -- agent_tokens. Every function the API calls is security definer and
@@ -29,9 +33,12 @@
 -- Constants that mirror these CHECK lists, lifetimes, outcomes and the grant
 -- cap live in lib/constants/agent-oauth.ts (guarded by
 -- __tests__/constants/agent-oauth.test.ts).
-
--- One transaction: scripts/run-schema.sh does not stop on error.
-begin;
+--
+-- Layout: agent_oauth_max_char_length() comes first because the
+-- agent_oauth_clients CHECK calls it. Then the `drizzle-kit generate` output for
+-- lib/db/schema/ (tables, constraints, indexes, RLS). Then the hand-written
+-- functions and grants drizzle-kit cannot express. Must run in one
+-- transaction: drizzle-kit migrate does that; for psql use --single-transaction.
 
 -- ── helpers used by CHECK constraints ──────────────────────────────────────
 -- CHECK constraints can't use subqueries, so the per-element length limit on
@@ -45,192 +52,113 @@ set search_path = public
 as $$
   select coalesce(max(char_length(v)), 0) from unnest(p_values) as v;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.agent_oauth_max_char_length (text[])
   from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.agent_oauth_max_char_length (text[])
   to service_role;
-
--- ── agent_oauth_clients ────────────────────────────────────────────────────
-create table if not exists public.agent_oauth_clients (
-  client_id text primary key
-    check (client_id ~ '^co_client_[A-Za-z0-9_-]{22}$'),
-  client_secret_hash text
-    check (client_secret_hash ~ '^[0-9a-f]{64}$'),
-  token_endpoint_auth_method text not null
-    check (token_endpoint_auth_method in ('none', 'client_secret_basic', 'client_secret_post')),
-  grant_types text[] not null
-    check (
-      cardinality(grant_types) > 0
-      and grant_types <@ array['authorization_code', 'refresh_token']::text[]
-      and 'authorization_code' = any (grant_types)
-    ),
-  client_name text not null check (char_length(client_name) between 1 and 100),
-  client_uri text
-    check (char_length(client_uri) <= 512 and client_uri ~ '^https://'),
-  redirect_uris text[] not null
-    check (
-      cardinality(redirect_uris) between 1 and 5
-      and array_position(redirect_uris, null) is null
-      and '' <> all (redirect_uris)
-      and agent_oauth_max_char_length(redirect_uris) <= 512
-    ),
-  created_at timestamptz not null default now(),
-  first_authorized_at timestamptz,
-  -- A secret exists exactly when the client authenticates with one.
-  constraint agent_oauth_clients_secret_matches_method check (
-    (token_endpoint_auth_method = 'none') = (client_secret_hash is null)
-  )
+--> statement-breakpoint
+CREATE TABLE "agent_oauth_clients" (
+	"client_id" text PRIMARY KEY NOT NULL,
+	"client_secret_hash" text,
+	"token_endpoint_auth_method" text NOT NULL,
+	"grant_types" text[] NOT NULL,
+	"client_name" text NOT NULL,
+	"client_uri" text,
+	"redirect_uris" text[] NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"first_authorized_at" timestamp with time zone,
+	CONSTRAINT "agent_oauth_clients_client_id_check" CHECK (client_id ~ '^co_client_[A-Za-z0-9_-]{22}$'),
+	CONSTRAINT "agent_oauth_clients_client_secret_hash_check" CHECK (client_secret_hash ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "agent_oauth_clients_token_endpoint_auth_method_check" CHECK (token_endpoint_auth_method in ('none', 'client_secret_basic', 'client_secret_post')),
+	CONSTRAINT "agent_oauth_clients_grant_types_check" CHECK (cardinality(grant_types) > 0 and grant_types <@ array['authorization_code', 'refresh_token']::text[] and 'authorization_code' = any (grant_types)),
+	CONSTRAINT "agent_oauth_clients_client_name_check" CHECK (char_length(client_name) between 1 and 100),
+	CONSTRAINT "agent_oauth_clients_client_uri_check" CHECK (char_length(client_uri) <= 512 and client_uri ~ '^https://'),
+	CONSTRAINT "agent_oauth_clients_redirect_uris_check" CHECK (cardinality(redirect_uris) between 1 and 5 and array_position(redirect_uris, null) is null and '' <> all (redirect_uris) and agent_oauth_max_char_length(redirect_uris) <= 512),
+	CONSTRAINT "agent_oauth_clients_secret_matches_method" CHECK ((token_endpoint_auth_method = 'none') = (client_secret_hash is null))
 );
-
-create index if not exists agent_oauth_clients_created_idx
-  on public.agent_oauth_clients (created_at);
-
-alter table public.agent_oauth_clients enable row level security;
-
--- ── agent_oauth_grants ─────────────────────────────────────────────────────
-create table if not exists public.agent_oauth_grants (
-  id uuid primary key default gen_random_uuid (),
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  -- Restrict, so cleanup never deletes a client that a grant still names.
-  client_id text not null
-    references public.agent_oauth_clients (client_id) on delete restrict,
-  -- Snapshot for the connected-apps list.
-  client_name text not null check (char_length(client_name) between 1 and 100),
-  resource text not null check (char_length(resource) between 1 and 512),
-  scopes text[] not null
-    check (
-      cardinality(scopes) > 0
-      and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[]
-      and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[])
-      and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])
-    ),
-  expires_at timestamptz,
-  created_at timestamptz not null default now(),
-  last_used_at timestamptz not null default now(),
-  revoked_at timestamptz,
-  revoke_reason text
-    check (revoke_reason in ('user', 'user_all', 'client', 'replaced', 'refresh_reuse', 'code_reuse', 'idle')),
-  -- Comp data is the most sensitive the agent API exposes, so a grant that
-  -- carries a comp scope must expire, as for PATs.
-  constraint agent_oauth_grants_comp_requires_expiry check (
-    expires_at is not null
-    or not (scopes && array['comp:read', 'comp:write']::text[])
-  ),
-  constraint agent_oauth_grants_revoke_reason_matches check (
-    (revoked_at is null) = (revoke_reason is null)
-  )
+--> statement-breakpoint
+ALTER TABLE "agent_oauth_clients" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "agent_oauth_codes" (
+	"code_hash" text PRIMARY KEY NOT NULL,
+	"client_id" text NOT NULL,
+	"user_id" uuid NOT NULL,
+	"redirect_uri" text NOT NULL,
+	"code_challenge" text NOT NULL,
+	"scopes" text[] NOT NULL,
+	"grant_expires_in" interval,
+	"resource" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
+	"used_at" timestamp with time zone,
+	"grant_id" uuid,
+	CONSTRAINT "agent_oauth_codes_code_hash_check" CHECK (code_hash ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "agent_oauth_codes_redirect_uri_check" CHECK (char_length(redirect_uri) between 1 and 512),
+	CONSTRAINT "agent_oauth_codes_code_challenge_check" CHECK (code_challenge ~ '^[A-Za-z0-9_-]{43}$'),
+	CONSTRAINT "agent_oauth_codes_scopes_check" CHECK (cardinality(scopes) > 0 and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[] and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[]) and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])),
+	CONSTRAINT "agent_oauth_codes_grant_expires_in_check" CHECK (grant_expires_in > interval '0' and grant_expires_in <= interval '365 days'),
+	CONSTRAINT "agent_oauth_codes_resource_check" CHECK (char_length(resource) between 1 and 512),
+	CONSTRAINT "agent_oauth_codes_comp_requires_expiry" CHECK (grant_expires_in is not null or not (scopes && array['comp:read', 'comp:write']::text[]))
 );
-
-create unique index if not exists agent_oauth_grants_user_client_active_key
-  on public.agent_oauth_grants (user_id, client_id)
-  where revoked_at is null;
-
-create index if not exists agent_oauth_grants_user_created_idx
-  on public.agent_oauth_grants (user_id, created_at desc);
-
--- Backs the on delete restrict check when cleanup deletes clients.
-create index if not exists agent_oauth_grants_client_idx
-  on public.agent_oauth_grants (client_id);
-
-alter table public.agent_oauth_grants enable row level security;
-
--- ── agent_oauth_tokens ─────────────────────────────────────────────────────
-create table if not exists public.agent_oauth_tokens (
-  token_hash text primary key check (token_hash ~ '^[0-9a-f]{64}$'),
-  grant_id uuid not null references public.agent_oauth_grants (id) on delete cascade,
-  kind text not null check (kind in ('access', 'refresh')),
-  -- Shared by the access and refresh tokens issued together, so superseding a
-  -- refresh token can delete the access token that came with it.
-  pair_id uuid not null,
-  -- On refresh tokens issued by rotation: the hash of the refresh token that
-  -- was presented. Null for tokens issued at code exchange. Not a foreign key:
-  -- cleanup may delete the parent first.
-  rotated_from_hash text check (rotated_from_hash ~ '^[0-9a-f]{64}$'),
-  expires_at timestamptz not null,
-  created_at timestamptz not null default now(),
-  -- Set on refresh tokens once rotated. Kept until the token's own expiry, so
-  -- reuse is detected for as long as the token could have been used.
-  consumed_at timestamptz,
-  -- Set on an unconsumed refresh token when a grace reissue for its parent
-  -- replaces it. Presenting it afterwards is reuse. Kept until its own expiry,
-  -- like a consumed token.
-  superseded_at timestamptz,
-  -- Extra pairs issued for this consumed token inside the grace window.
-  grace_reissues int not null default 0 check (grace_reissues between 0 and 5),
-  constraint agent_oauth_tokens_rotation_is_refresh check (
-    kind = 'refresh'
-    or (
-      consumed_at is null
-      and superseded_at is null
-      and grace_reissues = 0
-      and rotated_from_hash is null
-    )
-  ),
-  -- Only an unconsumed token is superseded, and a superseded one is never
-  -- consumed.
-  constraint agent_oauth_tokens_consumed_or_superseded check (
-    consumed_at is null or superseded_at is null
-  )
+--> statement-breakpoint
+ALTER TABLE "agent_oauth_codes" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "agent_oauth_grants" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"user_id" uuid NOT NULL,
+	"client_id" text NOT NULL,
+	"client_name" text NOT NULL,
+	"resource" text NOT NULL,
+	"scopes" text[] NOT NULL,
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"last_used_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"revoked_at" timestamp with time zone,
+	"revoke_reason" text,
+	CONSTRAINT "agent_oauth_grants_client_name_check" CHECK (char_length(client_name) between 1 and 100),
+	CONSTRAINT "agent_oauth_grants_resource_check" CHECK (char_length(resource) between 1 and 512),
+	CONSTRAINT "agent_oauth_grants_scopes_check" CHECK (cardinality(scopes) > 0 and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[] and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[]) and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])),
+	CONSTRAINT "agent_oauth_grants_revoke_reason_check" CHECK (revoke_reason in ('user', 'user_all', 'client', 'replaced', 'refresh_reuse', 'code_reuse', 'idle')),
+	CONSTRAINT "agent_oauth_grants_comp_requires_expiry" CHECK (expires_at is not null or not (scopes && array['comp:read', 'comp:write']::text[])),
+	CONSTRAINT "agent_oauth_grants_revoke_reason_matches" CHECK ((revoked_at is null) = (revoke_reason is null))
 );
-
-create index if not exists agent_oauth_tokens_grant_idx
-  on public.agent_oauth_tokens (grant_id);
-
--- Finds the successors of a presented refresh token.
-create index if not exists agent_oauth_tokens_rotated_from_idx
-  on public.agent_oauth_tokens (rotated_from_hash)
-  where rotated_from_hash is not null;
-
-create index if not exists agent_oauth_tokens_expires_idx
-  on public.agent_oauth_tokens (expires_at);
-
-alter table public.agent_oauth_tokens enable row level security;
-
--- ── agent_oauth_codes ──────────────────────────────────────────────────────
-create table if not exists public.agent_oauth_codes (
-  code_hash text primary key check (code_hash ~ '^[0-9a-f]{64}$'),
-  client_id text not null
-    references public.agent_oauth_clients (client_id) on delete cascade,
-  user_id uuid not null references public.profiles (id) on delete cascade,
-  -- The registered URI that matched, exactly as registered.
-  redirect_uri text not null check (char_length(redirect_uri) between 1 and 512),
-  code_challenge text not null check (code_challenge ~ '^[A-Za-z0-9_-]{43}$'),
-  scopes text[] not null
-    check (
-      cardinality(scopes) > 0
-      and scopes <@ array['wins:read', 'wins:write', 'career:read', 'comp:read', 'comp:write']::text[]
-      and (not (scopes @> array['wins:write']::text[]) or scopes @> array['wins:read']::text[])
-      and (not (scopes @> array['comp:write']::text[]) or scopes @> array['comp:read']::text[])
-    ),
-  -- The chosen grant lifetime; null means the grant never expires. The upper
-  -- bound is the longest PAT expiry option, and also rejects infinity.
-  grant_expires_in interval
-    check (grant_expires_in > interval '0' and grant_expires_in <= interval '365 days'),
-  resource text not null check (char_length(resource) between 1 and 512),
-  created_at timestamptz not null default now(),
-  expires_at timestamptz not null,
-  used_at timestamptz,
-  -- Set by the exchange, so reusing the code can revoke the grant it produced.
-  grant_id uuid references public.agent_oauth_grants (id) on delete set null,
-  constraint agent_oauth_codes_comp_requires_expiry check (
-    grant_expires_in is not null
-    or not (scopes && array['comp:read', 'comp:write']::text[])
-  )
+--> statement-breakpoint
+ALTER TABLE "agent_oauth_grants" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+CREATE TABLE "agent_oauth_tokens" (
+	"token_hash" text PRIMARY KEY NOT NULL,
+	"grant_id" uuid NOT NULL,
+	"kind" text NOT NULL,
+	"pair_id" uuid NOT NULL,
+	"rotated_from_hash" text,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"consumed_at" timestamp with time zone,
+	"superseded_at" timestamp with time zone,
+	"grace_reissues" integer DEFAULT 0 NOT NULL,
+	CONSTRAINT "agent_oauth_tokens_token_hash_check" CHECK (token_hash ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "agent_oauth_tokens_kind_check" CHECK (kind in ('access', 'refresh')),
+	CONSTRAINT "agent_oauth_tokens_rotated_from_hash_check" CHECK (rotated_from_hash ~ '^[0-9a-f]{64}$'),
+	CONSTRAINT "agent_oauth_tokens_grace_reissues_check" CHECK (grace_reissues between 0 and 5),
+	CONSTRAINT "agent_oauth_tokens_rotation_is_refresh" CHECK (kind = 'refresh' or (consumed_at is null and superseded_at is null and grace_reissues = 0 and rotated_from_hash is null)),
+	CONSTRAINT "agent_oauth_tokens_consumed_or_superseded" CHECK (consumed_at is null or superseded_at is null)
 );
-
-create index if not exists agent_oauth_codes_expires_idx
-  on public.agent_oauth_codes (expires_at);
-
--- Backs the cascade when cleanup deletes clients.
-create index if not exists agent_oauth_codes_client_idx
-  on public.agent_oauth_codes (client_id);
-
-alter table public.agent_oauth_codes enable row level security;
--- Intentionally no policies on any of the four tables: only the service-role
--- key (used by API routes) bypasses RLS. Client access is denied by default.
-
+--> statement-breakpoint
+ALTER TABLE "agent_oauth_tokens" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
+ALTER TABLE "agent_oauth_codes" ADD CONSTRAINT "agent_oauth_codes_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "public"."agent_oauth_clients"("client_id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "agent_oauth_codes" ADD CONSTRAINT "agent_oauth_codes_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "agent_oauth_codes" ADD CONSTRAINT "agent_oauth_codes_grant_id_fkey" FOREIGN KEY ("grant_id") REFERENCES "public"."agent_oauth_grants"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "agent_oauth_grants" ADD CONSTRAINT "agent_oauth_grants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "agent_oauth_grants" ADD CONSTRAINT "agent_oauth_grants_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "public"."agent_oauth_clients"("client_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "agent_oauth_tokens" ADD CONSTRAINT "agent_oauth_tokens_grant_id_fkey" FOREIGN KEY ("grant_id") REFERENCES "public"."agent_oauth_grants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "agent_oauth_clients_created_idx" ON "agent_oauth_clients" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "agent_oauth_codes_expires_idx" ON "agent_oauth_codes" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "agent_oauth_codes_client_idx" ON "agent_oauth_codes" USING btree ("client_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "agent_oauth_grants_user_client_active_key" ON "agent_oauth_grants" USING btree ("user_id","client_id") WHERE (revoked_at is null);--> statement-breakpoint
+CREATE INDEX "agent_oauth_grants_user_created_idx" ON "agent_oauth_grants" USING btree ("user_id","created_at" DESC NULLS FIRST);--> statement-breakpoint
+CREATE INDEX "agent_oauth_grants_client_idx" ON "agent_oauth_grants" USING btree ("client_id");--> statement-breakpoint
+CREATE INDEX "agent_oauth_tokens_grant_idx" ON "agent_oauth_tokens" USING btree ("grant_id");--> statement-breakpoint
+CREATE INDEX "agent_oauth_tokens_rotated_from_idx" ON "agent_oauth_tokens" USING btree ("rotated_from_hash") WHERE (rotated_from_hash is not null);--> statement-breakpoint
+CREATE INDEX "agent_oauth_tokens_expires_idx" ON "agent_oauth_tokens" USING btree ("expires_at");--> statement-breakpoint
 -- ── internal: grant cap ────────────────────────────────────────────────────
 -- True when the user already has the maximum number of active grants, not
 -- counting one for p_client_id (approving that client replaces it). Callers
@@ -259,10 +187,10 @@ begin
   return other_active_count >= c_max_active_grants;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.agent_oauth_grant_cap_reached (uuid, text)
   from public, anon, authenticated, service_role;
-
+--> statement-breakpoint
 -- ── internal: issue a token pair ───────────────────────────────────────────
 -- Inserts an access token and, when p_refresh_hash is given, a refresh token
 -- for the grant, each capped at the grant's expiry and sharing one pair_id.
@@ -309,11 +237,11 @@ begin
   end if;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.agent_oauth_issue_tokens (
   uuid, timestamptz, text, text, text
 ) from public, anon, authenticated, service_role;
-
+--> statement-breakpoint
 -- ── internal: revoke a grant ───────────────────────────────────────────────
 -- Revokes the grant if it is active and deletes its tokens either way, so a
 -- revoked grant never holds tokens. Returns true when this call revoked it.
@@ -341,10 +269,10 @@ begin
   return newly_revoked;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.agent_oauth_revoke_grant_row (uuid, text)
   from public, anon, authenticated, service_role;
-
+--> statement-breakpoint
 -- ── create_agent_oauth_code ────────────────────────────────────────────────
 -- Stores a single-use authorization code after the user approves. Takes the
 -- same per-user advisory lock as create_agent_token, so the cap check can't
@@ -402,15 +330,15 @@ begin
   outcome := 'ok';
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.create_agent_oauth_code (
   uuid, text, text, text, text, text[], interval, text
 ) from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.create_agent_oauth_code (
   uuid, text, text, text, text, text[], interval, text
 ) to service_role;
-
+--> statement-breakpoint
 -- ── exchange_agent_oauth_code ──────────────────────────────────────────────
 -- Exchanges a code for a new grant and its tokens. The caller has already
 -- authenticated the client and verified PKCE and the redirect URI, so a reused
@@ -558,15 +486,15 @@ begin
   refresh_expires_at := issued.refresh_expires_at;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.exchange_agent_oauth_code (
   text, text, text, text, boolean
 ) from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.exchange_agent_oauth_code (
   text, text, text, text, boolean
 ) to service_role;
-
+--> statement-breakpoint
 -- ── rotate_agent_oauth_refresh ─────────────────────────────────────────────
 -- Rotates a refresh token: consumes it and issues a new access and refresh
 -- pair, whose refresh token records the presented one in rotated_from_hash.
@@ -738,15 +666,15 @@ begin
   refresh_expires_at := issued.refresh_expires_at;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.rotate_agent_oauth_refresh (
   text, text, text, text
 ) from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.rotate_agent_oauth_refresh (
   text, text, text, text
 ) to service_role;
-
+--> statement-breakpoint
 -- ── revoke_agent_oauth_grant ───────────────────────────────────────────────
 -- Revokes one of the user's grants. Idempotent.
 -- outcome: 'revoked' | 'already_revoked' | 'not_found' (missing or another
@@ -781,17 +709,18 @@ begin
   end if;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.revoke_agent_oauth_grant (uuid, uuid, text)
   from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.revoke_agent_oauth_grant (uuid, uuid, text)
   to service_role;
-
+--> statement-breakpoint
 -- ── revoke_all_agent_oauth_grants ──────────────────────────────────────────
--- Revokes every active grant the user has and deletes their tokens. Takes the
--- per-user lock so an exchange in flight can't add a grant after it. Idempotent.
--- Returns the number of grants this call revoked.
+-- Revokes every unrevoked grant the user has (expired ones too) and deletes
+-- their tokens. Takes the per-user lock so an exchange in flight can't add a
+-- grant after it. Idempotent. Returns how many of the grants this call revoked
+-- were still unexpired, i.e. how much live access it cut off.
 create or replace function public.revoke_all_agent_oauth_grants (
   p_user_id uuid
 )
@@ -806,11 +735,16 @@ declare
 begin
   perform pg_advisory_xact_lock(hashtext('agent_tokens:' || p_user_id::text));
 
-  update agent_oauth_grants g
-    set revoked_at = now(), revoke_reason = 'user_all'
-    where g.user_id = p_user_id
-      and g.revoked_at is null;
-  get diagnostics revoked_count = row_count;
+  with revoked as (
+    update agent_oauth_grants g
+      set revoked_at = now(), revoke_reason = 'user_all'
+      where g.user_id = p_user_id
+        and g.revoked_at is null
+      returning g.expires_at
+  )
+  select count(*) filter (where r.expires_at is null or r.expires_at > now())
+    into revoked_count
+    from revoked r;
 
   delete from agent_oauth_tokens t
     using agent_oauth_grants g
@@ -820,13 +754,13 @@ begin
   return revoked_count;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.revoke_all_agent_oauth_grants (uuid)
   from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.revoke_all_agent_oauth_grants (uuid)
   to service_role;
-
+--> statement-breakpoint
 -- ── revoke_agent_oauth_token ───────────────────────────────────────────────
 -- RFC 7009: revokes the whole grant when the token (access or refresh) belongs
 -- to p_client_id, and otherwise does nothing.
@@ -866,13 +800,13 @@ begin
   end if;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.revoke_agent_oauth_token (text, text)
   from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.revoke_agent_oauth_token (text, text)
   to service_role;
-
+--> statement-breakpoint
 -- ── delete_expired_agent_oauth_rows ────────────────────────────────────────
 -- Daily cleanup (app/api/cron/agent-oauth-cleanup). Each rule handles at most
 -- c_batch_size rows per call (AGENT_OAUTH_CLEANUP.batchSize), so a large
@@ -999,11 +933,9 @@ begin
   get diagnostics refresh_tokens_deleted = row_count;
 end;
 $$;
-
+--> statement-breakpoint
 revoke execute on function public.delete_expired_agent_oauth_rows ()
   from public, anon, authenticated;
-
+--> statement-breakpoint
 grant execute on function public.delete_expired_agent_oauth_rows ()
   to service_role;
-
-commit;

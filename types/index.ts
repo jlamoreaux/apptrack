@@ -7,12 +7,12 @@ export type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 import type { SubscriptionStatus } from "@/lib/constants/subscription-status";
 
 // The scope union is derived from AGENT_TOKEN_SCOPES, which the SQL CHECK in
-// migration 044 mirrors. Type-only, like SubscriptionStatus above.
+// migration 0003_mcp_agent_access mirrors. Type-only, like SubscriptionStatus above.
 export type { AgentTokenScope } from "@/lib/constants/agent-access";
 import type { AgentTokenScope } from "@/lib/constants/agent-access";
 
 // The OAuth unions are derived from the lists in agent-oauth.ts, which mirror
-// the CHECKs and function outcomes in migration 045.
+// the CHECKs and function outcomes in migration 0004_mcp_oauth.
 export type {
   AgentOAuthAuthorizeErrorCode,
   AgentOAuthConsentDecision,
@@ -25,6 +25,7 @@ export type {
   AgentOAuthTokenEndpointAuthMethod,
   AgentOAuthTokenErrorCode,
   AgentOAuthTokenKind,
+  McpBearerTokenFailure,
 } from "@/lib/constants/agent-oauth";
 import type {
   AgentOAuthAuthorizeErrorCode,
@@ -457,7 +458,7 @@ export interface CreatedAgentToken {
 /** How an MCP request authenticated: a personal access token or an OAuth grant. */
 export type AgentCredentialKind = "pat" | "oauth";
 
-// ─── CareerOtter MCP OAuth (migration 045) ───
+// ─── CareerOtter MCP OAuth (migration 0004_mcp_oauth) ───
 
 /** An agent_oauth_clients row. Never carries client_secret_hash. */
 export interface AgentOAuthClientRecord {
@@ -766,7 +767,7 @@ export type AgentOAuthTokenRevocation =
  * Outcome of the cleanup cron's run: the counts summed over every call of
  * delete_expired_agent_oauth_rows. `complete` is false when the run stopped at
  * the round limit with rows left for the next run. `missing_function` means
- * migration 045 hasn't run yet. `failed` carries what earlier rounds did.
+ * migration 0004_mcp_oauth hasn't run yet. `failed` carries what earlier rounds did.
  */
 export type AgentOAuthCleanupRun =
   | { kind: "ok"; counts: AgentOAuthCleanupResult; rounds: number; complete: boolean }

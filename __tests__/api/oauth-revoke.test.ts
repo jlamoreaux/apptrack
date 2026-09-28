@@ -3,7 +3,7 @@
  */
 /**
  * Tests for POST/OPTIONS /api/oauth/revoke (RFC 7009), against an in-memory
- * stand-in for migration 045:
+ * stand-in for migration 0004_mcp_oauth:
  * - an access or refresh token revokes its whole grant (reason `client`):
  *   200 with an empty body, no-store and CORS; token_type_hint is ignored;
  *   mcp_oauth_revoked is sent with the reason

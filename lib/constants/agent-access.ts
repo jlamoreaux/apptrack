@@ -1,7 +1,7 @@
 /**
  * CareerOtter agent access (MCP server + personal access tokens) constants.
  * The scope list is mirrored by the agent_tokens.scopes CHECK in
- * schemas/migrations/044_mcp_agent_access.sql; __tests__/constants/agent-access.test.ts
+ * drizzle/0003_mcp_agent_access.sql; __tests__/constants/agent-access.test.ts
  * guards against drift.
  */
 
@@ -74,7 +74,7 @@ export const MCP_LIST_WINS = {
   maxLimit: 200,
 } as const;
 
-export const MCP_INSTRUCTIONS_VERSION = "1.1.0";
+export const MCP_INSTRUCTIONS_VERSION = "1.2.0";
 
 // Random bytes behind each token; 256 bits makes guessing infeasible.
 export const AGENT_TOKEN_SECRET_BYTES = 32;
@@ -91,11 +91,13 @@ export const AGENT_COMP_SCOPES: readonly AgentTokenScope[] = [
 ];
 
 // Unique index on (user_id, name) where revoked_at is null. Token creation
-// maps its violation to a 409, so the name is load-bearing (migration 044).
+// maps its violation to a 409, so the name is load-bearing (migration
+// 0003_mcp_agent_access).
 export const AGENT_TOKEN_ACTIVE_NAME_CONSTRAINT = "agent_tokens_user_active_name_key";
 
-// Name of the SQL function in migration 044 that creates a token under the
-// active-token limit, and the message it raises when the limit is reached.
+// Name of the SQL function in migration 0003_mcp_agent_access that creates a
+// token under the active-token limit, and the message it raises when the limit
+// is reached.
 export const CREATE_AGENT_TOKEN_RPC = "create_agent_token";
 export const AGENT_TOKEN_LIMIT_ERROR = "agent_token_limit";
 

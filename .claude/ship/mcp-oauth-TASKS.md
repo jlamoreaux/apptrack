@@ -13,8 +13,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
 - SQL: exercise migrations on a local Postgres 16, never against the Supabase
   project.
 
-## Task 1: Migration 045, constants and types
-- [x] 1.1: Write `schemas/migrations/045_mcp_oauth.sql` (begin/commit):
+## Task 1: Migration 0004_mcp_oauth, constants and types
+- [x] 1.1: Write migration `drizzle/0004_mcp_oauth.sql` (first written as
+  `schemas/migrations/045_mcp_oauth.sql` with begin/commit, then converted to
+  drizzle, which runs it in one transaction):
   - the `agent_oauth_clients` table, including `grant_types` and
     `first_authorized_at`
   - the `agent_oauth_grants` table, including `client_name`, `resource` and
@@ -65,9 +67,9 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the token-endpoint error type
 - [x] 1.4: Write tests for Task 1:
   - the constants mirror the migration's CHECK lists, bounds and the cap
-  - on local Postgres, with stubs for `auth.users`, `profiles` and
-    `service_role` (committed as `schemas/tests/045_mcp_oauth_verify.sql`
-    and `.sh`, run by hand):
+  - on local Postgres, on a production-like base built from `db/prod-truth/`
+    with Supabase stubs (committed as `db/tests/mcp_oauth_verify.sql` and
+    `.sh`, run by hand):
     - code creation respects the cap, and allows replacing an app at the cap
     - the cap is re-checked at exchange: two codes created at 9 grants → the
       second exchange returns `grant_cap`
@@ -288,7 +290,7 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - cron: requires auth, calls the function, `42883` is a no-op
 
 ## Task 5: OAuth tokens at the MCP route
-- [ ] 5.1: `app/api/mcp/route.ts`:
+- [x] 5.1: `app/api/mcp/route.ts`:
   - `co_oat_` dispatch, the lookup under the abortable deadline, and the
     per-grant rate limit
   - failure accounting: with OAuth on, a missing header isn't counted and
@@ -297,16 +299,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - `WWW-Authenticate` with `resource_metadata` and the `scope` hint, plus
     `error="invalid_token"` when a token was presented
   - touch and rate-limit calls branch on `credentialKind`
-- [ ] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
+- [x] 5.2: `lib/mcp/context.ts`: add `credentialKind` and document `tokenId`.
   `lib/mcp/define-tool.ts`: add `credentialKind` to analytics. Server
   instructions: tell the agent to have the user reconnect when it needs more
   scopes.
-- [ ] 5.3: `middleware.ts`:
+- [x] 5.3: `middleware.ts`:
   - `isCareerotterSurface` gains the new paths
   - the OAuth-enabled gate
   - matcher entries for `/api/oauth/:path*` and the cleanup cron
   - the early return extended to `/.well-known/oauth-*` and `/api/oauth/*`
-- [ ] 5.4: Write tests for Task 5:
+- [x] 5.4: Write tests for Task 5:
   - an active `co_oat_` token gets exactly its grant's tools
   - expired, revoked, not-found and bad-checksum tokens get 401 with the right
     `WWW-Authenticate`
@@ -325,16 +327,16 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the middleware gate matrix for both flags and preview
 
 ## Task 6: Connected apps UI and API
-- [ ] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
+- [x] 6.1: `app/api/careerotter/agent-grants/route.ts` (GET, OAuth-gated) and
   `[id]/route.ts` (DELETE). Both accept a session cookie only.
-- [ ] 6.2: The existing revoke-all route:
+- [x] 6.2: The existing revoke-all route:
   - also revokes grants, regardless of the flag
   - treats `42883` as zero grants revoked
   - on a partial failure, returns 500 with the counts
-- [ ] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
+- [x] 6.3: The `lib/client/agent-grants.client.ts` wrapper, the "Connected apps"
   list, and the "Sign in with your browser" setup option. The flag reaches them
   as a prop from `app/(app)/dashboard/data/page.tsx`.
-- [ ] 6.4: Write tests for Task 6:
+- [x] 6.4: Write tests for Task 6:
   - the list shape and its 30-day window
   - OAuth disabled hides the list and the option
   - revoke: success; a foreign or missing id → 404
@@ -344,13 +346,13 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - the snippets contain the MCP URL and no token
 
 ## Task 7: Docs made inaccurate
-- [ ] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
+- [x] 7.1: `docs/agent-discovery.md`: rewrite "Not published: OAuth, auth.md, and
   MCP". With OAuth enabled, CareerOtter is the OAuth authorization server for
   `/api/mcp` and serves the three `.well-known` documents. It still has no
   `openid-configuration`, and `co_pat_` tokens remain.
-- [ ] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
+- [x] 7.2: `.claude/ship/phase2-LAUNCH-CHECKLIST.md`, in order:
   - step 0: turn off the Supabase OAuth server and dynamic registration
-  - run migration 045
+  - apply drizzle migration 0004_mcp_oauth (`drizzle/README.md`)
   - confirm Supabase's redirect allow-list accepts `/auth/callback?next=…`
   - set the flag in production
   - real-client tests, confirming each registers via DCR: Claude.ai connector,
@@ -358,7 +360,10 @@ Stack: TypeScript / Next.js 15.2 App Router, Supabase, pnpm.
   - register `co_oat_`, `co_ort_` and `co_cs_` with GitHub secret scanning,
     alongside `co_pat_`
   - confirm the cleanup cron runs
-- [ ] 7.3: Write tests for Task 7: none for prose. Confirm every path, flag and
+- [x] 7.3: Setup docs: the MCP URL must be the canonical SITE_URL host; legacy
+  host and Vercel aliases can't complete OAuth (resource mismatch), PATs
+  still work there.
+- [x] 7.4: Write tests for Task 7: none for prose. Confirm every path, flag and
   prefix the docs name exists in code.
 
 ## Known trade-offs

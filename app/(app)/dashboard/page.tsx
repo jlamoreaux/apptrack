@@ -8,6 +8,7 @@ import { DashboardSuccessToast } from "@/components/dashboard-success-toast";
 import { Toaster } from "@/components/ui/toaster";
 import { DashboardWithOnboarding } from "@/components/dashboard-with-onboarding";
 import { TodayOverview } from "@/components/careerotter/today-overview";
+import { YearInReviewEntry } from "@/components/year-in-review/year-in-review-entry";
 import type { LoggedWin } from "@/components/careerotter/win-capture-bar";
 import type { WinSummary } from "@/lib/careerotter/next-move";
 import { RECENT_WINS_SHOWN } from "@/lib/constants/careerotter";
@@ -141,6 +142,8 @@ export default async function DashboardPage() {
             className="container mx-auto max-w-3xl px-4 py-6 sm:py-8 space-y-6 sm:space-y-8"
           >
             <SubscriptionUsageBannerServer userId={user.id} />
+
+            <YearInReviewEntry />
 
             <TodayOverview
               goal={{

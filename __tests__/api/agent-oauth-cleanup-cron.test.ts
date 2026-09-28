@@ -163,7 +163,7 @@ it.each(["42883", "PGRST202"])("treats a missing function (%s) as a no-op", asyn
   rpcResolving({ data: null, error: { code, message: "function does not exist" } });
   const response = await GET(request());
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ skipped: expect.stringContaining("045") });
+  expect(await response.json()).toEqual({ skipped: expect.stringContaining("0004_mcp_oauth") });
   expect(loggerService.error).not.toHaveBeenCalled();
 });
 

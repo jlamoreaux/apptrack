@@ -211,7 +211,10 @@ must have left, retention, idle) are
 a test. Every timestamp is computed in the database with `now()`, so one clock
 decides all expiries.
 
-### Data model: `schemas/migrations/045_mcp_oauth.sql` (one transaction)
+### Data model: `drizzle/0004_mcp_oauth.sql` (one transaction)
+
+Tables are modeled in `lib/db/schema/`; the functions and grants are
+hand-written SQL in the same drizzle migration.
 
 All tables have RLS enabled with no policies, so only the service role can use
 them, as with `agent_tokens`. All functions are `security definer`, set
@@ -477,9 +480,10 @@ or two live tokens. Concurrent refreshes add at most 5 superseded rows per
 consumed token, and are rare. That's roughly 5 KB per grant. The daily cleanup removes
 rows once they expire.
 
-045 has to run before the OAuth flag is turned on, but not before PR #226
-deploys. With the flag off, no code reads these tables except revoke-all and
-the cleanup cron, and both tolerate a missing function (see below).
+Migration 0004_mcp_oauth has to be applied before the OAuth flag is turned on,
+but not before PR #226 deploys. With the flag off, no code reads these tables
+except revoke-all and the cleanup cron, and both tolerate a missing function
+(see below).
 
 ### Registration: `POST /api/oauth/register`
 
@@ -912,7 +916,7 @@ It renders:
   - anything else → today's format failure
 - **OAuth path:** checksum pre-check, then hash lookup (under the existing
   abortable deadline), then the per-grant rate limit
-  (`agentRate:oauth:<grantId>`, the same numbers as per-token).
+  (`mcp-oauth-grant:<grantId>`, the same numbers as per-token).
   - The context gets `credentialKind: "oauth"`.
   - `touchGrantLastUsed` updates `agent_oauth_grants`, throttled to once every
     5 minutes.
@@ -926,7 +930,7 @@ It renders:
   - Instead, they count toward a separate `oauthFailPerIp` limiter set at
     600/min. It exists to bound database lookups, not to stop guessing: a
     token has 256 bits of entropy.
-  - Malformed bearers and `co_pat_` failures behave exactly as today.
+  - Malformed bearers and `co_pat_` failures are counted exactly as today.
   - With OAuth disabled, everything behaves exactly as today, including
     counting a missing header.
 - **401s with OAuth enabled** carry
@@ -941,8 +945,8 @@ It renders:
   - Analytics metadata gains `credentialKind`.
 - **No step-up.** Tools are registered per scope, so an out-of-scope tool
   doesn't exist for the client, and there's no 403 `insufficient_scope` path.
-  The server instructions tell the agent to have the user reconnect with more
-  scopes when it needs them. Step-up is a follow-up.
+  The server instructions tell the agent to have the user reconnect, or create
+  a new access token, with more scopes when it needs them. Step-up is a follow-up.
 
 ### Connected apps UI and API
 
@@ -955,8 +959,8 @@ It renders:
   `revoke_agent_oauth_grant`. A missing or foreign id → 404.
 - **Revoke-all** (the existing route) also calls
   `revoke_all_agent_oauth_grants`, whether or not OAuth is enabled. If the
-  function doesn't exist yet (045 hasn't run; Postgres `42883`), it counts as
-  zero grants.
+  function doesn't exist yet (0004_mcp_oauth hasn't been applied; Postgres
+  `42883`), it counts as zero grants.
   - The two calls aren't atomic. If the grants call fails after the tokens
     were revoked, the route returns 500 `{ tokensRevoked, grantsRevoked: null }`.
     Both calls are idempotent, so retrying is safe.
@@ -985,7 +989,11 @@ page, and also in middleware where the matcher reaches:
 - the three `.well-known` documents
 - `/oauth/authorize`, `/oauth/consent`, `/oauth/error`
 - `/api/oauth/*`
-- the `co_oat_` branch of `/api/mcp`
+
+These are checked in their handlers only, not in middleware (middleware
+applies only the `CAREEROTTER_ENABLED` gate to them):
+- the `co_oat_` branch of `/api/mcp`, which the route handler gates; with the
+  flag off a `co_oat_` token takes the PAT path and gets the plain 401
 - `/api/careerotter/agent-grants*` (GET is flag-gated; revoke-all isn't)
 
 The cleanup cron (`/api/cron/agent-oauth-cleanup`) is gated on
@@ -1332,7 +1340,7 @@ Critic review of this design, and how each point was resolved:
   replaces the Task 4 note above.
 - Unbounded waits → the lookups are aborted after 5 s
   (`AGENT_OAUTH_DEADLINES_MS.dbRead`); the lock-taking functions set
-  `lock_timeout = '3s'` in 045 instead of being aborted by the caller; either
+  `lock_timeout = '3s'` in 0004_mcp_oauth instead of being aborted by the caller; either
   failure is 503.
 - Cleanup could delete a client whose user had just approved it (cascading
   to the code) → a client with an unexpired code is kept. The deletes are
@@ -1355,6 +1363,105 @@ Critic review of this design, and how each point was resolved:
   `lib/auth/prefixed-secret.ts` for PKCE and client secrets; `HTTP_STATUS`
   everywhere in the OAuth code; the cross-module types in `types/index.ts`;
   shared test fixtures in `__tests__/utils/test-helpers/oauth-fake-db.ts`.
+
+**Task 5 implementation notes**
+- The per-grant limiter key is `mcp-oauth-grant:<grantId>`
+  (`AGENT_OAUTH_RATE_LIMITS.perGrant`, set in Task 1), not
+  `agentRate:oauth:<grantId>`.
+- Like the PAT lockout, `oauthFailPerIp` is read (without charging) before
+  the lookup, so an IP that has spent it gets 429 without a database query,
+  even for a valid `co_oat_` token, until the window moves on. It's charged
+  for every `co_oat_` failure, including a bad checksum; at 600/min that
+  only bites a very noisy shared IP. The PAT lockout isn't consulted on the
+  OAuth path, so an IP locked out by PAT failures can still use OAuth tokens.
+- With OAuth enabled, `error="invalid_token"` and `error_description` are
+  added only when a bearer token was presented. A request with another scheme
+  (for example `Basic`) or an empty header is still a malformed bearer, counted
+  toward the PAT lockout as before, but its challenge carries no error code
+  (RFC 6750 §3.1).
+- 401 body rule: only the discovery probe (OAuth enabled and no
+  `Authorization` header at all) gets `{"error":"unauthorized"}`; the route
+  marks it with an explicit probe flag. Every other 401 body is
+  `{"error":"invalid_token"}`, including an empty header, `Bearer ` with no
+  token and another scheme such as `Basic`, even though their challenge
+  carries no error code. With OAuth disabled every 401 is the plain
+  `Bearer error="invalid_token"` one.
+- `error_description` is "The access token is invalid" (bad checksum, not
+  found, a refused PAT, a malformed bearer), "The access token has expired"
+  or "The access token has been revoked"
+  (`MCP_BEARER_FAILURE_DESCRIPTIONS`). Parameter values are sent as
+  quoted-strings with `"` and `\` escaped.
+- The challenge's origin comes from `advertisedMcpOrigin` in
+  `lib/auth/oauth/resource.ts`, which `advertisedMcpResource` now uses too.
+- The server instructions gained an "Access" section (version 1.2.0): the
+  agent has only the tools the connection was granted and, when it needs
+  others, asks the user to reconnect CareerOtter or create a new access token
+  with the access needed (a PAT's scopes can't be changed).
+- `mcp_tool_called` carries `credential_kind`; tool error logs and the
+  request-timeout log carry `credentialKind`.
+- Middleware: the OAuth gate covers `/oauth` and `/oauth/*`,
+  `/api/oauth` and `/api/oauth/*`, and `/.well-known/oauth-*`. The
+  `/api/careerotter/agent-grants*` routes (Task 6) aren't OAuth-gated in
+  middleware: the GET must answer `{ enabled: false, grants: [] }` when OAuth
+  is off, and the `CAREEROTTER_ENABLED` gate already covers
+  `/api/careerotter/*`, so the flag check stays in the handlers.
+- The containment suite loads the real `jose` through Node's own `require`
+  (jose 6 is ESM-only, which Jest's loader can't run), with a signed
+  extension JWT as a positive control.
+
+**Task 6 implementation notes**
+- The list is two reads: active grants (not revoked, no expiry or expiring
+  after now), bounded only by a generous `maxListedActiveGrants` (1000; the
+  per-user cap keeps it at 10), then history. Active grants come first, then
+  history, each newest first, so a pile of revoked rows can't hide an active
+  one. History applies the 30-day window to when a grant ended: it's listed
+  when it isn't revoked or was revoked in the window, and has no expiry or
+  expired in the window (`AGENT_OAUTH_GRANT_HISTORY_DAYS`). A grant that
+  expired before the window and was then revoked by revoke-all (which
+  revokes expired grants too) stays hidden. History is capped at 100 rows
+  (`AGENT_OAUTH_LIMITS.maxListedGrants`), since reconnecting replaces a grant
+  and revoked rows can pile up. A grant returned by both reads (revoked
+  between them) is listed once. Status reuses `agentTokenStatus`, so
+  revocation wins over expiry.
+- Grants don't store a redirect URI, so `redirectDisplay` comes from the
+  client's registered `redirect_uris` (embedded in the select), each passed
+  through `redirectUriDisplay`, deduplicated and joined with ", ".
+- GET checks the session before the flag (401 first); DELETE checks the
+  flag first (404 before touching the session), like the other OAuth
+  surfaces. A non-uuid id is 404 without a call. `mcp_oauth_revoked` is sent
+  with reason `user` only when the outcome is `revoked`, and with reason
+  `user_all` from revoke-all when it revoked at least one grant.
+- Revoke-all calls the grants function even when the tokens update fails,
+  so it cuts off everything it can. Success is
+  `{ revoked, tokensRevoked, grantsRevoked }` (`revoked` is the sum); any
+  failure is 500 `{ error, tokensRevoked, grantsRevoked }` with `null` for
+  the call that failed. A missing function (`42883` or `PGRST202`, via
+  `isMissingFunctionError`) counts as 0; a test checks the RPC argument
+  names against 0004_mcp_oauth's signatures, so a rename can't turn into a silent 0.
+- `revoke_all_agent_oauth_grants` revokes every unrevoked grant, expired ones
+  included, but returns only how many were unexpired, like `tokensRevoked`.
+  So `grantsRevoked` and the `mcp_oauth_revoked` (`user_all`) event reflect
+  live access cut off.
+- "Revoke all agent access" is its own section below the tokens, shown while
+  any token or connected app is active (ConnectedApps reports its active
+  state up). With OAuth on the confirmation says connected apps lose access
+  too; with it off it keeps the token-only copy. After any revoke-all,
+  successful or not, both lists are re-read, since a partial failure may
+  still have revoked some tokens or apps; the error stays shown. A 401 from
+  either list shows one "session expired" alert for the whole section.
+- The "Sign in with your browser" setup is a server component rendered by
+  the data page above `ConnectedAgents`.
+- The browser helpers the token client used, the scope and status guards,
+  and the `ApiFailure`/`ApiResult` types live in
+  `lib/client/agent-api.client.ts`, shared with `agent-grants.client.ts`.
+  `LoadFailure` (error plus Try again) is shared from
+  `agent-access-shared.tsx`.
+  The setup snippet block (`SetupSnippet`) and the list detail helpers
+  (`AgentDetail`, `scopeLabels`, `formatOptionalDate`, `LONG_TEXT_WRAP`) are
+  shared by the token and app UIs.
+- The data page passes `mcpUrl={CANONICAL_MCP_RESOURCE}` to the setup: the
+  sign-in snippets must use the SITE_URL host, while the PAT snippets keep
+  using `getAppUrl()`.
 
 **Not adopted**
 - "Recognized" labels for known clients: a static list would go stale and could

@@ -1,5 +1,5 @@
 /**
- * The daily OAuth cleanup: delete_expired_agent_oauth_rows (migration 045)
+ * The daily OAuth cleanup: delete_expired_agent_oauth_rows (migration 0004_mcp_oauth)
  * revokes idle grants and deletes unused clients and expired codes and tokens,
  * at most AGENT_OAUTH_CLEANUP.batchSize rows per rule per call. A run calls it
  * again while any rule filled its batch (so more may be left), up to
@@ -78,7 +78,7 @@ function mayHaveMore(counts: AgentOAuthCleanupResult): boolean {
 
 /**
  * Run the cleanup until a call leaves nothing behind or the round limit is
- * reached. `missing_function` means migration 045 hasn't run yet, which is
+ * reached. `missing_function` means migration 0004_mcp_oauth hasn't run yet, which is
  * expected before OAuth launches.
  */
 export async function deleteExpiredOAuthRows(admin: SupabaseClient): Promise<AgentOAuthCleanupRun> {
