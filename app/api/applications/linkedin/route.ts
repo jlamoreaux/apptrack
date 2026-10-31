@@ -6,14 +6,14 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 
 const LinkedInProfileSchema = z.object({
-  application_id: z.string().uuid("Must be a valid application ID"),
-  profile_url: z.string().url("Must be a valid LinkedIn URL"),
+  application_id: z.uuid("Must be a valid application ID"),
+  profile_url: z.url("Must be a valid LinkedIn URL"),
   name: z.string().optional(),
   title: z.string().optional(),
   company: z.string().optional(),
   location: z.string().optional(),
   headline: z.string().optional(),
-  profile_photo_url: z.string().url().optional(),
+  profile_photo_url: z.url().optional(),
 });
 
 export async function GET() {
@@ -152,11 +152,11 @@ export async function POST(request: NextRequest) {
         action: 'linkedin_profile_bulk_validation_error',
         duration: Date.now() - startTime,
         metadata: {
-          validationErrors: error.errors
+          validationErrors: error.issues
         }
       });
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }

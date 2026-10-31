@@ -297,12 +297,12 @@ const deleteWinTool = defineTool({
 // ── get_coverage ───────────────────────────────────────────────────────────
 
 const coverageOutput = z.object({
-  overall_pct: z.number().finite(),
+  overall_pct: z.number(),
   areas: z.array(
     z.object({
       tag: z.enum(WIN_TAGS),
       count: z.number().int(),
-      pct: z.number().finite(),
+      pct: z.number(),
     })
   ),
   biggest_gap: z.enum(WIN_TAGS).nullable(),

@@ -78,7 +78,7 @@ const packageFields = z.object({
   ticker: z.string().optional().describe(FIELD.ticker),
   shares: amountInput.optional().describe(FIELD.shares),
   vest_start: z.string().optional().describe(FIELD.offer_vest_start),
-  vest_years: z.number().finite().optional().describe(FIELD.vest_years),
+  vest_years: z.number().optional().describe(FIELD.vest_years),
   vest_cliff_months: z.number().int().optional().describe(FIELD.vest_cliff_months),
   share_prices: jsonEncodedInput(
     z.array(sharePriceInput).max(MCP_EVALUATE_OFFER.maxScenariosPerPackage)

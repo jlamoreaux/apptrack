@@ -10,9 +10,9 @@ import { createSweeper, sweepExpired } from "@/lib/utils/periodic-sweep";
 // Validation schema for log requests
 const logRequestSchema = z.object({
   level: z.enum(['error', 'warn', 'info', 'debug']).optional().default('info'),
-  category: z.nativeEnum(LogCategory).optional().default(LogCategory.CLIENT),
+  category: z.enum(LogCategory).optional().default(LogCategory.CLIENT),
   message: z.string().min(1).max(1000), // Limit message size
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 // In-memory rate limit store for per-user limits
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: validation.error.flatten() },
+        { error: "Invalid request", details: z.flattenError(validation.error) },
         { status: 400 }
       );
     }

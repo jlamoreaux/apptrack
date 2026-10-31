@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import dynamic from "next/dynamic";
+import type { Data } from "plotly.js";
 import type { Application, ApplicationHistory } from "@/types";
 import {
   buildStatusPath,
@@ -202,7 +203,7 @@ export function ApplicationPipelineChart({
   });
 
   // Create the Plotly data for the Sankey diagram
-  const data: Plotly.Data[] = [
+  const data: Data[] = [
     {
       type: "sankey",
       orientation: "h",
@@ -228,7 +229,7 @@ export function ApplicationPipelineChart({
         color: linkColors,
         label: linkLabels,
       },
-    } as Plotly.Data,
+    } as Data,
   ];
 
   // Create the layout for the Sankey diagram

@@ -11,7 +11,7 @@ const ApplicationUpdateSchema = z.object({
   role: z.string().min(1).optional(),
   status: z.enum(['Applied', 'Interview Scheduled', 'Interviewed', 'Offer', 'Hired', 'Rejected']).optional(),
   date_applied: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date_applied must be YYYY-MM-DD").optional(),
-  role_link: z.string().url().optional().nullable(),
+  role_link: z.url().optional().nullable(),
   job_description: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   archived: z.boolean().optional(),
@@ -167,11 +167,11 @@ export async function PUT(
         duration: Date.now() - startTime,
         metadata: {
           applicationId: id,
-          validationErrors: error.errors
+          validationErrors: error.issues
         }
       });
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }

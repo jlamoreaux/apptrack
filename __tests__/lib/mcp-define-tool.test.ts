@@ -215,7 +215,7 @@ describe("tool results", () => {
       scope: "wins:read",
       annotations: READ_ANNOTATIONS,
       inputSchema: {},
-      outputSchema: z.object({ total: z.number().finite() }),
+      outputSchema: z.object({ total: z.number() }),
       run: async () => ({ ok: true, value: { structured: { total: Number.POSITIVE_INFINITY } } }),
     });
     const result = await callOnly(tool, "bad_output");

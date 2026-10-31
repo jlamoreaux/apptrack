@@ -41,7 +41,7 @@ export interface ToolSuccess<O> {
   summary?: string;
 }
 
-export type ToolInput<I extends z.ZodRawShape> = z.objectOutputType<I, z.ZodTypeAny>;
+export type ToolInput<I extends z.ZodRawShape> = z.output<z.ZodObject<I>>;
 export type ToolOutput<O extends z.ZodRawShape> = z.output<z.ZodObject<O>>;
 
 export interface ToolSpec<I extends z.ZodRawShape, O extends z.ZodRawShape> {
@@ -87,7 +87,7 @@ export function defineTool<I extends z.ZodRawShape, O extends z.ZodRawShape>(
   const inputObject = z.object(spec.inputSchema);
   // Widened so the SDK types the callback argument as unknown; the handler
   // re-parses it with the typed schema instead of trusting a cast.
-  const registeredInput: z.ZodTypeAny = inputObject;
+  const registeredInput: z.ZodType = inputObject;
   return {
     name: spec.name,
     scope: spec.scope,

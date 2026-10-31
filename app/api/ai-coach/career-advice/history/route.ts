@@ -140,11 +140,11 @@ export async function POST(request: NextRequest) {
         action: 'career_advice_history_validation_error',
         duration: Date.now() - startTime,
         metadata: {
-          errors: error.errors
+          errors: error.issues
         }
       });
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }

@@ -71,20 +71,18 @@ const WIN_ID = "3f1c2a4e-8b7d-4c6a-9e2f-1a2b3c4d5e6f";
 const NOTHING_TO_DELETE = "Nothing to delete: no agent-created win with that id.";
 
 // Mirrors the tool's output shape independently, so a schema drift fails here.
-const winShape = z
-  .object({
-    id: z.string(),
-    text: z.string(),
-    impact_number: z.string().nullable(),
-    tag: z.enum(WIN_TAGS).nullable(),
-    source: z.enum(WIN_SOURCES),
-    created_at: z.string(),
-    edited_at: z.string().nullable(),
-    occurred_at: z.string(),
-    evidence_url: z.string().nullable(),
-    external_ref: z.string().nullable(),
-  })
-  .strict();
+const winShape = z.strictObject({
+  id: z.string(),
+  text: z.string(),
+  impact_number: z.string().nullable(),
+  tag: z.enum(WIN_TAGS).nullable(),
+  source: z.enum(WIN_SOURCES),
+  created_at: z.string(),
+  edited_at: z.string().nullable(),
+  occurred_at: z.string(),
+  evidence_url: z.string().nullable(),
+  external_ref: z.string().nullable(),
+});
 
 function agentWin(overrides: Partial<WinRow> = {}): WinRow {
   return {
