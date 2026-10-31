@@ -23,6 +23,7 @@ import { z } from "zod";
 jest.mock("@/lib/analytics/posthog-server", () => ({
   captureServerEvent: jest.fn().mockResolvedValue(undefined),
   captureServerEventAfterResponse: jest.fn(),
+  isServerTelemetryEnabled: () => true,
 }));
 
 import { captureServerEventAfterResponse } from "@/lib/analytics/posthog-server";

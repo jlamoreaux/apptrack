@@ -63,14 +63,22 @@ export function SupportErrorFallback({
         boundary: name,
         message: error?.message,
       });
-      if (error) {
-        capturePostHogException(error, {
-          boundary: name,
-          // Production server-component errors reach the client redacted; the digest
-          // matches the server-side report.
-          digest: (error as Error & { digest?: string }).digest,
-        });
-      }
+    } catch {
+      // Intentionally swallowed: a fallback must not throw.
+    }
+  }, [name, error]);
+
+  // Unlike the event above, report every distinct error: the boundary can receive a
+  // new one without remounting.
+  useEffect(() => {
+    if (!error) return;
+    try {
+      capturePostHogException(error, {
+        boundary: name,
+        // Production server-component errors reach the client redacted; the digest
+        // matches the server-side report.
+        digest: (error as Error & { digest?: string }).digest,
+      });
     } catch {
       // Intentionally swallowed: a fallback must not throw.
     }

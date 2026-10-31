@@ -1,5 +1,8 @@
 import { calculateCost, type ModelType } from "@/lib/openai/models";
-import { captureServerEventAfterResponse } from "@/lib/analytics/posthog-server";
+import {
+  captureServerEventAfterResponse,
+  isServerTelemetryEnabled,
+} from "@/lib/analytics/posthog-server";
 
 /**
  * Feature names for `$ai_span_name`, so cost and failures can be broken down by
@@ -66,6 +69,7 @@ function errorStatus(error: unknown): number | undefined {
  */
 export function trackAiGeneration(context: AiTrackingContext, result: AiGenerationResult): void {
   try {
+    if (!isServerTelemetryEnabled()) return;
     captureGeneration(context, result);
   } catch {
     // Analytics must never fail the AI call it describes

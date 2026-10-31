@@ -834,6 +834,10 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Create tools with user context
     const tools = createCareerAdvisorTools(user.id);
 
+    // onFinish can still run after onError; this keeps one failed request from also
+    // being recorded as a success.
+    let streamFailed = false;
+
     // Stream the response with tools enabled
     const result = streamText({
       model,
@@ -858,6 +862,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
         });
       },
       onError({ error }) {
+        streamFailed = true;
         // Without this, a failure mid-stream only reaches the client as a broken stream.
         trackAiGeneration(
           { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
@@ -874,16 +879,18 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
         const aiGenerationDuration = Date.now() - startTime;
 
         // totalUsage spans every tool-calling step; usage is only the last step.
-        trackAiGeneration(
-          { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
-          {
-            model: MODEL_ID,
-            latencyMs: aiGenerationDuration,
-            stream: true,
-            finishReason,
-            ...fromAiSdkUsage(totalUsage),
-          }
-        );
+        if (!streamFailed) {
+          trackAiGeneration(
+            { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
+            {
+              model: MODEL_ID,
+              latencyMs: aiGenerationDuration,
+              stream: true,
+              finishReason,
+              ...fromAiSdkUsage(totalUsage),
+            }
+          );
+        }
 
         // Save the AI response
         const { error: saveAiError } = await supabase.from("career_advice").insert({

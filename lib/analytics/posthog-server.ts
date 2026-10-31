@@ -17,6 +17,16 @@ function getClient(): PostHog | null {
 }
 
 /**
+ * Server-side error and LLM telemetry is production-only, matching the browser
+ * provider, which never initializes on localhost. Without this, local development
+ * with NEXT_PUBLIC_POSTHOG_KEY set would send its exceptions and AI calls to the
+ * production project.
+ */
+export function isServerTelemetryEnabled(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
+
+/**
  * Evaluate a feature flag server-side for a given user.
  * Returns the flag value (boolean or string variant), or the fallback if
  * PostHog is unavailable. This avoids client-side flash of content.
@@ -94,6 +104,7 @@ export async function captureServerException(
   distinctId?: string,
   properties?: Record<string, unknown>
 ): Promise<void> {
+  if (!isServerTelemetryEnabled()) return;
   try {
     const client = getClient();
     if (!client) return;

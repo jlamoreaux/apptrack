@@ -16,6 +16,8 @@ models=("$@")
 status=0
 for model in "${models[@]}"; do
   echo "=== $model"
+  # A skipped run (no key) writes no report; never let the summary show an old one.
+  rm -f "eval-results/$model.json" "eval-results/$model.md"
   OPENAI_DEFAULT_MODEL="$model" RUN_LIVE_AI_EVAL=1 DISABLE_LOGGING=true \
     npx jest __tests__/evals/openai-model-eval.test.ts --runInBand || status=1
 done

@@ -13,6 +13,7 @@ jest.mock("openai", () => {
 });
 jest.mock("@/lib/analytics/posthog-server", () => ({
   captureServerEventAfterResponse: jest.fn(),
+  isServerTelemetryEnabled: jest.fn(() => true),
 }));
 jest.mock("@/lib/services/logger.service", () => ({
   loggerService: { error: jest.fn(), warn: jest.fn(), info: jest.fn(), debug: jest.fn() },
@@ -20,7 +21,10 @@ jest.mock("@/lib/services/logger.service", () => ({
 
 import OpenAI from "openai";
 import { callOpenAI } from "@/lib/openai/client";
-import { captureServerEventAfterResponse } from "@/lib/analytics/posthog-server";
+import {
+  captureServerEventAfterResponse,
+  isServerTelemetryEnabled,
+} from "@/lib/analytics/posthog-server";
 
 const mockCapture = captureServerEventAfterResponse as jest.Mock;
 const { APIError } = jest.requireActual("openai");
@@ -146,6 +150,13 @@ describe("callOpenAI", () => {
       "finish_reason: length"
     );
     expect(trackedProperties().properties.$ai_is_error).toBe(true);
+  });
+
+  it("sends no telemetry outside production", async () => {
+    (isServerTelemetryEnabled as jest.Mock).mockReturnValueOnce(false);
+    mockCreate.mockResolvedValue(completion("ok"));
+    await callOpenAI({ messages: [{ role: "user", content: "x" }] });
+    expect(mockCapture).not.toHaveBeenCalled();
   });
 
   it("uses one client across calls", async () => {
