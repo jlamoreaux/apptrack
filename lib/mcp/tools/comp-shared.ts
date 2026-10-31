@@ -34,11 +34,10 @@ import type { DomainResult } from "@/types";
 
 // Loose type-level bounds only: the comp service owns every business rule, so
 // REST and MCP validate identically.
-export const amountInput = z.number().finite().nonnegative();
+export const amountInput = z.number().nonnegative();
 
 export const sharePriceInput = z
   .number()
-  .finite()
   .positive()
   .max(MCP_SHARE_PRICE_MAX)
   .describe(`Share price in USD, greater than 0 and at most ${MCP_SHARE_PRICE_MAX}.`);
@@ -55,7 +54,8 @@ export const projectionYearsInput = z
 
 // ── output schemas ─────────────────────────────────────────────────────────
 
-export const finiteNumber = z.number().finite();
+// zod 4 numbers reject Infinity and NaN, so a plain number is finite.
+export const finiteNumber = z.number();
 
 export const storedEntryOutput = z.object({
   id: z.string(),
@@ -114,7 +114,7 @@ export const anchorPriceSourceOutput = z.enum(MCP_ANCHOR_PRICE_SOURCES);
 
 /** Spread into any output that reports a price_source. */
 export const priceFreshnessOutput = {
-  price_as_of: z.string().datetime().nullable(),
+  price_as_of: z.iso.datetime().nullable(),
   price_is_stale: z.boolean(),
 };
 export interface PriceFreshnessOutput {

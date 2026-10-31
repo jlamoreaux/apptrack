@@ -73,7 +73,7 @@ const announcementSchema = z.object({
   end_date: z.string().optional(),
   target_audience: z.enum(["all", "new_users", "premium", "free"]),
   cta_text: z.string().max(100).optional(),
-  cta_link: z.string().url().optional().or(z.literal("")),
+  cta_link: z.url().optional().or(z.literal("")),
 });
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>;

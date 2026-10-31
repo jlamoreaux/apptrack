@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
+import type { Data } from "plotly.js";
 
 // Dynamically import Plotly to avoid SSR issues
 const Plot = dynamic(() => import("react-plotly.js"), { ssr: false });
@@ -42,7 +43,7 @@ export function FakeOnboardingPipelineChart() {
   ];
 
   // Create fake data that shows a realistic flow
-  const data: Plotly.Data[] = [
+  const data: Data[] = [
     {
       type: "sankey",
       orientation: "h",

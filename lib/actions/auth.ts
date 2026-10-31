@@ -22,7 +22,7 @@ export async function signUpAction(formData: FormData) {
 
     if (!result.success) {
       return {
-        error: result.error.errors[0].message,
+        error: result.error.issues[0].message,
       };
     }
 
@@ -64,7 +64,7 @@ export async function signInAction(formData: FormData) {
 
     if (!result.success) {
       return {
-        error: result.error.errors[0].message,
+        error: result.error.issues[0].message,
       };
     }
 
@@ -197,7 +197,7 @@ export async function updateProfileAction(data: { full_name: string }) {
 
     if (!result.success) {
       return {
-        error: result.error.errors[0].message,
+        error: result.error.issues[0].message,
       };
     }
 

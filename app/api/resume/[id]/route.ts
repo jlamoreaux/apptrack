@@ -46,13 +46,13 @@ export async function PATCH(
         action: 'resume_update_invalid_input',
         duration: Date.now() - startTime,
         metadata: {
-          errors: validation.error.errors
+          errors: validation.error.issues
         }
       });
       return NextResponse.json(
         {
           error: RESUME_ERROR_MESSAGES.INVALID_INPUT,
-          details: validation.error.errors
+          details: validation.error.issues
         },
         { status: 400 }
       );

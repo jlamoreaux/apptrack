@@ -54,7 +54,7 @@ function createCareerAdvisorTools(userId: string) {
     getResumeContent: tool({
       description: "Get the text content of a specific resume by ID, or the default resume if no ID is provided. Use this to analyze or reference the user's resume.",
       inputSchema: z.object({
-        resumeId: z.string().uuid().optional().describe("The ID of a specific resume. If not provided, returns the default resume."),
+        resumeId: z.uuid().optional().describe("The ID of a specific resume. If not provided, returns the default resume."),
       }),
       execute: async ({ resumeId }) => {
         try {
@@ -220,7 +220,7 @@ function createCareerAdvisorTools(userId: string) {
     updateApplicationStatus: tool({
       description: "Update the status of a job application. Use this when the user mentions they got an interview, offer, rejection, etc.",
       inputSchema: z.object({
-        applicationId: z.string().uuid().describe("The ID of the application to update"),
+        applicationId: z.uuid().describe("The ID of the application to update"),
         newStatus: z.enum(APPLICATION_STATUS_VALUES as [string, ...string[]]).describe("The new status for the application"),
         notes: z.string().optional().describe("Optional notes to add about this status change"),
       }),
