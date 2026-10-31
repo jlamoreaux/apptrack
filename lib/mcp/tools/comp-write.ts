@@ -50,7 +50,7 @@ const UPDATE_TOOL = "update_comp_entry";
 
 // Dates stay plain strings: the comp service validates them, as for REST.
 const dateInput = z.string();
-const vestYearsInput = z.number().finite();
+const vestYearsInput = z.number();
 const cliffMonthsInput = z.number().int();
 
 // ── add_comp_entry ─────────────────────────────────────────────────────────

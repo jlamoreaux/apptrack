@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle2 } from "lucide-react";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.email("Invalid email address"),
 });
 
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;

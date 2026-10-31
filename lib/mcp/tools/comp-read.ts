@@ -178,7 +178,6 @@ const getCompSummaryTool = defineTool({
 
 const projectInput = {
   entry_id: z
-    .string()
     .uuid()
     .optional()
     .describe("The comp entry's id. Defaults to the one in effect on as_of."),
@@ -288,7 +287,7 @@ const projectCompTool = defineTool({
 const quoteOutput = z.object({
   ticker: z.string(),
   price: finiteNumber,
-  as_of: z.string().datetime(),
+  as_of: z.iso.datetime(),
   change: finiteNumber.nullable(),
   change_pct: finiteNumber.nullable(),
   previous_close: finiteNumber.nullable(),

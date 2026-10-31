@@ -7,8 +7,8 @@ import { LogCategory } from "@/lib/services/logger.types";
 
 const ProfileUpdateSchema = z.object({
   full_name: z.string().optional(),
-  avatar_url: z.string().url().optional().nullable(),
-  email: z.string().email().optional(),
+  avatar_url: z.url().optional().nullable(),
+  email: z.email().optional(),
 });
 
 export async function GET() {
@@ -122,11 +122,11 @@ export async function PUT(request: NextRequest) {
         category: LogCategory.AUTH,
         action: 'profile_update_validation_error',
         metadata: {
-          errors: error.errors
+          errors: error.issues
         }
       });
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       );
     }

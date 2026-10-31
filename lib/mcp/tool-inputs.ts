@@ -16,7 +16,8 @@ import {
 } from "@/lib/constants/mcp-tools";
 import type { McpToolContext } from "./context";
 
-type DateInput = z.ZodEffects<z.ZodString, string, string>;
+// zod 4 refinements keep the schema type, so a refined string is still a ZodString.
+type DateInput = z.ZodString;
 
 // YYYY-MM-DD strings sort in date order, so the bound is a string compare.
 const MCP_DATE_MIN = `${MCP_DATE_MIN_YEAR}-01-01`;
@@ -35,14 +36,14 @@ export function isoDateInput(field: string): DateInput {
   return z
     .string()
     .regex(ISO_DATE_PATTERN, message)
-    .refine((value) => !ISO_DATE_PATTERN.test(value) || isMcpDate(value), { message });
+    .refine((value) => !ISO_DATE_PATTERN.test(value) || isMcpDate(value), { error: message });
 }
 
 export const asOfInput = isoDateInput("as_of").optional().describe(MCP_AS_OF_DESCRIPTION);
 
 /** A record's uuid, described by what it names. */
-export function recordIdInput(noun: string): z.ZodString {
-  return z.string().uuid().describe(`The ${noun}'s id.`);
+export function recordIdInput(noun: string): z.ZodUUID {
+  return z.uuid().describe(`The ${noun}'s id.`);
 }
 
 export const externalRefInput = z.string().optional().describe(MCP_EXTERNAL_REF_DESCRIPTION);
@@ -69,12 +70,10 @@ function decodeJsonContainer(value: unknown): unknown {
 /**
  * Accepts an array or object argument either as is or as a JSON string, since
  * some MCP clients send nested arguments stringified. The advertised JSON
- * Schema is the wrapped schema's own (the SDK converts effects by their input
- * schema), so clients are still told to send the structured value.
+ * Schema is the wrapped schema's own (zod 4 renders a preprocess by the schema
+ * it feeds), so clients are still told to send the structured value.
  */
-export function jsonEncodedInput<T extends z.ZodTypeAny>(
-  schema: T
-): z.ZodEffects<T, z.output<T>, unknown> {
+export function jsonEncodedInput<T extends z.ZodType>(schema: T): z.ZodPreprocess<T, unknown> {
   return z.preprocess(decodeJsonContainer, schema);
 }
 
