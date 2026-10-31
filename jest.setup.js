@@ -142,7 +142,9 @@ jest.mock('next/navigation', () => ({
 // readFileSyncs a sample PDF at module load. That is precisely why it could not run on
 // Cloudflare Workers, and it has been replaced by unpdf (lib/utils/document-extraction.ts).
 
-// Mock fetch for tests
+// Mock fetch for tests. The real one (node environment only) stays reachable for the
+// opt-in live suites in __tests__/evals.
+global.__realFetch = global.fetch
 global.fetch = jest.fn()
 
 // Mock next/link

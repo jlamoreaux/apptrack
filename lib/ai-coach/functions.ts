@@ -4,7 +4,8 @@ import { ChatMessage, ModelType } from "../openai/types";
 
 export async function generateResumeAdvice(
   resumeText: string,
-  jobDescription?: string
+  jobDescription?: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.resumeReview(resumeText, jobDescription);
   
@@ -19,13 +20,17 @@ export async function generateResumeAdvice(
     },
   ];
 
-  return callCareerCoach({ messages });
+  return callCareerCoach({
+    messages,
+    tracking: { feature: "resume_advice", distinctId },
+  });
 }
 
 export async function generateInterviewPrep(
   jobDescription: string,
   interviewContext?: string,
-  resumeText?: string
+  resumeText?: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.interviewPrep(jobDescription, resumeText, interviewContext);
   
@@ -40,7 +45,10 @@ export async function generateInterviewPrep(
     },
   ];
 
-  return callCareerCoach({ messages });
+  return callCareerCoach({
+    messages,
+    tracking: { feature: "interview_prep", distinctId },
+  });
 }
 
 export async function generateCoverLetter(
@@ -50,7 +58,8 @@ export async function generateCoverLetter(
   resumeText?: string,
   roleName?: string,
   tone?: string,
-  additionalInfo?: string
+  additionalInfo?: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.coverLetter(
     jobDescription,
@@ -73,12 +82,16 @@ export async function generateCoverLetter(
     },
   ];
 
-  return callCareerCoach({ messages });
+  return callCareerCoach({
+    messages,
+    tracking: { feature: "cover_letter", distinctId },
+  });
 }
 
 export async function analyzeJobDescription(
   jobDescription: string,
-  resumeText?: string
+  resumeText?: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.jobAnalysis(jobDescription, resumeText);
   
@@ -93,13 +106,17 @@ export async function analyzeJobDescription(
     },
   ];
 
-  return callCareerCoach({ messages });
+  return callCareerCoach({
+    messages,
+    tracking: { feature: "job_description_analysis", distinctId },
+  });
 }
 
 export async function generateCareerAdvice(
   userQuery: string,
   userContext?: string,
-  resumeText?: string
+  resumeText?: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.careerAdvice(userQuery, userContext, resumeText);
   
@@ -114,14 +131,18 @@ export async function generateCareerAdvice(
     },
   ];
 
-  return callCareerCoach({ messages });
+  return callCareerCoach({
+    messages,
+    tracking: { feature: "career_coach", distinctId },
+  });
 }
 
 export async function generateJobFitAnalysis(
   jobDescription: string,
   resumeText: string,
   companyName: string,
-  roleName: string
+  roleName: string,
+  distinctId?: string
 ): Promise<string> {
   const { systemPrompt, userPrompt } = PROMPT_BUILDERS.jobFitAnalysis(jobDescription, resumeText, companyName, roleName);
   
@@ -137,7 +158,11 @@ export async function generateJobFitAnalysis(
   ];
 
   // Use higher max tokens for detailed job fit analysis (4x default)
-  return callCareerCoach({ messages, maxTokens: 4096 });
+  return callCareerCoach({
+    messages,
+    maxTokens: 4096,
+    tracking: { feature: "job_fit_analysis", distinctId },
+  });
 }
 
 // Helper functions for easy model swapping

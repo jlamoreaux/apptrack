@@ -112,6 +112,7 @@ async function persistMemory(
         model: Models.fast,
         maxTokens: 120,
         temperature: 0.2,
+        tracking: { feature: "careerotter_coach_summary", distinctId: userId },
       });
     } catch {
       // Keep the prior summary if the summarizer call fails; the transcript
@@ -242,6 +243,7 @@ export async function POST(request: NextRequest) {
       messages,
       maxTokens: 900,
       temperature: 0.5,
+      tracking: { feature: "careerotter_coach", distinctId: user.id },
     });
   } catch (error) {
     loggerService.error("Coach generation failed", error, {

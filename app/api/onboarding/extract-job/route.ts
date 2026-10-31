@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const job = await extractJobFromUrl(url);
+    const job = await extractJobFromUrl(url, user.id);
 
     loggerService.info('Onboarding job extraction succeeded', {
       category: LogCategory.BUSINESS,

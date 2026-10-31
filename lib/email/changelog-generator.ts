@@ -121,6 +121,7 @@ Respond with ONLY valid JSON matching this exact structure:
     model: Models.default,
     maxTokens: 1000,
     temperature: 0.7,
+    tracking: { feature: "changelog" },
   });
 
   // Parse the JSON response, stripping markdown code fences if present

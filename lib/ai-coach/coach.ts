@@ -35,7 +35,7 @@ export class AICareerCoach {
     jobDescription?: string
   ): Promise<string> {
     try {
-      const advice = await generateResumeAdvice(resumeText, jobDescription);
+      const advice = await generateResumeAdvice(resumeText, jobDescription, this.userId);
 
       // TODO: Save coaching session to database
       await this.saveCoachingSession("resume", [
@@ -66,7 +66,8 @@ export class AICareerCoach {
       const prep = await generateInterviewPrep(
         jobDescription,
         interviewContext,
-        resumeText
+        resumeText,
+        this.userId
       );
 
       await this.saveCoachingSession("interview", [
@@ -105,7 +106,8 @@ export class AICareerCoach {
         resumeText,
         roleName,
         tone,
-        additionalInfo
+        additionalInfo,
+        this.userId
       );
 
       await this.saveCoachingSession("cover_letter", [
@@ -148,7 +150,7 @@ export class AICareerCoach {
 
   async askCareerQuestion(question: string, context?: string): Promise<string> {
     try {
-      const advice = await generateCareerAdvice(question, context);
+      const advice = await generateCareerAdvice(question, context, undefined, this.userId);
 
       await this.saveCoachingSession("general", [
         {
@@ -184,7 +186,10 @@ export class AICareerCoach {
         { role: "user" as const, content: newMessage },
       ];
 
-      const response = await callCareerCoach({ messages });
+      const response = await callCareerCoach({
+        messages,
+        tracking: { feature: "career_coach", distinctId: this.userId, sessionId },
+      });
 
       // TODO: Update session in database
       await this.updateCoachingSession(sessionId, [

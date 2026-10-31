@@ -1,24 +1,7 @@
-import OpenAI from "openai";
+import { callOpenAI } from "@/lib/openai/client";
 import { Models } from "@/lib/openai/models";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
-
-// Reuse singleton pattern from lib/openai/client.ts
-let openaiClient: OpenAI | null = null;
-
-export function getOpenAIClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set");
-  }
-
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  }
-
-  return openaiClient;
-}
 
 export interface RoastCategories {
   buzzwordBingo: boolean;
@@ -54,25 +37,17 @@ export async function generateRoastBase(
   config: RoastConfig
 ): Promise<RoastResult> {
   try {
-    const client = getOpenAIClient();
-    const completion = await client.chat.completions.create({
+    const raw = await callOpenAI({
       model: Models.default,
-      messages: [
-        {
-          role: "system",
-          content: config.systemMessage,
-        },
-        {
-          role: "user",
-          content: config.prompt + resumeText,
-        },
-      ],
+      systemPrompt: config.systemMessage,
+      messages: [{ role: "user", content: config.prompt + resumeText }],
       temperature: 0.9,
-      max_tokens: 1000,
-      response_format: { type: "json_object" },
+      maxTokens: 1000,
+      responseFormat: "json_object",
+      tracking: { feature: "resume_roast" },
     });
 
-    const response = JSON.parse(completion.choices[0].message.content || "{}");
+    const response = JSON.parse(raw);
     
     // AI writes its own opening — no hardcoded wrapper
     let roastContent = response.roast ?? config.fallbackContent(firstName);
