@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
       ],
       maxTokens: 2500,
       temperature: 0.3,
+      tracking: { feature: "careerotter_tailored_resume", distinctId: user.id },
     });
   } catch (error) {
     loggerService.error("Tailored resume generation failed", error, {

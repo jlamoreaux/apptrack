@@ -211,6 +211,8 @@ export async function POST(request: NextRequest) {
   try {
     // Every figure in the draft is checked against what the user typed. An
     // invented one gets a rewrite turn; see lib/ai/evidence-grounding.ts.
+    // The draft and any rewrite turn are one user action, so they share a trace.
+    const traceId = crypto.randomUUID();
     const draft = await generateGroundedDraft(
       (rewrite) => {
         const messages: ChatMessage[] = [{ role: "user", content: prompt }];
@@ -225,6 +227,7 @@ export async function POST(request: NextRequest) {
           messages,
           maxTokens: 800,
           temperature: 0.6,
+          tracking: { feature: "careerotter_zero_to_case", distinctId: user.id, traceId },
         });
       },
       [role, level, target, reviewDate, ...winsInput]

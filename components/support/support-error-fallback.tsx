@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { capturePostHogEvent } from "@/lib/analytics/posthog";
+import { capturePostHogEvent, capturePostHogException } from "@/lib/analytics/posthog";
 
 // Cap the safe token we forward to the support page so the URL stays sane.
 const MAX_ERROR_TOKEN_LENGTH = 100;
@@ -63,6 +63,14 @@ export function SupportErrorFallback({
         boundary: name,
         message: error?.message,
       });
+      if (error) {
+        capturePostHogException(error, {
+          boundary: name,
+          // Production server-component errors reach the client redacted; the digest
+          // matches the server-side report.
+          digest: (error as Error & { digest?: string }).digest,
+        });
+      }
     } catch {
       // Intentionally swallowed: a fallback must not throw.
     }

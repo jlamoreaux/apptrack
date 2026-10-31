@@ -71,6 +71,8 @@ export async function POST() {
   try {
     // Every figure in the document is checked against the logged wins and
     // goal. An invented one gets a rewrite turn; see lib/ai/evidence-grounding.ts.
+    // The draft and any rewrite turn are one user action, so they share a trace.
+    const traceId = crypto.randomUUID();
     const draft = await generateGroundedDraft(
       (rewrite) => {
         const messages: ChatMessage[] = [
@@ -87,6 +89,7 @@ export async function POST() {
           messages,
           maxTokens: 1600,
           temperature: 0.5,
+          tracking: { feature: "careerotter_case", distinctId: user.id, traceId },
         });
       },
       [

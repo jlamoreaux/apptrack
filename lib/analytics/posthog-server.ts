@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { PostHog } from 'posthog-node';
 
 let _client: PostHog | null = null;
@@ -15,11 +16,6 @@ function getClient(): PostHog | null {
   return _client;
 }
 
-/**
- * Capture a server-side PostHog event and flush immediately.
- * Returns a Promise — wrap in after() in route handlers so Vercel
- * keeps the lambda alive until the HTTP request to PostHog completes.
- */
 /**
  * Evaluate a feature flag server-side for a given user.
  * Returns the flag value (boolean or string variant), or the fallback if
@@ -47,6 +43,11 @@ export async function getServerFeatureFlag(
   }
 }
 
+/**
+ * Capture a server-side PostHog event and flush immediately.
+ * Returns a Promise — wrap in after() in route handlers so Vercel
+ * keeps the lambda alive until the HTTP request to PostHog completes.
+ */
 export async function captureServerEvent(
   distinctId: string,
   event: string,
@@ -60,4 +61,55 @@ export async function captureServerEvent(
   } catch {
     // never throw
   }
+}
+
+/**
+ * Runs `task` after the response is sent when called inside a request, so the platform
+ * keeps the function alive until it finishes. Outside a request scope (scripts, tests
+ * without the Next runtime) `after` throws, and the task runs immediately instead.
+ */
+function runAfterResponse(task: () => Promise<void>): void {
+  try {
+    after(task);
+  } catch {
+    void task();
+  }
+}
+
+/** Fire-and-forget variant of captureServerEvent for library code with no access to after(). */
+export function captureServerEventAfterResponse(
+  distinctId: string,
+  event: string,
+  properties?: Record<string, unknown>
+): void {
+  runAfterResponse(() => captureServerEvent(distinctId, event, properties));
+}
+
+/**
+ * Send a server-side exception to PostHog Error Tracking (`$exception`, with stack).
+ * Never throws.
+ */
+export async function captureServerException(
+  error: unknown,
+  distinctId?: string,
+  properties?: Record<string, unknown>
+): Promise<void> {
+  try {
+    const client = getClient();
+    if (!client) return;
+    await client.captureExceptionImmediate(error, distinctId, {
+      $process_person_profile: Boolean(distinctId),
+      ...properties,
+    });
+  } catch {
+    // never throw
+  }
+}
+
+export function captureServerExceptionAfterResponse(
+  error: unknown,
+  distinctId?: string,
+  properties?: Record<string, unknown>
+): void {
+  runAfterResponse(() => captureServerException(error, distinctId, properties));
 }

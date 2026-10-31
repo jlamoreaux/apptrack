@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       company,
       role,
       jobDescription: typeof jobDescription === 'string' ? jobDescription : undefined,
+      userId: user.id,
     });
 
     loggerService.info('Onboarding coach insight generated', {

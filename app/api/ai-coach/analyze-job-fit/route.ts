@@ -197,7 +197,8 @@ export async function POST(request: NextRequest) {
       sanitizedDescription,
       resume.extracted_text,
       company,
-      role
+      role,
+      user.id
     );
 
     // Parse AI response as JSON

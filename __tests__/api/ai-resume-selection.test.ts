@@ -191,7 +191,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockDefaultResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
 
@@ -225,7 +226,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockSpecificResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
 
@@ -288,7 +290,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockDefaultResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
   });
@@ -425,7 +428,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockSpecificResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
 
@@ -452,7 +456,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockDefaultResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
 
@@ -482,7 +487,8 @@ describe('AI Feature Resume Selection Logic', () => {
         mockJobDescription,
         mockDefaultResume.text,
         expect.any(String),
-        expect.any(String)
+        expect.any(String),
+        userId
       );
     });
   });

@@ -1,4 +1,4 @@
-import { Models } from "../openai/models";
+import { Models, calculateCost } from "../openai/models";
 
 /**
  * AI feature types for configuration
@@ -13,7 +13,6 @@ export type AIFeatureType =
 
 /**
  * Get cost-optimized model configuration
- * Uses Claude Sonnet 4 as default for balance of performance and cost
  */
 export function getModelConfig(featureType: AIFeatureType) {
   // Optimize token limits based on task complexity
@@ -22,21 +21,15 @@ export function getModelConfig(featureType: AIFeatureType) {
     : 1500; // Standard tokens for generation tasks
   
   return {
-    model: Models.default, // GPT-4o-mini - extremely cost-effective
+    model: Models.default,
     maxTokens,
     temperature: 0.7,
   };
 }
 
 /**
- * Cost estimation per request (in USD) - using GPT-4o-mini pricing
+ * Cost estimation per request (in USD) for the default model
  */
 export function estimateRequestCost(inputTokens: number, outputTokens: number): number {
-  // GPT-4o-mini pricing (most cost-effective)
-  const pricing = { input: 0.60, output: 2.40 }; // GPT-4o-mini per 1M tokens
-  
-  const inputCost = (inputTokens / 1_000_000) * pricing.input;
-  const outputCost = (outputTokens / 1_000_000) * pricing.output;
-  
-  return inputCost + outputCost;
+  return calculateCost(Models.default, { inputTokens, outputTokens }).totalCostUsd;
 }
