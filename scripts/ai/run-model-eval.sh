@@ -5,13 +5,44 @@
 #   ./scripts/ai/run-model-eval.sh                      # gpt-4o-mini vs gpt-6-luna
 #   ./scripts/ai/run-model-eval.sh gpt-6-luna gpt-6.1-terra
 #
-# Needs OPENAI_API_KEY in the environment or .env/.env.local (next/jest loads them).
+# Needs OPENAI_API_KEY in the environment or in a file next/jest loads in test mode:
+# .env.test.local, .env.test, or .env (not .env.local, which Next skips for tests).
 # Costs real money: well under $0.05 per model.
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 models=("$@")
 [ ${#models[@]} -eq 0 ] && models=(gpt-4o-mini gpt-6-luna)
+
+# The suite also fails on a missing key or unknown model, but only after the loop below
+# has deleted that model's previous report. Check first so a bad invocation keeps it.
+node -e '
+const fs = require("fs");
+const nextDir = require.resolve("next");
+const { loadEnvConfig } = require(require.resolve("@next/env", { paths: [nextDir] }));
+process.env.NODE_ENV = "test";
+loadEnvConfig(process.cwd(), false, { info() {}, error: console.error });
+let ok = true;
+if (!process.env.OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is not set in the environment, .env.test.local, .env.test, or .env.");
+  ok = false;
+}
+// The same list isKnownModel() checks: the values of OpenAIModels.
+const registry = fs.readFileSync("lib/openai/models.ts", "utf8");
+const block = registry.match(/export const OpenAIModels = \{([\s\S]*?)\} as const/);
+const known = block ? [...block[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]) : [];
+if (!known.length) {
+  console.error("Could not read OpenAIModels from lib/openai/models.ts.");
+  ok = false;
+}
+for (const model of process.argv.slice(1)) {
+  if (known.length && !known.includes(model)) {
+    console.error(`Unknown model "${model}". Known models: ${known.join(", ")}`);
+    ok = false;
+  }
+}
+process.exit(ok ? 0 : 1);
+' "${models[@]}" || exit 1
 
 status=0
 for model in "${models[@]}"; do
