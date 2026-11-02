@@ -47,6 +47,7 @@ export async function generateInterviewPrep(
 
   return callCareerCoach({
     messages,
+    maxTokens: 4096,
     tracking: { feature: "interview_prep", distinctId },
   });
 }
