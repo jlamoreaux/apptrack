@@ -837,6 +837,9 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // onFinish can still run after onError; this keeps one failed request from also
     // being recorded as a success.
     let streamFailed = false;
+    // Usage of the steps that finished, so a failure in a later tool-calling step still
+    // records what the earlier steps cost.
+    const completedUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningTokens: 0 };
 
     // Stream the response with tools enabled
     const result = streamText({
@@ -846,7 +849,12 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
       messages: aiMessages,
       tools,
       stopWhen: stepCountIs(5), // Allow up to 5 steps for multi-step tool usage
-      onStepFinish({ stepType, toolCalls, toolResults, text: stepText, finishReason }) {
+      onStepFinish({ stepType, toolCalls, toolResults, text: stepText, finishReason, usage: stepUsage }) {
+        const step = fromAiSdkUsage(stepUsage);
+        completedUsage.inputTokens += step.inputTokens ?? 0;
+        completedUsage.outputTokens += step.outputTokens ?? 0;
+        completedUsage.cachedInputTokens += step.cachedInputTokens ?? 0;
+        completedUsage.reasoningTokens += step.reasoningTokens ?? 0;
         loggerService.info("Step finished", {
           category: LogCategory.AI_SERVICE,
           userId: user.id,
@@ -866,7 +874,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
         // Without this, a failure mid-stream only reaches the client as a broken stream.
         trackAiGeneration(
           { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
-          { model: MODEL_ID, latencyMs: Date.now() - startTime, stream: true, error }
+          { model: MODEL_ID, latencyMs: Date.now() - startTime, stream: true, error, ...completedUsage }
         );
         loggerService.error("Career advice stream failed", error, {
           category: LogCategory.AI_SERVICE,

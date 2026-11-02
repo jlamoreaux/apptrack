@@ -41,7 +41,8 @@ import { generateOnboardingInsight } from "@/lib/ai-coach/onboarding-insight";
 import { generateChangelogDraft } from "@/lib/email/changelog-generator";
 import { loggerService } from "@/lib/services/logger.service";
 
-const LIVE = process.env.RUN_LIVE_AI_EVAL === "1" && Boolean(process.env.OPENAI_API_KEY);
+const LIVE_REQUESTED = process.env.RUN_LIVE_AI_EVAL === "1";
+const LIVE = LIVE_REQUESTED && Boolean(process.env.OPENAI_API_KEY);
 const describeLive = LIVE ? describe : describe.skip;
 const CASE_TIMEOUT_MS = 180_000;
 
@@ -176,13 +177,20 @@ function writeReport(): void {
 
 describeLive(`OpenAI live eval (${Models.default})`, () => {
   beforeAll(() => {
+    // An unknown OPENAI_DEFAULT_MODEL silently falls back to the default; a typo must not
+    // run (and bill) the default model under the requested name.
+    const requested = process.env.OPENAI_DEFAULT_MODEL;
+    assert(
+      !requested || requested === Models.default,
+      `unknown model "${requested}"; supported models are the keys of MODEL_SPECS in lib/openai/models.ts`
+    );
     // jest.setup.js mocks fetch for unit tests; this suite needs the network.
     globalThis.fetch = (globalThis as { __realFetch?: typeof fetch }).__realFetch!;
     assert(typeof globalThis.fetch === "function", "real fetch unavailable; run under the node environment");
   });
 
   afterAll(() => {
-    writeReport();
+    if (results.length > 0) writeReport();
   });
 
   it(
@@ -355,6 +363,7 @@ describeLive(`OpenAI live eval (${Models.default})`, () => {
 
 if (!LIVE) {
   it("live OpenAI eval is opt-in (set RUN_LIVE_AI_EVAL=1 and OPENAI_API_KEY)", () => {
-    expect(LIVE).toBe(false);
+    // A requested run with no key fails instead of passing with no report.
+    expect(LIVE_REQUESTED).toBe(false);
   });
 }

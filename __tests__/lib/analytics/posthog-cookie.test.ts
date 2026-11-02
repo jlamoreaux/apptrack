@@ -24,7 +24,7 @@ describe("distinctIdFromCookieHeader", () => {
   it("returns undefined without the cookie or without a configured project", () => {
     expect(distinctIdFromCookieHeader("theme=dark", TOKEN)).toBeUndefined();
     expect(distinctIdFromCookieHeader(undefined, TOKEN)).toBeUndefined();
-    expect(distinctIdFromCookieHeader(phCookie({ distinct_id: "u3" }), undefined)).toBeUndefined();
+    expect(distinctIdFromCookieHeader(phCookie({ distinct_id: "u3" }), "")).toBeUndefined();
   });
 
   it("returns undefined for a malformed cookie", () => {
