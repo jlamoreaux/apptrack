@@ -144,6 +144,12 @@ const CONTEXT_WORDS: ReadonlySet<string> = new Set([
   "review", "reviews", "teams", "three", "first", "their", "weeks", "early",
 ]);
 
+// Tokens mixing letters and digits ("p95", "26h"). Specific enough to count as citing a
+// win despite being short; bare numbers are not, since they can match by coincidence.
+const METRIC_TOKEN = /\b(?=[a-z\d]*\d)(?=[a-z\d]*[a-z])[a-z\d]+\b/g;
+
+const metricTokens = (text: string): string[] => text.toLowerCase().match(METRIC_TOKEN) ?? [];
+
 // Verbs that signal a concrete next step.
 const NEXT_ACTION_HINTS = [
   "log", "add", "ask", "take", "run", "draft", "write", "own", "lead",
@@ -183,11 +189,14 @@ export function evaluateCoachOutput(
     // A loose grounding check: the reply should echo a distinctive word from at
     // least one logged win. Any word counts, not just the first, because wins
     // usually open with a verb ("Reduced infra cost") that a good reply rephrases.
-    const grounded = profileCase.wins.some((w) =>
-      w.text
-        .toLowerCase()
-        .split(/\W+/)
-        .some((word) => word.length >= 5 && !CONTEXT_WORDS.has(word) && lower.includes(word))
+    const replyMetrics = new Set(metricTokens(reply));
+    const grounded = profileCase.wins.some(
+      (w) =>
+        w.text
+          .toLowerCase()
+          .split(/\W+/)
+          .some((word) => word.length >= 5 && !CONTEXT_WORDS.has(word) && lower.includes(word)) ||
+        metricTokens(`${w.text} ${w.impact_number ?? ""}`).some((token) => replyMetrics.has(token))
     );
     if (!grounded) issues.push("does not reference a logged win");
   }

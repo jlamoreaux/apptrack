@@ -84,6 +84,18 @@ describe("coach eval set", () => {
     expect(res.issues).toContain("does not reference a logged win");
   });
 
+  it("grader counts a win's metric as citing it", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "strong-delivery-no-leadership")!;
+    const reply = "Your p95 dropped from 4d to 26h. Ask your manager to highlight that result.";
+    expect(evaluateCoachOutput(profile, reply).passed).toBe(true);
+  });
+
+  it("grader does not count a bare number or a longer token containing a metric", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "strong-delivery-no-leadership")!;
+    const res = evaluateCoachOutput(profile, "Ask for 26 minutes and bring 14d of notes.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
   it("dated profiles describe a review that is still ahead", () => {
     const today = new Date().toISOString().slice(0, 10);
     const dated = COACH_EVAL_PROFILES.flatMap((p) => p.profile.review_date ?? []);
