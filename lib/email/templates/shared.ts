@@ -74,6 +74,8 @@ export type WrapEmailParams = {
    * marketing unsubscribe link (e.g. required pre-charge notices).
    */
   footerHtml?: string;
+  /** Inbox preview text shown after the subject; hidden in the body. */
+  preheader?: string;
 };
 
 /**
@@ -95,6 +97,11 @@ export function wrapEmail(content: string, params: WrapEmailParams): string {
                 <a href="${escapeHtml(safeUrl(params.unsubscribeUrl ?? '#'))}" style="color: ${EMAIL_THEME.muted};">Unsubscribe</a>
               </p>`;
 
+  // Without a preheader, clients preview the first body text ("CareerOtter").
+  const preheader = params.preheader
+    ? `<div style="display: none; max-height: 0; overflow: hidden; mso-hide: all;">${escapeHtml(params.preheader)}</div>`
+    : '';
+
   return `
 <!DOCTYPE html>
 <html>
@@ -103,7 +110,7 @@ export function wrapEmail(content: string, params: WrapEmailParams): string {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CareerOtter</title>
 </head>
-<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${EMAIL_THEME.pageBg};">
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: ${EMAIL_THEME.pageBg};">${preheader}
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${EMAIL_THEME.pageBg}; padding: 40px 20px;">
     <tr>
       <td align="center">
