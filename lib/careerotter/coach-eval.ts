@@ -5,9 +5,8 @@
  * against a profile; re-run on every prompt change.
  *
  * Live grading calls the model, so it is not a unit test (cost + nondeterminism).
- * Unit tests assert the SET's shape and the GRADER's logic. Run the live eval
- * with a script that feeds each profile through buildCoachSystemPrompt + the
- * model and reports pass rate.
+ * Unit tests assert the SET's shape and the GRADER's logic. `pnpm eval:ai` runs
+ * each profile through the production coach call and enforces COACH_EVAL_MIN_PASSES.
  */
 
 import type { CoachProfile, CoachWin } from "./coach-prompt";
@@ -28,16 +27,26 @@ export interface CoachEvalProfile {
   };
 }
 
+/** Review dates stay relative to the run, so "my review is in a week" remains true as time passes. */
+const daysFromNow = (days: number): string =>
+  new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
 const win = (text: string, tag: CoachWin["tag"], impact?: string): CoachWin => ({
   text,
   tag,
   impact_number: impact ?? null,
 });
 
+/**
+ * Replies are nondeterministic and the grader is heuristic, so one miss is not a
+ * regression. Falling below this many of the 10 profiles is.
+ */
+export const COACH_EVAL_MIN_PASSES = 8;
+
 export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   {
     id: "strong-delivery-no-leadership",
-    profile: { mode: "promotion", role: "Senior Engineer", review_date: "2026-09-14" },
+    profile: { mode: "promotion", role: "Senior Engineer", review_date: daysFromNow(45) },
     wins: [
       win("Shipped billing migration two weeks early", "delivery", "2 weeks early"),
       win("Cut review-queue p95 from 4d to 26h", "delivery", "4d to 26h"),
@@ -55,7 +64,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "balanced-case",
-    profile: { mode: "promotion", role: "Staff Engineer", review_date: "2026-08-01" },
+    profile: { mode: "promotion", role: "Staff Engineer", review_date: daysFromNow(30) },
     wins: [
       win("Led the postmortem for the Q2 outage", "leadership"),
       win("Mentored two juniors to first ships", "leadership"),
@@ -75,7 +84,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "collaboration-heavy",
-    profile: { mode: "raise", role: "EM", review_date: "2026-10-01" },
+    profile: { mode: "raise", role: "EM", review_date: daysFromNow(60) },
     wins: [
       win("Brokered the platform/product roadmap conflict", "collaboration"),
       win("Ran cross-team incident review", "collaboration"),
@@ -103,7 +112,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "review-imminent",
-    profile: { mode: "promotion", role: "Senior PM", review_date: "2026-07-25" },
+    profile: { mode: "promotion", role: "Senior PM", review_date: daysFromNow(7) },
     wins: [
       win("Launched the pricing experiment, +8% conversion", "delivery", "+8%"),
       win("Recovered the stalled partner integration", "collaboration"),
@@ -129,6 +138,21 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
     expect: { referencesWin: true, includesNextAction: true },
   },
 ];
+
+// Words a coaching reply uses on its own, so echoing one does not show it cited a win.
+const CONTEXT_WORDS: ReadonlySet<string> = new Set([
+  "review", "reviews", "teams", "three", "first", "their", "weeks", "early",
+]);
+
+// Tokens mixing letters and digits ("p95", "26h"). Specific enough to count as citing a
+// win despite being short; bare numbers and quarter labels are not, since they can match
+// by coincidence.
+const METRIC_TOKEN = /\b(?=[a-z\d]*\d)(?=[a-z\d]*[a-z])[a-z\d]+\b/g;
+
+const QUARTER_LABEL = /^q[1-4]$/;
+
+const metricTokens = (text: string): string[] =>
+  (text.toLowerCase().match(METRIC_TOKEN) ?? []).filter((token) => !QUARTER_LABEL.test(token));
 
 // Verbs that signal a concrete next step.
 const NEXT_ACTION_HINTS = [
@@ -166,15 +190,18 @@ export function evaluateCoachOutput(
   }
 
   if (profileCase.expect.referencesWin && profileCase.wins.length > 0) {
-    // A loose grounding check: the reply should echo a distinctive word from
-    // at least one logged win.
-    const grounded = profileCase.wins.some((w) => {
-      const keyword = w.text
-        .toLowerCase()
-        .split(/\W+/)
-        .find((word) => word.length >= 5);
-      return keyword ? lower.includes(keyword) : false;
-    });
+    // A loose grounding check: the reply should echo a distinctive word from at
+    // least one logged win. Any word counts, not just the first, because wins
+    // usually open with a verb ("Reduced infra cost") that a good reply rephrases.
+    const replyMetrics = new Set(metricTokens(reply));
+    const grounded = profileCase.wins.some(
+      (w) =>
+        w.text
+          .toLowerCase()
+          .split(/\W+/)
+          .some((word) => word.length >= 5 && !CONTEXT_WORDS.has(word) && lower.includes(word)) ||
+        metricTokens(`${w.text} ${w.impact_number ?? ""}`).some((token) => replyMetrics.has(token))
+    );
     if (!grounded) issues.push("does not reference a logged win");
   }
 

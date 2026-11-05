@@ -11,6 +11,7 @@
     "test:a11y": "jest --testPathPatterns=accessibility",
     "test:coverage": "jest --coverage",
     "eval:ai": "./scripts/ai/run-model-eval.sh",
+    "eval:shutdowns": "RUN_LIVE_AI_EVAL=1 jest __tests__/evals/openai-model-lifecycle.test.ts",
     "db:schema": "echo 'DEPRECATED - see scripts/run-schema.sh header' && ./scripts/run-schema.sh",
     "typecheck": "tsc --noEmit",
     "typecheck:ratchet": "./scripts/ci/typecheck-ratchet.sh",

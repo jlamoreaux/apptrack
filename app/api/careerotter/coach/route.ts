@@ -17,11 +17,8 @@ import { createAdminClient } from "@/lib/supabase/admin-client";
 import { PermissionMiddleware } from "@/lib/middleware/permissions";
 import { callOpenAI } from "@/lib/openai/client";
 import { Models } from "@/lib/openai/models";
-import {
-  buildCoachSystemPrompt,
-  getCoachGoal,
-  COACH_PROMPT_VERSION,
-} from "@/lib/careerotter/coach-prompt";
+import { getCoachGoal, COACH_PROMPT_VERSION } from "@/lib/careerotter/coach-prompt";
+import { generateCoachReply } from "@/lib/careerotter/coach-reply";
 import { CAREEROTTER_EVENT_NAMES } from "@/lib/analytics/careerotter-event-names";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
 import { loggerService } from "@/lib/services/logger.service";
@@ -238,12 +235,12 @@ export async function POST(request: NextRequest) {
 
   let reply = "";
   try {
-    reply = await callOpenAI({
-      systemPrompt: buildCoachSystemPrompt(profile ?? null, wins ?? [], goal),
+    reply = await generateCoachReply({
+      profile: profile ?? null,
+      wins: wins ?? [],
+      goal,
       messages,
-      maxTokens: 900,
-      temperature: 0.5,
-      tracking: { feature: "careerotter_coach", distinctId: user.id },
+      distinctId: user.id,
     });
   } catch (error) {
     loggerService.error("Coach generation failed", error, {

@@ -66,6 +66,49 @@ describe("coach eval set", () => {
     expect(res.issues.join()).toMatch(/voice/);
   });
 
+  it("grader accepts a reply that rephrases a win's opening verb", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "no-review-date")!;
+    const reply = "Your 20% infra saving is your best evidence. Ask now and bring that number.";
+    expect(evaluateCoachOutput(profile, reply).passed).toBe(true);
+  });
+
+  it("grader fails a reply that cites none of the logged wins", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "no-review-date")!;
+    const res = evaluateCoachOutput(profile, "Ask now and bring your manager a clear number.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
+  it("grader does not count a generic word shared with a win as citing it", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "balanced-case")!;
+    const res = evaluateCoachOutput(profile, "Before your review, ask for feedback.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
+  it("grader counts a win's metric as citing it", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "strong-delivery-no-leadership")!;
+    const reply = "Your p95 dropped from 4d to 26h. Ask your manager to highlight that result.";
+    expect(evaluateCoachOutput(profile, reply).passed).toBe(true);
+  });
+
+  it("grader does not count a bare number or a longer token containing a metric", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "strong-delivery-no-leadership")!;
+    const res = evaluateCoachOutput(profile, "Ask for 26 minutes and bring 14d of notes.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
+  it("grader does not count a quarter label as citing a win", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "balanced-case")!;
+    const res = evaluateCoachOutput(profile, "Ask your manager about Q2.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
+  it("dated profiles describe a review that is still ahead", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const dated = COACH_EVAL_PROFILES.flatMap((p) => p.profile.review_date ?? []);
+    expect(dated.length).toBeGreaterThan(0);
+    for (const date of dated) expect(date > today).toBe(true);
+  });
+
   it("grader flags an empty-log reply that invents instead of asking", () => {
     const empty = COACH_EVAL_PROFILES.find((p) => p.id === "empty-log")!;
     const invented = "You are clearly ready. Go ask for 15%.";

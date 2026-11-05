@@ -102,6 +102,15 @@ export async function extractJobFromUrl(url: string, userId?: string): Promise<E
     throw new Error('No readable content at URL');
   }
 
+  return extractJobFromText(text, url, userId);
+}
+
+/** The model half of extraction: turn a posting's readable text into structured fields. */
+export async function extractJobFromText(
+  text: string,
+  postingUrl: string,
+  userId?: string
+): Promise<ExtractedJob> {
   const raw = await callOpenAI({
     model: Models.default,
     temperature: 0,
@@ -116,5 +125,5 @@ export async function extractJobFromUrl(url: string, userId?: string): Promise<E
     ],
   });
 
-  return parseExtractionResponse(raw, url);
+  return parseExtractionResponse(raw, postingUrl);
 }

@@ -39,6 +39,13 @@ import { parseInterviewPreparation, parseJobFitAnalysis } from "@/lib/ai-coach/r
 import { generateRoast } from "@/lib/roast/roast-generator-v2";
 import { generateOnboardingInsight } from "@/lib/ai-coach/onboarding-insight";
 import { generateChangelogDraft } from "@/lib/email/changelog-generator";
+import { extractJobFromText } from "@/lib/onboarding/job-extraction";
+import { generateCoachReply } from "@/lib/careerotter/coach-reply";
+import {
+  COACH_EVAL_MIN_PASSES,
+  COACH_EVAL_PROFILES,
+  evaluateCoachOutput,
+} from "@/lib/careerotter/coach-eval";
 import { loggerService } from "@/lib/services/logger.service";
 
 const LIVE_REQUESTED = process.env.RUN_LIVE_AI_EVAL === "1";
@@ -47,6 +54,7 @@ const describeLive = LIVE ? describe : describe.skip;
 const CASE_TIMEOUT_MS = 180_000;
 
 // Synthetic candidate and posting; no real user data.
+const POSTING_URL = "https://example.com/jobs/senior-frontend-engineer";
 const COMPANY = "Brightline Health";
 const ROLE = "Senior Frontend Engineer";
 const JOB_DESCRIPTION = `Brightline Health is hiring a Senior Frontend Engineer to lead our patient portal.
@@ -315,6 +323,75 @@ describeLive(`OpenAI live eval (${Models.default})`, () => {
       );
     },
     CASE_TIMEOUT_MS
+  );
+
+  it(
+    "job extraction reads the posting's fields and does not invent a missing location",
+    async () => {
+      await runCase(
+        "job_extraction",
+        async () => {
+          const withoutLocation = await extractJobFromText(JOB_DESCRIPTION, POSTING_URL);
+          const withLocation = await extractJobFromText(
+            `${JOB_DESCRIPTION}\nLocation: Austin, TX (hybrid).`,
+            POSTING_URL
+          );
+          return JSON.stringify({ withoutLocation, withLocation });
+        },
+        (output) => {
+          const { withoutLocation, withLocation } = JSON.parse(output);
+          // parseExtractionResponse returns all nulls on bad JSON, so this also catches parse failures.
+          assert(withoutLocation.company?.includes("Brightline"), `wrong company: ${withoutLocation.company}`);
+          assert(/frontend/i.test(withoutLocation.title ?? ""), `wrong title: ${withoutLocation.title}`);
+          assert(withoutLocation.description_summary, "no summary");
+          assert(withoutLocation.location === null, `invented a location: ${withoutLocation.location}`);
+          assert(withLocation.location?.includes("Austin"), `missed the location: ${withLocation.location}`);
+          assert(withLocation.company?.includes("Brightline"), `wrong company: ${withLocation.company}`);
+          assert(/frontend/i.test(withLocation.title ?? ""), `wrong title: ${withLocation.title}`);
+          assert(withLocation.description_summary, "no summary");
+          return `${withoutLocation.title} at ${withoutLocation.company}, ${withLocation.location}`;
+        }
+      );
+    },
+    CASE_TIMEOUT_MS
+  );
+
+  it(
+    `coach passes at least ${COACH_EVAL_MIN_PASSES} of ${COACH_EVAL_PROFILES.length} graded profiles`,
+    async () => {
+      let passes = 0;
+
+      for (const profileCase of COACH_EVAL_PROFILES) {
+        try {
+          await runCase(
+            `coach/${profileCase.id}`,
+            () =>
+              generateCoachReply({
+                profile: profileCase.profile,
+                wins: profileCase.wins,
+                messages: [{ role: "user", content: profileCase.question }],
+              }),
+            (reply) => {
+              const { passed, issues } = evaluateCoachOutput(profileCase, reply);
+              assert(passed, issues.join("; "));
+              return `${wordCount(reply)} words`;
+            }
+          );
+          passes += 1;
+        } catch {
+          // runCase recorded the failure for the report; the threshold below decides the test.
+        }
+      }
+
+      const failures = results
+        .filter((r) => r.feature.startsWith("coach/") && !r.passed)
+        .map((r) => `${r.feature}: ${r.notes}`);
+      assert(
+        passes >= COACH_EVAL_MIN_PASSES,
+        `${passes}/${COACH_EVAL_PROFILES.length} coach profiles passed:\n${failures.join("\n")}`
+      );
+    },
+    CASE_TIMEOUT_MS * 2
   );
 
   it(

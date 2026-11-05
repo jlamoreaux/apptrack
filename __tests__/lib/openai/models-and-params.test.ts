@@ -48,8 +48,8 @@ describe("Models", () => {
     }
 
     it("switches the default to a registered model", () => {
-      process.env.OPENAI_DEFAULT_MODEL = "gpt-4o-mini";
-      expect(loadDefault()).toBe("gpt-4o-mini");
+      process.env.OPENAI_DEFAULT_MODEL = "gpt-6.1-terra";
+      expect(loadDefault()).toBe("gpt-6.1-terra");
     });
 
     it("ignores an unknown model instead of breaking every call", () => {

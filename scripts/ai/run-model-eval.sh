@@ -2,8 +2,8 @@
 # Runs the live AI eval (__tests__/evals/openai-model-eval.test.ts) once per model and
 # prints a side-by-side summary. Reports land in eval-results/<model>.md with full outputs.
 #
-#   ./scripts/ai/run-model-eval.sh                      # gpt-4o-mini vs gpt-6-luna
-#   ./scripts/ai/run-model-eval.sh gpt-6-luna gpt-6.1-terra
+#   ./scripts/ai/run-model-eval.sh                      # default vs rollback model
+#   ./scripts/ai/run-model-eval.sh gpt-6-luna
 #
 # Needs OPENAI_API_KEY in the environment or in a file next/jest loads in test mode:
 # .env.test.local, .env.test, or .env (not .env.local, which Next skips for tests).
@@ -12,7 +12,7 @@ set -uo pipefail
 cd "$(dirname "$0")/../.."
 
 models=("$@")
-[ ${#models[@]} -eq 0 ] && models=(gpt-4o-mini gpt-6-luna)
+[ ${#models[@]} -eq 0 ] && models=(gpt-6-luna gpt-6.1-terra)
 
 # The suite also fails on a missing key or unknown model, but only after the loop below
 # has deleted that model's previous report. Check first so a bad invocation keeps it.
