@@ -145,10 +145,14 @@ const CONTEXT_WORDS: ReadonlySet<string> = new Set([
 ]);
 
 // Tokens mixing letters and digits ("p95", "26h"). Specific enough to count as citing a
-// win despite being short; bare numbers are not, since they can match by coincidence.
+// win despite being short; bare numbers and quarter labels are not, since they can match
+// by coincidence.
 const METRIC_TOKEN = /\b(?=[a-z\d]*\d)(?=[a-z\d]*[a-z])[a-z\d]+\b/g;
 
-const metricTokens = (text: string): string[] => text.toLowerCase().match(METRIC_TOKEN) ?? [];
+const QUARTER_LABEL = /^q[1-4]$/;
+
+const metricTokens = (text: string): string[] =>
+  (text.toLowerCase().match(METRIC_TOKEN) ?? []).filter((token) => !QUARTER_LABEL.test(token));
 
 // Verbs that signal a concrete next step.
 const NEXT_ACTION_HINTS = [

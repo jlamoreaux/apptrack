@@ -96,6 +96,12 @@ describe("coach eval set", () => {
     expect(res.issues).toContain("does not reference a logged win");
   });
 
+  it("grader does not count a quarter label as citing a win", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "balanced-case")!;
+    const res = evaluateCoachOutput(profile, "Ask your manager about Q2.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
   it("dated profiles describe a review that is still ahead", () => {
     const today = new Date().toISOString().slice(0, 10);
     const dated = COACH_EVAL_PROFILES.flatMap((p) => p.profile.review_date ?? []);
