@@ -346,6 +346,9 @@ describeLive(`OpenAI live eval (${Models.default})`, () => {
           assert(withoutLocation.description_summary, "no summary");
           assert(withoutLocation.location === null, `invented a location: ${withoutLocation.location}`);
           assert(withLocation.location?.includes("Austin"), `missed the location: ${withLocation.location}`);
+          assert(withLocation.company?.includes("Brightline"), `wrong company: ${withLocation.company}`);
+          assert(/frontend/i.test(withLocation.title ?? ""), `wrong title: ${withLocation.title}`);
+          assert(withLocation.description_summary, "no summary");
           return `${withoutLocation.title} at ${withoutLocation.company}, ${withLocation.location}`;
         }
       );

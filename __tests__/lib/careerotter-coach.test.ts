@@ -78,6 +78,19 @@ describe("coach eval set", () => {
     expect(res.issues).toContain("does not reference a logged win");
   });
 
+  it("grader does not count a generic word shared with a win as citing it", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "balanced-case")!;
+    const res = evaluateCoachOutput(profile, "Before your review, ask for feedback.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
+  it("dated profiles describe a review that is still ahead", () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const dated = COACH_EVAL_PROFILES.flatMap((p) => p.profile.review_date ?? []);
+    expect(dated.length).toBeGreaterThan(0);
+    for (const date of dated) expect(date > today).toBe(true);
+  });
+
   it("grader flags an empty-log reply that invents instead of asking", () => {
     const empty = COACH_EVAL_PROFILES.find((p) => p.id === "empty-log")!;
     const invented = "You are clearly ready. Go ask for 15%.";

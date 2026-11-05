@@ -27,6 +27,10 @@ export interface CoachEvalProfile {
   };
 }
 
+/** Review dates stay relative to the run, so "my review is in a week" remains true as time passes. */
+const daysFromNow = (days: number): string =>
+  new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
 const win = (text: string, tag: CoachWin["tag"], impact?: string): CoachWin => ({
   text,
   tag,
@@ -42,7 +46,7 @@ export const COACH_EVAL_MIN_PASSES = 8;
 export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   {
     id: "strong-delivery-no-leadership",
-    profile: { mode: "promotion", role: "Senior Engineer", review_date: "2026-09-14" },
+    profile: { mode: "promotion", role: "Senior Engineer", review_date: daysFromNow(45) },
     wins: [
       win("Shipped billing migration two weeks early", "delivery", "2 weeks early"),
       win("Cut review-queue p95 from 4d to 26h", "delivery", "4d to 26h"),
@@ -60,7 +64,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "balanced-case",
-    profile: { mode: "promotion", role: "Staff Engineer", review_date: "2026-08-01" },
+    profile: { mode: "promotion", role: "Staff Engineer", review_date: daysFromNow(30) },
     wins: [
       win("Led the postmortem for the Q2 outage", "leadership"),
       win("Mentored two juniors to first ships", "leadership"),
@@ -80,7 +84,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "collaboration-heavy",
-    profile: { mode: "raise", role: "EM", review_date: "2026-10-01" },
+    profile: { mode: "raise", role: "EM", review_date: daysFromNow(60) },
     wins: [
       win("Brokered the platform/product roadmap conflict", "collaboration"),
       win("Ran cross-team incident review", "collaboration"),
@@ -108,7 +112,7 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   },
   {
     id: "review-imminent",
-    profile: { mode: "promotion", role: "Senior PM", review_date: "2026-07-25" },
+    profile: { mode: "promotion", role: "Senior PM", review_date: daysFromNow(7) },
     wins: [
       win("Launched the pricing experiment, +8% conversion", "delivery", "+8%"),
       win("Recovered the stalled partner integration", "collaboration"),
@@ -134,6 +138,11 @@ export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
     expect: { referencesWin: true, includesNextAction: true },
   },
 ];
+
+// Words a coaching reply uses on its own, so echoing one does not show it cited a win.
+const CONTEXT_WORDS: ReadonlySet<string> = new Set([
+  "review", "reviews", "teams", "three", "first", "their", "weeks", "early",
+]);
 
 // Verbs that signal a concrete next step.
 const NEXT_ACTION_HINTS = [
@@ -178,7 +187,7 @@ export function evaluateCoachOutput(
       w.text
         .toLowerCase()
         .split(/\W+/)
-        .some((word) => word.length >= 5 && lower.includes(word))
+        .some((word) => word.length >= 5 && !CONTEXT_WORDS.has(word) && lower.includes(word))
     );
     if (!grounded) issues.push("does not reference a logged win");
   }
