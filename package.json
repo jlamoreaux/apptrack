@@ -10,6 +10,7 @@
     "test:watch": "jest --watch",
     "test:a11y": "jest --testPathPatterns=accessibility",
     "test:coverage": "jest --coverage",
+    "eval:ai": "./scripts/ai/run-model-eval.sh",
     "db:schema": "echo 'DEPRECATED - see scripts/run-schema.sh header' && ./scripts/run-schema.sh",
     "typecheck": "tsc --noEmit",
     "typecheck:ratchet": "./scripts/ci/typecheck-ratchet.sh",
@@ -26,8 +27,8 @@
     "db:parity": "node scripts/migration/verify-drizzle-parity.mjs"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.2",
-    "@ai-sdk/react": "^3.0.5",
+    "@ai-sdk/openai": "^3.0.135",
+    "@ai-sdk/react": "^3.0.323",
     "@hookform/resolvers": "latest",
     "@modelcontextprotocol/sdk": "1.26.0",
     "@neondatabase/serverless": "^1.1.0",
@@ -55,7 +56,7 @@
     "@testing-library/dom": "^10.4.1",
     "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
-    "ai": "^6.0.5",
+    "ai": "^6.0.320",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

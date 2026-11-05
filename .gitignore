@@ -60,3 +60,6 @@ coverage/
 # Local Claude Code agent worktrees (never commit)
 .claude/worktrees/
 ui-screenshots/
+
+# Live AI eval reports (scripts/ai/run-model-eval.sh)
+/eval-results/

@@ -10,6 +10,7 @@ import { LogCategory } from "@/lib/services/logger.types";
 import { TrialBudgetService } from "@/lib/services/trial-budget.service";
 import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { Models } from "@/lib/openai/models";
 
 async function coverLetterHandler(request: NextRequest) {
   const startTime = Date.now();
@@ -188,7 +189,7 @@ async function coverLetterHandler(request: NextRequest) {
         jobDescriptionLength: finalJobDescription.length,
         userBackgroundLength: finalUserBackground.length,
         coverLetterLength: coverLetter.length,
-        model: 'gpt-4o-mini',
+        model: Models.default,
         estimatedTokens: Math.round((finalJobDescription.length + finalUserBackground.length + coverLetter.length) / 4),
         hasApplicationId: !!applicationId
       }

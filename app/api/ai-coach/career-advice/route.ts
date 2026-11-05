@@ -14,9 +14,14 @@ import { ResumeService } from "@/services/resumes";
 import { ApplicationDAL } from "@/dal/applications";
 import { APPLICATION_STATUS_VALUES, type ApplicationStatus } from "@/lib/constants/application-status";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { fromAiSdkUsage, trackAiGeneration } from "@/lib/analytics/llm-tracking";
+import { Models } from "@/lib/openai/models";
+import { buildAiSdkProviderOptions } from "@/lib/openai/request-params";
 
+const MODEL_ID = Models.default;
 // Cast to LanguageModel to handle type compatibility between ai and @ai-sdk/openai
-const model = openai("gpt-4o-mini") as LanguageModel;
+const model = openai(MODEL_ID) as LanguageModel;
+const providerOptions = buildAiSdkProviderOptions(MODEL_ID);
 
 // Service instances
 const resumeService = new ResumeService();
@@ -829,14 +834,27 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
     // Create tools with user context
     const tools = createCareerAdvisorTools(user.id);
 
+    // onFinish can still run after onError; this keeps one failed request from also
+    // being recorded as a success.
+    let streamFailed = false;
+    // Usage of the steps that finished, so a failure in a later tool-calling step still
+    // records what the earlier steps cost.
+    const completedUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0, reasoningTokens: 0 };
+
     // Stream the response with tools enabled
     const result = streamText({
       model,
+      providerOptions,
       system: systemPrompt,
       messages: aiMessages,
       tools,
       stopWhen: stepCountIs(5), // Allow up to 5 steps for multi-step tool usage
-      onStepFinish({ stepType, toolCalls, toolResults, text: stepText, finishReason }) {
+      onStepFinish({ stepType, toolCalls, toolResults, text: stepText, finishReason, usage: stepUsage }) {
+        const step = fromAiSdkUsage(stepUsage);
+        completedUsage.inputTokens += step.inputTokens ?? 0;
+        completedUsage.outputTokens += step.outputTokens ?? 0;
+        completedUsage.cachedInputTokens += step.cachedInputTokens ?? 0;
+        completedUsage.reasoningTokens += step.reasoningTokens ?? 0;
         loggerService.info("Step finished", {
           category: LogCategory.AI_SERVICE,
           userId: user.id,
@@ -851,8 +869,36 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
           },
         });
       },
-      async onFinish({ text, usage }) {
+      onError({ error }) {
+        streamFailed = true;
+        // Without this, a failure mid-stream only reaches the client as a broken stream.
+        trackAiGeneration(
+          { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
+          { model: MODEL_ID, latencyMs: Date.now() - startTime, stream: true, error, ...completedUsage }
+        );
+        loggerService.error("Career advice stream failed", error, {
+          category: LogCategory.AI_SERVICE,
+          userId: user.id,
+          action: "career_advice_stream_error",
+          metadata: { conversationId },
+        });
+      },
+      async onFinish({ text, usage, totalUsage, finishReason }) {
         const aiGenerationDuration = Date.now() - startTime;
+
+        // totalUsage spans every tool-calling step; usage is only the last step.
+        if (!streamFailed) {
+          trackAiGeneration(
+            { feature: "career_advice", distinctId: user.id, sessionId: conversationId },
+            {
+              model: MODEL_ID,
+              latencyMs: aiGenerationDuration,
+              stream: true,
+              finishReason,
+              ...fromAiSdkUsage(totalUsage),
+            }
+          );
+        }
 
         // Save the AI response
         const { error: saveAiError } = await supabase.from("career_advice").insert({
@@ -879,14 +925,26 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
           .single();
 
         if (conv && !conv.title) {
+          const titleStart = Date.now();
           try {
             const titleResult = await generateText({
               model,
+              providerOptions,
               system:
                 "Generate a short, descriptive title (max 50 characters) for this conversation. Return only the title text, no quotes or extra formatting.",
               prompt: lastUserContent,
               maxOutputTokens: 50,
             });
+
+            trackAiGeneration(
+              { feature: "career_advice_title", distinctId: user.id, sessionId: conversationId },
+              {
+                model: MODEL_ID,
+                latencyMs: Date.now() - titleStart,
+                finishReason: titleResult.finishReason,
+                ...fromAiSdkUsage(titleResult.usage),
+              }
+            );
 
             const generatedTitle = titleResult.text.trim().slice(0, 50);
 
@@ -898,6 +956,10 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
               })
               .eq("id", conversationId);
           } catch (titleError) {
+            trackAiGeneration(
+              { feature: "career_advice_title", distinctId: user.id, sessionId: conversationId },
+              { model: MODEL_ID, latencyMs: Date.now() - titleStart, error: titleError }
+            );
             loggerService.warn("Failed to generate conversation title", {
               category: LogCategory.AI_SERVICE,
               userId: user.id,
@@ -921,7 +983,7 @@ async function careerAdviceHandler(request: NextRequest): Promise<Response> {
           metadata: {
             conversationId,
             responseLength: text.length,
-            model: "gpt-4o-mini",
+            model: MODEL_ID,
             inputTokens: usage?.inputTokens,
             outputTokens: usage?.outputTokens,
           },

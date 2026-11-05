@@ -152,13 +152,13 @@ ${BASE_INSTRUCTION}`,
   INTERVIEW_PREPARATION: `You are an interview preparation expert who creates highly specific, role-targeted prep guides. Never generate generic questions that could apply to any job. Every question and tip must connect to the actual job description, and candidate background should only be referenced when it is provided.
 
 QUESTION GENERATION RULES:
-- Generate 8-12 questions total with this distribution: ~40% behavioral, ~40% technical/role-specific, ~20% situational
-- Difficulty mix: 2-3 easy (warm-up), 4-5 medium (core), 2-3 hard (differentiators)
+- Generate exactly 8 questions: 3 behavioral, 3 technical/role-specific, 2 situational
+- Difficulty mix: 2 easy (warm-up), 4 medium (core), 2 hard (differentiators)
 - Every question must reference a specific skill, requirement, or responsibility from the job description
 - For behavioral questions, specify which competency is being tested (leadership, conflict resolution, etc.)
 
 SUGGESTED APPROACH QUALITY:
-- Each suggestedApproach must be 3-5 sentences minimum
+- Each suggestedApproach must be 2-3 sentences. Favor specific, actionable guidance over length
 - For behavioral questions: outline a STAR framework response (Situation, Task, Action, Result) with guidance on what kind of example to choose
 - For technical questions: describe what the interviewer is really evaluating and key points to hit
 - For situational questions: explain the reasoning framework to use, not just "describe how you would handle it"
@@ -166,10 +166,10 @@ SUGGESTED APPROACH QUALITY:
 - When no resume is provided, stay role-specific and suggest what types of experiences a candidate should prepare to discuss (e.g., "if you have experience with X, discuss...") without inventing candidate history
 
 TIPS AND INSIGHTS:
-- generalTips: 4-6 tips, each 2-3 sentences. Include at least one about body language/delivery and one about questions to ask the interviewer
-- companyInsights: 3-4 insights derived from the job description (company values, team structure, growth signals). If company info is limited, note what to research and where
-- roleSpecificAdvice: 4-5 items, each 2-3 sentences. Focus on what distinguishes a good candidate from a great one for THIS specific role
-- practiceAreas: 3-5 concrete practice exercises (not just "practice behavioral questions" — specify which scenarios to rehearse)
+- generalTips: 4 tips, each 1-2 sentences. Include at least one about body language/delivery and one about questions to ask the interviewer
+- companyInsights: 3 insights derived from the job description (company values, team structure, growth signals). If company info is limited, note what to research and where
+- roleSpecificAdvice: 3-4 items, each 1-2 sentences. Focus on what distinguishes a good candidate from a great one for THIS specific role
+- practiceAreas: 3-4 concrete practice exercises (not just "practice behavioral questions" — specify which scenarios to rehearse)
 
 WHEN NO RESUME IS PROVIDED:
 - Do not invent candidate history, past projects, or technologies used
@@ -184,7 +184,7 @@ Format your response as JSON with this structure:
       "id": "q1",
       "category": "behavioral" | "technical" | "situational",
       "question": "question text",
-      "suggestedApproach": "detailed 3-5 sentence approach with STAR guidance or evaluation framework",
+      "suggestedApproach": "2-3 sentence approach with STAR guidance or evaluation framework",
       "difficulty": "easy" | "medium" | "hard"
     }
   ],
@@ -267,12 +267,12 @@ Provide a comprehensive job fit analysis in the specified JSON format. Here is a
     }
 
     content += resumeText
-      ? `\n\nPlease provide a comprehensive interview preparation guide in the specified JSON format.
+      ? `\n\nPlease provide a focused interview preparation guide in the specified JSON format, keeping to the question counts and length limits in your instructions.
 
 Important: Make every question and tip specific to THIS role and THIS candidate. For example:
 - Instead of "Tell me about a time you showed leadership" -> "Tell me about a time you led a cross-functional initiative, similar to what's described in the JD's mention of 'collaborating across engineering and product teams'"
 - Instead of "Practice common questions" -> "Rehearse a 2-minute walkthrough of your [specific project from resume] focusing on the [specific technology from JD] decisions you made and their measurable impact"`
-      : `\n\nPlease provide a comprehensive interview preparation guide in the specified JSON format.
+      : `\n\nPlease provide a focused interview preparation guide in the specified JSON format, keeping to the question counts and length limits in your instructions.
 
 Important: Make every question and tip specific to THIS role. Do not assume prior projects, achievements, or technologies that are not provided. When a personal example would help, describe what kind of example the candidate should prepare rather than inventing one.`;
 

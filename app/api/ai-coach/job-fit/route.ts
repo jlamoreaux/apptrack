@@ -11,6 +11,7 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { TrialBudgetService } from "@/lib/services/trial-budget.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { Models } from "@/lib/openai/models";
 
 async function handler(request: NextRequest) {
   const startTime = Date.now();
@@ -162,7 +163,7 @@ async function handler(request: NextRequest) {
 
       const aiStartTime = Date.now();
       // Generate real analysis using AI — call the prompt builder directly and parse the response
-      const rawAnalysis = await generateJobFitAnalysis(finalJobDescription, finalResumeText, companyName, roleName);
+      const rawAnalysis = await generateJobFitAnalysis(finalJobDescription, finalResumeText, companyName, roleName, user.id);
       const analysis = parseJobFitAnalysis(rawAnalysis, { company: companyName, role: roleName });
       const aiDuration = Date.now() - aiStartTime;
 
@@ -175,7 +176,7 @@ async function handler(request: NextRequest) {
           jobDescriptionLength: finalJobDescription.length,
           resumeLength: finalResumeText.length,
           responseLength: JSON.stringify(analysis).length,
-          model: 'gpt-4o-mini',
+          model: Models.default,
           estimatedTokens: Math.round((finalJobDescription.length + finalResumeText.length + JSON.stringify(analysis).length) / 4),
           hasApplicationId: !!applicationId
         }

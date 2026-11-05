@@ -114,6 +114,7 @@ export async function generateDigestInsight(group: DigestUserGroup): Promise<str
       model: Models.default,
       temperature: 0.5,
       maxTokens: 80,
+      tracking: { feature: "weekly_digest_insight", distinctId: group.userId },
       systemPrompt: INSIGHT_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: buildDigestInsightPrompt(group) }],
     });

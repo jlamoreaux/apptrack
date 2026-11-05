@@ -121,6 +121,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ],
         maxTokens: 400,
         temperature: 0.5,
+        tracking: { feature: "careerotter_recap", distinctId: userId },
       });
 
       const { error: upsertError } = await admin.from("weekly_recaps").upsert(

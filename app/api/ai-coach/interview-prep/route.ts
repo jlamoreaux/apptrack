@@ -14,6 +14,7 @@ import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
 import { ResumeResolutionService } from "@/lib/services/resume-resolution.service";
 import { captureServerEvent } from "@/lib/analytics/posthog-server";
+import { Models } from "@/lib/openai/models";
 
 // API Request/Response interfaces
 interface InterviewPrepRequest {
@@ -298,7 +299,7 @@ async function interviewPrepHandler(request: NextRequest): Promise<NextResponse<
         jobDescriptionLength: prepJobDesc?.length || 0,
         resumeLength: finalResumeText.length,
         responseLength: typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length,
-        model: 'gpt-4o-mini',
+        model: Models.default,
         estimatedTokens: Math.round(((prepJobDesc?.length || 0) + finalResumeText.length + (typeof rawPreparation === 'string' ? rawPreparation.length : JSON.stringify(rawPreparation).length)) / 4)
       }
     });

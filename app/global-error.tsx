@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { SUPPORT_EMAIL } from "@/lib/constants/site-config";
+import { capturePostHogException } from "@/lib/analytics/posthog";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -14,6 +16,11 @@ interface GlobalErrorProps {
  * plain `mailto:` support affordance.
  */
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
+  // The root layout failed, so this is the only place the crash can be reported.
+  useEffect(() => {
+    capturePostHogException(error, { boundary: "global", digest: error.digest });
+  }, [error]);
+
   const handleReload = () => {
     reset();
     window.location.reload();

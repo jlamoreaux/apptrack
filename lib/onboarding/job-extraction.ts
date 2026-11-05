@@ -82,7 +82,7 @@ const SYSTEM_PROMPT =
  * Fetch a job-posting URL and extract structured fields via the cost model.
  * Throws on fetch failure so the caller can fall back to manual entry.
  */
-export async function extractJobFromUrl(url: string): Promise<ExtractedJob> {
+export async function extractJobFromUrl(url: string, userId?: string): Promise<ExtractedJob> {
   // fetchPublicUrl enforces http(s), the host blocklist, and the DNS-rebinding
   // check on the initial URL and on every redirect hop.
   const response = await fetchPublicUrl(url, {
@@ -106,6 +106,7 @@ export async function extractJobFromUrl(url: string): Promise<ExtractedJob> {
     model: Models.default,
     temperature: 0,
     maxTokens: 500,
+    tracking: { feature: 'onboarding_job_extraction', distinctId: userId },
     systemPrompt: SYSTEM_PROMPT,
     messages: [
       {

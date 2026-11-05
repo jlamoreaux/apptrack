@@ -14,6 +14,8 @@ export interface OnboardingInsightInput {
   company: string;
   role: string;
   jobDescription?: string;
+  /** Attributes the call's cost in PostHog */
+  userId?: string;
 }
 
 const SYSTEM_PROMPT =
@@ -45,6 +47,7 @@ export async function generateOnboardingInsight(
     model: Models.default,
     temperature: 0.6,
     maxTokens: 220,
+    tracking: { feature: 'onboarding_insight', distinctId: input.userId },
     systemPrompt: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: buildInsightPrompt(input) }],
   });

@@ -20,3 +20,23 @@ export function capturePostHogEvent(
     });
   }
 }
+
+/**
+ * Send an exception to PostHog Error Tracking with its stack. Use in React error
+ * boundaries: errors they catch never reach window.onerror, so exception autocapture
+ * does not see them.
+ */
+export function capturePostHogException(
+  error: unknown,
+  properties?: Record<string, unknown>
+) {
+  if (typeof window !== "undefined") {
+    import("posthog-js")
+      .then(({ default: posthog }) => {
+        posthog.captureException(error, properties);
+      })
+      .catch(() => {
+        // Analytics must never break the error UI
+      });
+  }
+}

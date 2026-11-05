@@ -1,5 +1,6 @@
 import OpenAI from "openai";
-import { Models } from "./models";
+import { Models, type ModelType } from "./models";
+import { buildChatCompletionParams } from "./request-params";
 import {
   DEFAULT_MAX_TOKENS,
   DEFAULT_TEMPERATURE,
@@ -8,6 +9,7 @@ import {
 import type { OpenAIOptions, ChatMessage } from "./types";
 import { loggerService } from "@/lib/services/logger.service";
 import { LogCategory } from "@/lib/services/logger.types";
+import { trackAiGeneration, type AiGenerationResult } from "@/lib/analytics/llm-tracking";
 
 let openaiClient: OpenAI | null = null;
 
@@ -35,9 +37,13 @@ export async function callOpenAI({
   temperature = DEFAULT_TEMPERATURE,
   model = Models.default,
   systemPrompt,
+  responseFormat,
+  tracking = { feature: "unspecified" },
 }: OpenAIOptions): Promise<string> {
   const startTime = Date.now();
-  
+  let usage: OpenAI.CompletionUsage | undefined;
+  let finishReason: string | null | undefined;
+
   try {
     const client = getOpenAIClient();
 
@@ -58,6 +64,7 @@ export async function callOpenAI({
       action: 'openai_request',
       metadata: {
         model,
+        feature: tracking.feature,
         maxTokens,
         temperature,
         messageCount: apiMessages.length,
@@ -66,67 +73,100 @@ export async function callOpenAI({
       }
     });
 
-    const response = await client.chat.completions.create({
-      model,
-      messages: apiMessages,
-      max_tokens: maxTokens,
-      temperature,
+    const response = await client.chat.completions.create(
+      buildChatCompletionParams(model, apiMessages, { maxTokens, temperature, responseFormat })
+    );
+    usage = response.usage;
+    finishReason = response.choices[0]?.finish_reason;
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      // A reasoning model that spends the whole budget thinking returns empty content
+      // with finish_reason "length"; say so instead of a bare "no content".
+      throw new Error(`No content in response (finish_reason: ${finishReason ?? 'unknown'})`);
+    }
+
+    loggerService.info('OpenAI API response received', {
+      category: LogCategory.AI_SERVICE,
+      action: 'openai_response_success',
+      duration: Date.now() - startTime,
+      metadata: {
+        model,
+        feature: tracking.feature,
+        finishReason,
+        promptTokens: usage?.prompt_tokens,
+        completionTokens: usage?.completion_tokens,
+        totalTokens: usage?.total_tokens,
+        responseLength: content.length
+      }
     });
 
-    // Extract text from the response
-    if (response.choices && response.choices[0]?.message?.content) {
-      const content = response.choices[0].message.content;
-      
-      loggerService.info('OpenAI API response received', {
-        category: LogCategory.AI_SERVICE,
-        action: 'openai_response_success',
-        duration: Date.now() - startTime,
-        metadata: {
-          model,
-          promptTokens: response.usage?.prompt_tokens,
-          completionTokens: response.usage?.completion_tokens,
-          totalTokens: response.usage?.total_tokens,
-          responseLength: content.length
-        }
-      });
-      
-      return content;
-    }
-
-    throw new Error("No content in response");
+    trackAiGeneration(tracking, toGenerationResult(model, startTime, usage, finishReason));
+    return content;
   } catch (error) {
-    const errorDetails: any = {
-      category: LogCategory.AI_SERVICE,
-      action: 'openai_error',
-      duration: Date.now() - startTime,
-      metadata: { model, maxTokens }
-    };
-    
-    // Provide more specific error messages
-    if (error instanceof Error) {
-      errorDetails.metadata.errorMessage = error.message;
-      
-      if (error.message.includes("API key") || error.message === "OPENAI_API_KEY is not set") {
-        loggerService.error('OpenAI API key error', error, errorDetails);
-        throw new Error("OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.");
-      }
-      if (error.message.includes("rate limit")) {
-        loggerService.warn('OpenAI rate limit exceeded', errorDetails);
-        throw new Error("Rate limit exceeded. Please try again later.");
-      }
-      if (error.message.includes("model")) {
-        loggerService.error('Invalid OpenAI model', error, errorDetails);
-        throw new Error(`Invalid model: ${model}`);
-      }
-      if (error.message.includes("insufficient_quota")) {
-        loggerService.error('OpenAI quota exceeded', error, errorDetails);
-        throw new Error("OpenAI API quota exceeded. Please check your billing.");
-      }
-    }
-    
-    loggerService.error('OpenAI API call failed', error, errorDetails);
-    throw new Error(`AI service error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    trackAiGeneration(tracking, {
+      ...toGenerationResult(model, startTime, usage, finishReason),
+      error,
+    });
+    throw toServiceError(error, model, maxTokens, Date.now() - startTime);
   }
+}
+
+function toGenerationResult(
+  model: ModelType,
+  startTime: number,
+  usage: OpenAI.CompletionUsage | undefined,
+  finishReason: string | null | undefined
+): AiGenerationResult {
+  return {
+    model,
+    latencyMs: Date.now() - startTime,
+    inputTokens: usage?.prompt_tokens,
+    outputTokens: usage?.completion_tokens,
+    cachedInputTokens: usage?.prompt_tokens_details?.cached_tokens,
+    reasoningTokens: usage?.completion_tokens_details?.reasoning_tokens,
+    finishReason,
+  };
+}
+
+/** Logs the failure and maps it to a user-safe error, keyed on the API status and code. */
+function toServiceError(error: unknown, model: ModelType, maxTokens: number, duration: number): Error {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  const errorDetails = {
+    category: LogCategory.AI_SERVICE,
+    action: 'openai_error',
+    duration,
+    metadata: {
+      model,
+      maxTokens,
+      errorMessage: message,
+      status: error instanceof OpenAI.APIError ? error.status : undefined,
+      code: error instanceof OpenAI.APIError ? error.code : undefined,
+      param: error instanceof OpenAI.APIError ? error.param : undefined,
+    },
+  };
+
+  if (message === "OPENAI_API_KEY is not set" || (error instanceof OpenAI.APIError && error.status === 401)) {
+    loggerService.error('OpenAI API key error', error, errorDetails);
+    return new Error("OpenAI API key is not configured. Please set OPENAI_API_KEY environment variable.");
+  }
+  if (error instanceof OpenAI.APIError) {
+    if (error.code === "insufficient_quota") {
+      loggerService.error('OpenAI quota exceeded', error, errorDetails);
+      return new Error("OpenAI API quota exceeded. Please check your billing.");
+    }
+    if (error.status === 429) {
+      loggerService.warn('OpenAI rate limit exceeded', errorDetails);
+      return new Error("Rate limit exceeded. Please try again later.");
+    }
+    if (error.status === 404 || error.code === "model_not_found") {
+      loggerService.error('Invalid OpenAI model', error, errorDetails);
+      return new Error(`Invalid model: ${model}`);
+    }
+  }
+
+  loggerService.error('OpenAI API call failed', error, errorDetails);
+  return new Error(`AI service error: ${message}`);
 }
 
 // Legacy function name for backward compatibility
