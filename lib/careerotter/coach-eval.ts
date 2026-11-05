@@ -5,9 +5,8 @@
  * against a profile; re-run on every prompt change.
  *
  * Live grading calls the model, so it is not a unit test (cost + nondeterminism).
- * Unit tests assert the SET's shape and the GRADER's logic. Run the live eval
- * with a script that feeds each profile through buildCoachSystemPrompt + the
- * model and reports pass rate.
+ * Unit tests assert the SET's shape and the GRADER's logic. `pnpm eval:ai` runs
+ * each profile through the production coach call and enforces COACH_EVAL_MIN_PASSES.
  */
 
 import type { CoachProfile, CoachWin } from "./coach-prompt";
@@ -33,6 +32,12 @@ const win = (text: string, tag: CoachWin["tag"], impact?: string): CoachWin => (
   tag,
   impact_number: impact ?? null,
 });
+
+/**
+ * Replies are nondeterministic and the grader is heuristic, so one miss is not a
+ * regression. Falling below this many of the 10 profiles is.
+ */
+export const COACH_EVAL_MIN_PASSES = 8;
 
 export const COACH_EVAL_PROFILES: CoachEvalProfile[] = [
   {
@@ -166,15 +171,15 @@ export function evaluateCoachOutput(
   }
 
   if (profileCase.expect.referencesWin && profileCase.wins.length > 0) {
-    // A loose grounding check: the reply should echo a distinctive word from
-    // at least one logged win.
-    const grounded = profileCase.wins.some((w) => {
-      const keyword = w.text
+    // A loose grounding check: the reply should echo a distinctive word from at
+    // least one logged win. Any word counts, not just the first, because wins
+    // usually open with a verb ("Reduced infra cost") that a good reply rephrases.
+    const grounded = profileCase.wins.some((w) =>
+      w.text
         .toLowerCase()
         .split(/\W+/)
-        .find((word) => word.length >= 5);
-      return keyword ? lower.includes(keyword) : false;
-    });
+        .some((word) => word.length >= 5 && lower.includes(word))
+    );
     if (!grounded) issues.push("does not reference a logged win");
   }
 

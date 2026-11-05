@@ -66,6 +66,18 @@ describe("coach eval set", () => {
     expect(res.issues.join()).toMatch(/voice/);
   });
 
+  it("grader accepts a reply that rephrases a win's opening verb", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "no-review-date")!;
+    const reply = "Your 20% infra saving is your best evidence. Ask now and bring that number.";
+    expect(evaluateCoachOutput(profile, reply).passed).toBe(true);
+  });
+
+  it("grader fails a reply that cites none of the logged wins", () => {
+    const profile = COACH_EVAL_PROFILES.find((p) => p.id === "no-review-date")!;
+    const res = evaluateCoachOutput(profile, "Ask now and bring your manager a clear number.");
+    expect(res.issues).toContain("does not reference a logged win");
+  });
+
   it("grader flags an empty-log reply that invents instead of asking", () => {
     const empty = COACH_EVAL_PROFILES.find((p) => p.id === "empty-log")!;
     const invented = "You are clearly ready. Go ask for 15%.";

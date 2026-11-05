@@ -9,8 +9,8 @@ export const OpenAIModels = {
   GPT_6_LUNA: "gpt-6-luna",
   GPT_6_1_TERRA: "gpt-6.1-terra",
   GPT_6_1_SOL: "gpt-6.1-sol",
-  // Kept only as a rollback target via OPENAI_DEFAULT_MODEL. OpenAI shuts it down
-  // on 2027-01-14, after which selecting it will fail every request.
+  // OpenAI shuts this down on 2027-01-14, after which selecting it will fail every
+  // request. Not a rollback target; use Models.rollback.
   GPT_4O_MINI: "gpt-4o-mini",
 } as const;
 
@@ -70,7 +70,7 @@ export function isKnownModel(value: unknown): value is ModelType {
 }
 
 /**
- * OPENAI_DEFAULT_MODEL switches the default (e.g. back to gpt-4o-mini) without a code
+ * OPENAI_DEFAULT_MODEL switches the default (e.g. to Models.rollback) without a code
  * change. Unknown values are ignored so a typo can't take every AI feature down.
  */
 function resolveDefaultModel(): ModelType {
@@ -87,6 +87,9 @@ export const Models = {
   // Reserved for tasks where the default's quality falls short
   premium: OpenAIModels.GPT_6_1_TERRA,
   advanced: OpenAIModels.GPT_6_1_SOL,
+  // What to set OPENAI_DEFAULT_MODEL to if the default misbehaves. Costs 10x the default
+  // per token, so it is an emergency setting. The weekly shutdown check covers it.
+  rollback: OpenAIModels.GPT_6_1_TERRA,
   openai: OpenAIModels,
 } as const;
 

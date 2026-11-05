@@ -1,0 +1,78 @@
+name: AI eval
+
+# Calls the real OpenAI API, so it runs on a schedule and on demand, never on pull
+# requests: fork PRs must not reach the key, and each run costs money.
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  eval:
+    name: Live eval and model shutdown check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Fails rather than skips: a green run with no key would look like a passing eval.
+      - name: Check for API key
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::Add a repository secret named OPENAI_EVAL_API_KEY to run the live eval."
+            exit 1
+          fi
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_EVAL_API_KEY }}
+
+      # OPENAI_DEFAULT_MODEL stays unset so this always tests what production runs.
+      - name: Run live eval
+        run: pnpm exec jest __tests__/evals --runInBand --ci --forceExit
+        env:
+          RUN_LIVE_AI_EVAL: "1"
+          DISABLE_LOGGING: "true"
+          OPENAI_API_KEY: ${{ secrets.OPENAI_EVAL_API_KEY }}
+          # Stubs for packages that throw on missing env vars at import time.
+          NEXT_PUBLIC_SUPABASE_URL: https://test.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: test-anon-key-for-jest
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key-for-jest
+          EXTENSION_JWT_SECRET: test-jwt-secret-for-jest
+          UPSTASH_REDIS_REST_URL: https://test.upstash.io
+          UPSTASH_REDIS_REST_TOKEN: test-upstash-token
+          STRIPE_SECRET_KEY: sk_test_fake
+          STRIPE_WEBHOOK_SECRET: whsec_test_fake
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results/
+          retention-days: 30
+          if-no-files-found: ignore

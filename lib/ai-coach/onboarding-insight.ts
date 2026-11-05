@@ -4,7 +4,7 @@
  * A single, fixed-cost AI Coach teaser shown to EVERY new user during
  * onboarding. Deliberately does NOT go through `checkAICoachAccess` and does
  * NOT consume trial budget — it is a free taster that drives discovery while
- * the full Coach stays gated. Uses the cost model (gpt-4o-mini).
+ * the full Coach stays gated. Uses the default cost model.
  */
 
 import { callOpenAI } from '@/lib/openai/client';
